@@ -43,17 +43,15 @@ process RFDIFFUSION {
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \
         ppi.hotspot_res='${hotspot_res}' \
+        denoiser.noise_scale_ca=${params.rfd_noise_scale} \
+        denoiser.noise_scale_frame=${params.rfd_noise_scale} \
         inference.num_designs=${batch_size} \
         inference.design_startnum=${design_startnum} \
-        denoiser.noise_scale_ca=0 \
-        denoiser.noise_scale_frame=0 \
         inference.ckpt_override_path=${rfd_model_path} \
         inference.schedule_directory_path=schedules \
         ${params.rfd_extra_args}
     
-    # inference.design_startnum=0
-    # inference.model_directory_path=models 
-    # inference.schedule_directory_path=schedules
+    # inference.model_directory_path=models
 
     mkdir -p pdbs
     mv outputs/*.pdb pdbs/

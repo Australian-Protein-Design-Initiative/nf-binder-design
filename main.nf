@@ -24,6 +24,7 @@ params.rfd_batch_size = 1
 params.rfd_n_designs = 2
 params.rfd_model_path = "models/rfdiffusion/Complex_beta_ckpt.pt"
 params.rfd_config = "base"
+params.rfd_noise_scale = 0
 params.rfd_extra_args = ""
 params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
