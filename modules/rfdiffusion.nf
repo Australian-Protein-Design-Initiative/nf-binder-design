@@ -7,7 +7,7 @@ process RFDIFFUSION {
     input:
     path rfd_config_name
     path input_pdb
-    path rfd_model_path
+    val rfd_model_path
     val contigs
     val hotspot_res
     val batch_size
@@ -20,17 +20,19 @@ process RFDIFFUSION {
     path "logs/*/*.log", emit: logs
     
     script:
+    def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
+
     """
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
            echo "No GPU detected! Failing fast rather than going slow (since --require_gpu=true)"
             exit 1
         fi
+
+        nvidia-smi 
     fi
 
-    nvidia-smi
-
-    RUN_INF="python3.9 /app/RFdiffusion/scripts/run_inference.py"
+    RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
     
     mkdir -p schedules
 
@@ -47,8 +49,8 @@ process RFDIFFUSION {
         denoiser.noise_scale_frame=${params.rfd_noise_scale} \
         inference.num_designs=${batch_size} \
         inference.design_startnum=${design_startnum} \
-        inference.ckpt_override_path=${rfd_model_path} \
         inference.schedule_directory_path=schedules \
+        ${rfd_model_path_arg} \
         ${params.rfd_extra_args}
     
     # inference.model_directory_path=models
