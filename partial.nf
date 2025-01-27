@@ -34,9 +34,6 @@ params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
 params.require_gpu = true
 
-// Set to a path of existing RFDiffusion backbone models, skips running RFDiffusion
-params.rfd_backbone_models = false
-
 // Validate numeric parameters
 def validate_numeric = { param_name, value ->
     if (!(value instanceof Number)) {
@@ -63,7 +60,6 @@ if (params.input_pdb == false) {
 
     Optional arguments:
         --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
-        --rfd_backbone_models Path to existing RFDiffusion backbone models - skips running RFDiffusion and uses these instead
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
         --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
@@ -90,8 +86,8 @@ include { GET_CONTIGS } from './modules/get_contigs'
 
 workflow {
 
-    if (!params.input_pdb && !params.rfd_backbone_models) {
-        throw new Exception("Either --input_pdb or --rfd_backbone_models must be provided")
+    if (!params.input_pdb) {
+        throw new Exception("--input_pdb must be provided")
     }
 
     // File inputs - converted to value channels with .first()
@@ -121,20 +117,16 @@ workflow {
         | flatMap()  // Flatten the lists of tuples into individual tuples
         | set { ch_rfd_jobs }
 
-    if (params.rfd_backbone_models) {
-        ch_rfd_backbone_models = Channel.fromPath("${params.rfd_backbone_models}/*.pdb")
-    } else {
-        // Run RFdiffusion with partial diffusion in batches
-        RFDIFFUSION_PARTIAL(
-            ch_rfd_config,
-            ch_rfd_jobs.map { input_pdb, contigs, start -> input_pdb },  // Extract PDB path
-            ch_rfd_model_path,
-            ch_rfd_jobs.map { input_pdb, contigs, start -> contigs },  // Extract contigs string
-            params.rfd_batch_size,
-            ch_rfd_jobs.map { input_pdb, contigs, start -> start }  // Extract start number
-        )
-        ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs
-    }
+    // Run RFdiffusion with partial diffusion in batches
+    RFDIFFUSION_PARTIAL(
+        ch_rfd_config,
+        ch_rfd_jobs.map { input_pdb, contigs, start -> input_pdb },  // Extract PDB path
+        ch_rfd_model_path,
+        ch_rfd_jobs.map { input_pdb, contigs, start -> contigs },  // Extract contigs string
+        params.rfd_batch_size,
+        ch_rfd_jobs.map { input_pdb, contigs, start -> start }  // Extract start number
+    )
+    ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs
 
     // Convert PDBs to silent file
     // SILENT_FROM_PDBS(
