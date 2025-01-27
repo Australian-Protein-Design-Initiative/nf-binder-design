@@ -13,29 +13,19 @@ def parse_score_file(file_path):
         with open(file_path, "r") as f:
             lines = f.readlines()
 
-        # Find the header line (starts with SCORE:)
-        header_line = None
-        data_line = None
-        for i, line in enumerate(lines):
-            if line.startswith("SCORE:"):
-                if header_line is None:
-                    header_line = line.strip()
-                else:
-                    data_line = line.strip()
-                    break
+        # Find all SCORE: lines and remove the prefix
+        score_lines = [line.strip()[6:] for line in lines if line.startswith("SCORE:")]
 
-        if header_line is None or data_line is None:
+        if not score_lines:
             print(
                 f"Warning: Could not find SCORE: lines in {file_path}", file=sys.stderr
             )
             return None
 
-        # Extract column names and data
-        columns = [x.strip() for x in header_line.split()[1:]]
-        data = [x.strip() for x in data_line.split()[1:]]
-
-        # Create DataFrame with a single row
-        df = pd.DataFrame([data], columns=columns)
+        # Create DataFrame using first row as header
+        df = pd.DataFrame([x.split() for x in score_lines])
+        df.columns = df.iloc[0]
+        df = df.iloc[1:].reset_index(drop=True)
 
         # Add filename column
         df["source_file"] = file_path.name
