@@ -19,7 +19,7 @@ process RFDIFFUSION_PARTIAL {
     path "logs/partial/*/*/*.log", emit: logs
     
     script:
-    def outname = "${input_pdb.baseName}.partial"
+    def outname = "${input_pdb.baseName}_partial"
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
     """
     if [[ ${params.require_gpu} == "true" ]]; then
