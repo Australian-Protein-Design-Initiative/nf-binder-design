@@ -3,19 +3,34 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     
     input:
     path 'input/*'
-    val relax_cycles
     val seqs_per_struct
-    
+    val relax_cycles
+    val checkpoint_path
+    val temperature
+    val augment_eps
+
     output:
     path "pdbs/*", emit: pdbs
     
     script:
+    pmpnn_extra_args = ""
+    if (checkpoint_path) {
+        pmpnn_extra_args += " -checkpoint_path ${checkpoint_path}"
+    }
+    if (temperature) {
+        pmpnn_extra_args += " -temperature ${temperature}"
+    }
+    if (augment_eps) {
+        pmpnn_extra_args += " -augment_eps ${augment_eps}"
+    }
+
     """
     /app/dl_binder_design/mpnn_fr/dl_interface_design.py \
         -pdbdir input/ \
         -relax_cycles ${relax_cycles} \
         -seqs_per_struct ${seqs_per_struct} \
-        -outpdbdir pdbs/
+        -outpdbdir pdbs/ \
+        ${pmpnn_extra_args}
     """
 
 /*

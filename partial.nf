@@ -20,6 +20,7 @@ nextflow run main.nf \
 // Default parameters
 params.input_pdb = false
 params.outdir = "results"
+
 params.design_name = "fuzzed_ppi"
 params.binder_chain = "A" // eg, our fixed target chain - usually A ?
 params.target_contigs = 'auto' // 'auto' to detect from PDB, or eg "B10-110" for fixed target chain B, residues 10-110
@@ -30,8 +31,13 @@ params.rfd_config = "base"
 params.rfd_noise_scale = 0
 params.rfd_partial_T = 20
 params.rfd_extra_args = ""
+
 params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
+params.pmpnn_weights = false
+params.pmpnn_temperature = 0.000001
+params.pmpnn_augment_eps = 0
+
 params.require_gpu = true
 
 // Validate numeric parameters
@@ -69,6 +75,11 @@ if (params.input_pdb == false) {
         --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
         --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
         --rfd_partial_T       Number of timesteps to run partial diffusion for (lower = less diffusion) [default: ${params.rfd_partial_T}]
+        --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
+        --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
+        --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
+        --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
+        --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
         --outdir              Output directory [default: ${params.outdir}]
 
         --require_gpu       Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
@@ -137,8 +148,12 @@ workflow {
     DL_BINDER_DESIGN_PROTEINMPNN(
         ch_rfd_backbone_models,
         params.pmpnn_relax_cycles,
-        params.pmpnn_seqs_per_struct
+        params.pmpnn_seqs_per_struct,
+        params.pmpnn_weights,
+        params.pmpnn_temperature,
+        params.pmpnn_augment_eps
     )
+
 
     // // Run AF2 initial guess to build/refine sidechains for compatible sequence
     AF2_INITIAL_GUESS(
