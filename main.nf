@@ -19,8 +19,8 @@ params.input_pdb = false
 params.outdir = "results"
 
 params.design_name = "design_ppi"
-params.contigs = "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]"
-params.hotspot_res = "[A473,A995,A411,A421]"
+params.contigs = ""         // "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]"
+params.hotspot_res = false  // "[A473,A995,A411,A421]"
 params.rfd_batch_size = 1
 params.rfd_n_designs = 2
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"

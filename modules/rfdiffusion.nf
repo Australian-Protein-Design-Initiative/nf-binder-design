@@ -21,6 +21,7 @@ process RFDIFFUSION {
     
     script:
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
+    def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ""
 
     """
     if [[ ${params.require_gpu} == "true" ]]; then
@@ -44,7 +45,7 @@ process RFDIFFUSION {
         inference.output_prefix=outputs/${params.design_name} \
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \
-        ppi.hotspot_res='${hotspot_res}' \
+        ${hotspot_res_arg} \
         denoiser.noise_scale_ca=${params.rfd_noise_scale} \
         denoiser.noise_scale_frame=${params.rfd_noise_scale} \
         inference.num_designs=${batch_size} \
