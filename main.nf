@@ -40,18 +40,21 @@ params.require_gpu = true
 params.rfd_backbone_models = false
 
 // Show help message
-if (params.input_pdb == false) {
+if (params.input_pdb == false && params.rfd_backbone_models == false) {
     log.info"""
     ==================================================================
     🧬 PROTEIN BINDER DESIGN PIPELINE 🧬
     ==================================================================
     
     Required arguments:
+        --input_pdb           Input PDB file for the target
+        
+        __or__
+        
+        --rfd_backbone_models Existing RFDiffusion backbone models - skips running RFDiffusion and uses these instead (glob accepted, eg 'results/rfdiffusion/pdbs/*.pdb)
 
 
     Optional arguments:
-        --input_pdb           Input PDB file for the target
-        --rfd_backbone_models Path to existing RFDiffusion backbone models - skips running RFDiffusion and uses these instead
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --contigs             Contig map for RFdiffusion [default: ${params.contigs}]
         --hotspot_res         Hotspot residues [default: ${params.hotspot_res}]
@@ -85,7 +88,11 @@ workflow {
     // File inputs - converted to value channels with .first()
     // so these channels infinitely produce the file on demand
     ch_rfd_config = Channel.fromPath(params.rfd_config).first()
-    ch_input_pdb = Channel.fromPath(params.input_pdb).first()
+    if (params.input_pdb) {
+        ch_input_pdb = Channel.fromPath(params.input_pdb).first()
+    } else {
+        ch_input_pdb = Channel.value(false)
+    }
     if (params.rfd_model_path) {
         ch_rfd_model_path = Channel.fromPath(params.rfd_model_path).first()
     } else {
@@ -99,7 +106,7 @@ workflow {
         //.view()
     
     if (params.rfd_backbone_models) {
-        ch_rfd_backbone_models = Channel.fromPath("${params.rfd_backbone_models}/*.pdb")
+        ch_rfd_backbone_models = Channel.fromPath("${params.rfd_backbone_models}")
     } else {
         // Run RFdiffusion in batches
         RFDIFFUSION(
@@ -122,8 +129,8 @@ workflow {
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
     DL_BINDER_DESIGN_PROTEINMPNN(
         ch_rfd_backbone_models,
-        params.pmpnn_relax_cycles,
         params.pmpnn_seqs_per_struct,
+        params.pmpnn_relax_cycles,
         params.pmpnn_weights,
         params.pmpnn_temperature,
         params.pmpnn_augment_eps

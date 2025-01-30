@@ -62,10 +62,9 @@ if (params.input_pdb == false) {
     ==================================================================
     
     Required arguments:
-
+        --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
 
     Optional arguments:
-        --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
         --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
@@ -147,8 +146,8 @@ workflow {
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
     DL_BINDER_DESIGN_PROTEINMPNN(
         ch_rfd_backbone_models,
-        params.pmpnn_relax_cycles,
         params.pmpnn_seqs_per_struct,
+        params.pmpnn_relax_cycles,
         params.pmpnn_weights,
         params.pmpnn_temperature,
         params.pmpnn_augment_eps
