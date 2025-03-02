@@ -23,13 +23,33 @@ def get_chain_ranges(structure: PDB.Structure.Structure) -> List[Tuple[str, int,
             residues = [r for r in chain.get_residues()]
             if not residues:
                 continue
-            # Get first and last residue numbers
-            start = residues[0].get_id()[1]  # Residue ID is (hetflag, resseq, icode)
-            end = residues[-1].get_id()[1]
-            ranges.append((chain.id, start, end))
+            
+            # Initialize variables for tracking ranges
+            current_ranges = []
+            start = None
+            prev_res = None
+            
+            for residue in residues:
+                res_id = residue.get_id()[1]
+                
+                # If this is the first residue, start a new range
+                if start is None:
+                    start = res_id
+                # If there's a gap in residue numbering, end current range and start new one
+                elif res_id != prev_res + 1:
+                    current_ranges.append((chain.id, start, prev_res))
+                    start = res_id
+                
+                prev_res = res_id
+            
+            # Add the last range
+            if start is not None:
+                current_ranges.append((chain.id, start, prev_res))
+            
+            ranges.extend(current_ranges)
 
-    # Sort by chain ID
-    ranges.sort(key=lambda x: x[0])
+    # Sort by chain ID and start residue
+    ranges.sort(key=lambda x: (x[0], x[1]))
     return ranges
 
 

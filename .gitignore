@@ -2,3 +2,6 @@
 .nextflow.log*
 work
 results*/
+models/af2_initial_guess
+models/rfdiffusion
+containers/

@@ -93,7 +93,7 @@ include { SILENT_FROM_PDBS } from './modules/silentfrompdbs'
 include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
 include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { GET_CONTIGS } from './modules/get_contigs'
-
+include { RENUMBER_RESIDUES } from './modules/renumber_residues'
 workflow {
 
     if (!params.input_pdb) {
@@ -110,10 +110,22 @@ workflow {
         ch_rfd_model_path = Channel.value(false)
     }
 
+    // We renumber the residues in each chain to be 1 to chain_length
+    // irrespective of missing non-sequential residue numbers etc
+    // The --binder_chain is always set to chain A, with the non-diffusable chains
+    // coming after it.
+    ch_preprocessed_pdb = ch_input_pdb
+        .map { pdb -> [pdb, params.binder_chain] } 
+        | RENUMBER_RESIDUES
+
     // Get contigs string for each input PDB
-    ch_contigs = ch_input_pdb
-        .map { pdb -> [pdb, params.binder_chain] }
+    // NOTE/HACK: We hardcode 'A' here, since RENUMBER_RESIDUES always 
+    // makes the binder chain 'A'
+    ch_contigs = ch_preprocessed_pdb
+        .map { pdb -> [pdb, 'A']} //params.binder_chain] }
         | GET_CONTIGS
+
+    //ch_contigs.view()
 
     // Create batches with contigs
     ch_contigs
