@@ -165,7 +165,6 @@ workflow {
         params.pmpnn_augment_eps
     )
 
-
     // // Run AF2 initial guess to build/refine sidechains for compatible sequence
     AF2_INITIAL_GUESS(
         DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
