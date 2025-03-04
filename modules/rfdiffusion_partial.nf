@@ -11,6 +11,7 @@ process RFDIFFUSION_PARTIAL {
     val contigs
     val batch_size
     val design_startnum
+    val partial_T
 
     output:
     path "pdbs/partial/*/*.pdb", emit: pdbs
@@ -19,7 +20,7 @@ process RFDIFFUSION_PARTIAL {
     path "logs/partial/*/*/*.log", emit: logs
     
     script:
-    def outname = "${input_pdb.baseName}_partial"
+    def outname = "${input_pdb.baseName}_partial_T${partial_T}"
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
     """
     if [[ ${params.require_gpu} == "true" ]]; then
@@ -40,7 +41,7 @@ process RFDIFFUSION_PARTIAL {
     # --config-name=${rfd_config_name}
 
     \${RUN_INF} \
-        diffuser.partial_T=${params.rfd_partial_T} \
+        diffuser.partial_T=${partial_T} \
         inference.output_prefix=outputs/${outname} \
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \

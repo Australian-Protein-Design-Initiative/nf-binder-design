@@ -11,6 +11,7 @@ nextflow run main.nf \
   --target_contigs 'B1-100' \
   --rfd_batch_size=10 \
   --rfd_n_partial_per_binder=10 \
+  --rfd_partial_T=5,10,20,50 \
   -resume \
   -with-report report_$(date +%Y%m%d_%H%M%S).html \
   -with-trace trace_$(date +%Y%m%d_%H%M%S).txt
@@ -29,7 +30,7 @@ params.rfd_n_partial_per_binder = 10
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
 params.rfd_config = "base"
 params.rfd_noise_scale = 0
-params.rfd_partial_T = 20
+params.rfd_partial_T = 20 // Can be a single value or comma-separated list like "5,10,20"
 params.rfd_extra_args = ""
 
 params.pmpnn_relax_cycles = 0
@@ -50,7 +51,23 @@ def validate_numeric = { param_name, value ->
 validate_numeric('rfd_batch_size', params.rfd_batch_size)
 validate_numeric('rfd_n_partial_per_binder', params.rfd_n_partial_per_binder)
 validate_numeric('rfd_noise_scale', params.rfd_noise_scale)
-validate_numeric('rfd_partial_T', params.rfd_partial_T)
+// Special handling for rfd_partial_T - can be a single value or comma-separated list
+def validate_rfd_partial_T = { value ->
+    if (value instanceof Number) {
+        return [value] // Return as a list with one element
+    } else if (value instanceof String) {
+        try {
+            // Try to parse as comma-separated list of numbers
+            return value.split(',').collect { it.trim().toInteger() }
+        } catch (Exception e) {
+            error "Parameter rfd_partial_T must be a number or comma-separated list of numbers, got: $value"
+        }
+    } else {
+        error "Parameter rfd_partial_T must be a number or comma-separated list of numbers, got: $value (${value.getClass().getName()})"
+    }
+}
+def partial_T_values = validate_rfd_partial_T(params.rfd_partial_T)
+
 validate_numeric('pmpnn_relax_cycles', params.pmpnn_relax_cycles)
 validate_numeric('pmpnn_seqs_per_struct', params.pmpnn_seqs_per_struct)
 
@@ -73,7 +90,8 @@ if (params.input_pdb == false) {
         --rfd_model_path      Path to RFdiffusion model checkpoint file - you probaby don't want to set this manually [default: ${params.rfd_model_path}]
         --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
         --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
-        --rfd_partial_T       Number of timesteps to run partial diffusion for (lower = less diffusion) [default: ${params.rfd_partial_T}]
+        --rfd_partial_T       Number of timesteps to run partial diffusion for (lower = less diffusion)
+                              Can be a single value or comma-separated list like "5,10,20,50" [default: ${params.rfd_partial_T}]
         --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
         --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
         --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
@@ -131,10 +149,14 @@ workflow {
     ch_contigs
         | map { input_pdb, contigs ->
             def num_batches = (params.rfd_n_partial_per_binder / params.rfd_batch_size).toInteger()
-            // For each batch, create a tuple of (pdb, contigs, start_num)
-            (0..<num_batches).collect { batchNum ->
-                tuple(input_pdb, contigs, batchNum * params.rfd_batch_size)
+            // Create jobs for each combination of batch and partial_T
+            def all_jobs = []
+            partial_T_values.each { partial_T ->
+                (0..<num_batches).each { batchNum ->
+                    all_jobs << tuple(input_pdb, contigs, batchNum * params.rfd_batch_size, partial_T)
+                }
             }
+            return all_jobs
         }
         | flatMap()  // Flatten the lists of tuples into individual tuples
         | set { ch_rfd_jobs }
@@ -142,11 +164,12 @@ workflow {
     // Run RFdiffusion with partial diffusion in batches
     RFDIFFUSION_PARTIAL(
         ch_rfd_config,
-        ch_rfd_jobs.map { input_pdb, contigs, start -> input_pdb },  // Extract PDB path
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> input_pdb },  // Extract PDB path
         ch_rfd_model_path,
-        ch_rfd_jobs.map { input_pdb, contigs, start -> contigs },  // Extract contigs string
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> contigs },  // Extract contigs string
         params.rfd_batch_size,
-        ch_rfd_jobs.map { input_pdb, contigs, start -> start }  // Extract start number
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },  // Extract start number
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T }  // Extract partial_T
     )
     ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs
 
