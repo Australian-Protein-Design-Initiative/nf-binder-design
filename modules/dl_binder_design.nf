@@ -25,6 +25,9 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     }
 
     """
+    # Ensure we don't use a GPU even if one is available
+    export CUDA_VISIBLE_DEVICES=""
+
     /app/dl_binder_design/mpnn_fr/dl_interface_design.py \
         -pdbdir input/ \
         -relax_cycles ${relax_cycles} \
