@@ -9,6 +9,7 @@ process RFDIFFUSION_PARTIAL {
     path input_pdb
     val rfd_model_path
     val contigs
+    val hotspot_res
     val batch_size
     val design_startnum
     val partial_T
@@ -22,6 +23,8 @@ process RFDIFFUSION_PARTIAL {
     script:
     def outname = "${input_pdb.baseName}_partial_T${partial_T}"
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
+    def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ""
+
     """
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
@@ -45,6 +48,7 @@ process RFDIFFUSION_PARTIAL {
         inference.output_prefix=outputs/${outname} \
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \
+        ${hotspot_res_arg} \
         denoiser.noise_scale_ca=${params.rfd_noise_scale} \
         denoiser.noise_scale_frame=${params.rfd_noise_scale} \
         inference.num_designs=${batch_size} \

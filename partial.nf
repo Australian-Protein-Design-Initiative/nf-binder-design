@@ -25,6 +25,7 @@ params.outdir = "results"
 params.design_name = "fuzzed_ppi"
 params.binder_chain = "A" // eg, our fixed target chain - usually A ?
 params.target_contigs = 'auto' // 'auto' to detect from PDB, or eg "B10-110" for fixed target chain B, residues 10-110
+params.hotspot_res = false
 params.rfd_batch_size = 10
 params.rfd_n_partial_per_binder = 10
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
@@ -167,6 +168,7 @@ workflow {
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> input_pdb },  // Extract PDB path
         ch_rfd_model_path,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> contigs },  // Extract contigs string
+        params.hotspot_res,
         params.rfd_batch_size,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },  // Extract start number
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T }  // Extract partial_T
