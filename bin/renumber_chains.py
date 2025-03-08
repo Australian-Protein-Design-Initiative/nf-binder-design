@@ -14,7 +14,7 @@ import string
 # as chain B.
 
 
-def renumber_residues(structure, ignore_chains=False):
+def renumber_residues(structure, ignore_chains=False, start_resnum=1):
     if ignore_chains:
         # Get all residues across all chains and sort by original residue number
         all_residues = []
@@ -23,8 +23,8 @@ def renumber_residues(structure, ignore_chains=False):
                 all_residues.extend(chain.get_residues())
         all_residues = sorted(all_residues, key=lambda r: r.id[1])
         
-        # Renumber sequentially starting from 1
-        for new_number, residue in enumerate(all_residues, start=1):
+        # Renumber sequentially starting from start_resnum
+        for new_number, residue in enumerate(all_residues, start=start_resnum):
             new_id = (' ', new_number, ' ')
             residue.id = new_id
     else:
@@ -32,7 +32,7 @@ def renumber_residues(structure, ignore_chains=False):
         for model in structure:
             for chain in model:
                 residues = sorted(chain.get_residues(), key=lambda r: r.id[1])
-                for new_number, residue in enumerate(residues, start=1):
+                for new_number, residue in enumerate(residues, start=start_resnum):
                     new_id = (' ', new_number, ' ')
                     residue.id = new_id
 
@@ -76,7 +76,9 @@ def main():
     parser.add_argument('--ignore-chains', action='store_true',
                        help='Number residues sequentially across all chains')
     parser.add_argument('--binder-chains', nargs='+', default=None,
-                       help='Chain(s) to move to the front (e.g., --binder-chains B)')
+                       help='Chain(s) to move to the front (e.g., --binder-chains B will rename chain B to A)')
+    parser.add_argument('--start-resnum', type=int, default=1,
+                       help='Residue number to start counting from (default: 1)')
     args = parser.parse_args()
 
     # Parse the input PDB file
@@ -88,7 +90,7 @@ def main():
         reorder_chains(structure, args.binder_chains)
 
     # Renumber residues
-    renumber_residues(structure, args.ignore_chains)
+    renumber_residues(structure, args.ignore_chains, args.start_resnum)
 
     # Output the modified structure with chains in order
     io = PDBIO()
