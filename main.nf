@@ -57,7 +57,7 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
     Optional arguments:
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --contigs             Contig map for RFdiffusion [default: ${params.contigs}]
-        --hotspot_res         Hotspot residues [default: ${params.hotspot_res}]
+        --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
         --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
         --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
         --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
