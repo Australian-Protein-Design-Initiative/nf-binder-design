@@ -33,6 +33,7 @@ params.rfd_config = "base"
 params.rfd_noise_scale = 0
 params.rfd_partial_T = 20 // Can be a single value or comma-separated list like "5,10,20"
 params.rfd_extra_args = ""
+params.skip_renumber = false
 
 params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
@@ -86,6 +87,8 @@ if (params.input_pdb == false) {
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
         --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
+        --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
+        --skip_renumber       Skip the residue renumbering step [default: ${params.skip_renumber}]
         --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
         --rfd_n_partial_per_binder Number of partial diffused designs per binder [default: ${params.rfd_n_partial_per_binder}]
         --rfd_model_path      Path to RFdiffusion model checkpoint file - you probaby don't want to set this manually [default: ${params.rfd_model_path}]
@@ -133,15 +136,28 @@ workflow {
     // irrespective of missing non-sequential residue numbers etc
     // The --binder_chain is always set to chain A, with the non-diffusable chains
     // coming after it.
-    ch_preprocessed_pdb = ch_input_pdb
-        .map { pdb -> [pdb, params.binder_chain] } 
-        | RENUMBER_RESIDUES
+    if (params.skip_renumber) {
+        // Skip renumbering and use input PDBs directly
+        ch_preprocessed_pdb = ch_input_pdb
+        log.info "Skipping residue renumbering as --skip-renumber was set"
+    } else {
+        // Warn about renumbering when using hotspot residues
+        if (params.hotspot_res) {
+            log.warn "WARNING: Target residues will be renumbered starting at 1 - do your chosen hotspots account for this?"
+        }
+
+        // Apply renumbering as normal
+        ch_preprocessed_pdb = ch_input_pdb
+            .map { pdb -> [pdb, params.binder_chain] } 
+            | RENUMBER_RESIDUES
+    }
 
     // Get contigs string for each input PDB
     // NOTE/HACK: We hardcode 'A' here, since RENUMBER_RESIDUES always 
     // makes the binder chain 'A'
+    def binder_chain_for_contigs = params.skip_renumber ? params.binder_chain : 'A'
     ch_contigs = ch_preprocessed_pdb
-        .map { pdb -> [pdb, 'A']} //params.binder_chain] }
+        .map { pdb -> [pdb, binder_chain_for_contigs]}
         | GET_CONTIGS
 
     //ch_contigs.view()
