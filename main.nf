@@ -34,6 +34,8 @@ params.pmpnn_weights = false
 params.pmpnn_temperature = 0.000001
 params.pmpnn_augment_eps = 0
 
+params.af2ig_recycle = 3
+
 params.require_gpu = true
 
 // Set to a path of existing RFDiffusion backbone models, skips running RFDiffusion
@@ -55,6 +57,7 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
 
 
     Optional arguments:
+        --outdir              Output directory [default: ${params.outdir}]
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --contigs             Contig map for RFdiffusion [default: ${params.contigs}]
         --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
@@ -62,13 +65,13 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
         --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
         --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
         --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
-        --outdir              Output directory [default: ${params.outdir}]
         --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
         --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
         --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
         --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
         --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
-        --require_gpu       Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+        --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
+        --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
 
     """.stripIndent()
     exit 1

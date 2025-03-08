@@ -18,7 +18,7 @@ process AF2_INITIAL_GUESS {
     python /app/dl_binder_design/af2_initial_guess/predict.py \
         -pdbdir input/ \
         -outpdbdir pdbs/ \
-        -recycle 3 \
+        -recycle ${params.af2ig_recycle} \
         -scorefilename \${PREFIX}.scores.cs
     """
     /*

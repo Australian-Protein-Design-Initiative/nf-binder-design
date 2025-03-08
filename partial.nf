@@ -41,6 +41,8 @@ params.pmpnn_weights = false
 params.pmpnn_temperature = 0.000001
 params.pmpnn_augment_eps = 0
 
+params.af2ig_recycle = 3
+
 params.require_gpu = true
 
 // Validate numeric parameters
@@ -84,6 +86,7 @@ if (params.input_pdb == false) {
         --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
 
     Optional arguments:
+        --outdir              Output directory [default: ${params.outdir}]
         --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
         --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
         --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
@@ -101,9 +104,8 @@ if (params.input_pdb == false) {
         --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
         --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
         --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
-        --outdir              Output directory [default: ${params.outdir}]
-
-        --require_gpu       Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+        --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
+        --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
 
     """.stripIndent()
     exit 1
