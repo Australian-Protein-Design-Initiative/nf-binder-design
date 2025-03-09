@@ -118,6 +118,7 @@ include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
 include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { GET_CONTIGS } from './modules/get_contigs'
 include { RENUMBER_RESIDUES } from './modules/renumber_residues'
+include { COMBINE_SCORES } from './modules/combine_scores'
 workflow {
 
     if (!params.input_pdb) {
@@ -208,16 +209,13 @@ workflow {
         params.pmpnn_augment_eps
     )
 
-    // // Run AF2 initial guess to build/refine sidechains for compatible sequence
+    // Run AF2 initial guess to build/refine sidechains for compatible sequence
     AF2_INITIAL_GUESS(
         DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
     )
 
-    // TODO: Use bin/af2_combine_scores.py to collate DL_BINDER_DESIGN_PROTEINMPNN.out.scores 
-    // tables into a single TSV table eg many tables, multi-space sep, like:
-    /*
-    SCORE:     binder_aligned_rmsd pae_binder pae_interaction pae_target plddt_binder plddt_target plddt_total target_aligned_rmsd time description
-    SCORE:       14.374   11.205   27.694    4.642   55.734   93.869   88.411   28.443  189.208        design_ppi_2_dldesign_0_af2pred
-    SCORE:       13.619   11.015   27.882    4.714   55.609   93.577   88.143   30.422   37.691        design_ppi_2_dldesign_1_af2pred
-    */
+    // Combine all the score files into a single TSV file
+    COMBINE_SCORES(
+        AF2_INITIAL_GUESS.out.scores.collect()
+    )
 } 
