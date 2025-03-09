@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "biopython",
+# ]
+# ///
 
 from typing import List, Tuple, Optional
 import argparse
@@ -55,10 +61,18 @@ def get_chain_ranges(structure: PDB.Structure.Structure) -> List[Tuple[str, int,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Get the contigs string for RFdiffusion from a PDB file"
+        description="""Get the contigs string for RFdiffusion from a PDB file.
+If no binder chain is specified, we return the contigs for each of chains in the target.
+If a binder chain is specified, we return the length of the binder chain and the contigs for the target chains.
+"""
     )
     parser.add_argument("pdb_file", type=Path, help="Input PDB file")
-    parser.add_argument("binder_chain", help="Chain ID of the binder")
+    parser.add_argument(
+        "binder_chain", 
+        nargs="?", 
+        default=None, 
+        help="Chain ID of the binder (optional)"
+    )
     parser.add_argument(
         "--target_contigs",
         default=None,
@@ -79,31 +93,38 @@ def main():
 
     ranges = get_chain_ranges(structure)
 
-    # Find binder chain length
-    try:
-        binder_chain = next(r for r in ranges if r[0] == args.binder_chain)
-    except StopIteration:
-        print(
-            f"Error: Binder chain {args.binder_chain} not found in {args.pdb_file}",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    binder_length = binder_chain[2] - binder_chain[1] + 1
-
     # Use provided target_contigs if specified, otherwise detect from PDB
     if args.target_contigs:
         target_contigs = args.target_contigs
     else:
-        # Find target chain ranges (all non-binder chains)
-        target_ranges = [r for r in ranges if r[0] != args.binder_chain]
+        if args.binder_chain:
+            # Find target chain ranges (all non-binder chains)
+            target_ranges = [r for r in ranges if r[0] != args.binder_chain]
+        else:
+            # No binder chain specified, use all chains as targets
+            target_ranges = ranges
+            
         if not target_ranges:
             print(f"Error: No target chains found in {args.pdb_file}", file=sys.stderr)
             sys.exit(1)
         target_contigs = "/".join([f"{r[0]}{r[1]}-{r[2]}" for r in target_ranges])
 
     # Construct final contigs string
-    print(f"[{binder_length}-{binder_length}/0 {target_contigs}]")
+    if args.binder_chain:
+        # Find binder chain length
+        try:
+            binder_chain = next(r for r in ranges if r[0] == args.binder_chain)
+        except StopIteration:
+            print(
+                f"Error: Binder chain {args.binder_chain} not found in {args.pdb_file}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        binder_length = binder_chain[2] - binder_chain[1] + 1
+        print(f"[{binder_length}-{binder_length}/0 {target_contigs}]")
+    else:
+        # No binder chain specified, just output the target contigs
+        print(f"[{target_contigs}/0]")
 
 
 if __name__ == "__main__":
