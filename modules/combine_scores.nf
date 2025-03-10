@@ -10,6 +10,6 @@ process COMBINE_SCORES {
     script:
     """
     # Run the combination script
-    python /scratch/projects/apdi/nf-binder-design/bin/af2_combine_scores.py scores --output combined_scores.tsv
+    python ${projectDir}/bin/af2_combine_scores.py scores --output combined_scores.tsv
     """
 } 
