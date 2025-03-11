@@ -6,11 +6,11 @@ process AF2_INITIAL_GUESS {
     
     output:
     path "pdbs/*.pdb", emit: pdbs
-    path "*.cs", emit: scores
+    path "scores/*.cs", emit: scores
     
     script:
     """
-    mkdir -p output/
+    mkdir -p scores/
 
     # Get first input PDB filename without extension
     PREFIX=\$(ls input/*.pdb | head -n1 | xargs basename | sed 's/\\.pdb\$//')
@@ -19,7 +19,7 @@ process AF2_INITIAL_GUESS {
         -pdbdir input/ \
         -outpdbdir pdbs/ \
         -recycle ${params.af2ig_recycle} \
-        -scorefilename \${PREFIX}.scores.cs
+        -scorefilename scores/\${PREFIX}.scores.cs
     """
     /*
 usage: predict.py [-h] [-pdbdir PDBDIR] [-silent SILENT] [-outpdbdir OUTPDBDIR] [-outsilent OUTSILENT] [-runlist RUNLIST] [-checkpoint_name CHECKPOINT_NAME] [-scorefilename SCOREFILENAME]
