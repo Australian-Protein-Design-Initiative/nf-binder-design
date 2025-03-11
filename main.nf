@@ -147,6 +147,7 @@ workflow {
 
     // Combine all the score files into a single TSV file
     COMBINE_SCORES(
-        AF2_INITIAL_GUESS.out.scores.collect()
+        AF2_INITIAL_GUESS.out.scores.collect(),
+        AF2_INITIAL_GUESS.out.pdbs.collect()
     )
 } 
