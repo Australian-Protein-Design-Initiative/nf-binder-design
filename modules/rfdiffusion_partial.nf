@@ -12,6 +12,7 @@ process RFDIFFUSION_PARTIAL {
     val hotspot_res
     val batch_size
     val design_startnum
+    val unique_id
     val partial_T
 
     output:
@@ -45,7 +46,7 @@ process RFDIFFUSION_PARTIAL {
 
     \${RUN_INF} \
         diffuser.partial_T=${partial_T} \
-        inference.output_prefix=outputs/${outname} \
+        inference.output_prefix=outputs/${outname}_${unique_id} \
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \
         ${hotspot_res_arg} \

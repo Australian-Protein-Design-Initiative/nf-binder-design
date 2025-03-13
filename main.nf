@@ -87,8 +87,12 @@ include { SILENT_FROM_PDBS } from './modules/silentfrompdbs'
 include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
 include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { COMBINE_SCORES } from './modules/combine_scores'
+include { UNIQUE_ID } from './modules/unique_id'
 
 workflow {
+    // Generate unique ID for this run
+    UNIQUE_ID()
+    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
 
     if (!params.input_pdb && !params.rfd_backbone_models) {
         throw new Exception("Either --input_pdb or --rfd_backbone_models must be provided")
@@ -125,7 +129,8 @@ workflow {
             params.contigs,
             params.hotspot_res,
             params.rfd_batch_size,
-            ch_rfd_startnum
+            ch_rfd_startnum,
+            ch_unique_id
         )
         ch_rfd_backbone_models = RFDIFFUSION.out.pdbs
     }

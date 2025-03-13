@@ -124,7 +124,12 @@ include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { GET_CONTIGS } from './modules/get_contigs'
 include { RENUMBER_RESIDUES } from './modules/renumber_residues'
 include { COMBINE_SCORES } from './modules/combine_scores'
+include { UNIQUE_ID } from './modules/unique_id'
+
 workflow {
+    // Generate unique ID for this run
+    UNIQUE_ID()
+    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
 
     if (!params.input_pdb) {
         throw new Exception("--input_pdb must be provided")
@@ -195,6 +200,7 @@ workflow {
         params.hotspot_res,
         params.rfd_batch_size,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },  // Extract start number
+        ch_unique_id,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T }  // Extract partial_T
     )
     ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs

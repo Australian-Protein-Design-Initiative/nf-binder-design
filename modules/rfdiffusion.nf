@@ -12,6 +12,7 @@ process RFDIFFUSION {
     val hotspot_res
     val batch_size
     val design_startnum
+    val unique_id
 
     output:
     path "pdbs/*.pdb", emit: pdbs
@@ -42,7 +43,7 @@ process RFDIFFUSION {
 
     \${RUN_INF} \
         --config-name=${rfd_config_name} \
-        inference.output_prefix=outputs/${params.design_name} \
+        inference.output_prefix=outputs/${params.design_name}_${unique_id} \
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \
         ${hotspot_res_arg} \
