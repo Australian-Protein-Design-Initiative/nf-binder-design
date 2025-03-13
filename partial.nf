@@ -157,6 +157,8 @@ workflow {
         // Warn about renumbering when using hotspot residues
         if (params.hotspot_res) {
             log.warn "WARNING: Target residues will be renumbered starting at 1 - do your chosen hotspots account for this?"
+        } else {
+            log.warn "WARNING: No hotspots defined - binders will tend to drift from target"
         }
 
         // Apply renumbering as normal

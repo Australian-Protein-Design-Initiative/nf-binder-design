@@ -22,7 +22,10 @@ process RFDIFFUSION_PARTIAL {
     path "logs/partial/*/*/*.log", emit: logs
     
     script:
-    def outname = "${input_pdb.baseName}_partial_T${partial_T}"
+    // we replace all '.' characters with '_' in the output name to avoid filename collisions 
+    // downstream, since af2_initial_guess splits on the first '.'
+    def outname = "${input_pdb.baseName}_partial_T${partial_T}".replaceAll('\\.', '_')
+    
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
     def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ""
 
