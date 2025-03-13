@@ -46,6 +46,9 @@ WF_PATH="/some/path/to/nf-binder-design" # change this
 mkdir -p results/logs
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
+# Record the pipeline version based on git commit hash
+(cd $WF_PATH && git rev-parse --short HEAD) >results/logs/pipeline-version.txt
+
 nextflow \
 -c ${WF_PATH}/conf/platforms/m3.config run \
 ${WF_PATH}/main.nf  \
