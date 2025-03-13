@@ -129,7 +129,7 @@ include { UNIQUE_ID } from './modules/unique_id'
 workflow {
     // Generate unique ID for this run
     UNIQUE_ID()
-    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
+    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
 
     if (!params.input_pdb) {
         throw new Exception("--input_pdb must be provided")

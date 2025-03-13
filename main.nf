@@ -92,7 +92,7 @@ include { UNIQUE_ID } from './modules/unique_id'
 workflow {
     // Generate unique ID for this run
     UNIQUE_ID()
-    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
+    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
 
     if (!params.input_pdb && !params.rfd_backbone_models) {
         throw new Exception("Either --input_pdb or --rfd_backbone_models must be provided")
