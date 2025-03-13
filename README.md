@@ -37,6 +37,34 @@ nextflow run main.nf \
 
 > If you are working on a specific cluster like M3 or MLeRP, you should omit `-profile local` and add the `-c` flag pointing to the specific platform config, eg `-c conf/platforms/m3.config` for M3.
 
+A more complex example, as a wrapper script for M3:
+
+```bash
+#!/bin/bash
+WF_PATH="/some/path/to/nf-binder-design" # change this
+
+mkdir -p results/logs
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+nextflow \
+-c ${WF_PATH}/conf/platforms/m3.config run \
+${WF_PATH}/main.nf  \
+--input_pdb 'input/target_cropped.pdb' \
+--design_name my-binder \
+--outdir results \
+--contigs "[B346-521/B601-696/B786-856/0 70-130]" \
+--hotspot_res "[B472,B476,B484,B488]" \
+--rfd_n_designs=1000 \
+--rfd_batch_size=5 \
+--pmpnn_seqs_per_struct=2 \
+--pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
+--rfd_model_path="/models/rfdiffusion/Complex_beta_ckpt.pt" \
+--rfd_extra_args='potentials.guiding_potentials=[\"type:binder_ROG,weight:7,min_dist:10\"] potentials.guide_decay="quadratic"' \
+-resume \
+-with-report results/logs/report_${DATESTAMP}.html \
+-with-trace results/logs/trace_${DATESTAMP}.txt
+```
+
 ### Summarize af2_initial_guess scores
 
 This happens by default when the pipeline successfully completes, however you may want to run it mid-run to monitor how things are going:
