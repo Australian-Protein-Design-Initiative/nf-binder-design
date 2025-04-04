@@ -37,7 +37,7 @@ nextflow run main.nf \
 
 > If you are working on a specific cluster like M3 or MLeRP, you should omit `-profile local` and add the `-c` flag pointing to the specific platform config, eg `-c conf/platforms/m3.config` for M3.
 
-A more complex example, as a wrapper script for M3:
+A more complex example, as a wrapper script for M3, using a the site-specific config for M3 (`-c`), a specific RFDiffusion model (``), a custom ProteinMPNN weights (`--pmpnn_weigths`) and radius of gyration potentials (`--rfd_extra_args`):
 
 ```bash
 #!/bin/bash
@@ -46,12 +46,10 @@ WF_PATH="/some/path/to/nf-binder-design" # change this
 mkdir -p results/logs
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-# Record the pipeline version based on git commit hash
-(cd $WF_PATH && git rev-parse --short HEAD) >results/logs/pipeline-version.txt
-
 nextflow \
 -c ${WF_PATH}/conf/platforms/m3.config run \
 ${WF_PATH}/main.nf  \
+--slurm_account=ab12 \
 --input_pdb 'input/target_cropped.pdb' \
 --design_name my-binder \
 --outdir results \
@@ -67,6 +65,8 @@ ${WF_PATH}/main.nf  \
 -with-report results/logs/report_${DATESTAMP}.html \
 -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
+
+> Note: Ensure you set --slurm_account to your M3 account/project ID.
 
 ### Summarize af2_initial_guess scores
 

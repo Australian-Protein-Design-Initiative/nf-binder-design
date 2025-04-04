@@ -1,4 +1,6 @@
 process GET_CONTIGS {
+    container "ghcr.io/australian-protein-design-initiative/containers/proteinmpnn_fastrelax:latest"
+
     input:
     tuple path(input_pdb), val(chain_id)
     

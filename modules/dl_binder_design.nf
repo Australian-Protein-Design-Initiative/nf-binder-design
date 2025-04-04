@@ -1,4 +1,6 @@
 process DL_BINDER_DESIGN_PROTEINMPNN {
+    container "ghcr.io/australian-protein-design-initiative/containers/proteinmpnn_dl_binder_design:latest"
+
     publishDir "${params.outdir}/proteinmpnn", mode: 'copy'
     
     input:

@@ -1,4 +1,6 @@
 process RFDIFFUSION_PARTIAL {
+    container "ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407"
+    
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "pdbs/partial/*/*.pdb", mode: 'copy'
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "traj/partial/*/*.pdb", mode: 'copy'
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "configs/partial/*/*/*.yaml", mode: 'copy'

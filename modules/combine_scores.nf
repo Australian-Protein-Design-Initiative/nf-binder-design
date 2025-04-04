@@ -1,4 +1,6 @@
 process COMBINE_SCORES {
+    container "ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0"
+    
     publishDir "${params.outdir}", mode: 'copy'
     
     input:
