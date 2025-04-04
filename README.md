@@ -41,11 +41,18 @@ A more complex example, as a wrapper script for M3, using a the site-specific co
 
 ```bash
 #!/bin/bash
-WF_PATH="/some/path/to/nf-binder-design" # change this
+# CHANGE THIS - this is the path where your git clone of this repo is
+WF_PATH="/some/path/to/nf-binder-design"
 
 mkdir -p results/logs
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
+# CHANGE THIS to a path in scratch or scratch2 to act as the cache directory for apptainer
+# Containers will be automatically downloaded to this path.
+# You can add it to ~/.bashrc if you prefer
+export NXF_APPTAINER_CACHEDIR=/some/path/to/scratch2/apptainer_cache
+
+# CHANGE the --slurm_account to match the project ID you wish to run SLURM jobs under
 nextflow \
 -c ${WF_PATH}/conf/platforms/m3.config run \
 ${WF_PATH}/main.nf  \
@@ -65,8 +72,6 @@ ${WF_PATH}/main.nf  \
 -with-report results/logs/report_${DATESTAMP}.html \
 -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
-
-> Note: Ensure you set --slurm_account to your M3 account/project ID.
 
 ### Summarize af2_initial_guess scores
 
