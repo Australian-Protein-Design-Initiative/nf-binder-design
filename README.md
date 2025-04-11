@@ -51,6 +51,7 @@ DATESTAMP=$(date +%Y%m%d_%H%M%S)
 # Containers will be automatically downloaded to this path.
 # You can add it to ~/.bashrc if you prefer
 export NXF_APPTAINER_CACHEDIR=/some/path/to/scratch2/apptainer_cache
+export NXF_APPTAINER_TMPDIR=/some/path/to/scratch2/apptainer_cache/tmp
 
 # CHANGE the --slurm_account to match the project ID you wish to run SLURM jobs under
 nextflow \
