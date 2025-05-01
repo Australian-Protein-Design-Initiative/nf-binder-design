@@ -24,7 +24,7 @@ params.hotspot_res = false  // "[A473,A995,A411,A421]"
 params.rfd_batch_size = 1
 params.rfd_n_designs = 2
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
-params.rfd_config = "base"
+params.rfd_config = false // "base"
 params.rfd_noise_scale = 0
 params.rfd_extra_args = ""
 
@@ -100,7 +100,11 @@ workflow {
 
     // File inputs - converted to value channels with .first()
     // so these channels infinitely produce the file on demand
-    ch_rfd_config = Channel.fromPath(params.rfd_config).first()
+    if (params.rfd_config) {
+        ch_rfd_config = Channel.fromPath(params.rfd_config).first()
+    } else {
+        ch_rfd_config = Channel.value(false)
+    }
     if (params.input_pdb) {
         ch_input_pdb = Channel.fromPath(params.input_pdb).first()
     } else {

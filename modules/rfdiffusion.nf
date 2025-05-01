@@ -7,7 +7,7 @@ process RFDIFFUSION {
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "logs/*/*.log", mode: 'copy'
 
     input:
-    path rfd_config_name
+    val rfd_config_name
     path input_pdb
     val rfd_model_path
     val contigs
@@ -25,7 +25,7 @@ process RFDIFFUSION {
     script:
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
     def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ""
-
+    def config_name = rfd_config_name ? "--config-name=${rfd_config_name}" : ""
     """
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
@@ -44,7 +44,7 @@ process RFDIFFUSION {
     #       instead of --config-name
 
     \${RUN_INF} \
-        --config-name=${rfd_config_name} \
+        ${config_name} \
         inference.output_prefix=outputs/${params.design_name}_${unique_id} \
         inference.input_pdb=${input_pdb} \
         contigmap.contigs='${contigs}' \
