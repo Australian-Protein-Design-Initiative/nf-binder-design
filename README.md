@@ -82,6 +82,7 @@ This happens by default when the pipeline successfully completes, however you ma
 OUTDIR=results
 
 bin/af2_combine_scores.py -o $OUTDIR/combined_scores.tsv -p $OUTDIR/af2_results
+```
 
 ## Partial diffusion on binder designs
 
