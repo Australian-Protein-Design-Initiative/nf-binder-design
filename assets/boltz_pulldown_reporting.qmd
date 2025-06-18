@@ -1,0 +1,497 @@
+---
+title: "Boltz Pulldown Analysis Report"
+author: "Australian-Protein-Design-Initiative/nf-binder-design"
+date: last-modified
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+jupyter: python3
+---
+
+# Overview
+
+This report presents an analysis of the Boltz pulldown results, including statistical comparisons between targets, visualizations of binding scores, and enrichment analyses.
+
+```{python}
+#| label: setup
+#| message: false
+#| warning: false
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+from scipy.stats import wilcoxon
+from statsmodels.stats.multitest import multipletests
+import plotly.express as px
+import altair as alt
+import warnings
+warnings.filterwarnings('ignore')
+
+# Set plotting style
+plt.style.use('seaborn-v0_8')
+
+# Load data
+df = pd.read_csv('boltz_pulldown.tsv', sep='\t')
+
+df = df.sort_values('iptm', ascending=False)
+
+# Calculate ranks
+df['rank_within_binder_normalized'] = df.groupby('binder')['iptm'].rank(ascending=False, pct=True)
+df['inv_norm_rank'] = 1 - df['rank_within_binder_normalized']
+
+# Helper function to convert RGB to Hex
+def rgb_to_hex(rgb):
+    """Converts an (R, G, B) tuple to a hex color string."""
+    return f'#{int(rgb[0]*255):02x}{int(rgb[1]*255):02x}{int(rgb[2]*255):02x}'
+
+# Create a consistent color palette for targets
+targets_unique = df['target'].unique()
+palette_rgb = sns.color_palette("husl", len(targets_unique))
+# RGB map for seaborn/matplotlib
+color_map_rgb = dict(zip(targets_unique, palette_rgb))
+# Hex map for plotly
+color_map_hex = {target: rgb_to_hex(color) for target, color in color_map_rgb.items()}
+
+# Styling function to color the target cells
+def color_target_cell(val):
+    color = color_map_hex.get(val, '#ffffff') # Default to white
+    # Also setting text to black for better contrast/readability
+    return f'background-color: {color}; color: #000000'
+
+print(f"Unique targets: {df['target'].nunique()}")
+print(f"Unique binders: {df['binder'].nunique()}")
+print(f"Score range (iptm): {df['iptm'].min():.3f} - {df['iptm'].max():.3f}")
+```
+
+# Analyses and visualizations
+
+## Top 10 High-Scoring Interactions
+
+The table below shows the top 10 interactions from the dataset with the highest ipTM scores.
+
+```{python}
+#| label: top-iptm-table
+#| message: false
+
+# Sort by ipTM score and get the top 10
+top_10_df = df.sort_values('iptm', ascending=False).head(10)
+
+# Select and style the table for better presentation
+display_cols = ['id', 'target', 'binder', 'iptm', 'ptm', 'confidence_score']
+styled_top_10 = top_10_df[display_cols].style.set_caption("Top 10 High-Scoring Interactions by ipTM") \
+                                           .format({'iptm': '{:.3f}', 'ptm': '{:.3f}', 'confidence_score': '{:.3f}'}) \
+                                           .background_gradient(cmap='viridis', subset=['iptm']) \
+                                           .applymap(color_target_cell, subset=['target']) \
+                                           .hide(axis='index')
+display(styled_top_10)
+```
+
+## Boxplots of ipTM Scores by Target
+
+```{python}
+#| label: iptm-boxplots
+#| fig-width: 8
+#| fig-height: 6
+
+plt.figure(figsize=(8, 6))
+# Order targets by median iptm score for better visualization
+target_order = df.groupby('target')['iptm'].median().sort_values(ascending=False).index
+
+# Identify outliers based on 2 standard deviations from the mean for each target
+mean_iptm = df.groupby('target')['iptm'].transform('mean')
+std_iptm = df.groupby('target')['iptm'].transform('std')
+df['is_outlier_iptm'] = (df['iptm'] > mean_iptm + 2 * std_iptm) | (df['iptm'] < mean_iptm - 2 * std_iptm)
+
+
+sns.boxplot(data=df, x='target', y='iptm', order=target_order, width=0.6, palette=color_map_rgb, showfliers=False)
+# Plot inliers and outliers with different styles
+sns.stripplot(data=df[~df['is_outlier_iptm']], x='target', y='iptm', order=target_order, 
+              size=4, alpha=0.7, jitter=True, color='black')
+sns.stripplot(data=df[df['is_outlier_iptm']], x='target', y='iptm', order=target_order,
+              size=8, alpha=0.9, jitter=True, color='red', marker='X', edgecolor='black', linewidth=1)
+
+plt.title('ipTM Score Distribution by Target\n(Outliers > 2 std dev shown as red X)', fontsize=16)
+plt.xlabel('Target', fontsize=12)
+plt.ylabel('ipTM Score', fontsize=12)
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+
+```{python}
+#| label: iptm-boxplots-plotly
+#| message: false
+#| include: false
+
+# _(same thing using plotly)_
+
+# Interactive boxplot
+fig = px.box(df, 
+              x='target', 
+              y='iptm',
+              color='target',
+              color_discrete_map=color_map_hex,
+              points='all',
+              hover_data=['binder'],
+              title='Interactive Boxplot: ipTM Scores by Target')
+fig.update_xaxes(tickangle=45)
+fig.show()
+```
+
+```{python}
+#| label: iptm-mean-by-target
+#| message: false
+
+# Summary statistics, sorted by mean ipTM descending
+print("\nipTM Score Summary by Target:")
+iptm_summary = df.groupby('target')['iptm'].describe().round(4)
+iptm_summary = iptm_summary.sort_values(by='mean', ascending=False)
+display(iptm_summary.style.background_gradient(cmap='viridis', subset=['mean', '50%']))
+```
+
+## Score Distributions
+
+### Individual Target Histograms
+Here we visualize the ipTM score distributions for each target using individual histograms, stacked vertically for easy comparison. The mean and median scores are shown for each target.
+
+```{python}
+#| label: individual-histograms
+#| fig-width: 8
+#| fig-height: 12
+
+# Order targets by median ipTM score for better visualization
+target_order = df.groupby('target')['iptm'].median().sort_values(ascending=False).index
+
+fig, axes = plt.subplots(
+    nrows=len(target_order), 
+    ncols=1, 
+    figsize=(8, 2 * len(target_order)), 
+    sharex=True, 
+    sharey=True
+)
+if len(target_order) == 1:
+    axes = [axes]
+
+# Find global min and max for consistent binning across all plots
+bins = np.linspace(df['iptm'].min(), df['iptm'].max(), 30)
+
+for i, target in enumerate(target_order):
+    ax = axes[i]
+    target_scores = df[df['target'] == target]['iptm']
+    mean_score = target_scores.mean()
+    median_score = target_scores.median()
+    
+    ax.hist(target_scores, bins=bins, color=color_map_rgb[target], alpha=0.8)
+    ax.axvline(mean_score, color='red', linestyle='--', linewidth=2, label=f'Mean: {mean_score:.2f}')
+    ax.axvline(median_score, color='black', linestyle=':', linewidth=2, label=f'Median: {median_score:.2f}')
+    
+    ax.set_ylabel('Frequency')
+    ax.set_title(f'Target: {target}', loc='left', fontsize=10)
+    ax.legend()
+
+fig.suptitle('ipTM Score Distribution by Target', fontsize=16)
+axes[-1].set_xlabel('ipTM Score') # Set x-label only on the last plot
+plt.tight_layout(rect=[0, 0, 1, 0.97]) # Adjust for suptitle
+plt.show()
+```
+
+### Kernel Density Plots
+This plot shows the same data using kernel density estimates, which can be useful for visualizing the shape of the distributions.
+
+```{python}
+#| label: kde-plots
+#| fig-width: 10
+#| fig-height: 6
+
+plt.figure(figsize=(12, 7))
+sns.kdeplot(data=df, x='iptm', hue='target', palette=color_map_rgb, fill=True, alpha=0.2)
+plt.xlabel('ipTM Score')
+plt.ylabel('Density')
+plt.title('Kernel Density Estimate of ipTM Scores by Target')
+plt.show()
+
+```
+
+## Rank-based Statistics by Target
+
+Here we see the summary statistics for the inverted normalized rank (1 - percentile rank) of each target's ipTM score, calculated within each binder group. A higher value is better.
+
+```{python}
+#| label: rank-stats
+#| message: false
+
+# Summary statistics by target for inverted normalized rank
+rank_stats = df.groupby('target').agg({
+    'inv_norm_rank': ['mean', 'median', 'std', 'count']
+}).round(4)
+
+rank_stats.columns = ['_'.join(col).strip() for col in rank_stats.columns]
+rank_stats = rank_stats.sort_values(by='inv_norm_rank_mean', ascending=False)
+
+# Style the table for better presentation
+styled_rank_stats = rank_stats.style.background_gradient(cmap='viridis', subset=['inv_norm_rank_mean']) \
+                                   .set_caption("Inverted Normalized Rank Statistics by Target (higher is better)") \
+                                   .format('{:.3f}')
+
+display(styled_rank_stats)
+```
+
+## Comparing distributions of target ipTM rankings
+
+This analysis performs Wilcoxon rank-sum tests to compare the ipTM score distributions between pairs of targets to determine if there are statistically significant differences between targets.P-values have been adjusted for multiple testing using the Benjamini-Hochberg FDR method. Only comparisons with adjusted P-value < 0.05 are listed below.
+
+```{python}
+#| label: wilcoxon-tests
+#| message: false
+
+from itertools import combinations
+
+targets = df['target'].unique()
+wilcoxon_results = []
+all_comparisons = list(combinations(targets, 2))
+
+
+for target1, target2 in all_comparisons:
+    scores1 = df[df['target'] == target1]['iptm']
+    scores2 = df[df['target'] == target2]['iptm']
+    
+    # Wilcoxon rank-sum test (Mann-Whitney U)
+    statistic, p_value = stats.mannwhitneyu(scores1, scores2, alternative='two-sided')
+    
+    wilcoxon_results.append({
+        'Comparison': f"{target1} vs {target2}",
+        'Statistic': statistic,
+        'P-value': p_value,
+    })
+
+# Perform multiple testing correction
+results_df = pd.DataFrame(wilcoxon_results)
+if not results_df.empty:
+    reject, p_adj, _, _ = multipletests(results_df['P-value'], alpha=0.05, method='fdr_bh')
+    results_df['Adjusted P-value'] = p_adj
+    results_df['Significant'] = reject
+
+    significant_results = results_df[results_df['Significant']].sort_values(by='Adjusted P-value')
+    
+    if not significant_results.empty:
+        styled_wilcoxon = significant_results[['Comparison', 'Statistic', 'Adjusted P-value']].style.format({
+            'Statistic': '{:.1f}', 
+            'Adjusted P-value': '{:.4g}'
+        }).set_caption("Significant Pairwise Target Comparisons (FDR Corrected)").hide(axis='index')
+        display(styled_wilcoxon)
+    else:
+        print("No significant differences found between targets after FDR correction (p < 0.05).")
+else:
+    print("No comparisons were made.")
+
+print(f"\nTotal pairwise comparisons performed: {len(all_comparisons)}")
+
+```
+
+
+## Mixed Effects Model Analysis
+
+We fit a mixed effects model, predicting ipTM score as a function of target, with binder as a random effect. The target with the highest coefficient is more predictive of the ipTM score.
+
+```{python}
+#| label: mixed-model
+#| message: false
+
+try:
+    import statsmodels.api as sm
+    from statsmodels.formula.api import mixedlm
+    
+    # Fit mixed effects model with target as fixed effect, binder as random effect
+    model = mixedlm("iptm ~ C(target)", df, groups=df["binder"])
+    result = model.fit()
+    
+    print("Mixed Effects Model Results:")
+    print("=" * 40)
+    print(result.summary())
+    
+    # Create a plot of the fixed-effects coefficients
+    params = result.params
+    
+    # Identify the baseline target (the one used as intercept, typically the first alphabetically)
+    baseline_target = sorted(df['target'].unique())[0]
+    
+    # Extract coefficients into a DataFrame
+    # The coefficients from the model are offsets from the baseline (intercept)
+    coef_data = []
+    # Add the baseline with a coefficient of 0
+    coef_data.append({'target': baseline_target, 'coefficient': 0})
+    
+    for param_name, value in params.items():
+        if param_name.startswith("C(target)"):
+            # Extract target name from 'C(target)[T.target_name]'
+            target_name = param_name.split("[T.")[1][:-1]
+            coef_data.append({'target': target_name, 'coefficient': value})
+
+    coef_df = pd.DataFrame(coef_data).sort_values('coefficient', ascending=False)
+    
+    # Get colors in the correct order for the sorted targets
+    ordered_colors = [color_map_rgb[t] for t in coef_df['target']]
+    
+    # Plot the coefficients
+    fig_height = max(6, len(coef_df) * 0.5)
+    plt.figure(figsize=(8, fig_height))
+    
+    sns.barplot(x='coefficient', y='target', data=coef_df, palette=ordered_colors, hue='target', dodge=False)
+    
+    plt.title('Mixed Effects Model Coefficients', fontsize=16)
+    plt.xlabel(f'Coefficient (Offset from Baseline: {baseline_target})', fontsize=12)
+    plt.ylabel('Target', fontsize=12)
+    plt.axvline(0, color='k', linestyle='--', linewidth=1)
+    plt.legend([],[], frameon=False) # Hide legend created by 'hue'
+    plt.tight_layout()
+    plt.show()
+
+except ImportError:
+    print("Mixed effects modelling requires statsmodels package. Skipping this analysis.")
+```
+
+## Binary Binding Analysis at Different ipTM Cutoffs
+
+```{python}
+#| label: binary-binding
+#| fig-width: 8
+#| fig-height: 12
+
+cutoffs = [0.9, 0.8, 0.7, 0.6]
+fig, axes = plt.subplots(len(cutoffs), 1, figsize=(8, 12), sharex=True)
+if len(cutoffs) == 1:
+    axes = [axes]
+
+binding_stats = []
+
+for i, cutoff in enumerate(cutoffs):
+    df[f'bind_{cutoff}'] = df['iptm'] >= cutoff
+    
+    # Calculate binding proportions
+    bind_props = df.groupby('target')[f'bind_{cutoff}'].agg(['sum', 'count'])
+    bind_props['proportion'] = bind_props['sum'] / bind_props['count']
+    bind_props['cutoff'] = cutoff
+    
+    binding_stats.append(bind_props[['proportion', 'cutoff']].reset_index())
+    
+    # Plot
+    ax = axes[i]
+    bind_props = bind_props.sort_values(by='proportion', ascending=False)
+    # Get colors in the right order for the bars
+    bar_colors = [color_map_rgb[target] for target in bind_props.index]
+    bind_props['proportion'].plot(kind='bar', ax=ax, color=bar_colors, alpha=0.8)
+    ax.set_title(f'Binding Proportion (ipTM ≥ {cutoff})', fontsize=12)
+    ax.set_ylabel('Proportion Binding')
+    ax.tick_params(axis='x', rotation=45)
+    ax.set_ylim(0, max(1.0, bind_props['proportion'].max() * 1.1))
+    
+    # Add value labels on bars
+    for j, v in enumerate(bind_props['proportion']):
+        ax.text(j, v + 0.01, f'{v:.2f}', ha='center', va='bottom')
+
+plt.xlabel('Target')
+plt.tight_layout()
+plt.show()
+
+# Combine all binding statistics into a styled table
+all_binding_stats = pd.concat(binding_stats, ignore_index=True)
+pivot_table = all_binding_stats.pivot(index='target', columns='cutoff', values='proportion').sort_values(by=0.6, ascending=False)
+
+styled_pivot = pivot_table.style.highlight_max(color='lightgreen', axis=0) \
+                               .format('{:.3f}') \
+                               .set_caption("Binding Proportions at Different Cutoffs") \
+                               .background_gradient(cmap='viridis')
+display(styled_pivot)
+```
+
+## Hierarchical Clustering Heatmap
+
+We hierarchically cluster the binders and targets using cosine distance and average linkage.
+This may show trends of which targets are most similar to each other, and which groups of binders have a preference for certain targets.
+
+```{python}
+#| label: clustering-heatmap
+#| fig-width: 14
+#| fig-height: 10
+
+# Create pivot table for heatmap (binders vs targets)
+heatmap_data = df.pivot_table(values='iptm', index='binder', columns='target', fill_value=0)
+
+g = sns.clustermap(heatmap_data, 
+               cmap='viridis', 
+               method='average', # Using average linkage, compatible with cosine distance
+               metric='cosine', # Using cosine distance
+               figsize=(8, 16),
+               cbar_kws={'label': 'ipTM Score'},
+               xticklabels=True,
+               yticklabels=True)
+g.fig.suptitle('Hierarchical Clustering: Binders vs Targets (Cosine Distance, Average Linkage)', y=1.02)
+plt.show()
+
+print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
+```
+
+## Binder ipTM Across Targets (Parallel Coordinates)
+
+This plot visualizes the performance of each individual binder across the different targets. Each line represents a single binder, allowing you to trace its ipTM score from one target to another. You can hover over a line to see the binder's name and its score for a specific target. Clicking on a binder's name in the legend on the right will highlight all of its interactions.
+
+```{python}
+#| label: parallel-coords-plot-altair
+#| message: false
+
+# Re-using the `target_order` from the boxplot cell
+first_target = target_order[0]
+
+# Get the initial ipTM score for each binder from the first target
+initial_iptm_df = df[df['target'] == first_target][['binder', 'iptm']].rename(columns={'iptm': 'initial_iptm'})
+
+# Merge this back into the main dataframe
+df_merged = pd.merge(df, initial_iptm_df, on='binder', how='left')
+
+# Create the parallel coordinates plot with Altair
+chart = alt.Chart(df_merged).mark_line().encode(
+    x=alt.X('target:N', sort=target_order.tolist(), title='Target'),
+    y=alt.Y('iptm:Q', title='ipTM Score'),
+    color=alt.Color('initial_iptm:Q', 
+                    scale=alt.Scale(scheme='viridis'),
+                    legend=alt.Legend(title=f"ipTM on {first_target}")),
+    detail='binder:N', # Use detail to group lines without affecting color
+    tooltip=['binder:N', 'target:N', 'iptm:Q']
+).properties(
+    title='Binder Performance Across Targets',
+    width=600
+).interactive()
+
+chart
+```
+
+
+# Top Target per Binder
+
+This table lists each binder and its highest-scoring target, sorted by the ipTM score of that top interaction.
+
+```{python}
+#| label: top-target-per-binder
+#| message: false
+
+# Find the row with the max ipTM score for each binder
+top_hits_df = df.loc[df.groupby('binder')['iptm'].idxmax()]
+
+# Select and sort the results
+top_hits_table = top_hits_df[['binder', 'target', 'iptm']].sort_values('iptm', ascending=False)
+
+# Style the table
+styled_top_hits = top_hits_table.style.set_caption("Top Scoring Target for Each Binder") \
+                                     .format({'iptm': '{:.3f}'}) \
+                                     .applymap(color_target_cell, subset=['target']) \
+                                     .hide(axis='index')
+display(styled_top_hits)
+```
+

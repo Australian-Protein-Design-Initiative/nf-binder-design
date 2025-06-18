@@ -105,6 +105,36 @@ nextflow run partial.nf  \
     -profile local
 ```
 
+## Boltz pulldown
+
+An [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown)-like protocol, using [Boltz](https://github.com/jwohlwend/boltz). This is essentially running multimer predictions for all sequences in the target set (`--targets targets.fasta`) against all sequences in the binder set (`--binders binders.fasta`).
+
+By default, no multiple sequence alignments are used. If you set the `--create_target_msa=true` and `--create_binder_msa=true` flags, target and binder multiple sequence alignments will be generated, respectively.
+
+For _de novo_ designed binders a typical pattern might be to use `--create_target_msa=true` to allow the target to use an MSA to improve prediction accuracy, but not attempt to find homologs for the _de novo_ designed partner.
+
+Specifying `--use_msa_server` will use the remote ColabFold mmseq2 server to generate multiple sequence alignments.
+
+If generating the MSAs locally, indexed mmseqs2 databases can be downloaded and generated with the ColabFold [setup_databases.sh](https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh) script. You'll need to specify the `--uniref30` and `--colabfold_envdb` paths to point to these databases.
+
+You can add additional args to the Boltz command line via `ext.args` for the `BOLTZ` process in `nextflow.config`, eg:
+
+```
+process {
+    withName: BOLTZ {
+        accelerator = 1
+        time = 2.hours
+        memory = '8g'
+        cpus = 2
+        
+        // if using CPU only
+        ext.args = "--accelerator cpu"
+    }
+}
+```
+
+By default, `boltz_pulldown.nf` will output to `results/boltz_pulldown`, which includes the Boltz outputs with scores and predicted structures, and a summary table `boltz_pulldown.tsv`. It also outputs `boltz_pulldown_report.html` with summary statistics and plots of the binder/target ipTM scores.
+
 ## License
 
 MIT
