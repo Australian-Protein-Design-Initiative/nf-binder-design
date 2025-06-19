@@ -43,15 +43,10 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     mkdir -p pdbs/
 
     # Rename the output file to include the design index
-    if [ "${seqs_per_struct}" -eq 1 ]; then
-        for f in pdbs_tmp/*_dldesign_0.pdb; do
-            base=\$(basename "\$f" _dldesign_0.pdb)
-            mv "\$f" "pdbs/\${base}_dldesign_${design_index}.pdb"
-        done
-    else
-        # If seqs_per_struct is not 1, just copy the files without renaming
-        cp pdbs_tmp/*.pdb pdbs/
-    fi
+    for f in pdbs_tmp/*_dldesign_0.pdb; do
+        base=\$(basename "\$f" _dldesign_0.pdb)
+        mv "\$f" "pdbs/\${base}_dldesign_mpnn${design_index}.pdb"
+    done
     """
 }
 

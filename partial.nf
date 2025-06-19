@@ -75,11 +75,6 @@ def partial_T_values = validate_rfd_partial_T(params.rfd_partial_T)
 validate_numeric('pmpnn_relax_cycles', params.pmpnn_relax_cycles)
 validate_numeric('pmpnn_seqs_per_struct', params.pmpnn_seqs_per_struct)
 
-// Validate pmpnn_relax_cycles and pmpnn_seqs_per_struct combination
-if (params.pmpnn_seqs_per_struct > 1 && params.pmpnn_relax_cycles > 0) {
-    error "When pmpnn_seqs_per_struct > 1, pmpnn_relax_cycles must be 0. Currently pmpnn_relax_cycles is not supported with multiple sequences per structure."
-}
-
 // Show help message
 if (params.input_pdb == false) {
     log.info"""

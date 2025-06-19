@@ -41,11 +41,6 @@ params.require_gpu = true
 // Set to a path of existing RFDiffusion backbone models, skips running RFDiffusion
 params.rfd_backbone_models = false
 
-// Validate pmpnn_relax_cycles and pmpnn_seqs_per_struct combination
-if (params.pmpnn_seqs_per_struct > 1 && params.pmpnn_relax_cycles > 0) {
-    error "When pmpnn_seqs_per_struct > 1, pmpnn_relax_cycles must be 0. Currently pmpnn_relax_cycles is not supported with multiple sequences per structure."
-}
-
 // Show help message
 if (params.input_pdb == false && params.rfd_backbone_models == false) {
     log.info"""
