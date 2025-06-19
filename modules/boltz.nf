@@ -6,6 +6,7 @@ process BOLTZ {
     input:
     tuple val(meta), path(yaml_file), path(target_msa), path(binder_msa)
     path(templates)
+    val gpu_device
 
     output:
     path ("boltz_results_${meta.id}"), emit: results
@@ -14,7 +15,11 @@ process BOLTZ {
     script:
     def use_msa_server_flag = params.use_msa_server ? "--use_msa_server" : ""
     def args = task.ext.args ?: ''
-    """    
+    """
+    if [[ ${gpu_device} != "all" ]]; then
+        export CUDA_VISIBLE_DEVICES=${gpu_device}
+    fi
+
     # Boltz model weights are stored in our container
     export BOLTZ_CACHE=/app/boltz/cache
 

@@ -5,6 +5,7 @@ process AF2_INITIAL_GUESS {
 
     input:
     path 'input/*'
+    val gpu_device
 
     output:
     path 'pdbs/*.pdb', emit: pdbs
@@ -13,6 +14,10 @@ process AF2_INITIAL_GUESS {
     script:
     """
     mkdir -p scores/
+
+    if [[ ${gpu_device} != "all" ]]; then
+        export CUDA_VISIBLE_DEVICES=${gpu_device}
+    fi
 
     # Get first input PDB filename without extension
     PREFIX=\$(ls input/*.pdb | head -n1 | xargs basename | sed 's/\\.pdb\$//')

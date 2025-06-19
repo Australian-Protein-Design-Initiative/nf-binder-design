@@ -44,6 +44,7 @@ params.pmpnn_augment_eps = 0
 params.af2ig_recycle = 3
 
 params.require_gpu = true
+params.gpu_device = 'all'
 
 // Validate numeric parameters
 def validate_numeric = { param_name, value ->
@@ -106,6 +107,7 @@ if (params.input_pdb == false) {
         --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
         --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
         --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+        --gpu_device          GPU device to use [default: ${params.gpu_device}]
 
     """.stripIndent()
     exit 1
@@ -198,7 +200,8 @@ workflow {
         params.rfd_batch_size,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },  // Extract start number
         ch_unique_id,
-        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T }  // Extract partial_T
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T },  // Extract partial_T
+        params.gpu_device
     )
     ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs
 
@@ -225,7 +228,8 @@ workflow {
 
     // Run AF2 initial guess to build/refine sidechains for compatible sequence
     AF2_INITIAL_GUESS(
-        DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
+        DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs,
+        params.gpu_device
     )
 
     // Combine all the score files into a single TSV file

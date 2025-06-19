@@ -37,6 +37,7 @@ params.pmpnn_augment_eps = 0
 params.af2ig_recycle = 3
 
 params.require_gpu = true
+params.gpu_device = 'all'
 
 // Set to a path of existing RFDiffusion backbone models, skips running RFDiffusion
 params.rfd_backbone_models = false
@@ -71,6 +72,7 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
         --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
         --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
         --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+        --gpu_device          GPU device to use [default: ${params.gpu_device}]
 
     """.stripIndent()
     exit 1
@@ -128,7 +130,8 @@ workflow {
             params.hotspot_res,
             params.rfd_batch_size,
             ch_rfd_startnum,
-            ch_unique_id
+            ch_unique_id,
+            params.gpu_device
         )
         ch_rfd_backbone_models = RFDIFFUSION.out.pdbs
     }
@@ -151,7 +154,8 @@ workflow {
 
     // Run AF2 initial guess to build/refine sidechains for compatible sequence
     AF2_INITIAL_GUESS(
-        DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
+        DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs,
+        params.gpu_device
     )
 
     // Combine all the score files into a single TSV file

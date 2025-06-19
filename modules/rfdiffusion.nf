@@ -15,6 +15,7 @@ process RFDIFFUSION {
     val batch_size
     val design_startnum
     val unique_id
+    val gpu_device
 
     output:
     path 'pdbs/*.pdb', emit: pdbs
@@ -35,9 +36,12 @@ process RFDIFFUSION {
 
         nvidia-smi
     fi
+    if [[ ${gpu_device} != "all" ]]; then
+        export CUDA_VISIBLE_DEVICES=${gpu_device}
+    fi
 
     RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
-    
+
     mkdir -p schedules
 
     # TODO: if rfd_config is a path to a .yml or .yaml file, use --config-path

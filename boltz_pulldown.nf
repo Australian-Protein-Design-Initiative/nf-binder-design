@@ -10,8 +10,8 @@ params.use_msa_server = false
 params.create_binder_msa = false
 params.create_target_msa = false
 params.templates = false
-params.uniref30 = "db/uniref30"
-params.colabfold_envdb = "db/colabfold_envdb"
+
+params.gpu_device = 'all'
 
 include { BOLTZ } from './modules/boltz'
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
@@ -144,6 +144,8 @@ workflow {
             --use_msa_server      Use BOLTZ MSA server [default: ${params.use_msa_server}]
             --uniref30            UniRef30 database path [default: ${params.uniref30}]
             --colabfold_envdb     ColabFold environment database path [default: ${params.colabfold_envdb}]
+
+            --gpu_device          GPU device to use [default: ${params.gpu_device}]
         """.stripIndent()
         )
         exit(1)
@@ -194,7 +196,7 @@ workflow {
 
     CREATE_BOLTZ_YAML(ch_pairs, file(params.templates))
 
-    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates))
+    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates), params.gpu_device)
 
     // BOLTZ.out.confidence_json.view { meta, json ->
     //     "Finshed: ${meta.target} + ${meta.binder}"
