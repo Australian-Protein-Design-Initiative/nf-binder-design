@@ -2,7 +2,7 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     container "ghcr.io/australian-protein-design-initiative/containers/proteinmpnn_dl_binder_design:latest"
 
     publishDir "${params.outdir}/proteinmpnn", mode: 'copy'
-    
+
     input:
     path 'input/*'
     val seqs_per_struct
@@ -10,10 +10,11 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     val checkpoint_path
     val temperature
     val augment_eps
+    val design_index
 
     output:
     path "pdbs/*", emit: pdbs
-    
+
     script:
     pmpnn_extra_args = ""
     if (checkpoint_path) {
@@ -30,19 +31,34 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     # Ensure we don't use a GPU even if one is available
     export CUDA_VISIBLE_DEVICES=""
 
+    # Run ProteinMPNN with seqs_per_struct=1
     /app/dl_binder_design/mpnn_fr/dl_interface_design.py \
         -pdbdir input/ \
         -relax_cycles ${relax_cycles} \
         -seqs_per_struct ${seqs_per_struct} \
-        -outpdbdir pdbs/ \
+        -outpdbdir pdbs_tmp/ \
         ${pmpnn_extra_args}
+
+    # Create output directory
+    mkdir -p pdbs/
+
+    # Rename the output file to include the design index
+    if [ "${seqs_per_struct}" -eq 1 ]; then
+        for f in pdbs_tmp/*_dldesign_0.pdb; do
+            base=\$(basename "\$f" _dldesign_0.pdb)
+            mv "\$f" "pdbs/\${base}_dldesign_${design_index}.pdb"
+        done
+    else
+        # If seqs_per_struct is not 1, just copy the files without renaming
+        cp pdbs_tmp/*.pdb pdbs/
+    fi
     """
+}
 
 /*
 usage: dl_interface_design.py [-h] [-pdbdir PDBDIR] [-silent SILENT] [-outpdbdir OUTPDBDIR] [-outsilent OUTSILENT] [-runlist RUNLIST] [-checkpoint_name CHECKPOINT_NAME] [-debug]
                             [-relax_cycles RELAX_CYCLES] [-output_intermediates] [-seqs_per_struct SEQS_PER_STRUCT] [-checkpoint_path CHECKPOINT_PATH] [-temperature TEMPERATURE]
                             [-augment_eps AUGMENT_EPS] [-protein_features PROTEIN_FEATURES] [-omit_AAs OMIT_AAS] [-bias_AA_jsonl BIAS_AA_JSONL] [-num_connections NUM_CONNECTIONS]
-
 options:
   -h, --help            show this help message and exit
   -pdbdir PDBDIR        The name of a directory of pdbs to run through the model
@@ -75,4 +91,3 @@ options:
                         Number of neighbors each residue is connected to. Do not mess around with this argument unless you have a specific set of ProteinMPNN weights which expects a
                         different number of connections. (default: 48)
 */
-} 

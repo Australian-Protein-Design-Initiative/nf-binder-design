@@ -139,19 +139,20 @@ workflow {
         ch_rfd_backbone_models = RFDIFFUSION.out.pdbs
     }
 
-    // Convert PDBs to silent file
-    // SILENT_FROM_PDBS(
-    //     RFDIFFUSION.out.pdbs.collect()
-    // )
+    // Create a channel that repeats each PDB params.pmpnn_seqs_per_struct times
+    // and pairs it with an index from 0 to pmpnn_seqs_per_struct-1
+    ch_pmpnn_inputs = ch_rfd_backbone_models
+        | combine(Channel.of(0..(params.pmpnn_seqs_per_struct-1)))
 
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
     DL_BINDER_DESIGN_PROTEINMPNN(
-        ch_rfd_backbone_models,
-        params.pmpnn_seqs_per_struct,
+        ch_pmpnn_inputs.map { pdb, idx -> pdb },  // Extract just the PDB for the input path
+        Channel.value(1),  // Always use seqs_per_struct=1
         params.pmpnn_relax_cycles,
         params.pmpnn_weights,
         params.pmpnn_temperature,
-        params.pmpnn_augment_eps
+        params.pmpnn_augment_eps,
+        ch_pmpnn_inputs.map { pdb, idx -> idx }  // Pass the index for unique naming
     )
 
     // Run AF2 initial guess to build/refine sidechains for compatible sequence
