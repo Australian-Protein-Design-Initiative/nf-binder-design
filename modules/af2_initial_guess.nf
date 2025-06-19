@@ -1,15 +1,15 @@
 process AF2_INITIAL_GUESS {
-    container "ghcr.io/australian-protein-design-initiative/containers/af2_initial_guess:nv-cuda12"
+    container 'ghcr.io/australian-protein-design-initiative/containers/af2_initial_guess:nv-cuda12'
 
     publishDir "${params.outdir}/af2_initial_guess", mode: 'copy'
-    
+
     input:
     path 'input/*'
-    
+
     output:
-    path "pdbs/*.pdb", emit: pdbs
-    path "scores/*.cs", emit: scores
-    
+    path 'pdbs/*.pdb', emit: pdbs
+    path 'scores/*.cs', emit: scores
+
     script:
     """
     mkdir -p scores/
@@ -48,4 +48,4 @@ optional arguments:
   -force_monomer        When active, the model will predict the structure of a monomer (default: False)
 
     */
-} 
+}

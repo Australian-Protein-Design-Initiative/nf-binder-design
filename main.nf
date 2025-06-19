@@ -16,17 +16,17 @@ nextflow run main.nf \
 
 // Default parameters
 params.input_pdb = false
-params.outdir = "results"
+params.outdir = 'results'
 
-params.design_name = "design_ppi"
-params.contigs = ""         // "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]"
+params.design_name = 'design_ppi'
+params.contigs = ''         // "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]"
 params.hotspot_res = false  // "[A473,A995,A411,A421]"
 params.rfd_batch_size = 1
 params.rfd_n_designs = 2
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
 params.rfd_config = false // "base"
 params.rfd_noise_scale = 0
-params.rfd_extra_args = ""
+params.rfd_extra_args = ''
 
 params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
@@ -47,14 +47,13 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
     ==================================================================
     🧬 PROTEIN BINDER DESIGN PIPELINE 🧬
     ==================================================================
-    
+
     Required arguments:
         --input_pdb           Input PDB file for the target
-        
-        __or__
-        
-        --rfd_backbone_models Existing RFDiffusion backbone models - skips running RFDiffusion and uses these instead (glob accepted, eg 'results/rfdiffusion/pdbs/*.pdb)
 
+        __or__
+
+        --rfd_backbone_models Existing RFDiffusion backbone models - skips running RFDiffusion and uses these instead (glob accepted, eg 'results/rfdiffusion/pdbs/*.pdb)
 
     Optional arguments:
         --outdir              Output directory [default: ${params.outdir}]
@@ -78,7 +77,7 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
 }
 
 include { RFDIFFUSION } from './modules/rfdiffusion'
-include { SILENT_FROM_PDBS } from './modules/silentfrompdbs' 
+include { SILENT_FROM_PDBS } from './modules/silentfrompdbs'
 include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
 include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { COMBINE_SCORES } from './modules/combine_scores'
@@ -90,7 +89,7 @@ workflow {
     ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
 
     if (!params.input_pdb && !params.rfd_backbone_models) {
-        throw new Exception("Either --input_pdb or --rfd_backbone_models must be provided")
+        throw new Exception('Either --input_pdb or --rfd_backbone_models must be provided')
     }
 
     // File inputs - converted to value channels with .first()
@@ -113,10 +112,10 @@ workflow {
 
     // Create channel of start numbers for batches
     ch_rfd_startnum = Channel
-        .of(0..params.rfd_n_designs-1)
+        .of(0..params.rfd_n_designs - 1)
         .filter { v -> v % params.rfd_batch_size == 0 }
         //.view()
-    
+
     if (params.rfd_backbone_models) {
         ch_rfd_backbone_models = Channel.fromPath("${params.rfd_backbone_models}")
     } else {
@@ -137,7 +136,7 @@ workflow {
     // Create a channel that repeats each PDB params.pmpnn_seqs_per_struct times
     // and pairs it with an index from 0 to pmpnn_seqs_per_struct-1
     ch_pmpnn_inputs = ch_rfd_backbone_models
-        | combine(Channel.of(0..(params.pmpnn_seqs_per_struct-1)))
+        | combine(Channel.of(0..(params.pmpnn_seqs_per_struct - 1)))
 
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
     DL_BINDER_DESIGN_PROTEINMPNN(
@@ -160,4 +159,4 @@ workflow {
         AF2_INITIAL_GUESS.out.scores.collect(),
         AF2_INITIAL_GUESS.out.pdbs.collect()
     )
-} 
+}

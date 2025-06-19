@@ -1,5 +1,5 @@
 process DL_BINDER_DESIGN_PROTEINMPNN {
-    container "ghcr.io/australian-protein-design-initiative/containers/proteinmpnn_dl_binder_design:latest"
+    container 'ghcr.io/australian-protein-design-initiative/containers/proteinmpnn_dl_binder_design:latest'
 
     publishDir "${params.outdir}/proteinmpnn", mode: 'copy'
 
@@ -13,10 +13,10 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     val design_index
 
     output:
-    path "pdbs/*", emit: pdbs
+    path 'pdbs/*', emit: pdbs
 
     script:
-    pmpnn_extra_args = ""
+    pmpnn_extra_args = ''
     if (checkpoint_path) {
         pmpnn_extra_args += " -checkpoint_path ${checkpoint_path}"
     }
@@ -43,9 +43,11 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     mkdir -p pdbs/
 
     # Rename the output file to include the design index
-    for f in pdbs_tmp/*_dldesign_0.pdb; do
-        base=\$(basename "\$f" _dldesign_0.pdb)
-        mv "\$f" "pdbs/\${base}_dldesign_mpnn${design_index}.pdb"
+    for f in pdbs_tmp/*_dldesign_*.pdb; do
+        # base=\$(basename "\$f" .pdb | sed 's/_dldesign_0.*//')
+        # mv "\$f" "pdbs/\${base}_dldesign_mpnn${design_index}.pdb"
+        base=\$(basename "\$f" .pdb)
+        mv "\$f" "pdbs/\${base}_mpnn${design_index}.pdb"
     done
     """
 }

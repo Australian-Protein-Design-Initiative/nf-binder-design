@@ -1,10 +1,10 @@
 process RFDIFFUSION {
-    container "ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407"
+    container 'ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407'
 
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "pdbs/*.pdb", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "traj/*.pdb", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "configs/*/*.yaml", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "logs/*/*.log", mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'pdbs/*.pdb', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'traj/*.pdb', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'configs/*/*.yaml', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'logs/*/*.log', mode: 'copy'
 
     input:
     val rfd_config_name
@@ -17,15 +17,15 @@ process RFDIFFUSION {
     val unique_id
 
     output:
-    path "pdbs/*.pdb", emit: pdbs
-    path "traj/*.pdb", emit: trajs
-    path "configs/*/*.yaml", emit: configs
-    path "logs/*/*.log", emit: logs
-    
+    path 'pdbs/*.pdb', emit: pdbs
+    path 'traj/*.pdb', emit: trajs
+    path 'configs/*/*.yaml', emit: configs
+    path 'logs/*/*.log', emit: logs
+
     script:
-    def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
-    def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ""
-    def config_name = rfd_config_name ? "--config-name=${rfd_config_name}" : ""
+    def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ''
+    def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ''
+    def config_name = rfd_config_name ? "--config-name=${rfd_config_name}" : ''
     """
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
@@ -33,7 +33,7 @@ process RFDIFFUSION {
             exit 1
         fi
 
-        nvidia-smi 
+        nvidia-smi
     fi
 
     RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
@@ -56,17 +56,17 @@ process RFDIFFUSION {
         inference.schedule_directory_path=schedules \
         ${rfd_model_path_arg} \
         ${params.rfd_extra_args}
-    
+
     # inference.model_directory_path=models
 
     mkdir -p pdbs
     mv outputs/*.pdb pdbs/
     mv outputs/traj .
-    
+
     # Move configs and logs for nicer per-batch output
     mkdir -p configs/${design_startnum}
-    mv outputs/*/*/.hydra/*.yaml configs/${design_startnum}/    
+    mv outputs/*/*/.hydra/*.yaml configs/${design_startnum}/
     mkdir -p logs/${design_startnum}
     mv outputs/*/*/*.log logs/${design_startnum}/
     """
-} 
+}
