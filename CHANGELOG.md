@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+...
+
+## [0.1.2] - 2025-06-19
+
 ### Added
+- Added the `boltz_pulldown.nf` protocol.
 - Allow gpu device to be selected.
 - Support relaxation in ProteinMPNN (`pmpnn_relax_cycles` can now be non-zero)
  
@@ -18,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix `get_contigs` for multi-chain targets.
+- Fix failure that occurred when using `--rfd_batch_size` > 1.
 
 ## [0.1.1] - 2025-04-04
 
