@@ -172,21 +172,21 @@ workflow {
     if (params.create_target_msa && !params.use_msa_server) {
         ch_target_msas = MMSEQS_COLABFOLDSEARCH(ch_targets_fasta, params.colabfold_envdb, params.uniref30)
     } else if (params.create_target_msa && params.use_msa_server) {
-        ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/dummy_files/boltz_will_make_target_msa")] }
+        ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")] }
     } else
     {
         // [meta, null]
-        ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/dummy_files/empty_target_msa")] }
+        ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/empty_target_msa")] }
     }
 
     if (params.create_binder_msa && !params.use_msa_server) {
         ch_binder_msas = MMSEQS_COLABFOLDSEARCH(ch_binders_fasta, params.colabfold_envdb, params.uniref30)
     } else if (params.create_binder_msa && params.use_msa_server) {
-        ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/dummy_files/boltz_will_make_binder_msa")] }
+        ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/boltz_will_make_binder_msa")] }
     } else
     {
         // [meta, null]
-        ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/dummy_files/empty_binder_msa")] }
+        ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/empty_binder_msa")] }
     }
 
     // All combinations of: [meta_target, a3m_path_target, meta_binder, a3m_path_binder]
