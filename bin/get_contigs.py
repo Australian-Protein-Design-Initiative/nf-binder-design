@@ -11,6 +11,7 @@ import argparse
 import sys
 import json
 from pathlib import Path
+from collections import defaultdict
 from Bio import PDB
 
 
@@ -26,32 +27,32 @@ def get_chain_ranges(structure: PDB.Structure.Structure) -> List[Tuple[str, int,
     ranges = []
     for model in structure:
         for chain in model:
-            residues = [r for r in chain.get_residues()]
+            residues = [r for r in chain.get_residues() if "CA" in r]
             if not residues:
                 continue
-            
+
             # Initialize variables for tracking ranges
             current_ranges = []
             start = None
-            prev_res = None
-            
+            prev_res: Optional[int] = None
+
             for residue in residues:
                 res_id = residue.get_id()[1]
-                
+
                 # If this is the first residue, start a new range
                 if start is None:
                     start = res_id
                 # If there's a gap in residue numbering, end current range and start new one
-                elif res_id != prev_res + 1:
+                elif prev_res is not None and res_id != prev_res + 1:
                     current_ranges.append((chain.id, start, prev_res))
                     start = res_id
-                
+
                 prev_res = res_id
-            
+
             # Add the last range
-            if start is not None:
+            if start is not None and prev_res is not None:
                 current_ranges.append((chain.id, start, prev_res))
-            
+
             ranges.extend(current_ranges)
 
     # Sort by chain ID and start residue
@@ -68,10 +69,10 @@ If a binder chain is specified, we return the length of the binder chain and the
     )
     parser.add_argument("pdb_file", type=Path, help="Input PDB file")
     parser.add_argument(
-        "binder_chain", 
-        nargs="?", 
-        default=None, 
-        help="Chain ID of the binder (optional)"
+        "binder_chain",
+        nargs="?",
+        default=None,
+        help="Chain ID of the binder (optional)",
     )
     parser.add_argument(
         "--target_contigs",
@@ -95,19 +96,43 @@ If a binder chain is specified, we return the length of the binder chain and the
 
     # Use provided target_contigs if specified, otherwise detect from PDB
     if args.target_contigs:
-        target_contigs = args.target_contigs
-    else:
+        target_contigs_str = args.target_contigs
+        # If binder is also specified, format with binder length
         if args.binder_chain:
-            # Find target chain ranges (all non-binder chains)
-            target_ranges = [r for r in ranges if r[0] != args.binder_chain]
+            try:
+                binder_chain = next(r for r in ranges if r[0] == args.binder_chain)
+                binder_length = binder_chain[2] - binder_chain[1] + 1
+                print(f"[{binder_length}-{binder_length}/0 {target_contigs_str}]")
+            except StopIteration:
+                print(
+                    f"Error: Binder chain {args.binder_chain} not found in {args.pdb_file}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
         else:
-            # No binder chain specified, use all chains as targets
-            target_ranges = ranges
-            
-        if not target_ranges:
-            print(f"Error: No target chains found in {args.pdb_file}", file=sys.stderr)
-            sys.exit(1)
-        target_contigs = "/".join([f"{r[0]}{r[1]}-{r[2]}" for r in target_ranges])
+            print(f"[{target_contigs_str}/0]")
+        return
+
+    if args.binder_chain:
+        # Find target chain ranges (all non-binder chains)
+        target_ranges = [r for r in ranges if r[0] != args.binder_chain]
+    else:
+        # No binder chain specified, use all chains as targets
+        target_ranges = ranges
+
+    if not target_ranges:
+        print(f"Error: No target chains found in {args.pdb_file}", file=sys.stderr)
+        sys.exit(1)
+
+    # Group ranges by chain ID
+    chain_groups = defaultdict(list)
+    for chain_id, start, end in target_ranges:
+        chain_groups[chain_id].append(f"{chain_id}{start}-{end}")
+
+    # Format each chain group into a single slash-separated string, sorted by chain ID for consistency
+    formatted_chain_contigs = [
+        "/".join(chain_groups[chain_id]) for chain_id in sorted(chain_groups.keys())
+    ]
 
     # Construct final contigs string
     if args.binder_chain:
@@ -121,10 +146,12 @@ If a binder chain is specified, we return the length of the binder chain and the
             )
             sys.exit(1)
         binder_length = binder_chain[2] - binder_chain[1] + 1
-        print(f"[{binder_length}-{binder_length}/0 {target_contigs}]")
+        target_contigs_str = " ".join(formatted_chain_contigs)
+        print(f"[{binder_length}-{binder_length}/0 {target_contigs_str}]")
     else:
-        # No binder chain specified, just output the target contigs
-        print(f"[{target_contigs}/0]")
+        # No binder chain specified, output each chain group with a /0 suffix
+        target_contigs_parts = [f"{contig}/0" for contig in formatted_chain_contigs]
+        print(f"[{' '.join(target_contigs_parts)}]")
 
 
 if __name__ == "__main__":
