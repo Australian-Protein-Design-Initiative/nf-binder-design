@@ -44,8 +44,6 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
 
     # Rename the output file to include the design index
     for f in pdbs_tmp/*_dldesign_*.pdb; do
-        # base=\$(basename "\$f" .pdb | sed 's/_dldesign_0.*//')
-        # mv "\$f" "pdbs/\${base}_dldesign_mpnn${design_index}.pdb"
         base=\$(basename "\$f" .pdb)
         mv "\$f" "pdbs/\${base}_mpnn${design_index}.pdb"
     done

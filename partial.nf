@@ -20,19 +20,19 @@ nextflow run main.nf \
 
 // Default parameters
 params.input_pdb = false
-params.outdir = "results"
+params.outdir = 'results'
 
-params.design_name = "fuzzed_ppi"
-params.binder_chain = "A" // eg, our fixed target chain - usually A ?
+params.design_name = 'fuzzed_ppi'
+params.binder_chain = 'A' // eg, our fixed target chain - usually A ?
 params.target_contigs = 'auto' // 'auto' to detect from PDB, or eg "B10-110" for fixed target chain B, residues 10-110
 params.hotspot_res = false
 params.rfd_batch_size = 10
 params.rfd_n_partial_per_binder = 10
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
-params.rfd_config = "base"
+params.rfd_config = 'base'
 params.rfd_noise_scale = 0
 params.rfd_partial_T = 20 // Can be a single value or comma-separated list like "5,10,20"
-params.rfd_extra_args = ""
+params.rfd_extra_args = ''
 params.skip_renumber = false
 
 params.pmpnn_relax_cycles = 0
@@ -82,7 +82,7 @@ if (params.input_pdb == false) {
     ==================================================================
     🧬 PROTEIN BINDER DESIGN PIPELINE 🧬
     ==================================================================
-    
+
     Required arguments:
         --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
 
@@ -115,7 +115,7 @@ if (params.input_pdb == false) {
 
 include { RFDIFFUSION } from './modules/rfdiffusion'
 include { RFDIFFUSION_PARTIAL } from './modules/rfdiffusion_partial'
-include { SILENT_FROM_PDBS } from './modules/silentfrompdbs' 
+include { SILENT_FROM_PDBS } from './modules/silentfrompdbs'
 include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
 include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { GET_CONTIGS } from './modules/get_contigs'
@@ -129,7 +129,7 @@ workflow {
     ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
 
     if (!params.input_pdb) {
-        throw new Exception("--input_pdb must be provided")
+        throw new Exception('--input_pdb must be provided')
     }
 
     // File inputs - converted to value channels with .first()
@@ -149,27 +149,27 @@ workflow {
     if (params.skip_renumber) {
         // Skip renumbering and use input PDBs directly
         ch_preprocessed_pdb = ch_input_pdb
-        log.info "Skipping residue renumbering as --skip-renumber was set"
+        log.info 'Skipping residue renumbering as --skip-renumber was set'
     } else {
         // Warn about renumbering when using hotspot residues
         if (params.hotspot_res) {
-            log.warn "WARNING: Target residues will be renumbered starting at 1 - do your chosen hotspots account for this?"
+            log.warn 'WARNING: Target residues will be renumbered starting at 1 - do your chosen hotspots account for this?'
         } else {
-            log.warn "WARNING: No hotspots defined - binders will tend to drift from target"
+            log.warn 'WARNING: No hotspots defined - binders will tend to drift from target'
         }
 
         // Apply renumbering as normal
         ch_preprocessed_pdb = ch_input_pdb
-            .map { pdb -> [pdb, params.binder_chain] } 
+            .map { pdb -> [pdb, params.binder_chain] }
             | RENUMBER_RESIDUES
     }
 
     // Get contigs string for each input PDB
-    // NOTE/HACK: We hardcode 'A' here, since RENUMBER_RESIDUES always 
+    // NOTE/HACK: We hardcode 'A' here, since RENUMBER_RESIDUES always
     // makes the binder chain 'A'
     def binder_chain_for_contigs = params.skip_renumber ? params.binder_chain : 'A'
     ch_contigs = ch_preprocessed_pdb
-        .map { pdb -> [pdb, binder_chain_for_contigs]}
+        .map { pdb -> [pdb, binder_chain_for_contigs] }
         | GET_CONTIGS
 
     //ch_contigs.view()
@@ -203,7 +203,7 @@ workflow {
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T },  // Extract partial_T
         params.gpu_device
     )
-    ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs
+    ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs.flatten()
 
     // Convert PDBs to silent file
     // SILENT_FROM_PDBS(
@@ -213,7 +213,7 @@ workflow {
     // Create a channel that repeats each PDB params.pmpnn_seqs_per_struct times
     // and pairs it with an index from 0 to pmpnn_seqs_per_struct-1
     ch_pmpnn_inputs = ch_rfd_backbone_models
-        | combine(Channel.of(0..(params.pmpnn_seqs_per_struct-1)))
+        | combine(Channel.of(0..(params.pmpnn_seqs_per_struct - 1)))
 
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
     DL_BINDER_DESIGN_PROTEINMPNN(
@@ -237,4 +237,4 @@ workflow {
         AF2_INITIAL_GUESS.out.scores.collect(),
         AF2_INITIAL_GUESS.out.pdbs.collect()
     )
-} 
+}

@@ -133,7 +133,7 @@ workflow {
             ch_unique_id,
             params.gpu_device
         )
-        ch_rfd_backbone_models = RFDIFFUSION.out.pdbs
+        ch_rfd_backbone_models = RFDIFFUSION.out.pdbs.flatten()
     }
 
     // Create a channel that repeats each PDB params.pmpnn_seqs_per_struct times
