@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `--pmpnn_omit_aas` flag to exclude certain amino acids from designs (default 'CX')
+- `--rfd_compress_trajectories` flag to gzip RFDiffusion traj/*.pdb files (default `true`) 
 
 ## [0.1.2] - 2025-06-19
 

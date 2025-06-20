@@ -2,7 +2,7 @@ process RFDIFFUSION_PARTIAL {
     container "ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407"
     
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "pdbs/partial/*/*.pdb", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "traj/partial/*/*.pdb", mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: "traj/partial/*/*.pdb{,.gz}", mode: 'copy'
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "configs/partial/*/*/*.yaml", mode: 'copy'
     publishDir path: "${params.outdir}/rfdiffusion", pattern: "logs/partial/*/*/*.log", mode: 'copy'
 
@@ -19,7 +19,7 @@ process RFDIFFUSION_PARTIAL {
 
     output:
     path "pdbs/partial/*/*.pdb", emit: pdbs
-    path "traj/partial/*/*.pdb", emit: trajs
+    path "traj/partial/*/*.pdb{,.gz}", emit: trajs
     path "configs/partial/*/*/*.yaml", emit: configs
     path "logs/partial/*/*/*.log", emit: logs
     
@@ -68,6 +68,10 @@ process RFDIFFUSION_PARTIAL {
     mkdir -p pdbs/partial/${input_pdb.baseName} traj/partial/${input_pdb.baseName}
     mv outputs/*.pdb pdbs/partial/${input_pdb.baseName}/
     mv outputs/traj/*.pdb traj/partial/${input_pdb.baseName}/
+
+    if [[ ${params.rfd_compress_trajectories} == "true" ]]; then
+        gzip traj/partial/${input_pdb.baseName}/*.pdb || true
+    fi
 
     # Move configs and logs for nicer per-batch output
     mkdir -p configs/partial/${input_pdb.baseName}/${design_startnum}

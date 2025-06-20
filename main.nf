@@ -27,6 +27,7 @@ params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
 params.rfd_config = false // "base"
 params.rfd_noise_scale = 0
 params.rfd_extra_args = ''
+params.rfd_compress_trajectories = true
 
 params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
@@ -66,7 +67,7 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
         --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
         --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
         --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
-
+        --rfd_compress_trajectories Compress trajectories with gzip [default: ${params.rfd_compress_trajectories}]
         --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
         --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
         --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]

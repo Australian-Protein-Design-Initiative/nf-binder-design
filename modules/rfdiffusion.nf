@@ -2,7 +2,7 @@ process RFDIFFUSION {
     container 'ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407'
 
     publishDir path: "${params.outdir}/rfdiffusion", pattern: 'pdbs/*.pdb', mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'traj/*.pdb', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'traj/*.pdb{,.gz}', mode: 'copy'
     publishDir path: "${params.outdir}/rfdiffusion", pattern: 'configs/*/*.yaml', mode: 'copy'
     publishDir path: "${params.outdir}/rfdiffusion", pattern: 'logs/*/*.log', mode: 'copy'
 
@@ -19,7 +19,7 @@ process RFDIFFUSION {
 
     output:
     path 'pdbs/*.pdb', emit: pdbs
-    path 'traj/*.pdb', emit: trajs
+    path 'traj/*.pdb{,.gz}', emit: trajs
     path 'configs/*/*.yaml', emit: configs
     path 'logs/*/*.log', emit: logs
 
@@ -66,6 +66,10 @@ process RFDIFFUSION {
     mkdir -p pdbs
     mv outputs/*.pdb pdbs/
     mv outputs/traj .
+
+    if [[ ${params.rfd_compress_trajectories} == "true" ]]; then
+        gzip traj/*.pdb || true
+    fi
 
     # Move configs and logs for nicer per-batch output
     mkdir -p configs/${design_startnum}

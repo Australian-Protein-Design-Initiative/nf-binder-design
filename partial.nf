@@ -34,6 +34,7 @@ params.rfd_noise_scale = 0
 params.rfd_partial_T = 20 // Can be a single value or comma-separated list like "5,10,20"
 params.rfd_extra_args = ''
 params.skip_renumber = false
+params.rfd_compress_trajectories = true
 
 params.pmpnn_relax_cycles = 0
 params.pmpnn_seqs_per_struct = 1
@@ -101,6 +102,8 @@ if (params.input_pdb == false) {
         --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
         --rfd_partial_T       Number of timesteps to run partial diffusion for (lower = less diffusion)
                               Can be a single value or comma-separated list like "5,10,20,50" [default: ${params.rfd_partial_T}]
+        --rfd_compress_trajectories Compress trajectories with gzip [default: ${params.rfd_compress_trajectories}]
+        
         --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
         --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
         --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
