@@ -26,6 +26,9 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
     if (augment_eps) {
         pmpnn_extra_args += " -augment_eps ${augment_eps}"
     }
+    if (params.pmpnn_omit_aas) {
+        pmpnn_extra_args += " -omit_AAs ${params.pmpnn_omit_aas}"
+    }
 
     """
     # Ensure we don't use a GPU even if one is available

@@ -33,6 +33,7 @@ params.pmpnn_seqs_per_struct = 1
 params.pmpnn_weights = false
 params.pmpnn_temperature = 0.000001
 params.pmpnn_augment_eps = 0
+params.pmpnn_omit_aas = 'CX'
 
 params.af2ig_recycle = 3
 
@@ -65,11 +66,14 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
         --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
         --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
         --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
+
         --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
         --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
         --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
         --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
         --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
+        --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
+
         --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
         --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
         --gpu_device          GPU device to use [default: ${params.gpu_device}]
