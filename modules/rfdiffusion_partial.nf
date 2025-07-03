@@ -16,6 +16,7 @@ process RFDIFFUSION_PARTIAL {
     val design_startnum
     val unique_id
     val partial_T
+    val gpu_device
 
     output:
     path "pdbs/partial/*/*.pdb", emit: pdbs
@@ -38,6 +39,9 @@ process RFDIFFUSION_PARTIAL {
             exit 1
         fi
         nvidia-smi
+    fi
+    if [[ ${gpu_device} != "all" ]]; then
+        export CUDA_VISIBLE_DEVICES=${gpu_device}
     fi
 
     RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
