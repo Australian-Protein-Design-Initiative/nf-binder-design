@@ -43,10 +43,24 @@ params.pmpnn_temperature = 0.000001
 params.pmpnn_augment_eps = 0
 params.pmpnn_omit_aas = 'CX'
 
+params.max_rg = false
+params.rfd_filters = false
+
 params.af2ig_recycle = 3
 
 params.require_gpu = true
 params.gpu_device = 'all'
+
+include { RFDIFFUSION } from './modules/rfdiffusion'
+include { RFDIFFUSION_PARTIAL } from './modules/rfdiffusion_partial'
+include { SILENT_FROM_PDBS } from './modules/silentfrompdbs'
+include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
+include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
+include { GET_CONTIGS } from './modules/get_contigs'
+include { RENUMBER_RESIDUES } from './modules/renumber_residues'
+include { COMBINE_SCORES } from './modules/combine_scores'
+include { UNIQUE_ID } from './modules/unique_id'
+include { FILTER_DESIGNS } from './modules/filter_designs'
 
 // Validate numeric parameters
 def validate_numeric = { param_name, value ->
@@ -78,58 +92,49 @@ def partial_T_values = validate_rfd_partial_T(params.rfd_partial_T)
 validate_numeric('pmpnn_relax_cycles', params.pmpnn_relax_cycles)
 validate_numeric('pmpnn_seqs_per_struct', params.pmpnn_seqs_per_struct)
 
-// Show help message
-if (params.input_pdb == false) {
-    log.info"""
-    ==================================================================
-    🧬 PROTEIN BINDER DESIGN PIPELINE 🧬
-    ==================================================================
-
-    Required arguments:
-        --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
-
-    Optional arguments:
-        --outdir              Output directory [default: ${params.outdir}]
-        --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
-        --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
-        --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
-        --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
-        --skip_renumber       Skip the residue renumbering step [default: ${params.skip_renumber}]
-        --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
-        --rfd_n_partial_per_binder Number of partial diffused designs per binder [default: ${params.rfd_n_partial_per_binder}]
-        --rfd_model_path      Path to RFdiffusion model checkpoint file - you probaby don't want to set this manually [default: ${params.rfd_model_path}]
-        --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
-        --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
-        --rfd_partial_T       Number of timesteps to run partial diffusion for (lower = less diffusion)
-                              Can be a single value or comma-separated list like "5,10,20,50" [default: ${params.rfd_partial_T}]
-        --rfd_compress_trajectories Compress trajectories with gzip [default: ${params.rfd_compress_trajectories}]
-        
-        --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
-        --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
-        --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
-        --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
-        --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
-        --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
-
-        --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
-        --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
-        --gpu_device          GPU device to use [default: ${params.gpu_device}]
-
-    """.stripIndent()
-    exit 1
-}
-
-include { RFDIFFUSION } from './modules/rfdiffusion'
-include { RFDIFFUSION_PARTIAL } from './modules/rfdiffusion_partial'
-include { SILENT_FROM_PDBS } from './modules/silentfrompdbs'
-include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
-include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
-include { GET_CONTIGS } from './modules/get_contigs'
-include { RENUMBER_RESIDUES } from './modules/renumber_residues'
-include { COMBINE_SCORES } from './modules/combine_scores'
-include { UNIQUE_ID } from './modules/unique_id'
-
 workflow {
+    // Show help message
+    if (params.input_pdb == false) {
+        log.info"""
+        ==================================================================
+        🧬 PROTEIN BINDER DESIGN PIPELINE 🧬
+        ==================================================================
+
+        Required arguments:
+            --input_pdb           Input PDBs file for the binders to diffuse (* glob accepted)
+
+        Optional arguments:
+            --outdir              Output directory [default: ${params.outdir}]
+            --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
+            --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
+            --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
+            --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
+            --skip_renumber       Skip the residue renumbering step [default: ${params.skip_renumber}]
+            --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
+            --rfd_n_partial_per_binder Number of partial diffused designs per binder [default: ${params.rfd_n_partial_per_binder}]
+            --rfd_model_path      Path to RFdiffusion model checkpoint file - you probaby don't want to set this manually [default: ${params.rfd_model_path}]
+            --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
+            --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
+            --rfd_partial_T       Number of timesteps to run partial diffusion for (lower = less diffusion)
+                                Can be a single value or comma-separated list like "5,10,20,50" [default: ${params.rfd_partial_T}]
+            --rfd_compress_trajectories Compress trajectories with gzip [default: ${params.rfd_compress_trajectories}]
+
+            --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
+            --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
+            --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
+            --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
+            --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
+            --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
+            --rfd_filters         Semicolon-separated list of filters for RFDiffusion backbones, eg "rg<25;compactness>0.8" [default: disabled]
+
+            --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
+            --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+            --gpu_device          GPU device to use [default: ${params.gpu_device}]
+
+        """.stripIndent()
+        exit 1
+    }
+
     // Generate unique ID for this run
     UNIQUE_ID()
     ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
@@ -211,14 +216,20 @@ workflow {
     )
     ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs.flatten()
 
-    // Convert PDBs to silent file
-    // SILENT_FROM_PDBS(
-    //     RFDIFFUSION.out.pdbs.collect()
-    // )
+    if (params.rfd_filters) {
+        FILTER_DESIGNS(
+            ch_rfd_backbone_models,
+            params.rfd_filters,
+            binder_chain_for_contigs
+        )
+        ch_filtered_backbones = FILTER_DESIGNS.out.accepted
+    } else {
+        ch_filtered_backbones = ch_rfd_backbone_models
+    }
 
     // Create a channel that repeats each PDB params.pmpnn_seqs_per_struct times
     // and pairs it with an index from 0 to pmpnn_seqs_per_struct-1
-    ch_pmpnn_inputs = ch_rfd_backbone_models
+    ch_pmpnn_inputs = ch_filtered_backbones
         | combine(Channel.of(0..(params.pmpnn_seqs_per_struct - 1)))
 
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs

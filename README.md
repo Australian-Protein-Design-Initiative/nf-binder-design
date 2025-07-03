@@ -37,7 +37,7 @@ nextflow run main.nf \
 
 > If you are working on a specific cluster like M3 or MLeRP, you should omit `-profile local` and add the `-c` flag pointing to the specific platform config, eg `-c conf/platforms/m3.config` for M3.
 
-A more complex example, as a wrapper script for M3, using a the site-specific config for M3 (`-c`), a specific RFDiffusion model (``), a custom ProteinMPNN weights (`--pmpnn_weigths`) and radius of gyration potentials (`--rfd_extra_args`):
+A more complex example, as a wrapper script for the M3 HPC cluster, using a the site-specific config (`-c`), a specific RFDiffusion model (`--rfd_model_path`), a radius of gyration filter on the generated RFDiffusion backbones (`--rfd_filters`), custom ProteinMPNN weights (`--pmpnn_weigths`) and radius of gyration potentials (`--rfd_extra_args`):
 
 ```bash
 #!/bin/bash
@@ -65,6 +65,7 @@ ${WF_PATH}/main.nf  \
 --hotspot_res "[B472,B476,B484,B488]" \
 --rfd_n_designs=1000 \
 --rfd_batch_size=5 \
+--rfd_filters="rg<20" \
 --pmpnn_seqs_per_struct=2 \
 --pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
 --rfd_model_path="/models/rfdiffusion/Complex_beta_ckpt.pt" \
@@ -104,6 +105,28 @@ nextflow run partial.nf  \
     -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
     -profile local
 ```
+
+## Design filter plugin system
+
+The pipeline supports a plugin system for calculating and filtering on custom metrics for designs. This is currently controlled by the `--rfd_filters` parameter.
+
+Filters are simple Python scripts located in the `bin/filters.d/` directory. Any `*.py` file in this directory will be automatically discovered.
+
+Currently, only a radius of gyration (`rg`) filter is implemented in `bin/filters.d/rg.py`, which can be used as a template for creating new filters.
+
+### Plugin API
+
+A filter plugin must implement two functions:
+
+1.  `register_metrics() -> list[str]`
+    This function should return a list of the metric names (as strings) that the plugin can calculate. For example: `return ["rg", "my_custom_score"]`.
+
+2.  `calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -> pd.DataFrame`
+    This function takes a list of PDB file paths and a list of binder chain IDs. It should perform its calculations and return a `pandas.DataFrame` with the following structure:
+    *   The **index** of the DataFrame must be the design ID (i.e., the PDB filename without the `.pdb` extension).
+    *   The **columns** must correspond to the metric names returned by `register_metrics()`.
+
+The main `bin/filter_designs.py` script will call these plugins as needed based on the filter expressions provided to the pipeline (e.g., `--rfd_filters "rg<20"`).
 
 ## Boltz pulldown
 

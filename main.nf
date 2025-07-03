@@ -36,6 +36,9 @@ params.pmpnn_temperature = 0.000001
 params.pmpnn_augment_eps = 0
 params.pmpnn_omit_aas = 'CX'
 
+params.max_rg = false
+params.rfd_filters = false
+
 params.af2ig_recycle = 3
 
 params.require_gpu = true
@@ -58,22 +61,24 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
 
         --rfd_backbone_models Existing RFDiffusion backbone models - skips running RFDiffusion and uses these instead (glob accepted, eg 'results/rfdiffusion/pdbs/*.pdb)
 
-    Optional arguments:
-        --outdir              Output directory [default: ${params.outdir}]
-        --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
-        --contigs             Contig map for RFdiffusion [default: ${params.contigs}]
-        --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
-        --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
-        --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
-        --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
-        --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
-        --rfd_compress_trajectories Compress trajectories with gzip [default: ${params.rfd_compress_trajectories}]
-        --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
-        --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
-        --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
-        --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
-        --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
-        --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
+        Optional arguments:
+            --outdir              Output directory [default: ${params.outdir}]
+            --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
+            --contigs             Contig map for RFdiffusion [default: ${params.contigs}]
+            --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
+            --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
+            --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
+            --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
+            --rfd_config          'base', 'symmetry' or a path to a YAML file [default: ${params.rfd_config_name}]
+            --rfd_compress_trajectories Compress trajectories with gzip [default: ${params.rfd_compress_trajectories}]
+            --pmpnn_weights       Path to ProteinMPNN weights file (leave unset to use default weights) [default: ${params.pmpnn_weights}]
+            --pmpnn_temperature   Temperature for ProteinMPNN [default: ${params.pmpnn_temperature}]
+            --pmpnn_augment_eps   Variance of random noise to add to the atomic coordinates ProteinMPNN [default: ${params.pmpnn_augment_eps}]
+            --pmpnn_relax_cycles  Number of relax cycles for ProteinMPNN [default: ${params.pmpnn_relax_cycles}]
+            --pmpnn_seqs_per_struct Number of sequences per structure for ProteinMPNN [default: ${params.pmpnn_seqs_per_struct}]
+            --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
+            --max_rg              Maximum radius of gyration for backbone filtering [default: disabled]
+            --rfd_filters         Semicolon-separated list of filters for RFDiffusion backbones, eg "rg<25;compactness>0.8" [default: disabled]
 
         --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
         --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
@@ -89,6 +94,7 @@ include { DL_BINDER_DESIGN_PROTEINMPNN } from './modules/dl_binder_design'
 include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { COMBINE_SCORES } from './modules/combine_scores'
 include { UNIQUE_ID } from './modules/unique_id'
+include { FILTER_DESIGNS } from './modules/filter_designs'
 
 workflow {
     // Generate unique ID for this run
@@ -141,9 +147,20 @@ workflow {
         ch_rfd_backbone_models = RFDIFFUSION.out.pdbs.flatten()
     }
 
+    if (params.rfd_filters) {
+        FILTER_DESIGNS(
+            ch_rfd_backbone_models,
+            params.rfd_filters,
+            'A' // binder_chain is always "A" for RFDiffusion binder design
+        )
+        ch_filtered_backbones = FILTER_DESIGNS.out.accepted
+    } else {
+        ch_filtered_backbones = ch_rfd_backbone_models
+    }
+
     // Create a channel that repeats each PDB params.pmpnn_seqs_per_struct times
     // and pairs it with an index from 0 to pmpnn_seqs_per_struct-1
-    ch_pmpnn_inputs = ch_rfd_backbone_models
+    ch_pmpnn_inputs = ch_filtered_backbones
         | combine(Channel.of(0..(params.pmpnn_seqs_per_struct - 1)))
 
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
