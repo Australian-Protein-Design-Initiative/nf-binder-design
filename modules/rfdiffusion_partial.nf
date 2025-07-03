@@ -1,10 +1,10 @@
 process RFDIFFUSION_PARTIAL {
-    container "ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407"
-    
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "pdbs/partial/*/*.pdb", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "traj/partial/*/*.pdb{,.gz}", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "configs/partial/*/*/*.yaml", mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: "logs/partial/*/*/*.log", mode: 'copy'
+    container 'ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407'
+
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'pdbs/partial/*/*.pdb', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'traj/partial/*/*.pdb{,.gz}', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'configs/partial/*/*/*.yaml', mode: 'copy'
+    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'logs/partial/*/*/*.log', mode: 'copy'
 
     input:
     path rfd_config_name
@@ -19,18 +19,18 @@ process RFDIFFUSION_PARTIAL {
     val gpu_device
 
     output:
-    path "pdbs/partial/*/*.pdb", emit: pdbs
-    path "traj/partial/*/*.pdb{,.gz}", emit: trajs
-    path "configs/partial/*/*/*.yaml", emit: configs
-    path "logs/partial/*/*/*.log", emit: logs
-    
+    path 'pdbs/partial/*/*.pdb', emit: pdbs
+    path 'traj/partial/*/*.pdb{,.gz}', emit: trajs
+    path 'configs/partial/*/*/*.yaml', emit: configs
+    path 'logs/partial/*/*/*.log', emit: logs
+
     script:
-    // we replace all '.' characters with '_' in the output name to avoid filename collisions 
+    // we replace all '.' characters with '_' in the output name to avoid filename collisions
     // downstream, since af2_initial_guess splits on the first '.'
     def outname = "${input_pdb.baseName}_partial_T${partial_T}".replaceAll('\\.', '_')
-    
-    def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ""
-    def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ""
+
+    def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ''
+    def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ''
 
     """
     if [[ ${params.require_gpu} == "true" ]]; then
@@ -45,7 +45,7 @@ process RFDIFFUSION_PARTIAL {
     fi
 
     RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
-    
+
     mkdir -p schedules
 
     # TODO: if rfd_config is a path to a .yml or .yaml file, use --config-path
@@ -66,7 +66,7 @@ process RFDIFFUSION_PARTIAL {
         inference.schedule_directory_path=\$(pwd)/schedules \
         ${rfd_model_path_arg} \
         ${params.rfd_extra_args}
-    
+
     # inference.model_directory_path=models
 
     mkdir -p pdbs/partial/${input_pdb.baseName} traj/partial/${input_pdb.baseName}
@@ -83,4 +83,4 @@ process RFDIFFUSION_PARTIAL {
     mkdir -p logs/partial/${input_pdb.baseName}/${design_startnum}/
     mv outputs/*/*/*.log logs/partial/${input_pdb.baseName}/${design_startnum}/
     """
-} 
+}
