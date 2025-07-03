@@ -1,15 +1,17 @@
 process FILTER_DESIGNS {
-    tag "Filtering ${pdb.name}"
+    tag "filter_${pdb.name}"
+
     container 'ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0'
 
-    publishDir "${params.outdir}/filtering/backbones/scores", mode: 'copy', pattern: '*.scores.tsv'
-    publishDir "${params.outdir}/filtering/backbones/accepted", mode: 'copy', pattern: 'accepted/*.pdb'
-    publishDir "${params.outdir}/filtering/backbones/rejected", mode: 'copy', pattern: 'rejected/*.pdb'
+    publishDir "${params.outdir}/filtering/${step}/scores", mode: 'copy', pattern: '*.scores.tsv'
+    publishDir "${params.outdir}/filtering/${step}/accepted", mode: 'copy', pattern: 'accepted/*.pdb'
+    publishDir "${params.outdir}/filtering/${step}/rejected", mode: 'copy', pattern: 'rejected/*.pdb'
 
     input:
     path pdb
     val filters
     val binder_chains
+    val step
 
     output:
     path "accepted/${pdb.name}", emit: accepted, optional: true

@@ -151,7 +151,8 @@ workflow {
         FILTER_DESIGNS(
             ch_rfd_backbone_models,
             params.rfd_filters,
-            'A' // binder_chain is always "A" for RFDiffusion binder design
+            'A',          // binder_chain is always "A" for RFDiffusion binder design
+            'rfdiffusion' // step name
         )
         ch_filtered_backbones = FILTER_DESIGNS.out.accepted
     } else {

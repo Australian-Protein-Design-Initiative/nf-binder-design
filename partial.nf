@@ -220,7 +220,8 @@ workflow {
         FILTER_DESIGNS(
             ch_rfd_backbone_models,
             params.rfd_filters,
-            binder_chain_for_contigs
+            binder_chain_for_contigs,
+            'rfdiffusion'  // step name
         )
         ch_filtered_backbones = FILTER_DESIGNS.out.accepted
     } else {
