@@ -95,6 +95,7 @@ include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { COMBINE_SCORES } from './modules/combine_scores'
 include { UNIQUE_ID } from './modules/unique_id'
 include { FILTER_DESIGNS } from './modules/filter_designs'
+include { BINDCRAFT_SCORING } from './modules/bindcraft_scoring'
 
 workflow {
     // Generate unique ID for this run
@@ -181,9 +182,22 @@ workflow {
         params.gpu_device
     )
 
+    BINDCRAFT_SCORING(
+        AF2_INITIAL_GUESS.out.pdbs,
+        'A',
+        'default_4stage_multimer'
+    )
+
+    extra_scores = BINDCRAFT_SCORING.out.scores.collectFile(
+        name: 'extra_scores.tsv',
+        storeDir: "${params.outdir}",
+        keepHeader: true,
+        skip: 1)
+
     // Combine all the score files into a single TSV file
     COMBINE_SCORES(
         AF2_INITIAL_GUESS.out.scores.collect(),
+        extra_scores,
         AF2_INITIAL_GUESS.out.pdbs.collect()
     )
 }
