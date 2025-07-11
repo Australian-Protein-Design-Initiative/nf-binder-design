@@ -70,6 +70,7 @@ def merge_scores(
     strip_suffix: str,
     output_file: Union[str, TextIO, None] = None,
     sort_by: str = "pae_interaction",
+    first_column: str = "filename",
     verbose: bool = False,
 ) -> pd.DataFrame:
     """
@@ -109,6 +110,57 @@ def merge_scores(
     # Drop the temporary matching column
     merged_df = merged_df.drop(columns=["_merge_key"])
 
+    # --- Deduplicate columns with the same base name if their values are identical ---
+    def deduplicate_columns(df):
+        from collections import defaultdict
+
+        # Find columns with suffixes (_x, _y, _z, ...)
+        col_map = defaultdict(list)
+        for col in df.columns:
+            if col.endswith(
+                tuple([f"_{chr(i)}" for i in range(120, 123)])
+            ):  # _x, _y, _z
+                base = col[:-2]
+                col_map[base].append(col)
+        # Also check for more than 3 (e.g., _w, _v, ...)
+        for col in df.columns:
+            if len(col) > 2 and col[-2] == "_" and col[-1].isalpha():
+                base = col[:-2]
+                col_map[base].append(col)
+        # Remove duplicates in col_map
+        for base in list(col_map.keys()):
+            col_map[base] = list(set(col_map[base]))
+            if len(col_map[base]) < 2:
+                del col_map[base]
+        # For each set of duplicate columns
+        for base, cols in col_map.items():
+            # Add the base column if it exists (no suffix)
+            if base in df.columns:
+                cols = [base] + cols
+            # Compare all columns
+            arrays = [df[c] for c in cols]
+            all_equal = True
+            for i in range(1, len(arrays)):
+                # Use pandas equals for robust comparison (handles NaN)
+                if not arrays[0].equals(arrays[i]):
+                    all_equal = False
+                    break
+            if all_equal:
+                # Keep only one column (the base if present, else the first suffixed)
+                keep_col = base if base in df.columns else cols[0]
+                df[base] = df[keep_col]
+                for c in cols:
+                    if c != base:
+                        df.drop(columns=[c], inplace=True, errors="ignore")
+            else:
+                logger.warning(
+                    f"Duplicate column name '{base}' found with differing values. Keeping all with suffixes."
+                )
+        return df
+
+    merged_df = deduplicate_columns(merged_df)
+    # --- End deduplication logic ---
+
     # Sort the merged dataframe
     if sort_by in merged_df.columns:
         logger.info(f"Sorting merged dataframe by {sort_by}")
@@ -119,6 +171,17 @@ def merge_scores(
     else:
         logger.warning(
             f"Sort key '{sort_by}' not found in merged dataframe. Skipping sorting."
+        )
+
+    # Ensure 'filename' is the first column if present
+    if first_column in merged_df.columns:
+        cols = [first_column] + [
+            col for col in merged_df.columns if col != first_column
+        ]
+        merged_df = merged_df[cols]
+    else:
+        logger.warning(
+            f"First column '{first_column}' not found in merged dataframe. Skipping."
         )
 
     # Write to output file if specified
@@ -162,6 +225,11 @@ def parse_args():
         help='Column name to sort the merged DataFrame by (default: "pae_interaction")',
     )
     parser.add_argument(
+        "--first-column",
+        default="filename",
+        help='Column name to move to the first position in the output (default: "filename")',
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
     return parser.parse_args()
@@ -175,6 +243,7 @@ if __name__ == "__main__":
         args.strip_suffix,
         args.output,
         args.sort_by,
+        args.first_column,
         args.verbose,
     )
     logger.info("Completed successfully")
