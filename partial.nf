@@ -61,6 +61,7 @@ include { RENUMBER_RESIDUES } from './modules/renumber_residues'
 include { COMBINE_SCORES } from './modules/combine_scores'
 include { UNIQUE_ID } from './modules/unique_id'
 include { FILTER_DESIGNS } from './modules/filter_designs'
+include { BINDCRAFT_SCORING } from './modules/bindcraft_scoring.nf'
 
 // Validate numeric parameters
 def validate_numeric = { param_name, value ->
@@ -250,9 +251,23 @@ workflow {
         params.gpu_device
     )
 
+    BINDCRAFT_SCORING(
+        AF2_INITIAL_GUESS.out.pdbs,
+        binder_chain_for_contigs,
+        'default_4stage_multimer'
+    )
+
+    extra_scores = BINDCRAFT_SCORING.out.scores.collectFile(
+        name: 'extra_scores.tsv',
+        storeDir: "${params.outdir}",
+        keepHeader: true,
+        skip: 1)
+
+
     // Combine all the score files into a single TSV file
     COMBINE_SCORES(
         AF2_INITIAL_GUESS.out.scores.collect(),
+        extra_scores,
         AF2_INITIAL_GUESS.out.pdbs.collect()
     )
 }
