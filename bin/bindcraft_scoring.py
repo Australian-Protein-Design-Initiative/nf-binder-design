@@ -104,20 +104,45 @@ three_to_one_map = {
 
 
 # identify interacting residues at the binder interface
-def interface_residues(trajectory_pdb, binder_chain="A", atom_distance_cutoff=4.0):
+def interface_residues(
+    trajectory_pdb, binder_chain="A", target_chains_str="", atom_distance_cutoff=4.0
+):
     # Parse the PDB file
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("complex", trajectory_pdb)
+    model = structure[0]
 
-    # Get the specified chain
-    binder_atoms = Selection.unfold_entities(structure[0][binder_chain], "A")
+    # Check if binder chain exists
+    if binder_chain not in model:
+        logging.warning(
+            f"Binder chain '{binder_chain}' not found in '{trajectory_pdb}'. Cannot determine interface residues."
+        )
+        return {}
+
+    # Get the specified chain's atoms
+    binder_atoms = Selection.unfold_entities(model[binder_chain], "A")
     binder_coords = np.array([atom.coord for atom in binder_atoms])
 
-    # Get atoms and coords for the target chain
-    target_atoms = Selection.unfold_entities(structure[0]["A"], "A")
+    # Get atoms for the target chains
+    target_atoms = []
+    if target_chains_str:
+        target_chain_ids = target_chains_str.split(",")
+        for chain_id in target_chain_ids:
+            if chain_id in model:
+                target_atoms.extend(Selection.unfold_entities(model[chain_id], "A"))
+            else:
+                logging.warning(
+                    f"Target chain '{chain_id}' not found in '{trajectory_pdb}'."
+                )
+
+    if not target_atoms:
+        logging.warning(
+            f"No target atoms found in '{trajectory_pdb}' for chains '{target_chains_str}'."
+        )
+        return {}
     target_coords = np.array([atom.coord for atom in target_atoms])
 
-    # Build KD trees for both chains
+    # Build KD trees for both sets of atoms
     binder_tree = cKDTree(binder_coords)
     target_tree = cKDTree(target_coords)
 
@@ -143,13 +168,20 @@ def interface_residues(trajectory_pdb, binder_chain="A", atom_distance_cutoff=4.
 
 
 # Rosetta interface scores
-def score_interface(pdb_file, binder_chain="A"):
+def score_interface(pdb_file, binder_chain="A", target_chains_str=""):
     # load pose
     pose = pr.pose_from_pdb(pdb_file)
 
     # analyze interface statistics
     iam = InterfaceAnalyzerMover()
-    iam.set_interface("A_B")
+    if target_chains_str:
+        interface_str = f"{binder_chain}_{'_'.join(target_chains_str.split(','))}"
+        iam.set_interface(interface_str)
+    else:
+        logging.warning("No target chains provided for interface scoring.")
+        # Fallback or default behavior if needed, e.g., iam.set_interface("A_B")
+        # For now, we'll just log and the mover might fail or do nothing.
+
     scorefxn = pr.get_fa_scorefxn()
     iam.set_scorefunction(scorefxn)
     iam.set_compute_packstat(True)
@@ -164,7 +196,9 @@ def score_interface(pdb_file, binder_chain="A"):
     interface_AA = {aa: 0 for aa in "ACDEFGHIKLMNPQRSTVWY"}
 
     # Initialize list to store PDB residue IDs at the interface
-    interface_residues_set = interface_residues(pdb_file, binder_chain)
+    interface_residues_set = interface_residues(
+        pdb_file, binder_chain, target_chains_str=target_chains_str
+    )
     interface_residues_pdb_ids = []
 
     # Iterate over the interface residues
@@ -471,44 +505,77 @@ def validate_design_sequence(sequence, num_clashes, omit_AAs):
 
 
 # temporary function, calculate RMSD of input PDB and trajectory target
-def target_pdb_rmsd(trajectory_pdb, starting_pdb, chain_ids_string):
+def target_pdb_rmsd(
+    trajectory_pdb,
+    trajectory_target_chains_string,
+    reference_pdb,
+    reference_target_chains_string,
+):
     # Parse the PDB files
     parser = PDBParser(QUIET=True)
     structure_trajectory = parser.get_structure("trajectory", trajectory_pdb)
-    structure_starting = parser.get_structure("starting", starting_pdb)
+    structure_reference = parser.get_structure("reference", reference_pdb)
 
-    # Extract chain A from trajectory_pdb
-    chain_trajectory = structure_trajectory[0]["A"]
+    # Extract residues from specified chains in the reference PDB
+    reference_chain_ids = reference_target_chains_string.split(",")
+    residues_reference = []
+    model_reference = structure_reference[0]
+    for chain_id in map(str.strip, reference_chain_ids):
+        if chain_id in model_reference:
+            for residue in model_reference[chain_id]:
+                if is_aa(residue, standard=True):
+                    residues_reference.append(residue)
+        else:
+            logging.warning(
+                f"Chain '{chain_id}' not found in reference PDB '{reference_pdb}'"
+            )
 
-    # Extract the specified chains from starting_pdb
-    chain_ids = chain_ids_string.split(",")
-    residues_starting = []
-    for chain_id in chain_ids:
-        chain_id = chain_id.strip()
-        chain = structure_starting[0][chain_id]
-        for residue in chain:
-            if is_aa(residue, standard=True):
-                residues_starting.append(residue)
+    # Extract residues from specified chains in the trajectory PDB
+    trajectory_chain_ids = trajectory_target_chains_string.split(",")
+    residues_trajectory = []
+    model_trajectory = structure_trajectory[0]
+    for chain_id in map(str.strip, trajectory_chain_ids):
+        if chain_id in model_trajectory:
+            for residue in model_trajectory[chain_id]:
+                if is_aa(residue, standard=True):
+                    residues_trajectory.append(residue)
+        else:
+            logging.warning(
+                f"Chain '{chain_id}' not found in trajectory PDB '{trajectory_pdb}'"
+            )
 
-    # Extract residues from chain A in trajectory_pdb
-    residues_trajectory = [
-        residue for residue in chain_trajectory if is_aa(residue, standard=True)
-    ]
+    if not residues_reference or not residues_trajectory:
+        logging.warning(
+            "Could not calculate target RMSD due to missing chains or residues."
+        )
+        return 0.0
 
-    # Ensure that both structures have the same number of residues
-    min_length = min(len(residues_starting), len(residues_trajectory))
-    residues_starting = residues_starting[:min_length]
+    # Ensure that both structures have the same number of residues for comparison
+    min_length = min(len(residues_reference), len(residues_trajectory))
+    residues_reference = residues_reference[:min_length]
     residues_trajectory = residues_trajectory[:min_length]
 
     # Collect CA atoms from the two sets of residues
-    atoms_starting = [residue["CA"] for residue in residues_starting if "CA" in residue]
+    atoms_reference = [
+        residue["CA"] for residue in residues_reference if "CA" in residue
+    ]
     atoms_trajectory = [
         residue["CA"] for residue in residues_trajectory if "CA" in residue
     ]
 
+    if (
+        not atoms_reference
+        or not atoms_trajectory
+        or len(atoms_reference) != len(atoms_trajectory)
+    ):
+        logging.warning(
+            "Cannot calculate RMSD due to missing C-alpha atoms or unequal lengths."
+        )
+        return 0.0
+
     # Calculate RMSD using structural alignment
     sup = Superimposer()
-    sup.set_atoms(atoms_starting, atoms_trajectory)
+    sup.set_atoms(atoms_reference, atoms_trajectory)
     rmsd = sup.rms
 
     return round(rmsd, 2)
@@ -561,7 +628,9 @@ def calculate_clash_score(pdb_file, threshold=2.4, only_ca=False):
 
 
 # calculate secondary structure percentage of design
-def calc_ss_percentage(pdb_file, dssp_path, chain_id="B", atom_distance_cutoff=4.0):
+def calc_ss_percentage(
+    pdb_file, dssp_path, chain_id="B", target_chains_str="", atom_distance_cutoff=4.0
+):
     # Parse the structure
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure("protein", pdb_file)
@@ -581,7 +650,9 @@ def calc_ss_percentage(pdb_file, dssp_path, chain_id="B", atom_distance_cutoff=4
     # Get chain and interacting residues once
     chain = model[chain_id]
     interacting_residues = set(
-        interface_residues(pdb_file, chain_id, atom_distance_cutoff).keys()
+        interface_residues(
+            pdb_file, chain_id, target_chains_str, atom_distance_cutoff
+        ).keys()
     )
 
     for residue in chain:
@@ -648,7 +719,12 @@ def calculate_percentages(total, helix, sheet):
 #                                     use_initial_atom_pos=True)
 # to get the ipTM ? (possibly instead of af2_initial_guess ?)
 def score_pdb(
-    pdb_file, binder_chain, dssp_path, omit_aas, reference_pdb=None, target_chains=None
+    pdb_file,
+    binder_chain,
+    dssp_path,
+    omit_aas,
+    reference_pdb=None,
+    reference_target_chains=None,
 ):
     """
     Calculates a comprehensive set of scores for a given binder-target PDB file.
@@ -666,6 +742,13 @@ def score_pdb(
     logging.info(f"Relaxing {pdb_file}...")
     pr_relax(pdb_file, relaxed_pdb_path)
 
+    # Determine target chains in the relaxed model, to be used by other functions
+    parser = PDBParser(QUIET=True)
+    structure = parser.get_structure("model", relaxed_pdb_path)
+    model_chains = [c.id for c in structure[0]]
+    model_target_chains_list = [c for c in model_chains if c != binder_chain]
+    model_target_chains_str = ",".join(model_target_chains_list)
+
     # 2. Calculate clash scores
     logging.info("Calculating clash scores...")
     scores["unrelaxed_clashes"] = calculate_clash_score(pdb_file)
@@ -674,7 +757,7 @@ def score_pdb(
     # 3. Score the interface
     logging.info("Scoring interface...")
     interface_scores, interface_AA, interface_residues_str = score_interface(
-        relaxed_pdb_path, binder_chain
+        relaxed_pdb_path, binder_chain, target_chains_str=model_target_chains_str
     )
     scores.update(interface_scores)
     scores["interface_AAs"] = interface_AA
@@ -682,7 +765,12 @@ def score_pdb(
 
     # 4. Calculate secondary structure
     logging.info("Calculating secondary structure...")
-    ss_metrics = calc_ss_percentage(relaxed_pdb_path, dssp_path, binder_chain)
+    ss_metrics = calc_ss_percentage(
+        relaxed_pdb_path,
+        dssp_path,
+        binder_chain,
+        target_chains_str=model_target_chains_str,
+    )
     (
         scores["binder_helix%"],
         scores["binder_betasheet%"],
@@ -700,10 +788,18 @@ def score_pdb(
         scores["hotspot_rmsd"] = unaligned_rmsd(
             reference_pdb, relaxed_pdb_path, binder_chain, binder_chain
         )
-        if target_chains:
-            scores["target_rmsd"] = target_pdb_rmsd(
-                relaxed_pdb_path, reference_pdb, target_chains
-            )
+        if reference_target_chains:
+            if model_target_chains_str:
+                scores["target_rmsd"] = target_pdb_rmsd(
+                    trajectory_pdb=relaxed_pdb_path,
+                    trajectory_target_chains_string=model_target_chains_str,
+                    reference_pdb=reference_pdb,
+                    reference_target_chains_string=reference_target_chains,
+                )
+            else:
+                logging.warning(
+                    f"No target chains found in {relaxed_pdb_path} to calculate RMSD against."
+                )
 
     # 6. Analyze the sequence
     logging.info("Analyzing sequence...")
@@ -841,7 +937,7 @@ if __name__ == "__main__":
             dssp_path=dssp_path,
             omit_aas=args.omit_aas,
             reference_pdb=args.reference_pdb,
-            target_chains=args.target_chains,
+            reference_target_chains=args.target_chains,
         )
         results.append(OrderedDict([("filename", pdb_file), ("scores", scores)]))
 
