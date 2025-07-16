@@ -9,16 +9,15 @@ process BOLTZ {
     val gpu_device
 
     output:
-    path ("boltz_results_${meta.id}"), emit: results
+    path("boltz_results_${meta.id}"), emit: results
     tuple val(meta), path("boltz_results_${meta.id}/predictions/${meta.id}/confidence_${meta.id}_model_0.json"), emit: confidence_json
 
     script:
-    def use_msa_server_flag = params.use_msa_server ? "--use_msa_server" : ""
+    def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
     def args = task.ext.args ?: ''
+    def cuda_visible_devices = (gpu_device && gpu_device != 'all') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
     """
-    if [[ ${gpu_device} != "all" ]]; then
-        export CUDA_VISIBLE_DEVICES=${gpu_device}
-    fi
+    ${cuda_visible_devices}
 
     # Boltz model weights are stored in our container
     export BOLTZ_CACHE=/app/boltz/cache
@@ -134,5 +133,4 @@ process BOLTZ {
                                     triangular updates. Default False
     --help                          Show this message and exit.
 */
-
 }

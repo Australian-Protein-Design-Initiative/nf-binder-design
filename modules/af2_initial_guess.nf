@@ -12,12 +12,11 @@ process AF2_INITIAL_GUESS {
     path 'scores/*.cs', emit: scores
 
     script:
+    def cuda_visible_devices = (gpu_device && gpu_device != 'all') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
     """
     mkdir -p scores/
 
-    if [[ ${gpu_device} != "all" ]]; then
-        export CUDA_VISIBLE_DEVICES=${gpu_device}
-    fi
+    ${cuda_visible_devices}
 
     # Get first input PDB filename without extension
     PREFIX=\$(ls input/*.pdb | head -n1 | xargs basename | sed 's/\\.pdb\$//')

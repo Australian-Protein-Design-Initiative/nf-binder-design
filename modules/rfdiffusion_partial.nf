@@ -31,6 +31,7 @@ process RFDIFFUSION_PARTIAL {
 
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ''
     def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ''
+    def cuda_visible_devices = (gpu_device && gpu_device != 'all') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
 
     """
     if [[ ${params.require_gpu} == "true" ]]; then
@@ -40,9 +41,7 @@ process RFDIFFUSION_PARTIAL {
         fi
         nvidia-smi
     fi
-    if [[ ${gpu_device} != "all" ]]; then
-        export CUDA_VISIBLE_DEVICES=${gpu_device}
-    fi
+    ${cuda_visible_devices}
 
     RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
 
