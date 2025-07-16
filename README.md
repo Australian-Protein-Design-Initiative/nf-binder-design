@@ -1,6 +1,13 @@
 # nf-binder-design
 
-> RFDiffusion -> ProteinMPNN -> AlphaFold2 initial guess
+Nextflow pipelines for de novo protein binder design.
+
+- RFDiffusion -> ProteinMPNN -> AlphaFold2 initial guess
+- RFDiffusion Partial Diffusion
+- BindCraft (in parallel across multiple GPUs)
+- "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
+
+> Note well: Components of these workflows use RFDiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use, however commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
 
 ## Setup
 
@@ -12,9 +19,7 @@ Clone the git repository:
 git clone https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
 ```
 
-> We use Apptainer containers by default. If the https://github.com/Australian-Protein-Design-Initiative/containers repo is not yet public, you'll need to provide your own containers or software installation.
-
-## Binder design
+## Binder design with RFDiffusion
 
 Example:
 
@@ -128,6 +133,72 @@ A filter plugin must implement two functions:
 
 The main `bin/filter_designs.py` script will call these plugins as needed based on the filter expressions provided to the pipeline (e.g., `--rfd_filters "rg<20"`).
 
+## Binder design with BindCraft
+
+The `bindcraft.nf` helps run [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs.
+This is particularly well suited for running BindCraft on an HPC cluster, or a workstation with multiple GPUs.
+
+Unlike the default BindCraft configuration which runs for an indeterminate amount of time until a number of accepted designs are found,
+this pipeline will run a fixed number of trajectories `--bindcraft_n_designs` and stop.
+
+Example:
+
+```bash
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+nextflow run bindcraft.nf  \
+  --input_pdb 'input/PDL1.pdb' \
+  --outdir results \
+  --target_chains "A" \
+  --hotspot_res "A56" \
+  --binder_length_range "55-120" \
+  --bindcraft_n_designs 2 \
+  --bindcraft_batch_size 1 \
+  --bindcraft_advanced_settings_preset "default_4stage_multimer" \
+  -profile local \
+  -resume \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt
+```
+
+If you have multiple GPUs per compute node, you can specify them with the `--gpu_devices` flag, eg `--gpu_devices=0,1`.
+
+Results are saved to the `--outdir` directory, in the `bindcraft` subdirectory, with CSV outputs from each batch combined into single tables, eg `bindcraft/final_design_stats.csv`, eg:
+
+```
+── bindcraft
+│   ├── accepted
+│   │   └── results
+│   │       └── Accepted
+│   │           ├── bindcraft_design_1_l57_s942028_mpnn6_model1.pdb
+│   │           └── bindcraft_design_1_l57_s942028_mpnn8_model2.pdb
+│   ├── batches
+│   │   ├── 0
+│   │   │   └── results
+│   │   │       ├── failure_csv.csv
+│   │   │       ├── final_design_stats.csv
+│   │   │       ├── mpnn_design_stats.csv
+│   │   │       ├── Trajectory
+│   │   │       └── trajectory_stats.csv
+│   │   └── 1
+│   │       └── results
+│   │           ├── Accepted
+│   │           ├── failure_csv.csv
+│   │           ├── final_design_stats.csv
+│   │           ├── MPNN
+│   │           ├── mpnn_design_stats.csv
+│   │           ├── Rejected
+│   │           ├── Trajectory
+│   │           └── trajectory_stats.csv
+│   ├── failure_stats_summed.csv
+│   ├── final_design_stats.csv
+│   ├── mpnn_design_stats.csv
+│   └── trajectory_stats.csv
+└── logs
+    ├── report_20250725_084959.html
+    ├── trace_20250725_084959.txt
+```
+
 ## Boltz pulldown
 
 An [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown)-like protocol, using [Boltz](https://github.com/jwohlwend/boltz). This is essentially running multimer predictions for all sequences in the target set (`--targets targets.fasta`) against all sequences in the binder set (`--binders binders.fasta`).
@@ -162,4 +233,4 @@ By default, `boltz_pulldown.nf` will output to `results/boltz_pulldown`, which i
 
 MIT
 
-> Note that some software dependencies of the pipeline are under less permissive licenses - in particular, components that use [Rosetta/PyRosetta](https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md) are only free for Non-Commercial use.
+> Note that some software dependencies of the pipeline are under less permissive licenses - in particular, RFDiffusion and BindCraft use [Rosetta/PyRosetta](https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md) which is **only free for Non-Commercial use**.
