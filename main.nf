@@ -42,7 +42,8 @@ params.rfd_filters = false
 params.af2ig_recycle = 3
 
 params.require_gpu = true
-params.gpu_device = 'all'
+params.gpu_devices = ''
+params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
 
 // Set to a path of existing RFDiffusion backbone models, skips running RFDiffusion
 params.rfd_backbone_models = false
@@ -82,7 +83,8 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
 
         --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
         --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
-        --gpu_device          GPU device to use [default: ${params.gpu_device}]
+        --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
+        --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
 
     """.stripIndent()
     exit 1
@@ -142,8 +144,7 @@ workflow {
             params.hotspot_res,
             params.rfd_batch_size,
             ch_rfd_startnum,
-            ch_unique_id,
-            params.gpu_device
+            ch_unique_id
         )
         ch_rfd_backbone_models = RFDIFFUSION.out.pdbs.flatten()
     }
@@ -178,8 +179,7 @@ workflow {
 
     // Run AF2 initial guess to build/refine sidechains for compatible sequence
     AF2_INITIAL_GUESS(
-        DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs,
-        params.gpu_device
+        DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
     )
 
     BINDCRAFT_SCORING(

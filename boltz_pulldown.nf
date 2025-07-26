@@ -11,7 +11,8 @@ params.create_binder_msa = false
 params.create_target_msa = false
 params.templates = false
 
-params.gpu_device = 'all'
+params.gpu_devices = ''
+params.gpu_allocation_detect_process_regex = "(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)"
 
 include { BOLTZ } from './modules/boltz'
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
@@ -145,7 +146,8 @@ workflow {
             --uniref30            UniRef30 database path [default: ${params.uniref30}]
             --colabfold_envdb     ColabFold environment database path [default: ${params.colabfold_envdb}]
 
-            --gpu_device          GPU device to use [default: ${params.gpu_device}]
+            --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
+            --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
         """.stripIndent()
         )
         exit(1)
@@ -196,7 +198,7 @@ workflow {
 
     CREATE_BOLTZ_YAML(ch_pairs, file(params.templates))
 
-    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates), params.gpu_device)
+    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates))
 
     // BOLTZ.out.confidence_json.view { meta, json ->
     //     "Finshed: ${meta.target} + ${meta.binder}"

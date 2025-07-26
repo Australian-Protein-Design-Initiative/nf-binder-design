@@ -6,7 +6,6 @@ process BOLTZ {
     input:
     tuple val(meta), path(yaml_file), path(target_msa), path(binder_msa)
     path(templates)
-    val gpu_device
 
     output:
     path("boltz_results_${meta.id}"), emit: results
@@ -15,9 +14,13 @@ process BOLTZ {
     script:
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
     def args = task.ext.args ?: ''
-    def cuda_visible_devices = (gpu_device && gpu_device != 'all') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
     """
-    ${cuda_visible_devices}
+    # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
+    if [[ -n "${params.gpu_devices}" ]]; then
+        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+        export CUDA_VISIBLE_DEVICES="\$free_gpu"
+        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    fi
 
     # Boltz model weights are stored in our container
     export BOLTZ_CACHE=/app/boltz/cache

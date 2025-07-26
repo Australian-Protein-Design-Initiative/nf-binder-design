@@ -17,7 +17,8 @@ params.binder_length_range = '60-150'
 params.bindcraft_n_designs = 10
 params.bindcraft_batch_size = 1
 params.require_gpu = true
-params.gpu_devices = 'default'
+params.gpu_devices = ''
+params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
 
 if (!params.input_pdb || !params.hotspot_res) {
     log.info"""
@@ -41,7 +42,8 @@ if (!params.input_pdb || !params.hotspot_res) {
                                 Preset for advanced settings [default: ${params.bindcraft_advanced_settings_preset}]
 
         --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
-        --gpu_devices           GPU devices to use, eg "0,1" or "default" [default: ${params.gpu_devices}]
+        --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
+        --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
 
     """.stripIndent()
     exit 1
@@ -67,17 +69,6 @@ workflow {
     ch_batch_info = Channel.from(batches.withIndex())
         .map { batch, index -> [index, batch.size()] }
 
-    // Parse GPU devices and assign to batches in round-robin fashion
-    // Channel of: [batch_id, batch_size, gpu_device]
-    def gpu_devices_str = params.gpu_devices as String
-    def gpu_list = gpu_devices_str == 'default' ? [null] : gpu_devices_str.split(',')
-    ch_batch_gpu = ch_batch_info
-        .map { batch_id, batch_size ->
-            def gpu_device = gpu_list[batch_id % gpu_list.size()]
-            [batch_id, batch_size, gpu_device]
-        }
-        .tap { ch_batch_gpu_copy }
-
     if (params.contigs) {
         TRIM_TO_CONTIGS(
             ch_input_pdb,
@@ -87,7 +78,7 @@ workflow {
     }
 
     BINDCRAFT_CREATE_SETTINGS(
-        ch_batch_gpu.map { batch_id, batch_size, gpu_device -> [batch_id, batch_size] },
+        ch_batch_info,
         ch_input_pdb,
         params.hotspot_res,
         params.target_chains,
@@ -99,8 +90,7 @@ workflow {
         ch_input_pdb,
         BINDCRAFT_CREATE_SETTINGS.out.settings_json,
         params.bindcraft_advanced_settings_preset,
-        BINDCRAFT_CREATE_SETTINGS.out.batch_id,
-        ch_batch_gpu_copy.map { batch_id, batch_size, gpu_device -> gpu_device }
+        BINDCRAFT_CREATE_SETTINGS.out.batch_id
     )
 
     // Merge CSV outputs from each batch into master files
@@ -126,10 +116,10 @@ workflow {
     ch_failure_csv_merged = BINDCRAFT.out.failure_csv
         .collect()
         .map { files ->
-            def header = ""
+            def header = ''
             def sums = [:]
             def columnOrder = []
-            
+
             files.eachWithIndex { file, index ->
                 def lines = file.readLines()
                 if (lines.size() >= 2) {
@@ -137,36 +127,36 @@ workflow {
                         // Get header from first file
                         header = lines[0]
                         columnOrder = header.split(',')
-                         // Initialize sums map
-                         def values = lines[1].split(',')
-                         columnOrder.eachWithIndex { col, i ->
-                             def value = values[i]
-                             try {
-                                 sums[col] = Integer.parseInt(value)
+                    // Initialize sums map
+                    def values = lines[1].split(',')
+                    columnOrder.eachWithIndex { col, i ->
+                        def value = values[i]
+                        try {
+                            sums[col] = Integer.parseInt(value)
                              } catch (NumberFormatException e) {
-                                 sums[col] = value
-                             }
-                         }
+                            sums[col] = value
+                        }
+                    }
                     } else {
-                         // Sum values from subsequent files
-                         def values = lines[1].split(',')
-                         columnOrder.eachWithIndex { col, i ->
-                             def value = values[i]
-                             if (sums[col] instanceof Number) {
-                                 try {
-                                     sums[col] += Integer.parseInt(value)
+                    // Sum values from subsequent files
+                    def values = lines[1].split(',')
+                    columnOrder.eachWithIndex { col, i ->
+                        def value = values[i]
+                        if (sums[col] instanceof Number) {
+                            try {
+                                sums[col] += Integer.parseInt(value)
                                  } catch (NumberFormatException e) {
-                                    // Skip non-numeric values
-                                 }
-                             }
-                         }
+                            // Skip non-numeric values
+                            }
+                        }
+                    }
                     }
                 }
             }
-            
+
             // Create summed CSV content
-            def summedValues = columnOrder.collect { col -> 
-                sums[col] instanceof Number ? sums[col].toString() : sums[col] 
+            def summedValues = columnOrder.collect { col ->
+                sums[col] instanceof Number ? sums[col].toString() : sums[col]
             }.join(',')
             return "${header}\n${summedValues}"
         }
