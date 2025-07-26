@@ -9,7 +9,6 @@ process BINDCRAFT {
     path settings_json
     val advanced_settings_preset
     val batch_id
-    val gpu_device
 
     output:
     path "${params.outdir}/Accepted/*.pdb", emit: accepted_pdbs, optional: true
@@ -26,7 +25,6 @@ process BINDCRAFT {
     script:
     def advanced_settings_filename = advanced_settings_preset ? "/app/BindCraft/settings_advanced/${advanced_settings_preset}.json" : '/app/BindCraft/settings_advanced/default_4stage_multimer.json'
     def modified_advanced_settings_filename = "./${file(advanced_settings_filename).getName()}"
-    def cuda_visible_devices = (gpu_device && gpu_device != 'default') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
     """
 
     if [[ ${params.require_gpu} == "true" ]]; then
@@ -38,7 +36,12 @@ process BINDCRAFT {
         nvidia-smi
     fi
 
-    ${cuda_visible_devices}
+    # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
+    if [[ -n "${params.gpu_devices}" ]]; then
+        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+        export CUDA_VISIBLE_DEVICES="\$free_gpu"
+        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    fi
 
     ##
     # We modify the advanced settings to set the `max_trajectories` to the batch size

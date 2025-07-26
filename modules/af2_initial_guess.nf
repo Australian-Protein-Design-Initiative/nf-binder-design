@@ -5,18 +5,21 @@ process AF2_INITIAL_GUESS {
 
     input:
     path 'input/*'
-    val gpu_device
 
     output:
     path 'pdbs/*.pdb', emit: pdbs
     path 'scores/*.cs', emit: scores
 
     script:
-    def cuda_visible_devices = (gpu_device && gpu_device != 'all') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
     """
     mkdir -p scores/
 
-    ${cuda_visible_devices}
+    # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
+    if [[ -n "${params.gpu_devices}" ]]; then
+        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+        export CUDA_VISIBLE_DEVICES="\$free_gpu"
+        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    fi
 
     # Get first input PDB filename without extension
     PREFIX=\$(ls input/*.pdb | head -n1 | xargs basename | sed 's/\\.pdb\$//')

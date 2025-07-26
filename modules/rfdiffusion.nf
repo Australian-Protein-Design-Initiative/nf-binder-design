@@ -15,7 +15,6 @@ process RFDIFFUSION {
     val batch_size
     val design_startnum
     val unique_id
-    val gpu_device
 
     output:
     path 'pdbs/*.pdb', emit: pdbs
@@ -27,7 +26,6 @@ process RFDIFFUSION {
     def rfd_model_path_arg = rfd_model_path ? "inference.ckpt_override_path=${rfd_model_path}" : ''
     def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ''
     def config_name = rfd_config_name ? "--config-name=${rfd_config_name}" : ''
-    def cuda_visible_devices = (gpu_device && gpu_device != 'all') ? "export CUDA_VISIBLE_DEVICES=${gpu_device}" : ''
     """
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
@@ -37,7 +35,20 @@ process RFDIFFUSION {
 
         nvidia-smi
     fi
-    ${cuda_visible_devices}
+
+    # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
+    # This is a bit of a hack, but nextflow (and hyperqueue) don't have good support for
+    # allocating to specific GPUs on multi-GPU nodes, so this is the solution for now.
+    # There are likely still race conditions where two processes could get allocated to the
+    # same GPU, but in practise it seems to generally work well enough for runs on single
+    # nodes with multiple GPUs.
+    # We DON'T need this for SLURM, it should correctly allocate GPU resources itself.
+    if [[ -n "${params.gpu_devices}" ]]; then
+        ps aux | grep "run_inference.py"
+        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+        export CUDA_VISIBLE_DEVICES="\$free_gpu"
+        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    fi
 
     RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
 
