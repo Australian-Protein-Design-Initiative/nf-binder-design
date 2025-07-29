@@ -150,7 +150,8 @@ nextflow run bindcraft.nf  \
   --input_pdb 'input/PDL1.pdb' \
   --outdir results \
   --target_chains "A" \
-  --hotspot_res "A56" \
+  --hotspot_res "A56,A125" \
+  --hotspot_subsample 0.5 \
   --binder_length_range "55-120" \
   --bindcraft_n_designs 2 \
   --bindcraft_batch_size 1 \
@@ -160,6 +161,8 @@ nextflow run bindcraft.nf  \
   -with-report results/logs/report_${DATESTAMP}.html \
   -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
+
+`--hotspot_subsample` randomly takes this random proportion of the hotspot residues for each design, allowing the impact of hotspot selection to be explored in a single run.
 
 If you have multiple GPUs per compute node, you can specify them with the `--gpu_devices` flag, eg `--gpu_devices=0,1`.
 

@@ -12,6 +12,7 @@ params.bindcraft_advanced_settings_preset = 'default_4stage_multimer'
 params.design_name = 'bindcraft_design'
 params.input_pdb = false
 params.hotspot_res = false
+params.hotspot_subsample = 1.0
 params.target_chains = 'A'
 params.binder_length_range = '60-150'
 params.bindcraft_n_designs = 10
@@ -36,6 +37,7 @@ if (!params.input_pdb || !params.hotspot_res) {
         --target_chains         Target chain(s) for binder design [default: ${params.target_chains}]
         --contigs               Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]"
         --binder_length_range   Dash-separated min and max length for binders [default: ${params.binder_length_range}]
+        --hotspot_subsample     Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
         --bindcraft_n_designs   Total number of designs to generate [default: ${params.bindcraft_n_designs}]
         --bindcraft_batch_size  Number of designs to generate per batch [default: ${params.bindcraft_batch_size}]
         --bindcraft_advanced_settings_preset
@@ -83,7 +85,8 @@ workflow {
         params.hotspot_res,
         params.target_chains,
         params.binder_length_range,
-        params.design_name
+        params.design_name,
+        params.hotspot_subsample
     )
 
     BINDCRAFT(
