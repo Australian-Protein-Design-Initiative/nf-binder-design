@@ -5,6 +5,7 @@ nextflow.enable.dsl = 2
 include { TRIM_TO_CONTIGS } from './modules/trim_to_contigs.nf'
 include { BINDCRAFT_CREATE_SETTINGS } from './modules/bindcraft_create_settings.nf'
 include { BINDCRAFT } from './modules/bindcraft'
+include { BINDCRAFT_REPORTING } from './modules/bindcraft_reporting.nf'
 
 params.outdir = 'results'
 params.bindcraft_advanced_settings_preset = 'default_4stage_multimer'
@@ -163,5 +164,13 @@ workflow {
             }.join(',')
             return "${header}\n${summedValues}"
         }
-        .collectFile(name: 'failure_stats_summed.csv', storeDir: "${params.outdir}/bindcraft")
+        .collectFile(name: 'failure_csv.csv', storeDir: "${params.outdir}/bindcraft")
+
+    // Generate BindCraft report
+    BINDCRAFT_REPORTING(
+        ch_failure_csv_merged,
+        ch_final_stats_merged,
+        ch_mpnn_design_stats_merged,
+        ch_trajectory_stats_merged
+    )
 }
