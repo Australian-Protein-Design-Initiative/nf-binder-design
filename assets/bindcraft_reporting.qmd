@@ -9,12 +9,13 @@ format:
     toc-depth: 3
     theme: cosmo
     embed-resources: true
+    page-layout: full
 jupyter: python3
 ---
 
 # Overview
 
-This report presents an analysis of the BindCraft design results, including failure metrics, design statistics, MPNN design variations, and trajectory analysis.
+This report presents a summary of the BindCraft run results, including failure metrics (`failure_csv.csv`), MPNN sequence design scoring (`mpnn_design_stats.csv`), and scores for all trajectories (`trajectory_stats.csv`) and final accepted design statistics (`final_design_stats.csv`).
 
 ```{python}
 # | label: setup
@@ -39,7 +40,7 @@ def safe_load_csv(filename, description):
     try:
         if Path(filename).exists():
             df = pd.read_csv(filename)
-            print(f"✓ Loaded {description}: {len(df)} rows, {len(df.columns)} columns")
+            # print(f"✓ Loaded {description}: {len(df)} rows, {len(df.columns)} columns")
             return df
         else:
             print(f"⚠ File not found: {filename}")
@@ -57,21 +58,21 @@ final_design_df = safe_load_csv("final_design_stats.csv", "Final design statisti
 mpnn_design_df = safe_load_csv("mpnn_design_stats.csv", "MPNN design statistics")
 trajectory_df = safe_load_csv("trajectory_stats.csv", "Trajectory statistics")
 
-print(f"\nData availability summary:")
-failure_status = "Available" if failure_df is not None else "Not available"
-final_status = "Available" if final_design_df is not None else "Not available"
-mpnn_status = "Available" if mpnn_design_df is not None else "Not available"
-trajectory_status = "Available" if trajectory_df is not None else "Not available"
+# print(f"\nData availability summary:")
+# failure_status = "Available" if failure_df is not None else "Not available"
+# final_status = "Available" if final_design_df is not None else "Not available"
+# mpnn_status = "Available" if mpnn_design_df is not None else "Not available"
+# trajectory_status = "Available" if trajectory_df is not None else "Not available"
 
-print(f"- Failure metrics: {failure_status}")
-print(f"- Final design stats: {final_status}")
-print(f"- MPNN design stats: {mpnn_status}")
-print(f"- Trajectory stats: {trajectory_status}")
+# print(f"- Failure metrics: {failure_status}")
+# print(f"- Final design stats: {final_status}")
+# print(f"- MPNN design stats: {mpnn_status}")
+# print(f"- Trajectory stats: {trajectory_status}")
 ```
 
-# Failure Metrics Analysis
+# Design Attrition Summary
 
-The failure metrics provide insight into where designs encountered issues during the BindCraft pipeline.
+These graphs summarize the step in the BindCraft workflow or structural property filter that resulted in a design being rejected.
 
 ```{python}
 # | label: failure-metrics-trajectory
@@ -217,9 +218,177 @@ if failure_df is not None and len(failure_df) > 0:
 
 ```
 
-# MPNN Design Statistics
+# Trajectory Summary
 
-Analysis of the designs generated through the MPNN (Message Passing Neural Network) process.
+Summary of all the design trajectories, accepted and rejected.
+
+```{python}
+#| label: trajectory-boxplots
+#| fig-width: 12
+#| fig-height: 8
+
+        if trajectory_df is not None and len(trajectory_df) > 0:
+            # Key trajectory metrics for box plots (excluding dG and Target_RMSD)
+            trajectory_metrics = ['pLDDT', 'pTM', 'i_pTM', 'pAE', 'i_pAE', 'ShapeComplementarity']
+            available_traj_metrics = [col for col in trajectory_metrics if col in trajectory_df.columns]
+
+            if available_traj_metrics:
+                # Create single box plot with all metrics (excluding dG and Target_RMSD)
+                fig, ax = plt.subplots(figsize=(8, 6))
+
+                # Prepare data for box plot
+                plot_data = []
+                labels = []
+
+                for metric in available_traj_metrics:
+                    data = trajectory_df[metric].dropna()
+                    if len(data) > 0:
+                        plot_data.append(data.values)
+                        labels.append(metric)
+
+                if plot_data:
+                    # Create box plot
+                    bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+
+                    # Color the boxes
+                    for patch in bp['boxes']:
+                        patch.set_facecolor('lightgreen')
+                    for median in bp['medians']:
+                        median.set_color('red')
+
+                    # Add individual points
+                    for i, data in enumerate(plot_data):
+                        x_points = np.ones(len(data)) * (i + 1)  # Position points at box locations
+                        ax.plot(x_points, data, 'o', color='darkgreen', alpha=0.6, markersize=4)
+
+                    ax.set_xlabel('Trajectory Metrics', fontsize=12)
+                    ax.set_ylabel('Value', fontsize=12)
+                    ax.set_title('Trajectory Analysis Metrics Distribution', fontsize=14, fontweight='bold')
+                    ax.tick_params(axis='x', rotation=45)
+                    ax.set_xticklabels(labels, rotation=45, ha='right')
+                    ax.grid(True, alpha=0.3)
+                    plt.tight_layout()
+                    plt.show()
+
+            # Separate box plot for Target_RMSD
+            if 'Target_RMSD' in trajectory_df.columns:
+                rmsd_data = trajectory_df['Target_RMSD'].dropna()
+                if len(rmsd_data) > 0:
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    
+                    # Create box plot for Target_RMSD
+                    bp = ax.boxplot(rmsd_data.values, patch_artist=True, labels=['Target_RMSD'])
+                    
+                    # Color the box
+                    bp['boxes'][0].set_facecolor('lightblue')
+                    bp['medians'][0].set_color('red')
+                    
+                    # Add individual points
+                    ax.plot(np.ones(len(rmsd_data)), rmsd_data.values, 'o', color='darkblue', alpha=0.6, markersize=4)
+                    
+                    ax.set_xlabel('Metric', fontsize=12)
+                    ax.set_ylabel('Target RMSD Value', fontsize=12)
+                    ax.set_title('Target RMSD Distribution', fontsize=14, fontweight='bold')
+                    ax.grid(True, alpha=0.3)
+                    plt.tight_layout()
+                    plt.show()
+
+            # Separate box plot for dG
+            if 'dG' in trajectory_df.columns:
+                dg_data = trajectory_df['dG'].dropna()
+                if len(dg_data) > 0:
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    
+                    # Create box plot for dG
+                    bp = ax.boxplot(dg_data.values, patch_artist=True, labels=['dG'])
+                    
+                    # Color the box
+                    bp['boxes'][0].set_facecolor('lightcoral')
+                    bp['medians'][0].set_color('red')
+                    
+                    # Add individual points
+                    ax.plot(np.ones(len(dg_data)), dg_data.values, 'o', color='darkred', alpha=0.6, markersize=4)
+                    
+                    ax.set_xlabel('Metric', fontsize=12)
+                    ax.set_ylabel('dG Value', fontsize=12)
+                    ax.set_title('dG Distribution', fontsize=14, fontweight='bold')
+                    ax.grid(True, alpha=0.3)
+                    plt.tight_layout()
+                    plt.show()
+```
+
+```{python}
+# | label: trajectory-ranking
+# | message: false
+
+if trajectory_df is not None and len(trajectory_df) > 0:
+    # Define columns to show in the table
+    table_cols = [
+        "Design",
+        "i_pTM",
+        "i_pAE",
+        "pLDDT",
+        "pTM",
+        "dG",
+        "ShapeComplementarity",
+        "Target_RMSD",
+        "Length",
+        "pAE",
+        "i_pLDDT",
+        "ss_pLDDT",
+        "Unrelaxed_Clashes",
+        "Relaxed_Clashes",
+        "Binder_Energy_Score",
+        "Surface_Hydrophobicity",
+        "PackStat",
+        "dSASA",
+        "dG/dSASA",
+        "Interface_SASA_%",
+        "Interface_Hydrophobicity",
+        "n_InterfaceResidues",
+        "n_InterfaceHbonds",
+        "InterfaceHbondsPercentage",
+        "n_InterfaceUnsatHbonds",
+        "InterfaceUnsatHbondsPercentage",
+        "Interface_Helix%",
+        "Interface_BetaSheet%",
+        "Interface_Loop%",
+        "Binder_Helix%",
+        "Binder_BetaSheet%",
+        "Binder_Loop%",
+    ]
+    available_table_cols = [col for col in table_cols if col in trajectory_df.columns]
+
+    if available_table_cols and "Design" in trajectory_df.columns:
+        # Create ranking table sorted by i_pTM
+        ranking_df = trajectory_df[available_table_cols].copy()
+        ranking_df = ranking_df.sort_values("i_pTM", ascending=False)
+
+        # Display top 20 designs (or less if fewer available)
+        print("\nTop 20 Trajectory Designs (ranked by i_pTM):")
+        display_df = ranking_df.head(20)
+
+        # Format numeric columns - Length as integer, others as float
+        numeric_cols = [col for col in available_table_cols if col != "Design"]
+        format_dict = {}
+        for col in numeric_cols:
+            if col == "Length":
+                format_dict[col] = "{:.0f}"  # Integer format
+            else:
+                format_dict[col] = "{:.3f}"  # Float format
+
+        styled_table = (
+            display_df.style.format(format_dict)
+            .background_gradient(cmap="RdYlGn", subset=["i_pTM"])
+            .hide(axis="index")
+        )
+        display(styled_table)
+```
+
+
+# MPNN Scores
+
+Summary of scores for designs after sequence generation with ProteinMPNN.
 
 ```{python}
 #| label: mpnn-design-boxplots
@@ -328,123 +497,10 @@ if mpnn_design_df is not None and len(mpnn_design_df) > 0:
         display(styled_table)
 ```
 
-# Trajectory Analysis
 
-Analysis of the design trajectory and final structures.
+# Accepted Design Statistics
 
-```{python}
-#| label: trajectory-boxplots
-#| fig-width: 12
-#| fig-height: 8
-
-        if trajectory_df is not None and len(trajectory_df) > 0:
-            # Key trajectory metrics for box plots (excluding dG)
-            trajectory_metrics = ['pLDDT', 'pTM', 'i_pTM', 'pAE', 'i_pAE', 'ShapeComplementarity', 'Target_RMSD']
-            available_traj_metrics = [col for col in trajectory_metrics if col in trajectory_df.columns]
-
-            if available_traj_metrics:
-                # Create single box plot with all metrics (excluding dG)
-                fig, ax = plt.subplots(figsize=(8, 6))
-
-                # Prepare data for box plot
-                plot_data = []
-                labels = []
-
-                for metric in available_traj_metrics:
-                    data = trajectory_df[metric].dropna()
-                    if len(data) > 0:
-                        plot_data.append(data.values)
-                        labels.append(metric)
-
-                if plot_data:
-                    # Create box plot
-                    bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
-
-                    # Color the boxes
-                    for patch in bp['boxes']:
-                        patch.set_facecolor('lightgreen')
-                    for median in bp['medians']:
-                        median.set_color('red')
-
-                    # Add individual points
-                    for i, data in enumerate(plot_data):
-                        x_points = np.ones(len(data)) * (i + 1)  # Position points at box locations
-                        ax.plot(x_points, data, 'o', color='darkgreen', alpha=0.6, markersize=4)
-
-                    ax.set_xlabel('Trajectory Metrics', fontsize=12)
-                    ax.set_ylabel('Value', fontsize=12)
-                    ax.set_title('Trajectory Analysis Metrics Distribution', fontsize=14, fontweight='bold')
-                    ax.tick_params(axis='x', rotation=45)
-                    ax.set_xticklabels(labels, rotation=45, ha='right')
-                    ax.grid(True, alpha=0.3)
-                    plt.tight_layout()
-                    plt.show()
-
-            # Separate box plot for dG
-            if 'dG' in trajectory_df.columns:
-                dg_data = trajectory_df['dG'].dropna()
-                if len(dg_data) > 0:
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    
-                    # Create box plot for dG
-                    bp = ax.boxplot(dg_data.values, patch_artist=True, labels=['dG'])
-                    
-                    # Color the box
-                    bp['boxes'][0].set_facecolor('lightcoral')
-                    bp['medians'][0].set_color('red')
-                    
-                    # Add individual points
-                    ax.plot(np.ones(len(dg_data)), dg_data.values, 'o', color='darkred', alpha=0.6, markersize=4)
-                    
-                    ax.set_xlabel('Metric', fontsize=12)
-                    ax.set_ylabel('dG Value', fontsize=12)
-                    ax.set_title('dG Distribution', fontsize=14, fontweight='bold')
-                    ax.grid(True, alpha=0.3)
-                    plt.tight_layout()
-                    plt.show()
-```
-
-```{python}
-#| label: trajectory-ranking
-#| message: false
-
-if trajectory_df is not None and len(trajectory_df) > 0:
-    # Define columns to show in the table
-    table_cols = ['Design', 'i_pTM', 'i_pAE', 'pLDDT', 'pTM', 'dG', 'ShapeComplementarity', 'Target_RMSD', 'Length', 
-                  'pAE', 'i_pLDDT', 'ss_pLDDT', 'Unrelaxed_Clashes', 'Relaxed_Clashes', 'Binder_Energy_Score', 
-                  'Surface_Hydrophobicity', 'PackStat', 'dSASA', 'dG/dSASA', 'Interface_SASA_%', 'Interface_Hydrophobicity',
-                  'n_InterfaceResidues', 'n_InterfaceHbonds', 'InterfaceHbondsPercentage', 'n_InterfaceUnsatHbonds',
-                  'InterfaceUnsatHbondsPercentage', 'Interface_Helix%', 'Interface_BetaSheet%', 'Interface_Loop%',
-                  'Binder_Helix%', 'Binder_BetaSheet%', 'Binder_Loop%']
-    available_table_cols = [col for col in table_cols if col in trajectory_df.columns]
-    
-    if available_table_cols and 'Design' in trajectory_df.columns:
-        # Create ranking table sorted by i_pTM
-        ranking_df = trajectory_df[available_table_cols].copy()
-        ranking_df = ranking_df.sort_values('i_pTM', ascending=False)
-        
-        # Display top 20 designs (or less if fewer available)
-        print("\nTop Trajectory Designs (ranked by i_pTM):")
-        display_df = ranking_df.head(20)
-        
-        # Format numeric columns - Length as integer, others as float
-        numeric_cols = [col for col in available_table_cols if col != 'Design']
-        format_dict = {}
-        for col in numeric_cols:
-            if col == 'Length':
-                format_dict[col] = '{:.0f}'  # Integer format
-            else:
-                format_dict[col] = '{:.3f}'  # Float format
-        
-        styled_table = display_df.style.format(format_dict) \
-                                     .background_gradient(cmap='RdYlGn', subset=['i_pTM']) \
-                                     .hide(axis='index')
-        display(styled_table)
-```
-
-# Final Design Statistics
-
-Analysis of the final design statistics (if available).
+Summary of the final accepted designs (if available).
 
 ```{python}
 #| label: final-design-main-boxplots
@@ -704,44 +760,410 @@ if final_design_df is not None and len(final_design_df) > 0:
 ```
 
 ```{python}
-#| label: final-design-ranking
-#| message: false
+# | label: final-design-ranking
+# | message: false
 
 if final_design_df is not None and len(final_design_df) > 0:
     # Define columns to show in the table
-    table_cols = ['Design', 'Average_i_pTM', 'Average_i_pAE', 'Average_pLDDT', 'Average_pTM', 'Average_dG', 
-                  'Average_ShapeComplementarity', 'Average_Target_RMSD', 'Length', 'Average_ss_pLDDT', 
-                  'Average_Unrelaxed_Clashes', 'Average_Relaxed_Clashes', 'Average_Binder_Energy_Score',
-                  'Average_Surface_Hydrophobicity', 'Average_PackStat', 'Average_Interface_SASA_%', 
-                  'Average_Interface_Hydrophobicity', 'Average_n_InterfaceResidues', 'Average_n_InterfaceHbonds',
-                  'Average_InterfaceHbondsPercentage', 'Average_n_InterfaceUnsatHbonds', 'Average_InterfaceUnsatHbondsPercentage',
-                  'Average_Interface_Helix%', 'Average_Interface_BetaSheet%', 'Average_Interface_Loop%',
-                  'Average_Binder_Helix%', 'Average_Binder_BetaSheet%', 'Average_Binder_Loop%', 'Average_Hotspot_RMSD',
-                  'Average_Binder_pLDDT', 'Average_Binder_pTM', 'Average_Binder_pAE', 'Average_Binder_RMSD']
+    table_cols = [
+        "Design",
+        "Average_i_pTM",
+        "Average_i_pAE",
+        "Average_pLDDT",
+        "Average_pTM",
+        "Average_dG",
+        "Average_ShapeComplementarity",
+        "Average_Target_RMSD",
+        "Length",
+        "Average_ss_pLDDT",
+        "Average_Unrelaxed_Clashes",
+        "Average_Relaxed_Clashes",
+        "Average_Binder_Energy_Score",
+        "Average_Surface_Hydrophobicity",
+        "Average_PackStat",
+        "Average_Interface_SASA_%",
+        "Average_Interface_Hydrophobicity",
+        "Average_n_InterfaceResidues",
+        "Average_n_InterfaceHbonds",
+        "Average_InterfaceHbondsPercentage",
+        "Average_n_InterfaceUnsatHbonds",
+        "Average_InterfaceUnsatHbondsPercentage",
+        "Average_Interface_Helix%",
+        "Average_Interface_BetaSheet%",
+        "Average_Interface_Loop%",
+        "Average_Binder_Helix%",
+        "Average_Binder_BetaSheet%",
+        "Average_Binder_Loop%",
+        "Average_Hotspot_RMSD",
+        "Average_Binder_pLDDT",
+        "Average_Binder_pTM",
+        "Average_Binder_pAE",
+        "Average_Binder_RMSD",
+    ]
     available_table_cols = [col for col in table_cols if col in final_design_df.columns]
-    
-    if available_table_cols and 'Design' in final_design_df.columns:
+
+    if available_table_cols and "Design" in final_design_df.columns:
         # Create ranking table sorted by Average_i_pTM
         ranking_df = final_design_df[available_table_cols].copy()
-        ranking_df = ranking_df.sort_values('Average_i_pTM', ascending=False)
-        
-        # Display top 20 designs (or less if fewer available)
-        print("\nTop Final Designs (ranked by Average_i_pTM):")
-        display_df = ranking_df.head(20)
-        
+        ranking_df = ranking_df.sort_values("Average_i_pTM", ascending=False)
+
+        # Display all accepted designs (or less if fewer available)
+        print("\nFinal Accepted Designs (ranked by Average_i_pTM):")
+        display_df = ranking_df
+
         # Format numeric columns - Length as integer, others as float
-        numeric_cols = [col for col in available_table_cols if col != 'Design']
+        numeric_cols = [col for col in available_table_cols if col != "Design"]
         format_dict = {}
         for col in numeric_cols:
-            if col == 'Length':
-                format_dict[col] = '{:.0f}'  # Integer format
+            if col == "Length":
+                format_dict[col] = "{:.0f}"  # Integer format
             else:
-                format_dict[col] = '{:.3f}'  # Float format
-        
-        styled_table = display_df.style.format(format_dict) \
-                                     .background_gradient(cmap='RdYlGn', subset=['Average_i_pTM']) \
-                                     .hide(axis='index')
+                format_dict[col] = "{:.3f}"  # Float format
+
+        styled_table = (
+            display_df.style.format(format_dict)
+            .background_gradient(cmap="RdYlGn", subset=["Average_i_pTM"])
+            .hide(axis="index")
+        )
         display(styled_table)
+```
+
+# Hotspot Analysis
+
+Analysis of design scores across different target hotspot selections.
+
+```{python}
+# | label: final-design-hotspot-heatmap
+# | fig-width: 10
+# | fig-height: 8
+
+if (
+    final_design_df is not None
+    and len(final_design_df) > 0
+    and "Target_Hotspot" in final_design_df.columns
+    and "Average_i_pTM" in final_design_df.columns
+):
+    # Parse Target_Hotspot column
+    def parse_hotspots(hotspot_str):
+        """Parse hotspot string, handling both single values and quoted lists"""
+        if pd.isna(hotspot_str):
+            return []
+
+        # Remove quotes if present
+        hotspot_str = str(hotspot_str).strip().strip("\"'")
+
+        # Check if it's a comma-separated list
+        if "," in hotspot_str:
+            return [h.strip() for h in hotspot_str.split(",")]
+        else:
+            return [hotspot_str]
+
+    # Extract unique hotspots
+    all_hotspots = []
+    for hotspot_str in final_design_df["Target_Hotspot"]:
+        hotspots = parse_hotspots(hotspot_str)
+        all_hotspots.extend(hotspots)
+
+    unique_hotspots = sorted(list(set(all_hotspots)))
+
+    # Check if all designs have identical hotspots
+    if len(unique_hotspots) <= 1:
+        print("All designs have identical target hotspots. Skipping hotspot heatmap.")
+    else:
+        # Create pivot table for heatmap
+        heatmap_data = []
+        design_names = []
+
+        for idx, row in final_design_df.iterrows():
+            hotspots = parse_hotspots(row["Target_Hotspot"])
+            i_pTM = row["Average_i_pTM"]
+
+            # Create a row for each hotspot in this design
+            for hotspot in hotspots:
+                if hotspot in unique_hotspots:
+                    heatmap_data.append([hotspot, row["Design"], i_pTM])
+                    design_names.append(row["Design"])
+
+        if heatmap_data:
+            # Create DataFrame for heatmap
+            heatmap_df = pd.DataFrame(
+                heatmap_data, columns=["Hotspot", "Design", "i_pTM"]
+            )
+            pivot_df = heatmap_df.pivot(
+                index="Design", columns="Hotspot", values="i_pTM"
+            )
+
+            # Fill NaN values with 0 or appropriate value
+            pivot_df = pivot_df.fillna(0)
+
+            # Perform hierarchical clustering
+            from scipy.cluster.hierarchy import dendrogram, linkage
+            from scipy.spatial.distance import pdist
+            import seaborn as sns
+
+            # Prepare data for clustering
+            X = pivot_df.values
+
+            # Sort rows by average i_pTM from highest to lowest
+            if len(pivot_df) > 1:
+                # Calculate average i_pTM for each design
+                design_avg_iptm = pivot_df.mean(axis=1)
+                # Sort by average i_pTM (highest to lowest)
+                row_order = design_avg_iptm.sort_values(ascending=False).index
+                pivot_df_clustered = pivot_df.loc[row_order]
+            else:
+                pivot_df_clustered = pivot_df
+
+            # Sort columns by letter prefix, then by number
+            def sort_hotspot_key(hotspot):
+                """Sort hotspots by letter prefix, then by number"""
+                import re
+
+                # Extract letter prefix and number
+                match = re.match(r"([A-Za-z]+)(\d+)", hotspot)
+                if match:
+                    letter_prefix = match.group(1)
+                    number = int(match.group(2))
+                    return (letter_prefix, number)
+                else:
+                    # Fallback for non-standard format
+                    return (hotspot, 0)
+
+            if len(pivot_df.columns) > 1:
+                # Sort columns using the custom key function
+                col_order = sorted(pivot_df.columns, key=sort_hotspot_key)
+                pivot_df_clustered = pivot_df_clustered.loc[:, col_order]
+
+            # Create heatmap with dendrogram
+            from scipy.cluster.hierarchy import dendrogram, linkage
+            from scipy.spatial.distance import pdist
+            import seaborn as sns
+
+            # Calculate height based on number of designs
+            height_per_design = 0.3  # inches per design
+            min_height = 6  # minimum height in inches
+            max_height = 20  # maximum height in inches
+            calculated_height = max(
+                min_height, min(max_height, len(pivot_df_clustered) * height_per_design)
+            )
+
+            # Create figure with proper height (narrower width)
+            fig = plt.figure(figsize=(8, calculated_height))
+
+            # Single subplot for heatmap
+            ax_heatmap = fig.add_subplot(111)
+
+            # Create custom colormap: white to red
+            import matplotlib.colors as mcolors
+            from matplotlib.colors import LinearSegmentedColormap
+
+            # Create custom colormap: white -> red
+            colors = ["white", "red"]
+            n_bins = 100
+            custom_cmap = LinearSegmentedColormap.from_list(
+                "custom_white_red", colors, N=n_bins
+            )
+
+            # Create heatmap
+            sns.heatmap(
+                pivot_df_clustered,
+                annot=False,  # Remove cell annotations
+                cmap=custom_cmap,
+                center=0.5,
+                cbar_kws={"label": "Average i_pTM"},
+                xticklabels=True,
+                yticklabels=True,
+                ax=ax_heatmap,
+            )
+
+            # Customize x-axis labels - show on both top and bottom
+            ax_heatmap.set_xticklabels(
+                ax_heatmap.get_xticklabels(), rotation=45, ha="center", fontsize=8
+            )
+            ax_heatmap.set_yticklabels(ax_heatmap.get_yticklabels(), fontsize=8)
+
+            # Add x-axis labels on top as well
+            ax_heatmap.xaxis.set_tick_params(labeltop=True, labelbottom=True)
+
+            # Adjust layout to prevent title overlap
+            plt.subplots_adjust(top=0.9)  # Leave more space for title
+
+            plt.suptitle(
+                "Accepted Design ipTM by Target Hotspot",
+                fontsize=14,
+                fontweight="bold",
+                y=1.0,
+            )
+            plt.tight_layout()
+            plt.show()
+```
+
+```{python}
+# | label: trajectory-hotspot-heatmap
+# | fig-width: 10
+# | fig-height: 10
+
+if (
+    trajectory_df is not None
+    and len(trajectory_df) > 0
+    and "Target_Hotspot" in trajectory_df.columns
+    and "i_pTM" in trajectory_df.columns
+):
+    # Parse Target_Hotspot column
+    def parse_hotspots(hotspot_str):
+        """Parse hotspot string, handling both single values and quoted lists"""
+        if pd.isna(hotspot_str):
+            return []
+
+        # Remove quotes if present
+        hotspot_str = str(hotspot_str).strip().strip("\"'")
+
+        # Check if it's a comma-separated list
+        if "," in hotspot_str:
+            return [h.strip() for h in hotspot_str.split(",")]
+        else:
+            return [hotspot_str]
+
+    # Extract unique hotspots
+    all_hotspots = []
+    for hotspot_str in trajectory_df["Target_Hotspot"]:
+        hotspots = parse_hotspots(hotspot_str)
+        all_hotspots.extend(hotspots)
+
+    unique_hotspots = sorted(list(set(all_hotspots)))
+
+    # Check if all designs have identical hotspots
+    if len(unique_hotspots) <= 1:
+        print(
+            "All trajectories have identical target hotspots. Skipping trajectory hotspot heatmap."
+        )
+    else:
+        # Create pivot table for heatmap
+        heatmap_data = []
+        design_names = []
+
+        for idx, row in trajectory_df.iterrows():
+            hotspots = parse_hotspots(row["Target_Hotspot"])
+            i_pTM = row["i_pTM"]
+
+            # Create a row for each hotspot in this design
+            for hotspot in hotspots:
+                if hotspot in unique_hotspots:
+                    heatmap_data.append([hotspot, row["Design"], i_pTM])
+                    design_names.append(row["Design"])
+
+        if heatmap_data:
+            # Create DataFrame for heatmap
+            heatmap_df = pd.DataFrame(
+                heatmap_data, columns=["Hotspot", "Design", "i_pTM"]
+            )
+            pivot_df = heatmap_df.pivot(
+                index="Design", columns="Hotspot", values="i_pTM"
+            )
+
+            # Fill NaN values with 0 or appropriate value
+            pivot_df = pivot_df.fillna(0)
+
+            # Perform hierarchical clustering
+            from scipy.cluster.hierarchy import dendrogram, linkage
+            from scipy.spatial.distance import pdist
+            import seaborn as sns
+
+            # Prepare data for clustering
+            X = pivot_df.values
+
+            # Sort rows by average i_pTM from highest to lowest
+            if len(pivot_df) > 1:
+                # Calculate average i_pTM for each design
+                design_avg_iptm = pivot_df.mean(axis=1)
+                # Sort by average i_pTM (highest to lowest)
+                row_order = design_avg_iptm.sort_values(ascending=False).index
+                pivot_df_clustered = pivot_df.loc[row_order]
+            else:
+                pivot_df_clustered = pivot_df
+
+            # Sort columns by letter prefix, then by number
+            def sort_hotspot_key(hotspot):
+                """Sort hotspots by letter prefix, then by number"""
+                import re
+
+                # Extract letter prefix and number
+                match = re.match(r"([A-Za-z]+)(\d+)", hotspot)
+                if match:
+                    letter_prefix = match.group(1)
+                    number = int(match.group(2))
+                    return (letter_prefix, number)
+                else:
+                    # Fallback for non-standard format
+                    return (hotspot, 0)
+
+            if len(pivot_df.columns) > 1:
+                # Sort columns using the custom key function
+                col_order = sorted(pivot_df.columns, key=sort_hotspot_key)
+                pivot_df_clustered = pivot_df_clustered.loc[:, col_order]
+
+            # Create heatmap with dendrogram
+            from scipy.cluster.hierarchy import dendrogram, linkage
+            from scipy.spatial.distance import pdist
+            import seaborn as sns
+
+            # Calculate height based on number of designs
+            height_per_design = 0.3  # inches per design
+            min_height = 6  # minimum height in inches
+            max_height = 20  # maximum height in inches
+            calculated_height = max(
+                min_height, min(max_height, len(pivot_df_clustered) * height_per_design)
+            )
+
+            # Create figure with proper height (narrower width)
+            fig = plt.figure(figsize=(10, calculated_height))
+
+            # Single subplot for heatmap
+            ax_heatmap = fig.add_subplot(111)
+
+            # Create custom colormap: white to red
+            import matplotlib.colors as mcolors
+            from matplotlib.colors import LinearSegmentedColormap
+
+            # Create custom colormap: white -> red
+            colors = ["white", "red"]
+            n_bins = 100
+            custom_cmap = LinearSegmentedColormap.from_list(
+                "custom_white_red", colors, N=n_bins
+            )
+
+            # Create heatmap
+            sns.heatmap(
+                pivot_df_clustered,
+                annot=False,  # Remove cell annotations
+                cmap=custom_cmap,
+                center=0.5,
+                cbar_kws={"label": "i_pTM"},
+                xticklabels=True,
+                yticklabels=True,
+                ax=ax_heatmap,
+            )
+
+            # Customize x-axis labels - show on both top and bottom
+            ax_heatmap.set_xticklabels(
+                ax_heatmap.get_xticklabels(), rotation=90, ha="center", fontsize=8
+            )
+            ax_heatmap.set_yticklabels(ax_heatmap.get_yticklabels(), fontsize=8)
+
+            # Add x-axis labels on top as well
+            ax_heatmap.xaxis.set_tick_params(labeltop=True, labelbottom=True)
+
+            # Adjust layout to prevent title overlap
+            plt.subplots_adjust(top=0.9)  # Leave more space for title
+
+            plt.suptitle(
+                "All Trajectory ipTM scores by Target Hotspot",
+                fontsize=14,
+                fontweight="bold",
+                y=1.0,
+            )
+            plt.tight_layout()
+            plt.show()
 ```
 
 
