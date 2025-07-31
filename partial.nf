@@ -110,7 +110,7 @@ workflow {
             --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
             --target_contigs      Contig map for target chain(s) - 'auto' to detect from PDB, or specify manually [default: ${params.target_contigs}]
             --binder_chain        Chain ID of the binder chain [default: ${params.binder_chain}]
-            --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
+            --hotspot_res         Hotspot residues, eg "A473,A995,A411,A421" - you must include the chain ID in every hotspot [default: ${params.hotspot_res}]
             --skip_renumber       Skip the residue renumbering step [default: ${params.skip_renumber}]
             --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
             --rfd_n_partial_per_binder Number of partial diffused designs per binder [default: ${params.rfd_n_partial_per_binder}]
@@ -154,6 +154,14 @@ workflow {
         ch_rfd_model_path = Channel.fromPath(params.rfd_model_path).first()
     } else {
         ch_rfd_model_path = Channel.value(false)
+    }
+
+    def hotspot_res = params.hotspot_res
+    // We ensure hotspot_res has [square_brackets] by trimming any existing brackets and adding them back
+    if (params.hotspot_res) {
+        // Remove any leading/trailing whitespace, '[' and ']' characters, then add brackets back
+        hotspot_res = params.hotspot_res.trim().replaceAll(/^\[+/, '').replaceAll(/\]+\$/, '')
+        hotspot_res = "[${params.hotspot_res}]"
     }
 
     // We renumber the residues in each chain to be 1 to chain_length
@@ -210,7 +218,7 @@ workflow {
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> input_pdb },  // Extract PDB path
         ch_rfd_model_path,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> contigs },  // Extract contigs string
-        params.hotspot_res,
+        hotspot_res,
         params.rfd_batch_size,
         ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },  // Extract start number
         ch_unique_id,

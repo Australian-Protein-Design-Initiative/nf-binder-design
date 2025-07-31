@@ -8,7 +8,7 @@ nextflow run ${PIPELINE_DIR}/partial.nf  \
   --input_pdb 'input/*.pdb' \
   --outdir results \
   --contigs "[A18-132/0 65-120]" \
-  --hotspot_res "[A56]" \
+  --hotspot_res "A56" \
   --rfd_partial_per_binder=1 \
   --rfd_batch_size=1 \
   --rfd_partial_T "5,15" \

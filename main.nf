@@ -20,7 +20,7 @@ params.outdir = 'results'
 
 params.design_name = 'design_ppi'
 params.contigs = ''         // "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]"
-params.hotspot_res = false  // "[A473,A995,A411,A421]"
+params.hotspot_res = false  // "A473,A995,A411,A421"
 params.rfd_batch_size = 1
 params.rfd_n_designs = 2
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
@@ -66,7 +66,7 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
             --outdir              Output directory [default: ${params.outdir}]
             --design_name         Name of the design, used for output file prefixes [default: ${params.design_name}]
             --contigs             Contig map for RFdiffusion [default: ${params.contigs}]
-            --hotspot_res         Hotspot residues, eg "[A473,A995,A411,A421]" [default: ${params.hotspot_res}]
+            --hotspot_res         Hotspot residues, eg "A473,A995,A411,A421" - you must include the chain ID in every hotspot [default: ${params.hotspot_res}]
             --rfd_batch_size      Number of designs per batch [default: ${params.rfd_batch_size}]
             --rfd_model_path      Path to RFdiffusion model checkpoint file - leaving unset will allow RFDiffusion to choose based on other parameters [default: ${params.rfd_model_path}]
             --rfd_extra_args      Extra arguments for RFdiffusion [default: ${params.rfd_extra_args}]
@@ -126,6 +126,14 @@ workflow {
         ch_rfd_model_path = Channel.value(false)
     }
 
+    def hotspot_res = params.hotspot_res
+    // We ensure hotspot_res has [square_brackets] by trimming any existing brackets and adding them back
+    if (params.hotspot_res) {
+        // Remove any leading/trailing whitespace, '[' and ']' characters, then add brackets back
+        hotspot_res = params.hotspot_res.trim().replaceAll(/^\[+/, '').replaceAll(/\]+\$/, '')
+        hotspot_res = "[${params.hotspot_res}]"
+    }
+
     // Create channel of start numbers for batches
     ch_rfd_startnum = Channel
         .of(0..params.rfd_n_designs - 1)
@@ -141,7 +149,7 @@ workflow {
             ch_input_pdb,
             ch_rfd_model_path,
             params.contigs,
-            params.hotspot_res,
+            hotspot_res,
             params.rfd_batch_size,
             ch_rfd_startnum,
             ch_unique_id

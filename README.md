@@ -31,7 +31,7 @@ nextflow run main.nf \
     --input_pdb target.pdb \
     --outdir $OUTDIR \
     --contigs "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]" \
-    --hotspot_res "[A473,A995,A411,A421]" \
+    --hotspot_res "A473,A995,A411,A421" \
     --rfd_n_designs=10 \
     --rfdiffusion_batch_size 1 \
     -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
@@ -52,11 +52,16 @@ WF_PATH="/some/path/to/nf-binder-design"
 mkdir -p results/logs
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
+# Ensure our tmp directory is in a location with enough space
+export TMPDIR=$(realpath ./tmp)
+export NXF_TEMP=$TMPDIR
+mkdir -p $TMPDIR
+
 # CHANGE THIS to a path in scratch or scratch2 to act as the cache directory for apptainer
 # Containers will be automatically downloaded to this path.
 # You can add it to ~/.bashrc if you prefer
 export NXF_APPTAINER_CACHEDIR=/some/path/to/scratch2/apptainer_cache
-export NXF_APPTAINER_TMPDIR=/some/path/to/scratch2/apptainer_cache/tmp
+export NXF_APPTAINER_TMPDIR=$TMPDIR
 
 # CHANGE the --slurm_account to match the project ID you wish to run SLURM jobs under
 nextflow \
@@ -67,11 +72,12 @@ ${WF_PATH}/main.nf  \
 --design_name my-binder \
 --outdir results \
 --contigs "[B346-521/B601-696/B786-856/0 70-130]" \
---hotspot_res "[B472,B476,B484,B488]" \
+--hotspot_res "B472,B476,B484,B488" \
 --rfd_n_designs=1000 \
 --rfd_batch_size=5 \
 --rfd_filters="rg<20" \
 --pmpnn_seqs_per_struct=2 \
+--pmpnn_relax_cycles=1 \
 --pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
 --rfd_model_path="/models/rfdiffusion/Complex_beta_ckpt.pt" \
 --rfd_extra_args='potentials.guiding_potentials=[\"type:binder_ROG,weight:7,min_dist:10\"] potentials.guide_decay="quadratic"' \
@@ -104,7 +110,7 @@ nextflow run partial.nf  \
     --input_pdb 'my_designs/*.pdb' \
     --rfd_n_partial_per_binder=10 \
     --rfd_batch_size=5 \
-    --hotspot_res "[A473,A995,A411,A421]" \
+    --hotspot_res "A473,A995,A411,A421" \
     --rfd_partial_T=2,5,10,20 \
     -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
     -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
@@ -193,7 +199,8 @@ Results are saved to the `--outdir` directory, in the `bindcraft` subdirectory, 
 │   │           ├── Rejected
 │   │           ├── Trajectory
 │   │           └── trajectory_stats.csv
-│   ├── failure_stats_summed.csv
+│   ├── bindcraft_report.html
+│   ├── failure_csv.csv
 │   ├── final_design_stats.csv
 │   ├── mpnn_design_stats.csv
 │   └── trajectory_stats.csv
@@ -201,6 +208,8 @@ Results are saved to the `--outdir` directory, in the `bindcraft` subdirectory, 
     ├── report_20250725_084959.html
     ├── trace_20250725_084959.txt
 ```
+
+A report summarizing the results is generated in `bindcraft_report.html`.
 
 ## Boltz pulldown
 
