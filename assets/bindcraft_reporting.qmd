@@ -36,6 +36,8 @@ warnings.filterwarnings("ignore")
 # Set plotting style
 plt.style.use("fast")
 
+boxplot_jitter = 0.05
+
 
 # Helper function to safely load CSV files
 def safe_load_csv(filename, description):
@@ -354,10 +356,13 @@ Summary of all the design trajectories, accepted and rejected.
                     for median in bp['medians']:
                         median.set_color('red')
 
-                    # Add individual points
+                    # Add individual points with jitter
                     for i, data in enumerate(plot_data):
                         x_points = np.ones(len(data)) * (i + 1)  # Position points at box locations
-                        ax.plot(x_points, data, 'o', color='darkgreen', alpha=0.6, markersize=4)
+                        # Add jitter to x-coordinates to avoid overlap
+                        jitter = np.random.normal(0, boxplot_jitter, len(data))
+                        x_points_jittered = x_points + jitter
+                        ax.plot(x_points_jittered, data, 'o', color='darkgreen', alpha=0.6, markersize=4)
 
                     ax.set_xlabel('Trajectory Metrics', fontsize=12)
                     ax.set_ylabel('Value', fontsize=12)
@@ -381,8 +386,11 @@ Summary of all the design trajectories, accepted and rejected.
                     bp['boxes'][0].set_facecolor('lightblue')
                     bp['medians'][0].set_color('red')
                     
-                    # Add individual points
-                    ax.plot(np.ones(len(rmsd_data)), rmsd_data.values, 'o', color='darkblue', alpha=0.6, markersize=4)
+                    # Add individual points with jitter
+                    x_points = np.ones(len(rmsd_data))
+                    jitter = np.random.normal(0, boxplot_jitter, len(rmsd_data))
+                    x_points_jittered = x_points + jitter
+                    ax.plot(x_points_jittered, rmsd_data.values, 'o', color='darkblue', alpha=0.6, markersize=4)
                     
                     ax.set_xlabel('Metric', fontsize=12)
                     ax.set_ylabel('Target RMSD Value', fontsize=12)
@@ -404,8 +412,11 @@ Summary of all the design trajectories, accepted and rejected.
                     bp['boxes'][0].set_facecolor('lightcoral')
                     bp['medians'][0].set_color('red')
                     
-                    # Add individual points
-                    ax.plot(np.ones(len(dg_data)), dg_data.values, 'o', color='darkred', alpha=0.6, markersize=4)
+                    # Add individual points with jitter
+                    x_points = np.ones(len(dg_data))
+                    jitter = np.random.normal(0, boxplot_jitter, len(dg_data))
+                    x_points_jittered = x_points + jitter
+                    ax.plot(x_points_jittered, dg_data.values, 'o', color='darkred', alpha=0.6, markersize=4)
                     
                     ax.set_xlabel('Metric', fontsize=12)
                     ax.set_ylabel('dG Value', fontsize=12)
