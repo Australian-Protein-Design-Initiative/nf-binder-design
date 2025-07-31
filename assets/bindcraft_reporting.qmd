@@ -10,6 +10,8 @@ format:
     theme: cosmo
     embed-resources: true
     page-layout: full
+execute:
+  echo: false
 jupyter: python3
 ---
 
@@ -50,7 +52,7 @@ def safe_load_csv(filename, description):
         return None
 
 
-print(os.getcwd())
+print(f"Run path: {os.getcwd()}")
 
 # Load all available data files
 failure_df = safe_load_csv("failure_csv.csv", "Failure metrics")
@@ -68,6 +70,102 @@ trajectory_df = safe_load_csv("trajectory_stats.csv", "Trajectory statistics")
 # print(f"- Final design stats: {final_status}")
 # print(f"- MPNN design stats: {mpnn_status}")
 # print(f"- Trajectory stats: {trajectory_status}")
+```
+
+```{python}
+# | label: acceptance-summary
+# | message: false
+
+from IPython.display import HTML
+from pathlib import Path
+import glob
+
+# Calculate acceptance rate from CSV data
+total_trajectories = len(trajectory_df) if trajectory_df is not None else 0
+accepted_count = len(final_design_df) if final_design_df is not None else 0
+
+# Count PDB files in different directories
+def count_pdb_files(directory_pattern):
+    """Count .pdb files in directories matching the pattern"""
+    count = 0
+    for path in Path(".").glob(directory_pattern):
+        if path.is_dir():
+            count += len(list(path.glob("*.pdb")))
+    return count
+
+# Count files in different categories
+rejected_count = count_pdb_files("./batches/*/results/Rejected")
+relaxed_count = count_pdb_files("./batches/*/results/Trajectory/Relaxed")
+lowconf_count = count_pdb_files("./batches/*/results/Trajectory/LowConfidence")
+clashing_count = count_pdb_files("./batches/*/results/Trajectory/Clashing")
+
+# Calculate total from directory counts
+total_from_dirs = relaxed_count + lowconf_count + clashing_count + rejected_count
+
+# Use directory counts if available, otherwise fall back to CSV data
+if total_from_dirs > 0:
+    total_trajectories = total_from_dirs
+
+if total_trajectories > 0:
+    acceptance_rate = (accepted_count / relaxed_count) * 100
+    html_content = f"""
+    <div style="
+        border: 2px solid #3498db;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    ">
+        <h2 style="text-align: center; font-size: 28px; color: #2c3e50; margin: 0 0 20px 0;">
+            Accept rate: {acceptance_rate:.1f}% ({accepted_count} / {relaxed_count})
+        </h2>
+        <table style="
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        ">
+            <tr style="background-color: #f8f9fa;">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Relaxed</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{relaxed_count}</td>
+            </tr>
+            <tr style="background-color: #ffffff;">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Rejected</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{rejected_count}</td>
+            </tr>
+            <tr style="background-color: {'#ffebee' if lowconf_count > relaxed_count else '#f8f9fa'};">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">LowConfidence</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{lowconf_count}</td>
+            </tr>
+            <tr style="background-color: {'#ffebee' if clashing_count > relaxed_count else '#ffffff'};">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Clashing</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{clashing_count}</td>
+            </tr>
+            <tr style="background-color: #ffffff;">
+                <td style="padding: 12px; border-top: 3px solid #2c3e50; border-left: 1px solid #bdc3c7; border-right: 1px solid #bdc3c7; border-bottom: 1px solid #bdc3c7; font-weight: bold;">Total Trajectories</td>
+                <td style="padding: 12px; border-top: 3px solid #2c3e50; border-left: 1px solid #bdc3c7; border-right: 1px solid #bdc3c7; border-bottom: 1px solid #bdc3c7; text-align: center; font-weight: bold;">{total_trajectories}</td>
+            </tr>
+        </table>
+    </div>
+    """
+    display(HTML(html_content))
+else:
+    html_content = """
+    <div style="
+        border: 2px solid #e74c3c;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        background: linear-gradient(135deg, #fdf2f2 0%, #fadbd8 100%);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    ">
+        <h2 style="text-align: center; font-size: 24px; color: #c0392b; margin: 0;">
+            No trajectory data available
+        </h2>
+    </div>
+    """
+    display(HTML(html_content))
 ```
 
 # Design Attrition Summary
@@ -501,6 +599,31 @@ if mpnn_design_df is not None and len(mpnn_design_df) > 0:
 # Accepted Design Statistics
 
 Summary of the final accepted designs (if available).
+
+```{python}
+# | label: accepted-designs-check
+# | message: false
+
+if final_design_df is None or len(final_design_df) == 0:
+    from IPython.display import HTML
+    html_content = """
+    <div style="
+        border: 2px solid #e74c3c;
+        border-radius: 10px;
+        padding: 20px;
+        margin: 20px 0;
+        background: linear-gradient(135deg, #fdf2f2 0%, #fadbd8 100%);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    ">
+        <h3 style="text-align: center; font-size: 20px; color: #c0392b; margin: 0;">
+            No accepted designs
+        </h3>
+    </div>
+    """
+    display(HTML(html_content))
+```
+
+
 
 ```{python}
 #| label: final-design-main-boxplots
