@@ -14,7 +14,7 @@ nextflow run ${PIPELINE_DIR}/main.nf  \
   --input_pdb 'input/*.pdb' \
   --outdir results \
   --contigs "[A310-481/0 65-120]" \
-  --hotspot_res "[A412]" \
+  --hotspot_res "A412" \
   --rfd_n_designs=4 \
   --rfd_batch_size=1 \
   --pmpnn_seqs_per_struct=2 \
