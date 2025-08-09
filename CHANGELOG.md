@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- BindCraft end-to-end workflow with basic HTML report
+- GPU allocation heuristics for local multi-GPU workstations.
+- HyperMPNN weights download script (`models/download_hypermpnn_weights.sh`).
+- New runnable examples in `examples/`.
+
+### Changed
+- RFDiffusion `--hotspot_res` no longer requires brackets in `main.nf`.
+- Minor tweaks to site-specific configs for `m3` and `mlerp`.
+
 ## [0.1.3] - 2025-07-11
 
 ### Added
