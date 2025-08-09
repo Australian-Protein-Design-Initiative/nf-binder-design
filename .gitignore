@@ -4,7 +4,10 @@ work
 results*/
 models/af2_initial_guess
 models/rfdiffusion
+models/HyperMPNN
 containers/
 
 .venv
 __pycache__
+
+tmp

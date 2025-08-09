@@ -15,7 +15,7 @@ nextflow run ${PIPELINE_DIR}/bindcraft.nf \
   --target_chains "A" \
   --hotspot_res "A412" \
   --binder_length_range "55-120" \
-  --bindcraft_n_designs 2 \
+  --bindcraft_n_traj 2 \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   --gpu_devices=0,1 \

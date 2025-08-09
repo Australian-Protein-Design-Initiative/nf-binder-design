@@ -145,7 +145,7 @@ The `bindcraft.nf` helps run [BindCraft](https://github.com/martinpacesa/BindCra
 This is particularly well suited for running BindCraft on an HPC cluster, or a workstation with multiple GPUs.
 
 Unlike the default BindCraft configuration which runs for an indeterminate amount of time until a number of accepted designs are found,
-this pipeline will run a fixed number of trajectories `--bindcraft_n_designs` and stop.
+this pipeline will run a fixed number of trajectories `--bindcraft_n_traj` and stop.
 
 Example:
 
@@ -159,14 +159,17 @@ nextflow run bindcraft.nf  \
   --hotspot_res "A56,A125" \
   --hotspot_subsample 0.5 \
   --binder_length_range "55-120" \
-  --bindcraft_n_designs 2 \
+  --bindcraft_n_traj 2 \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
+  --bindcraft_filters_preset "default_filters" \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
   -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
+
+`--bindcraft_advanced_settings_preset` and `--bindcraft_filters_preset` are are those available in the BindCraft [settings_advanced](https://github.com/martinpacesa/BindCraft/tree/main/settings_advanced) and [settings_filters](https://github.com/martinpacesa/BindCraft/tree/main/settings_filters) directories (without the .json extension).
 
 `--hotspot_subsample` randomly takes this random proportion of the hotspot residues for each design, allowing the impact of hotspot selection to be explored in a single run.
 

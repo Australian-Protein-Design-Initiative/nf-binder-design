@@ -1,30 +1,44 @@
 process BINDCRAFT {
     container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:05702c4_nv-cuda12'
 
-    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", mode: 'copy'
-    publishDir path: "${params.outdir}/bindcraft/accepted", pattern: 'results/Accepted/*.pdb', mode: 'copy'
+    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'results/**', mode: 'copy'
+    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: '*.{pdb,pdb.gz,json}', mode: 'copy'
+    publishDir(
+        path: "${params.outdir}/bindcraft/accepted",
+        pattern: 'results/Accepted/*.{pdb,pdb.gz}',
+        mode: 'copy',
+        saveAs: { filename -> java.nio.file.Paths.get(filename).getFileName().toString() }
+    )
 
     input:
     path input_pdb
     path settings_json
     val advanced_settings_preset
+    val filters_preset
     val batch_id
+    val compress_html
+    val compress_pdb
 
     output:
-    path "${params.outdir}/Accepted/*.pdb", emit: accepted_pdbs, optional: true
-    path "${params.outdir}/Rejected/*.pdb", emit: rejected_pdbs, optional: true
-    path "${params.outdir}/Trajectory/Relaxed/*.pdb", emit: relaxed_pdbs, optional: true
-    path "${params.outdir}/Trajectory/LowConfidence/*.pdb", emit: low_confidence_pdbs, optional: true
-    path "${params.outdir}/Trajectory/Clashing/*.pdb", emit: clashing_pdbs, optional: true
-    path "${params.outdir}/final_design_stats.csv", emit: final_stats_csv, optional: true
-    path "${params.outdir}/trajectory_stats.csv", emit: trajectory_stats_csv, optional: true
-    path "${params.outdir}/mpnn_design_stats.csv", emit: mpnn_design_stats_csv, optional: true
-    path "${params.outdir}/failure_csv.csv", emit: failure_csv, optional: true
+    path 'batches/*', type: 'dir', followLinks: true, optional: true,       emit: batch_dir
+    path 'results/Accepted/*.{pdb,pdb.gz}', optional: true,                 emit: accepted_pdbs
+    path 'results/Rejected/*.{pdb,pdb.gz}', optional: true,                 emit: rejected_pdbs
+    path 'results/Trajectory/Relaxed/*.{pdb,pdb.gz}', optional: true,       emit: relaxed_pdbs
+    path 'results/Trajectory/LowConfidence/*.{pdb,pdb.gz}', optional: true, emit: low_confidence_pdbs
+    path 'results/Trajectory/Clashing/*.{pdb,pdb.gz}', optional: true,      emit: clashing_pdbs
+    path 'results/final_design_stats.csv', optional: true,         emit: final_stats_csv
+    path 'results/trajectory_stats.csv', optional: true,           emit: trajectory_stats_csv
+    path 'results/mpnn_design_stats.csv', optional: true,          emit: mpnn_design_stats_csv
+    path 'results/failure_csv.csv', optional: true,                emit: failure_csv
+    path '*.json', followLinks: true, includeInputs: true, optional: true, emit: settings_files
+    path '*.pdb', followLinks: true, includeInputs: true, optional: true, emit: input_pdb
     path 'results/**', emit: all_results
 
     script:
     def advanced_settings_filename = advanced_settings_preset ? "/app/BindCraft/settings_advanced/${advanced_settings_preset}.json" : '/app/BindCraft/settings_advanced/default_4stage_multimer.json'
     def modified_advanced_settings_filename = "./${file(advanced_settings_filename).getName()}"
+    def filters_filename = filters_preset ? "/app/BindCraft/settings_filters/${filters_preset}.json" : '/app/BindCraft/settings_filters/default_filters.json'
+    def modified_filters_filename = "./${file(filters_filename).getName()}"
     """
 
     if [[ ${params.require_gpu} == "true" ]]; then
@@ -46,9 +60,6 @@ process BINDCRAFT {
     ##
     # We modify the advanced settings to set the `max_trajectories` to the batch size
     # This way Nextflow can run a defined number of trajectories per task
-    # We can monitor the accepted_pdbs channel count if we want to stop after
-    # a fixed number of Accepted designs or stop if the accept rate is too low
-    # (as per normal BindCraft behaviour)
     ##
     #######################################################################
     /opt/conda/envs/BindCraft/bin/python -c '
@@ -65,6 +76,10 @@ with open("${modified_advanced_settings_filename}", "w") as f:
 '
     #######################################################################
 
+    # Keep a copy of the filter settings - in the future we may modify these with
+    # overrides in a similar way to the advanced settings
+    cp ${filters_filename} ${modified_filters_filename}
+
     # So that matplotlib doesn't complain
     mkdir -p ./.matplotlib
     export MPLCONFIGDIR=./.matplotlib
@@ -76,6 +91,20 @@ with open("${modified_advanced_settings_filename}", "w") as f:
         --settings ${settings_json} \
         --filters /app/BindCraft/settings_filters/default_filters.json \
         --advanced ${modified_advanced_settings_filename} \
+        --filters ${modified_filters_filename} \
         ${task.ext.args ?: ''}
+
+    if [[ ${compress_html} == "true" ]]; then
+        find ./results -type f -name '*.html' -exec gzip -9 {} +
+    fi
+
+    if [[ ${compress_pdb} == "true" ]]; then
+        find ./results -type f -name '*.pdb' ! -path './results/Accepted/*.pdb' -exec gzip -9 {} +
+    fi
+
+    # Prepare a batch-scoped results directory for downstream reporting staging
+    # TODO: Can we use a symlink instead of copying here ?
+    mkdir -p "batches/${batch_id}"
+    cp -a ./results "batches/${batch_id}/"
     """
 }

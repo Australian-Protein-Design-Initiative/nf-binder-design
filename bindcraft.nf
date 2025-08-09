@@ -9,6 +9,7 @@ include { BINDCRAFT_REPORTING } from './modules/bindcraft_reporting.nf'
 
 params.outdir = 'results'
 params.bindcraft_advanced_settings_preset = 'default_4stage_multimer'
+params.bindcraft_filters_preset = 'default_filters'
 // params.bindcraft_advanced_settings_preset = 'default_4stage_multimer_flexible_hardtarget'
 params.design_name = 'bindcraft_design'
 params.input_pdb = false
@@ -16,8 +17,11 @@ params.hotspot_res = false
 params.hotspot_subsample = 1.0
 params.target_chains = 'A'
 params.binder_length_range = '60-150'
-params.bindcraft_n_designs = 10
+params.contigs = false
+params.bindcraft_n_traj = 10
 params.bindcraft_batch_size = 1
+params.bindcraft_compress_html = true
+params.bindcraft_compress_pdb = true
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
@@ -33,16 +37,22 @@ if (!params.input_pdb || !params.hotspot_res) {
         --hotspot_res                      Hotspot residues, eg "A473,A995,A411,A421"
 
     Optional arguments:
-        --outdir                Output directory [default: ${params.outdir}]
-        --design_name           Name of the design, used for output file prefixes [default: ${params.design_name}]
-        --target_chains         Target chain(s) for binder design [default: ${params.target_chains}]
-        --contigs               Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]"
-        --binder_length_range   Dash-separated min and max length for binders [default: ${params.binder_length_range}]
-        --hotspot_subsample     Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
-        --bindcraft_n_designs   Total number of designs to generate [default: ${params.bindcraft_n_designs}]
-        --bindcraft_batch_size  Number of designs to generate per batch [default: ${params.bindcraft_batch_size}]
+        --outdir                  Output directory [default: ${params.outdir}]
+        --design_name             Name of the design, used for output file prefixes [default: ${params.design_name}]
+        --target_chains           Target chain(s) for binder design [default: ${params.target_chains}]
+        --contigs                 Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]"
+        --binder_length_range     Dash-separated min and max length for binders [default: ${params.binder_length_range}]
+        --hotspot_subsample       Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
+        --bindcraft_n_traj        Total number of designs attempts (trajectories) to generate [default: ${params.bindcraft_n_traj}]
+        --bindcraft_batch_size    Number of designs to generate per batch [default: ${params.bindcraft_batch_size}]
         --bindcraft_advanced_settings_preset
-                                Preset for advanced settings [default: ${params.bindcraft_advanced_settings_preset}]
+                                  Preset for advanced settings [default: ${params.bindcraft_advanced_settings_preset}]
+        --bindcraft_filters_preset
+                                  Preset for filters [default: ${params.bindcraft_filters_preset}]
+        --bindcraft_compress_html
+                                  Compress batch output *.html) file with gzip [default: ${params.bindcraft_compress_html}]
+        --bindcraft_compress_pdb
+                                  Compress batch output *.pdb with gzip [default: ${params.bindcraft_compress_pdb}]
 
         --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
         --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
@@ -65,7 +75,7 @@ workflow {
     // (we don't want a complex configuration requiring mapping contig strings to input PDBs etc)
 
     ch_input_pdb = Channel.fromPath(params.input_pdb).first()
-    def design_indices = 0..(params.bindcraft_n_designs - 1)
+    def design_indices = 0..(params.bindcraft_n_traj - 1)
     def batches = design_indices.collate(params.bindcraft_batch_size)
 
     // Create batch info channel
@@ -94,7 +104,10 @@ workflow {
         ch_input_pdb,
         BINDCRAFT_CREATE_SETTINGS.out.settings_json,
         params.bindcraft_advanced_settings_preset,
-        BINDCRAFT_CREATE_SETTINGS.out.batch_id
+        params.bindcraft_filters_preset,
+        BINDCRAFT_CREATE_SETTINGS.out.batch_id,
+        params.bindcraft_compress_html,
+        params.bindcraft_compress_pdb
     )
 
     // Merge CSV outputs from each batch into master files
@@ -166,8 +179,14 @@ workflow {
         }
         .collectFile(name: 'failure_csv.csv', storeDir: "${params.outdir}/bindcraft")
 
+    // Collect per-batch directories into a single list for reporting
+    ch_batch_dirs_list = BINDCRAFT.out.batch_dir.collect()
+
+    //ch_batch_dirs_list.view()
+
     // Generate BindCraft report
     BINDCRAFT_REPORTING(
+        ch_batch_dirs_list,
         ch_failure_csv_merged,
         ch_final_stats_merged,
         ch_mpnn_design_stats_merged,

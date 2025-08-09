@@ -6,6 +6,10 @@ process BINDCRAFT_REPORTING {
     container 'ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.9.0'
 
     input:
+    // Stage all batch result directories under ./batches/{n}/
+    // Note the {n} in this case is a list index and may not match the batch_id
+    // For the purposes of generating aggregate stats, the batch_id is not important
+    path 'batches/*'
     path('failure_csv.csv')
     path('final_design_stats.csv')
     path('mpnn_design_stats.csv')

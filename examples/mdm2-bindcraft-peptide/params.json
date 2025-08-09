@@ -1,0 +1,11 @@
+{
+    "input_pdb": "input/1ycr_no_p53.pdb",
+    "outdir": "results",
+    "target_chains": "A",
+    "hotspot_res": "A73,A94",
+    "binder_length_range": "10-20",
+    "bindcraft_n_traj": 10,
+    "bindcraft_batch_size": 1,
+    "bindcraft_advanced_settings_preset": "peptide_3stage_multimer",
+    "bindcraft_filters_preset": "peptide_relaxed_filters"
+}

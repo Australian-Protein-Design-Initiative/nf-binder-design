@@ -86,14 +86,19 @@ import glob
 total_trajectories = len(trajectory_df) if trajectory_df is not None else 0
 accepted_count = len(final_design_df) if final_design_df is not None else 0
 
+
 # Count PDB files in different directories
 def count_pdb_files(directory_pattern):
-    """Count .pdb files in directories matching the pattern"""
+    """Count .pdb/.pdb.gz files in directories matching the pattern"""
     count = 0
     for path in Path(".").glob(directory_pattern):
         if path.is_dir():
+            # The glob pattern "*.{pdb,pdb.gz}" is not valid in Python's pathlib/glob.
+            # Instead, count both .pdb and .pdb.gz files separately:
             count += len(list(path.glob("*.pdb")))
+            count += len(list(path.glob("*.pdb.gz")))
     return count
+
 
 # Count files in different categories
 rejected_count = count_pdb_files("./batches/*/results/Rejected")
@@ -108,7 +113,7 @@ total_from_dirs = relaxed_count + lowconf_count + clashing_count + rejected_coun
 if total_from_dirs > 0:
     total_trajectories = total_from_dirs
 
-if total_trajectories > 0:
+if relaxed_count > 0:
     acceptance_rate = (accepted_count / relaxed_count) * 100
     html_content = f"""
     <div style="

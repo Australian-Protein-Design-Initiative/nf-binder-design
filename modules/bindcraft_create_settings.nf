@@ -12,7 +12,7 @@ process BINDCRAFT_CREATE_SETTINGS {
 
     output:
     path 'settings.json', emit: settings_json
-    val batch_id,        emit: batch_id
+    val batch_id,         emit: batch_id
 
     script:
     """

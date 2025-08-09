@@ -15,7 +15,7 @@ nextflow run ${PIPELINE_DIR}/bindcraft.nf \
   --target_chains "A" \
   --hotspot_res "A56" \
   --binder_length_range "55-120" \
-  --bindcraft_n_designs 4 \
+  --bindcraft_n_traj 4 \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   --gpu_devices=0,1 \
@@ -23,6 +23,3 @@ nextflow run ${PIPELINE_DIR}/bindcraft.nf \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
   -with-trace results/logs/trace_${DATESTAMP}.txt
-
-#  --binder_length_range "65-120" \
-#  --contigs "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]"
