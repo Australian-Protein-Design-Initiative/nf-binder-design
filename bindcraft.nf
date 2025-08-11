@@ -26,7 +26,7 @@ params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
 
-if (!params.input_pdb || !params.hotspot_res) {
+if (!params.input_pdb) {
     log.info"""
     ==================================================================
     🧬 BINDCRAFT NEXTFLOW WRAPPER 🧬
@@ -34,12 +34,12 @@ if (!params.input_pdb || !params.hotspot_res) {
 
     Required arguments:
         --input_pdb                        The input PDB file
-        --hotspot_res                      Hotspot residues, eg "A473,A995,A411,A421"
 
     Optional arguments:
         --outdir                  Output directory [default: ${params.outdir}]
         --design_name             Name of the design, used for output file prefixes [default: ${params.design_name}]
         --target_chains           Target chain(s) for binder design [default: ${params.target_chains}]
+        --hotspot_res             Hotspot residues, eg "A473,A995,A411,A421" - you must include the chain ID in every hotspot
         --contigs                 Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]"
         --binder_length_range     Dash-separated min and max length for binders [default: ${params.binder_length_range}]
         --hotspot_subsample       Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
@@ -65,9 +65,7 @@ if (!params.input_pdb || !params.hotspot_res) {
 workflow {
     // TODO: In theory, if --contigs is specified then --target_chains can be inferred from the contigs
     //       Do that and make --target_chains and --contigs mutually exclusive
-    // TODO: Allow multiple --contigs definitions (comma-separated?)
-    // TODO: Allow a hotspot subsampling parameter (eg "--hotspot_res_subsample 0.5") - the settings or hotspots chosen need to
-    //       be properly recorded along with the results
+    // TODO: Allow multiple --contigs definitions (comma-separated?), treated as alternative targets
 
     // TODO: Consider allowing multiple input PDBs and change the batching structure to accommodate this.
     //       Probably in this case we would disallow use of contigs (for simiplicity) and require pre-trimmed PDBs,

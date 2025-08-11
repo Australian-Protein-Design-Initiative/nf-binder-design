@@ -23,7 +23,10 @@ def main():
         "--input_pdb", required=True, help="Input PDB file for the target."
     )
     parser.add_argument(
-        "--hotspot_res", required=True, help="Hotspot residues, e.g., 'A29,A32,A34'."
+        "--hotspot_res",
+        default="",
+        required=False,
+        help="Hotspot residues, e.g., 'A29,A32,A34'.",
     )
     parser.add_argument(
         "--target_chains",
@@ -71,26 +74,29 @@ def main():
         sys.exit("Error: --hotspot_subsample must be between 0.0 and 1.0.")
 
     # Process hotspot residues - subsample if needed
-    hotspot_residues = args.hotspot_res
-    if args.hotspot_subsample < 1.0:
-        # Parse comma-separated hotspot residues
-        hotspot_list = [
-            res.strip() for res in args.hotspot_res.split(",") if res.strip()
-        ]
+    if args.hotspot_res and args.hotspot_res != "false":
+        hotspot_residues = args.hotspot_res
+        if args.hotspot_subsample < 1.0:
+            # Parse comma-separated hotspot residues
+            hotspot_list = [
+                res.strip() for res in args.hotspot_res.split(",") if res.strip()
+            ]
 
-        if hotspot_list:
-            # Calculate number of hotspots to keep (round up to at least 1)
-            n_total = len(hotspot_list)
-            n_keep = max(1, math.ceil(n_total * args.hotspot_subsample))
+            if hotspot_list:
+                # Calculate number of hotspots to keep (round up to at least 1)
+                n_total = len(hotspot_list)
+                n_keep = max(1, math.ceil(n_total * args.hotspot_subsample))
 
-            # Randomly subsample hotspots
-            random.seed()  # Use system time for randomness
-            subsampled_hotspots = random.sample(hotspot_list, n_keep)
-            hotspot_residues = ",".join(subsampled_hotspots)
+                # Randomly subsample hotspots
+                random.seed()  # Use system time for randomness
+                subsampled_hotspots = random.sample(hotspot_list, n_keep)
+                hotspot_residues = ",".join(subsampled_hotspots)
 
-            logging.info(
-                f"Subsampled {n_keep}/{n_total} hotspot residues: {hotspot_residues}"
-            )
+                logging.info(
+                    f"Subsampled {n_keep}/{n_total} hotspot residues: {hotspot_residues}"
+                )
+    else:
+        hotspot_residues = ""
 
     # Convert relative input_pdb to absolute path, as BindCraft may be run in a different working directory
     # within a container.
