@@ -1,0 +1,43 @@
+abstract:
+  '<p dir="auto">nf-binder-design is a collection of protein design workflows
+  in Nextflow. We provide both proven and experimental design protocols, wrapping
+  existing tools such as RFDiffusion, ProteinMPNN and BindCraft for parallel execution
+  on HPC and other Nextflow supported exectution platforms.</p>
+
+  <ul>
+
+  <li>RFDiffusion -&gt; ProteinMPNN -&gt; AlphaFold2 initial guess</li>
+
+  <li>RFDiffusion Partial Diffusion</li>
+
+  <li>BindCraft (in parallel across multiple GPUs)</li>
+
+  <li>"Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)</li>
+
+  <li>....</li>
+
+  </ul>'
+authors:
+  - family-names: Andrew Perry
+  - affiliation: Monash University
+    family-names: Perry
+    given-names: Andrew
+    orcid: 0000-0001-9256-6068
+  - affiliation: Monash University
+    family-names: Taveneau
+    given-names: Cyntia
+    orcid: 0000-0002-3395-4957
+  - affiliation: Monash University
+    family-names: Knott
+    given-names: Gavin J.
+    orcid: 0000-0002-9007-6273
+cff-version: 1.2.0
+date-released: "2025-08-12"
+doi: 10.5281/zenodo.16809705
+license:
+  - mit
+message: If you use this software, please cite it using the metadata from this file.
+repository-code: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/0.1.4
+title: "nf-binder-design: a Nextflow pipeline for protein binder design"
+type: software
+version: 0.1.4

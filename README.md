@@ -1,6 +1,6 @@
 # nf-binder-design
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16809651.svg)](10.5281/zenodo.16809651)
+[![DOI](https://zenodo.org/badge/921968505.svg)](https://doi.org/10.5281/zenodo.16809704)
 
 Nextflow pipelines for de novo protein binder design.
 
