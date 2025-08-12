@@ -1,5 +1,7 @@
 # nf-binder-design
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.16809651.svg)](10.5281/zenodo.16809651)
+
 Nextflow pipelines for de novo protein binder design.
 
 - RFDiffusion -> ProteinMPNN -> AlphaFold2 initial guess
