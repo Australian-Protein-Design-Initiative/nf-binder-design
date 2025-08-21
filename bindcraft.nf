@@ -191,3 +191,41 @@ workflow {
         ch_trajectory_stats_merged
     )
 }
+
+def paramsToMap(params) {
+    def map = [:]
+    params.each { key, value ->
+        if (value instanceof Path || value instanceof File) {
+            map[key] = value.toString()
+        } else if (!(value instanceof Closure) && !(key in [
+            'class', 'launchDir', 'projectDir', 'workDir'])) {
+            map[key] = value
+        }
+    }
+    return map
+}
+
+workflow.onComplete {
+    // Write the pipeline parameters to a JSON file
+    def params_json = [:]
+
+    params_json['params'] = paramsToMap(params)
+
+    params_json['workflow'] = [
+        name: workflow.manifest.name,
+        version: workflow.manifest.version,
+        runName: workflow.runName,
+        start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
+        complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
+        duration: workflow.duration,
+        success: workflow.success
+    ]
+
+    def output_file = "${params.outdir}/params.json"
+    def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(params_json))
+    
+    new File(params.outdir).mkdirs()
+    new File(output_file).text = json_string
+    
+    log.info "Pipeline parameters saved to: ${output_file}"
+}

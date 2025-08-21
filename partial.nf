@@ -30,6 +30,7 @@ params.rfd_batch_size = 10
 params.rfd_n_partial_per_binder = 10
 params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
 params.rfd_config = 'base'
+// noise_scale_ca and noise_scale_frame
 params.rfd_noise_scale = 0
 params.rfd_partial_T = 20 // Can be a single value or comma-separated list like "5,10,20"
 params.rfd_extra_args = ''
@@ -277,4 +278,42 @@ workflow {
         extra_scores,
         AF2_INITIAL_GUESS.out.pdbs.collect()
     )
+}
+
+def paramsToMap(params) {
+    def map = [:]
+    params.each { key, value ->
+        if (value instanceof Path || value instanceof File) {
+            map[key] = value.toString()
+        } else if (!(value instanceof Closure) && !(key in [
+            'class', 'launchDir', 'projectDir', 'workDir'])) {
+            map[key] = value
+        }
+    }
+    return map
+}
+
+workflow.onComplete {
+    // Write the pipeline parameters to a JSON file
+    def params_json = [:]
+
+    params_json['params'] = paramsToMap(params)
+
+    params_json['workflow'] = [
+        name: workflow.manifest.name,
+        version: workflow.manifest.version,
+        runName: workflow.runName,
+        start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
+        complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
+        duration: workflow.duration,
+        success: workflow.success
+    ]
+
+    def output_file = "${params.outdir}/params.json"
+    def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(params_json))
+    
+    new File(params.outdir).mkdirs()
+    new File(output_file).text = json_string
+    
+    log.info "Pipeline parameters saved to: ${output_file}"
 }
