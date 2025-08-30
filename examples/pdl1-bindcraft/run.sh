@@ -17,3 +17,7 @@ nextflow run ${PIPELINE_DIR}/bindcraft.nf  \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
   -with-trace results/logs/trace_${DATESTAMP}.txt
+
+# Alternatively, instead of --target_chains you can specify RFDiffusion-style 
+# contigs defining the regions to use, eg:
+#   --contigs "[A18-132/0]"
