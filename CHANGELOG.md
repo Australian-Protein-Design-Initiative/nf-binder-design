@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added DOI (Zenodo) badge to `README.md`, added `CITATION.cff`.
+- Some parameter validation for `bindcraft.nf`.
+- Write `params.json` to output directory.
+
+### Changed
+- Made default queue size 1, for single local GPU mode.
+- Added `m3-bdi.config`, site specific for M3/MASSIVE HPC cluster.
+
+## [0.1.4] - 2025-08-12
+
+### Added
 - BindCraft end-to-end workflow with basic HTML report
 - GPU allocation heuristics for local multi-GPU workstations.
 - HyperMPNN weights download script (`models/download_hypermpnn_weights.sh`).
