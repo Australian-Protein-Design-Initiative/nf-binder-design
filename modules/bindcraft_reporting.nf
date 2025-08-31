@@ -14,6 +14,7 @@ process BINDCRAFT_REPORTING {
     path('final_design_stats.csv')
     path('mpnn_design_stats.csv')
     path('trajectory_stats.csv')
+    path accepted_pdbs
 
     output:
     path('bindcraft_report.html')

@@ -25,6 +25,7 @@ params.bindcraft_compress_pdb = true
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
+params.bindcraft_stop_after_n_accepted = false  // false means no limit
 
 // Function to validate hotspot_res parameter format
 def validateHotspotRes(hotspot_res) {
@@ -43,7 +44,7 @@ def validateHotspotRes(hotspot_res) {
     // Check for empty elements (e.g., "A12," or ",A12" or "A12,,B15")
     if (residues.any { it.isEmpty() }) {
         error "Invalid hotspot_res format: '${hotspot_res}'. Hotspots must be specified like: 'A12,A15,A99' (comma separated {chainID}{resnum}, no empty elements)."
-    }
+}
 
     // Check each residue follows the format {chainID}{resnum}
     def pattern = ~/^[A-Z]\d+$/
@@ -104,7 +105,7 @@ def validateTargetChains(target_chains) {
     // Check for empty elements (e.g., "A," or ",A" or "A,,B")
     if (chains.any { it.isEmpty() }) {
         error "Invalid target_chains format: '${target_chains}'. Target chains must be specified like: 'A' or 'A,C' (comma separated single capital letters, no empty elements)."
-    }
+}
 
     // Check each chain ID is a single capital letter
     def pattern = ~/^[A-Z]$/
@@ -171,6 +172,8 @@ if (!params.input_pdb) {
         --binder_length_range     Dash-separated min and max length for binders [default: ${params.binder_length_range}]
         --hotspot_subsample       Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
         --bindcraft_n_traj        Total number of designs attempts (trajectories) to generate [default: ${params.bindcraft_n_traj}]
+        --bindcraft_stop_after_n_accepted
+                                  Number of accepted PDBs to stop after (false = no limit) [default: ${params.bindcraft_stop_after_n_accepted}]
         --bindcraft_batch_size    Number of designs to generate per batch [default: ${params.bindcraft_batch_size}]
         --bindcraft_advanced_settings_preset
                                   Preset for advanced settings [default: ${params.bindcraft_advanced_settings_preset}]
@@ -181,12 +184,26 @@ if (!params.input_pdb) {
         --bindcraft_compress_pdb
                                   Compress batch output *.pdb with gzip [default: ${params.bindcraft_compress_pdb}]
 
-        --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
-        --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
-        --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+        --require_gpu             Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+        --gpu_devices             GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
+        --gpu_allocation_detect_process_regex
+                                  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
 
     """.stripIndent()
     exit 1
+}
+
+process ACCEPTED_PDBS_NOOP {
+    input:
+    path accepted_pdbs
+
+    output:
+    path accepted_pdbs
+
+    script:
+    """
+    echo "Accepted PDBs: ${accepted_pdbs}"
+    """
 }
 
 workflow {
@@ -268,88 +285,109 @@ workflow {
         params.bindcraft_compress_pdb
     )
 
-    // Merge CSV outputs from each batch into master files
-    ch_final_stats_merged = BINDCRAFT.out.final_stats_csv
-        .collectFile(name: 'final_design_stats.csv',
-                     storeDir: "${params.outdir}/bindcraft",
-                     keepHeader: true,
-                     skip: 1)
+    // TODO: Using ch_accepted_pdbs does't work to terminate early,
+    // since we are also calling collect to create ch_batch_dirs_list,
+    // which means all BINDCRAFT processes will run to completion before the workflow is terminated
+    // MAYBE we can inject a global into the BINDCRAFT processes such that if ch_accepted_pdbs in non-empty
+    // a global gets set, and then each BINDCRAFT process decides if it will really start or skip based
+    // on the state of that global, in the script when it start to execute.
+    //
+    // ALTERNATIVELY, when using params.bindcraft_stop_after_n_accepted, maybe we don't run
+    // BINDCRAFT_REPORTING as a process, but run the report generation in workflow.onComplete.
+    //
 
-    ch_trajectory_stats_merged = BINDCRAFT.out.trajectory_stats_csv
-        .collectFile(name: 'trajectory_stats.csv',
-                     storeDir: "${params.outdir}/bindcraft",
-                     keepHeader: true,
-                     skip: 1)
+    // Limit accepted PDBs if specified
+    def ch_accepted_pdbs
+    if (params.bindcraft_stop_after_n_accepted) {
+        log.info "Will stop after ${params.bindcraft_stop_after_n_accepted} designs are accepted."
+        ch_accepted_pdbs = BINDCRAFT.out.accepted_pdbs.take(params.bindcraft_stop_after_n_accepted)
+        ACCEPTED_PDBS_NOOP(ch_accepted_pdbs)
+    } else {
+        ch_accepted_pdbs = BINDCRAFT.out.accepted_pdbs
 
-    ch_mpnn_design_stats_merged = BINDCRAFT.out.mpnn_design_stats_csv
-        .collectFile(name: 'mpnn_design_stats.csv',
-                     storeDir: "${params.outdir}/bindcraft",
-                     keepHeader: true,
-                     skip: 1)
+        // Merge CSV outputs from each batch into master files
+        ch_final_stats_merged = BINDCRAFT.out.final_stats_csv
+            .collectFile(name: 'final_design_stats.csv',
+                        storeDir: "${params.outdir}/bindcraft",
+                        keepHeader: true,
+                        skip: 1)
 
-    // Collect and sum failure_csv rows - each file has a header and single data row with numeric values to sum
-    ch_failure_csv_merged = BINDCRAFT.out.failure_csv
-        .collect()
-        .map { files ->
-            def header = ''
-            def sums = [:]
-            def columnOrder = []
+        ch_trajectory_stats_merged = BINDCRAFT.out.trajectory_stats_csv
+            .collectFile(name: 'trajectory_stats.csv',
+                        storeDir: "${params.outdir}/bindcraft",
+                        keepHeader: true,
+                        skip: 1)
 
-            files.eachWithIndex { file, index ->
-                def lines = file.readLines()
-                if (lines.size() >= 2) {
-                    if (index == 0) {
-                        // Get header from first file
-                        header = lines[0]
-                        columnOrder = header.split(',')
-                    // Initialize sums map
-                    def values = lines[1].split(',')
-                    columnOrder.eachWithIndex { col, i ->
-                        def value = values[i]
-                        try {
-                            sums[col] = Integer.parseInt(value)
-                             } catch (NumberFormatException e) {
-                            sums[col] = value
-                        }
-                    }
-                    } else {
-                    // Sum values from subsequent files
-                    def values = lines[1].split(',')
-                    columnOrder.eachWithIndex { col, i ->
-                        def value = values[i]
-                        if (sums[col] instanceof Number) {
+        ch_mpnn_design_stats_merged = BINDCRAFT.out.mpnn_design_stats_csv
+            .collectFile(name: 'mpnn_design_stats.csv',
+                        storeDir: "${params.outdir}/bindcraft",
+                        keepHeader: true,
+                        skip: 1)
+
+        // Collect and sum failure_csv rows - each file has a header and single data row with numeric values to sum
+        ch_failure_csv_merged = BINDCRAFT.out.failure_csv
+            .collect()
+            .map { files ->
+                def header = ''
+                def sums = [:]
+                def columnOrder = []
+
+                files.eachWithIndex { file, index ->
+                    def lines = file.readLines()
+                    if (lines.size() >= 2) {
+                        if (index == 0) {
+                            // Get header from first file
+                            header = lines[0]
+                            columnOrder = header.split(',')
+                        // Initialize sums map
+                        def values = lines[1].split(',')
+                        columnOrder.eachWithIndex { col, i ->
+                            def value = values[i]
                             try {
-                                sums[col] += Integer.parseInt(value)
-                                 } catch (NumberFormatException e) {
-                            // Skip non-numeric values
+                                sums[col] = Integer.parseInt(value)
+                                } catch (NumberFormatException e) {
+                                sums[col] = value
                             }
                         }
-                    }
+                        } else {
+                        // Sum values from subsequent files
+                        def values = lines[1].split(',')
+                        columnOrder.eachWithIndex { col, i ->
+                            def value = values[i]
+                            if (sums[col] instanceof Number) {
+                                try {
+                                    sums[col] += Integer.parseInt(value)
+                                    } catch (NumberFormatException e) {
+                                // Skip non-numeric values
+                                }
+                            }
+                        }
+                        }
                     }
                 }
+
+                // Create summed CSV content
+                def summedValues = columnOrder.collect { col ->
+                    sums[col] instanceof Number ? sums[col].toString() : sums[col]
+                }.join(',')
+                return "${header}\n${summedValues}"
             }
+            .collectFile(name: 'failure_csv.csv', storeDir: "${params.outdir}/bindcraft")
 
-            // Create summed CSV content
-            def summedValues = columnOrder.collect { col ->
-                sums[col] instanceof Number ? sums[col].toString() : sums[col]
-            }.join(',')
-            return "${header}\n${summedValues}"
-        }
-        .collectFile(name: 'failure_csv.csv', storeDir: "${params.outdir}/bindcraft")
+        // Collect per-batch directories into a single list for reporting
+        ch_batch_dirs_list = BINDCRAFT.out.batch_dir.collect()
+        //ch_batch_dirs_list.view()
 
-    // Collect per-batch directories into a single list for reporting
-    ch_batch_dirs_list = BINDCRAFT.out.batch_dir.collect()
-
-    //ch_batch_dirs_list.view()
-
-    // Generate BindCraft report
-    BINDCRAFT_REPORTING(
-        ch_batch_dirs_list,
-        ch_failure_csv_merged,
-        ch_final_stats_merged,
-        ch_mpnn_design_stats_merged,
-        ch_trajectory_stats_merged
-    )
+        // Generate BindCraft report
+        BINDCRAFT_REPORTING(
+            ch_batch_dirs_list,
+            ch_failure_csv_merged,
+            ch_final_stats_merged,
+            ch_mpnn_design_stats_merged,
+            ch_trajectory_stats_merged,
+            ch_accepted_pdbs.collect()
+        )
+    }
 }
 
 def paramsToMap(params) {
@@ -378,7 +416,8 @@ workflow.onComplete {
         start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
         complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
         duration: workflow.duration,
-        success: workflow.success
+        success: workflow.success,
+        exitStatus: workflow.exitStatus
     ]
 
     def output_file = "${params.outdir}/params.json"

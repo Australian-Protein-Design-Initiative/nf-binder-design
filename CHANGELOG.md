@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added DOI (Zenodo) badge to `README.md`, added `CITATION.cff`.
 - Some parameter validation for `bindcraft.nf`.
 - Write `params.json` to output directory.
+- Added `--bindcraft_stop_after_n_accepted` parameter to gracefully terminate workflows after a specified number of accepted PDBs are generated.
 
 ### Changed
 - Made default queue size 1, for single local GPU mode.
