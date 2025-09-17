@@ -25,6 +25,9 @@ process BINDCRAFT_REPORTING {
     export XDG_DATA_HOME="./.local/share"
     export JUPYTER_RUNTIME_DIR="./.jupyter"
     export XDG_RUNTIME_DIR="/tmp"
-    quarto render ${qmd_file} --execute-dir \${PWD} --output - >bindcraft_report.html
+
+    cp ${qmd_file} .
+
+    quarto render bindcraft_reporting.qmd --execute-dir \${PWD} --output - >bindcraft_report.html
     """
 }

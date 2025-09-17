@@ -9,6 +9,8 @@ format:
     toc-depth: 3
     theme: cosmo
     embed-resources: true
+execute:
+  echo: false
 jupyter: python3
 ---
 
