@@ -65,6 +65,9 @@ mkdir -p $TMPDIR
 export NXF_APPTAINER_CACHEDIR=/some/path/to/scratch2/apptainer_cache
 export NXF_APPTAINER_TMPDIR=$TMPDIR
 
+# There's a module for Nextflow on M3
+module load nextflow/24.04.3 || true
+
 # CHANGE the --slurm_account to match the project ID you wish to run SLURM jobs under
 nextflow \
 -c ${WF_PATH}/conf/platforms/m3.config run \
