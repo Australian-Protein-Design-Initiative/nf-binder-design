@@ -1,13 +1,12 @@
 process TRIM_TO_CONTIGS {
-
-    container 'ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
 
     input:
     path input_pdb
     val contigs
 
     output:
-    path "*.pdb", emit: pdb
+    path '*.pdb', emit: pdb
 
     script:
     """

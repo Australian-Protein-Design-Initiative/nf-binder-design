@@ -3,7 +3,7 @@ nextflow.enable.dsl = 2
 process BINDCRAFT_REPORTING {
     publishDir "${params.outdir}/bindcraft", mode: 'copy'
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.9.0'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
 
     input:
     // Stage all batch result directories under ./batches/{n}/

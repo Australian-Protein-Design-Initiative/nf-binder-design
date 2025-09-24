@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Made default queue size 1, for single local GPU mode.
 - Added `m3-bdi.config`, site specific for M3/MASSIVE HPC cluster.
+- Use the `nf-binder-design-utils` container instead of `mdanalysis`.
+
+### Fixed
+- Fixed Quarto rendering permissions issues (copy Qmd to work folder).
 
 ## [0.1.4] - 2025-08-12
 
