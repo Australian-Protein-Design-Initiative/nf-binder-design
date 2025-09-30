@@ -1,5 +1,7 @@
 # RFdiffusion Workflows
 
+![RFdiffusion workflow](../images/rfd-workflow.png)
+
 RFdiffusion-based workflows for _de novo_ protein binder design.
 
 ## Overview

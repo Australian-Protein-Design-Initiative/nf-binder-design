@@ -1,5 +1,7 @@
 # BindCraft Workflow
 
+![BindCraft workflow](../images/bindcraft-workflow.png)
+
 Parallel [BindCraft](https://github.com/martinpacesa/BindCraft) execution for protein binder design across multiple GPUs.
 
 ## Overview
