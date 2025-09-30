@@ -11,7 +11,7 @@ nav:
 
 plugins:
   - search
-  - macros
+#  - macros
 
 # theme:
 #   name: material
