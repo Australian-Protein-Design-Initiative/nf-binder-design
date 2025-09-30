@@ -4,12 +4,31 @@
 
 Nextflow pipelines for de novo protein binder design.
 
-- RFDiffusion -> ProteinMPNN -> AlphaFold2 initial guess
-- RFDiffusion Partial Diffusion
+![RFdiffusion workflow](docs/images/rfd-workflow.png)
+
+- RFdiffusion -> ProteinMPNN -> AlphaFold2 initial guess
+- RFdiffusion Partial Diffusion
 - BindCraft (in parallel across multiple GPUs)
 - "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
 
-> Note well: Components of these workflows use RFDiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use, however commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
+> ⚠️ Note: Components of these workflows use RFdiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use. Commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
+----
+
+- [nf-binder-design](#nf-binder-design)
+  - [Setup](#setup)
+  - [Examples](#examples)
+    - [Commandline options](#commandline-options)
+  - [Binder design with RFdiffusion](#binder-design-with-rfdiffusion)
+    - [Single node or local workstation](#single-node-or-local-workstation)
+    - [Parallel on an HPC cluster](#parallel-on-an-hpc-cluster)
+  - [Partial diffusion on binder designs](#partial-diffusion-on-binder-designs)
+  - [Binder design with BindCraft](#binder-design-with-bindcraft)
+  - [Boltz pulldown](#boltz-pulldown)
+  - [Utility scripts](#utility-scripts)
+  - [Design filter plugin system](#design-filter-plugin-system)
+    - [Plugin API](#plugin-api)
+  - [License](#license)
+
 
 ## Setup
 
@@ -21,9 +40,25 @@ Clone the git repository:
 git clone https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
 ```
 
-## Binder design with RFDiffusion
+## Examples
 
-Example:
+See the [examples](examples/) directory for examples.
+
+### Commandline options
+
+For any of the workflows, you can see the commandline options with `--help`, eg:
+
+```bash
+nextflow run main.nf --help
+```
+
+Any of the `--params` commandline options can alternatively be defined in a `params.json` file and passed to the workflow with `-params-file params.json`.
+
+## Binder design with RFdiffusion
+
+### Single node or local workstation
+
+Simple example (single 'local' compute node):
 
 ```bash
 OUTDIR=results
@@ -42,9 +77,11 @@ nextflow run main.nf \
     -profile local
 ```
 
-> If you are working on a specific cluster like M3 or MLeRP, you should omit `-profile local` and add the `-c` flag pointing to the specific platform config, eg `-c conf/platforms/m3.config` for M3.
+> If you are working on a specific HPC cluster like M3 or MLeRP, you should omit `-profile local` and add the `-c` flag pointing to the specific platform config, eg `-c conf/platforms/m3.config` for M3.
 
-A more complex example, as a wrapper script for the M3 HPC cluster, using a the site-specific config (`-c`), a specific RFDiffusion model (`--rfd_model_path`), a radius of gyration filter on the generated RFDiffusion backbones (`--rfd_filters`), custom ProteinMPNN weights (`--pmpnn_weigths`) and radius of gyration potentials (`--rfd_extra_args`):
+### Parallel on an HPC cluster
+
+A more complex example, as a wrapper script for the M3 HPC cluster, using a the site-specific config (`-c`), a specific RFdiffusion model (`--rfd_model_path`), a radius of gyration filter on the generated RFdiffusion backbones (`--rfd_filters`), custom ProteinMPNN weights (`--pmpnn_weigths`) and radius of gyration potentials (`--rfd_extra_args`):
 
 ```bash
 #!/bin/bash
@@ -91,16 +128,6 @@ ${WF_PATH}/main.nf  \
 -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
 
-### Summarize af2_initial_guess scores
-
-This happens by default when the pipeline successfully completes, however you may want to run it mid-run to monitor how things are going:
-
-```bash
-OUTDIR=results
-
-bin/af2_combine_scores.py -o $OUTDIR/combined_scores.tsv -p $OUTDIR/af2_results
-```
-
 ## Partial diffusion on binder designs
 
 > NOTE: It seems with output from previous designs that the binder is always named chain A, and your other chains are named B, C, etc - irrespective of the chain ID in the original target PDB file. Residue numbering is 1 to N, sequential irrespective of gaps in the chain, rather than original target chain numbering.
@@ -122,29 +149,9 @@ nextflow run partial.nf  \
     -profile local
 ```
 
-## Design filter plugin system
-
-The pipeline supports a plugin system for calculating and filtering on custom metrics for designs. This is currently controlled by the `--rfd_filters` parameter.
-
-Filters are simple Python scripts located in the `bin/filters.d/` directory. Any `*.py` file in this directory will be automatically discovered.
-
-Currently, only a radius of gyration (`rg`) filter is implemented in `bin/filters.d/rg.py`, which can be used as a template for creating new filters.
-
-### Plugin API
-
-A filter plugin must implement two functions:
-
-1.  `register_metrics() -> list[str]`
-    This function should return a list of the metric names (as strings) that the plugin can calculate. For example: `return ["rg", "my_custom_score"]`.
-
-2.  `calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -> pd.DataFrame`
-    This function takes a list of PDB file paths and a list of binder chain IDs. It should perform its calculations and return a `pandas.DataFrame` with the following structure:
-    *   The **index** of the DataFrame must be the design ID (i.e., the PDB filename without the `.pdb` extension).
-    *   The **columns** must correspond to the metric names returned by `register_metrics()`.
-
-The main `bin/filter_designs.py` script will call these plugins as needed based on the filter expressions provided to the pipeline (e.g., `--rfd_filters "rg<20"`).
-
 ## Binder design with BindCraft
+
+![BindCraft workflow](docs/images/bindcraft-workflow.png)
 
 The `bindcraft.nf` helps run [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs.
 This is particularly well suited for running BindCraft on an HPC cluster, or a workstation with multiple GPUs.
@@ -249,8 +256,42 @@ process {
 
 By default, `boltz_pulldown.nf` will output to `results/boltz_pulldown`, which includes the Boltz outputs with scores and predicted structures, and a summary table `boltz_pulldown.tsv`. It also outputs `boltz_pulldown_report.html` with summary statistics and plots of the binder/target ipTM scores.
 
+## Utility scripts
+
+The `bin/` directory contains utility scripts, most of which are used internally by the workflows, but can also be run as standalone scripts. Run `uv run bin/somescript.py --help` for usage _(use [uv](https://docs.astral.sh/uv/getting-started/installation/) to run the scripts and dependencies with be automatically dealt with)_
+
+The `bin/af2_combine_scores.py` can be useful for the RFdiffusion pipelines to monitor mid-run how things are going:
+
+```bash
+OUTDIR=results
+
+uv run bin/af2_combine_scores.py -o $OUTDIR/combined_scores.tsv -p $OUTDIR/af2_results
+```
+
+## Design filter plugin system
+
+The `main.nf` and `partial.nf` pipelines support a plugin system for calculating and filtering on custom metrics for designs. This is currently controlled by the `--rfd_filters` parameter.
+
+Filters are simple Python scripts located in the `bin/filters.d/` directory. Any `*.py` file in this directory will be automatically discovered.
+
+Currently, only a radius of gyration (`rg`) filter is implemented in `bin/filters.d/rg.py`, which can be used as a template for creating new filters.
+
+### Plugin API
+
+A filter plugin must implement two functions:
+
+1.  `register_metrics() -> list[str]`
+    This function should return a list of the metric names (as strings) that the plugin can calculate. For example: `return ["rg", "my_custom_score"]`.
+
+2.  `calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -> pd.DataFrame`
+    This function takes a list of PDB file paths and a list of binder chain IDs. It should perform its calculations and return a `pandas.DataFrame` with the following structure:
+    *   The **index** of the DataFrame must be the design ID (i.e., the PDB filename without the `.pdb` extension).
+    *   The **columns** must correspond to the metric names returned by `register_metrics()`.
+
+The main `bin/filter_designs.py` script will call these plugins as needed based on the filter expressions provided to the pipeline (e.g., `--rfd_filters "rg<20"`).
+
 ## License
 
 MIT
 
-> Note that some software dependencies of the pipeline are under less permissive licenses - in particular, RFDiffusion and BindCraft use [Rosetta/PyRosetta](https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md) which is **only free for Non-Commercial use**.
+> Note that some software dependencies of the pipeline are under less permissive licenses - in particular, RFdiffusion and BindCraft use [Rosetta/PyRosetta](https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md) which is **only free for Non-Commercial use**.
