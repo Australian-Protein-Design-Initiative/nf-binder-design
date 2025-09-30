@@ -1,0 +1,52 @@
+site_name: nf-binder-design
+nav:
+  - Home: index.md
+  - Setup: setup.md
+  - Workflows:
+      - RFdiffusion: workflows/rfdiffusion.md
+      - BindCraft: workflows/bindcraft.md
+      - Boltz Pulldown: workflows/boltz-pulldown.md
+  - Extra:
+      - Utility Scripts: extra/utility-scripts.md
+
+plugins:
+  - search
+  - macros
+
+# theme:
+#   name: material
+#   palette:
+#     primary: teal
+#     accent: deep purple
+#   icon:
+#     logo: material/tools
+#   favicon: images/favicon.ico
+#   features:
+#     - search.suggest
+#     - toc.follow
+#     #- navigation.tabs
+#     #- navigation.tabs.sticky
+
+theme:
+  name: readthedocs
+  highlightjs: true
+  hljs_languages:
+    - yaml
+    - json
+    - python
+    - bash
+    - groovy
+  #logo: images/favicon.ico
+
+extra_css:
+  - styles.green.css
+  #- styles.purple.css
+  #- styles.indigo.css
+
+extra:
+  manifest: manifest.webmanifest
+
+site_url: https://australian-protein-design-initiative.github.io/nf-binder-design
+repo_url: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
+site_description: nf-binder-design - Nextflow pipelines for de novo protein binder design
+site_author: pansapiens

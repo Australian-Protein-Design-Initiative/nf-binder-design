@@ -1,0 +1,102 @@
+/* Custom CSS to change ReadTheDocs theme colors to purple */
+
+/* Primary color overrides */
+.rst-content a,
+.rst-content a:visited {
+    color: #7E56C2;
+    /* Purple primary */
+}
+
+.rst-content a:hover {
+    color: #5E35B1;
+    /* Darker purple on hover */
+}
+
+/* Navigation and header colors */
+.wy-side-nav-search {
+    background-color: #7E56C2;
+    /* Purple primary */
+}
+
+.wy-side-nav-search input[type="text"] {
+    border-color: #5E35B1;
+    /* Darker purple border */
+}
+
+.wy-side-nav-search input[type="text"]:focus {
+    border-color: #5E35B1;
+    box-shadow: 0 0 5px rgba(126, 86, 194, 0.3);
+}
+
+/* Top navigation bar */
+.wy-nav-top {
+    background-color: #7E56C2;
+    /* Purple primary */
+}
+
+/* Sidebar navigation */
+.wy-menu-vertical a {
+    color: #7E56C2;
+    /* Purple for links */
+}
+
+.wy-menu-vertical a:hover {
+    background-color: rgba(126, 86, 194, 0.1);
+    /* Light purple background on hover */
+}
+
+/* Current page indicator */
+.wy-menu-vertical .current>a {
+    background-color: #7E56C2;
+    /* Purple for current page */
+    color: white;
+}
+
+/* Code blocks and syntax highlighting */
+.rst-content .highlight {
+    background-color: #f8f9fa;
+    border-left: 4px solid #7E56C2;
+    /* Purple accent border */
+}
+
+/* Buttons and interactive elements */
+.rst-content .btn,
+.rst-content .btn:visited {
+    background-color: #7E56C2;
+    border-color: #7E56C2;
+}
+
+.rst-content .btn:hover {
+    background-color: #5E35B1;
+    border-color: #5E35B1;
+}
+
+/* Table headers */
+.rst-content table.docutils thead th {
+    background-color: #7E56C2;
+    color: white;
+}
+
+/* Admonition boxes */
+.rst-content .admonition-title {
+    background-color: #7E56C2;
+    color: white;
+}
+
+.rst-content .admonition {
+    border-left: 4px solid #7E56C2;
+}
+
+/* Version and breadcrumb */
+.wy-breadcrumbs a {
+    color: #7E56C2;
+}
+
+/* Footer links */
+.rst-footer-buttons a {
+    color: #7E56C2;
+}
+
+.rst-footer-buttons a:hover {
+    color: #5E35B1;
+}

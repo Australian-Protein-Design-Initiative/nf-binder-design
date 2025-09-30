@@ -1,10 +1,10 @@
 # nf-binder-design
 
-[![DOI](https://zenodo.org/badge/921968505.svg)](https://doi.org/10.5281/zenodo.16809704)
+[![DOI](https://zenodo.org/badge/921968505.svg)](https://doi.org/10.5281/zenodo.16809704) | [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://australian-protein-design-initiative.github.io/nf-binder-design/)
 
 Nextflow pipelines for de novo protein binder design.
 
-![RFdiffusion workflow](docs/images/rfd-workflow.png)
+![RFdiffusion workflow](docs/docs/images/rfd-workflow.png)
 
 - RFdiffusion -> ProteinMPNN -> AlphaFold2 initial guess
 - RFdiffusion Partial Diffusion
@@ -12,7 +12,10 @@ Nextflow pipelines for de novo protein binder design.
 - "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
 
 > ⚠️ Note: Components of these workflows use RFdiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use. Commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
+
 ----
+
+Documentation: https://australian-protein-design-initiative.github.io/nf-binder-design/
 
 - [nf-binder-design](#nf-binder-design)
   - [Setup](#setup)
@@ -151,7 +154,7 @@ nextflow run partial.nf  \
 
 ## Binder design with BindCraft
 
-![BindCraft workflow](docs/images/bindcraft-workflow.png)
+![BindCraft workflow](docs/docs/images/bindcraft-workflow.png)
 
 The `bindcraft.nf` helps run [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs.
 This is particularly well suited for running BindCraft on an HPC cluster, or a workstation with multiple GPUs.
