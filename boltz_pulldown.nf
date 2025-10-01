@@ -141,7 +141,7 @@ workflow {
             --outdir              Output directory [default: ${params.outdir}]
             --create_binder_msa   Create MSA for binder (a3m format) [default: ${params.create_binder_msa}]
             --create_target_msa   Create MSA for target (a3m format) [default: ${params.create_target_msa}]
-            --templates           Templates directory with .cif files [default: ${params.templates}]
+            --templates           Templates directory with .pdb and .cif files [default: ${params.templates}]
             --use_msa_server      Use BOLTZ MSA server [default: ${params.use_msa_server}]
             --uniref30            UniRef30 database path [default: ${params.uniref30}]
             --colabfold_envdb     ColabFold environment database path [default: ${params.colabfold_envdb}]

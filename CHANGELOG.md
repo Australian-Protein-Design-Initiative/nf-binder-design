@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added DOI (Zenodo) badge to `README.md`, added `CITATION.cff`.
 - Some parameter validation for `bindcraft.nf`.
 - Write `params.json` to output directory.
+ - `create_boltz_yaml.py` now includes `.pdb` files in `templates` alongside `.cif`.
 
 ### Changed
 - Made default queue size 1, for single local GPU mode.
