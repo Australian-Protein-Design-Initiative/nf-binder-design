@@ -15,13 +15,13 @@ def sanitize_for_filename(text: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Create a YAML file for BOLTZ input.")
-    parser.add_argument("--target_id", required=True, help="ID of the target protein.")
+    parser.add_argument("--target_id", required=False, help="ID of the target protein.")
     parser.add_argument(
-        "--target_seq", required=True, help="Sequence of the target protein."
+        "--target_seq", required=False, help="Sequence of the target protein."
     )
-    parser.add_argument("--binder_id", required=True, help="ID of the binder protein.")
+    parser.add_argument("--binder_id", required=False, help="ID of the binder protein.")
     parser.add_argument(
-        "--binder_seq", required=True, help="Sequence of the binder protein."
+        "--binder_seq", required=False, help="Sequence of the binder protein."
     )
     parser.add_argument(
         "--target_msa", required=False, help="Path to the target MSA file."
@@ -36,26 +36,50 @@ def main():
         "--output_yaml", required=True, help="Path to the output YAML file."
     )
     parser.add_argument(
+        "--target_chain",
+        required=False,
+        help="Optional chain ID to use for target (default A).",
+    )
+    parser.add_argument(
+        "--binder_chain",
+        required=False,
+        help="Optional chain ID to use for binder (default B).",
+    )
+    parser.add_argument(
         "--use_msa_server", action="store_true", help="Omit 'msa: empty' if set."
     )
 
     args = parser.parse_args()
 
-    target_protein = {"id": ["A"], "sequence": args.target_seq}
+    # Validate at least one of target or binder provided
+    if not (
+        (args.target_id and args.target_seq) or (args.binder_id and args.binder_seq)
+    ):
+        print(
+            "Error: Must provide at least one of target_* or binder_* (id and seq)",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
-    binder_protein = {"id": ["B"], "sequence": args.binder_seq}
+    sequences_list = []
 
-    # if not args.use_msa_server:
-    #     target_protein['msa'] = 'empty'
-    #     binder_protein['msa'] = 'empty'
-    if args.target_msa:
-        target_protein["msa"] = args.target_msa
-    if args.binder_msa:
-        binder_protein["msa"] = args.binder_msa
+    if args.target_id and args.target_seq:
+        target_chain = args.target_chain if args.target_chain else "A"
+        target_protein = {"id": [target_chain], "sequence": args.target_seq}
+        if args.target_msa:
+            target_protein["msa"] = args.target_msa
+        sequences_list.append({"protein": target_protein})
+
+    if args.binder_id and args.binder_seq:
+        binder_chain = args.binder_chain if args.binder_chain else "B"
+        binder_protein = {"id": [binder_chain], "sequence": args.binder_seq}
+        if args.binder_msa:
+            binder_protein["msa"] = args.binder_msa
+        sequences_list.append({"protein": binder_protein})
 
     data = {
         "version": 1,
-        "sequences": [{"protein": target_protein}, {"protein": binder_protein}],
+        "sequences": sequences_list,
     }
 
     if args.templates:

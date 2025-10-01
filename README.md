@@ -231,7 +231,13 @@ A report summarizing the results is generated in `bindcraft_report.html`.
 
 ## Boltz pulldown
 
-An [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown)-like protocol, using [Boltz](https://github.com/jwohlwend/boltz). This is essentially running multimer predictions for all sequences in the target set (`--targets targets.fasta`) against all sequences in the binder set (`--binders binders.fasta`).
+An [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown)-like protocol, using [Boltz](https://github.com/jwohlwend/boltz). This is essentially running multimer predictions for all sequences in the target set against all sequences in the binder set.
+
+Input can be provided in two ways:
+- **FASTA files**: `--targets_fasta targets.fasta` and `--binders_fasta binders.fasta`
+- **PDB structures**: `--target_structures target_pdbs/` and `--binder_structures binder_pdbs/` (requires `--target_chains` and `--binder_chains` to specify which chains to extract)
+
+You cannot mix input types - choose either FASTA or structures for each set.
 
 By default, no multiple sequence alignments are used. If you set the `--create_target_msa=true` and `--create_binder_msa=true` flags, target and binder multiple sequence alignments will be generated, respectively.
 

@@ -3,91 +3,43 @@
 nextflow.enable.dsl = 2
 
 // Default parameters
-params.targets        = false
-params.binders        = false
+params.help = false
+params.targets_fasta  = false
+params.binders_fasta  = false
+params.target_structures = false
+params.binder_structures = false
+params.complex_structures = false
+params.target_chains = false
+params.binder_chains = false
 params.outdir         = "results"
 params.use_msa_server = false
 params.create_binder_msa = false
 params.create_target_msa = false
 params.templates = false
+params.colabfold_envdb = false
+params.uniref30 = false
 
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = "(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)"
 
-include { BOLTZ } from './modules/boltz'
+include { PDB_TO_FASTA as TARGET_PDB_TO_FASTA } from './modules/pdb_to_fasta.nf'
+include { PDB_TO_FASTA as BINDER_PDB_TO_FASTA } from './modules/pdb_to_fasta.nf'
+include { CREATE_BOLTZ_YAML as CREATE_BOLTZ_YAML_COMPLEX } from './modules/create_boltz_yaml.nf'
+include { CREATE_BOLTZ_YAML_MONOMER as CREATE_BOLTZ_YAML_TARGET_MONOMER } from './modules/create_boltz_yaml.nf'
+include { CREATE_BOLTZ_YAML_MONOMER as CREATE_BOLTZ_YAML_BINDER_MONOMER } from './modules/create_boltz_yaml.nf'
+include { BOLTZ as BOLTZ_COMPLEX } from './modules/boltz'
+include { BOLTZ as BOLTZ_TARGET_MONOMER } from './modules/boltz'
+include { BOLTZ as BOLTZ_BINDER_MONOMER } from './modules/boltz'
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 include { BOLTZ_PULLDOWN_REPORTING } from './modules/boltz_pulldown_reporting.nf'
+include { RMSD4ALL as RMSD4ALL_COMPLEXES } from './modules/rmsd4all.nf'
+include { RMSD4ALL as RMSD4ALL_TARGET_MONOMERS } from './modules/rmsd4all.nf'
+include { RMSD4ALL as RMSD4ALL_BINDER_MONOMERS } from './modules/rmsd4all.nf'
 
-// Helper function to sanitize strings for filenames
-def sanitize(name) {
-    return name.replaceAll(/[^a-zA-Z0-9_.-]/, "_")
-}
-
-process CREATE_BOLTZ_YAML {
-    tag "${target_meta.id}_and_${binder_meta.id}"
-
-    container "ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0"
-
-    input:
-    tuple val(target_meta), path(target_msa), val(binder_meta), path(binder_msa)
-    path(templates)
-
-    output:
-    tuple val(meta), path(yaml), path(target_msa), path(binder_msa)
-
-    script:
-    def id = "${sanitize(target_meta.id)}_and_${sanitize(binder_meta.id)}"
-    def use_msa_server_flag = params.use_msa_server ? "--use_msa_server" : ""
-    def templates_flag = params.templates ? "--templates '${templates}'" : ""
-
-    /* we use 'flag files' empty_target_msa and boltz_will_make_target_msa
-       to indicate wheather we want no MSA (empty), or allow Boltz to generate one
-       via a remote mmseqs2 server (boltz_will_make_target_msa).
-       If another (.a3m) file is provided, we use that as the MSA - this will generally
-       come from a mmseqs2 search task in the pipeline (eg MMSEQS_COLABFOLDSEARCH).
-
-       An alternative approach here might be to have mutliple variants of
-       CREATE_BOLTZ_YAML (CREATE_BOLTZ_YAML_NO_MSA, CREATE_BOLTZ_YAML_MSA, 
-       CREATE_BOLTZ_YAML_BINDER_MSA_ONLY, CREATE_BOLTZ_YAML_TARGET_MSA_ONLY) and a
-       conditional in the main pipeline that selects the appropriate variant.
-    */
-    def target_msa_flag = ""
-    if (target_msa.name == "empty_target_msa") {
-        target_msa_flag = "--target_msa empty"
-    } else if (target_msa.name == "boltz_will_make_target_msa") {
-        target_msa_flag = ""
-    } else {
-        target_msa_flag = "--target_msa '${target_msa}'"
-    }
-
-    def binder_msa_flag = ""
-    if (binder_msa.name == "empty_binder_msa") {
-        binder_msa_flag = "--binder_msa empty"
-    } else if (binder_msa.name == "boltz_will_make_binder_msa") {
-        binder_msa_flag = ""
-    } else {
-        binder_msa_flag = "--binder_msa '${binder_msa}'"
-    }
-
-    meta = [id: id, target: sanitize(target_meta.id), binder: sanitize(binder_meta.id)]
-    yaml = "${id}.yml"
-    """
-    ${projectDir}/bin/create_boltz_yaml.py \
-        --target_id '${target_meta.id}' \
-        --target_seq '${target_meta.seq}' \
-        --binder_id '${binder_meta.id}' \
-        --binder_seq '${binder_meta.seq}' \
-        ${target_msa_flag} \
-        ${binder_msa_flag} \
-        --output_yaml '${yaml}' \
-        ${use_msa_server_flag} \
-        ${templates_flag}
-    """
-}
 
 process PARSE_BOLTZ_CONFIDENCE_JSON {
     tag "${meta.id}"
-    container "ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0"
+    container "ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4"
 
     input:
     tuple val(meta), path(json_file)
@@ -124,18 +76,29 @@ process PARSE_BOLTZ_CONFIDENCE_JSON {
     """
 }
 
-workflow {
-
-    if (params.targets == false || params.binders == false) {
-        log.info(
-            """
+// Function to display help message
+def showHelp() {
+    log.info(
+        """
         ==================================================================
         BOLTZ PULLDOWN PIPELINE
         ==================================================================
         
-        Required arguments:
-            --targets             FASTA file of target sequences
-            --binders             FASTA file of binder sequences
+        Required arguments (choose one for each):
+            --targets_fasta       FASTA file of target sequences
+            --target_structures   Directory containing target PDB files (requires --target_chains)
+
+            --binders_fasta       FASTA file of binder sequences  
+            --binder_structures   Directory containing binder PDB files (requires --binder_chains)
+
+            --complex_structures  Directory containing binder+target complex PDB files 
+                                 (can be combined with exactly one of target_* or binder_*; the other side is
+                                  extracted from these complexes. For the side coming from complexes, chain
+                                  defaults are A for target and B for binder if not specified.)
+
+        Chain specification (required with structure inputs):
+            --target_chains       Chain IDs to extract from target PDBs (e.g., "A" or "A,B")
+            --binder_chains       Chain IDs to extract from binder PDBs (e.g., "A" or "A,B")
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
@@ -148,28 +111,232 @@ workflow {
 
             --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
             --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+            --help                Show this help message and exit
         """.stripIndent()
-        )
+    )
+}
+
+workflow {
+
+    // Check for help flag
+    if (params.help) {
+        showHelp()
+        exit(0)
+    }
+
+    // Validation logic
+    def has_targets_fasta = params.targets_fasta != false
+    def has_target_structures = params.target_structures != false
+    def has_binders_fasta = params.binders_fasta != false
+    def has_binder_structures = params.binder_structures != false
+    def has_complex_structures = params.complex_structures != false
+    
+    def has_any_target_input = has_targets_fasta || has_target_structures
+    def has_any_binder_input = has_binders_fasta || has_binder_structures
+    
+    // Check that we have at least one target input method
+    if (!has_targets_fasta && !has_target_structures && !has_complex_structures) {
+        log.error("ERROR: Must provide either --targets_fasta OR --target_structures OR --complex_structures")
+        showHelp()
+        exit(1)
+    }
+    
+    // Check that we have at least one binder input method
+    if (!has_binders_fasta && !has_binder_structures && !has_complex_structures) {
+        log.error("ERROR: Must provide either --binders_fasta OR --binder_structures OR --complex_structures")
+        showHelp()
+        exit(1)
+    }
+    
+    // Check mutual exclusivity for targets
+    if (has_targets_fasta && has_target_structures) {
+        log.error("ERROR: Cannot specify both --targets_fasta and --target_structures. Choose one.")
+        exit(1)
+    }
+    
+    // Check mutual exclusivity for binders
+    if (has_binders_fasta && has_binder_structures) {
+        log.error("ERROR: Cannot specify both --binders_fasta and --binder_structures. Choose one.")
+        exit(1)
+    }
+    
+    // Mixed complex mode validation: if complex_structures is provided, exactly one of target_* or binder_* must also be provided
+    if (has_complex_structures) {
+        if (has_any_target_input && has_any_binder_input) {
+            log.error("ERROR: When using --complex_structures, specify exactly one of target_* OR binder_* (not both).")
+            exit(1)
+        }
+        if (!has_any_target_input && !has_any_binder_input) {
+            log.error("ERROR: When using --complex_structures, you must also specify either target_* OR binder_* (exactly one).")
+            exit(1)
+        }
+    }
+    
+    // Check that chain parameters are provided when using structures
+    if (has_target_structures && params.target_chains == false) {
+        log.error("ERROR: --target_chains is required when using --target_structures")
+        exit(1)
+    }
+    
+    if (has_binder_structures && params.binder_chains == false) {
+        log.error("ERROR: --binder_chains is required when using --binder_structures")
+        exit(1)
+    }
+    
+    // Determine which side (target or binder) comes from complex, and set chains/defaults accordingly
+    def use_complex_for_target = has_complex_structures && !has_any_target_input
+    def use_complex_for_binder = has_complex_structures && !has_any_binder_input
+    def complex_target_chains = null
+    def complex_binder_chains = null
+    if (use_complex_for_target) {
+        complex_target_chains = (params.target_chains != false) ? params.target_chains : "A"
+        if (params.target_chains == false) {
+            log.info("Using default target chain: A")
+        }
+    }
+    if (use_complex_for_binder) {
+        complex_binder_chains = (params.binder_chains != false) ? params.binder_chains : "B"
+        if (params.binder_chains == false) {
+            log.info("Using default binder chain: B")
+        }
+    }
+    
+    // Check that chain parameters are not provided when using FASTA
+    if (has_targets_fasta && params.target_chains != false) {
+        log.error("ERROR: --target_chains can only be used with --target_structures or --complex_structures, not --targets_fasta")
+        exit(1)
+    }
+    
+    if (has_binders_fasta && params.binder_chains != false) {
+        log.error("ERROR: --binder_chains can only be used with --binder_structures or --complex_structures, not --binders_fasta")
         exit(1)
     }
 
-    ch_targets_meta = Channel.fromPath(params.targets)
-        .splitFasta(record: [id: true, seqString: true])
-        .map { record -> [id: record.id, seq: record.seqString] }
+    showHelp()
 
-    ch_binders_meta = Channel.fromPath(params.binders)
-        .splitFasta(record: [id: true, seqString: true])
-        .map { record -> [id: record.id, seq: record.seqString] }
+    // TODO: Current issues with WIP implementation below:
+    //       - Providing PDBs are templates fails - it seems despite the docs, boltz wants
+    //         .cif files ?
+    //       - When providing target_structures, we should be able to omit --target_chains 
+    //         (and vice versa for binders), in which case all chains are used (fixing this will likely
+    //         require changes to the pdb_to_fasta -> create_boltz_yaml scripts and flow)
+    //       - Should we simplify and all just --targets and --binders with mixed pdb and fasta inputs ?
+    //         In this case the monomer vs input monomer RMSDs would only apply to the input structures.
+    //       - Given that the processing of pdb or fasta -> boltz yaml is relatively low resource, maybe
+    //         we should combine this into a single script, and possibly call it in a bash for loop
+    //         in a single process, that then outputs a channel something like:
+    //            [meta, config, various_, files_, config_needs]
 
-    ch_targets_fasta_paths = Channel.fromPath(params.targets)
-        .splitFasta(file: true)
-    
-    ch_binders_fasta_paths = Channel.fromPath(params.binders)
-        .splitFasta(file: true)
+    // TODO: RMSD comparison implementation - WIP: 
+    //      - Add prediction of each monomer structure (target and binder) by default, and provide reporting on 
+    //       RMSDs between original models (in a complex) and the monomer forms.
+    //       The --skip-target-monomers and/or --skip-binder-monomers options turns off the monomer 
+    //       prediction.
+    //       We generally DON'T want to use the provided input structures as templates for these
+    //       monomer predictions. We MAY want to use the --templates (other structures) in some cases
+    //       to help guide the monomer predictions (eg in cases where the experimental target structure
+    //       isn't solved)
+    //       
+    //       In here, if we have --target-structures and/or --binder-structures,
+    //       and optionally --target-chains and --binder-chains, extract the relevant sequences from 
+    //       each PDB file to feed into Boltz Pulldown.
+    //       We want to pair up predicted models with original structures at the end and
+    //       calculate the CA RMSD, possibly TM-score. Provide a table, and heatmap or similar
+    //       in the Quarto report.
+    //       
+    //       The --complex-structures option can be used to specify existing binder+target complex 
+    //       This is primarily intended for denovo binder re-prediction.
+    //       
+    //       External --templates can still be provided (eg experimental target structures of homologs 
+    //       to help guide predictions). If we did want to ever bias the predictions like 'initial guess',
+    //       we could always provide denovo complexes as separate binder and target monomer structures 
+    //       to as --templates. Probably we never want to do this.
+    //       
+    //       Should the binder complex + binder monomers be in a separate pipeline for simplicity ?
+    //       
+    //       Consider a samplesheet mode, that has columns:
+    //       structure_id, fasta_path, structure_path, chains, type (target or binder)
+    //       where one of fasta_path or structure_path+chains is required, but both is an error.
+    //       
 
-    // [meta, fasta_path]
-    ch_targets_fasta = ch_targets_meta.merge(ch_targets_fasta_paths)
-    ch_binders_fasta = ch_binders_meta.merge(ch_binders_fasta_paths)
+    // Create target channels based on input type
+    if (has_targets_fasta) {
+        // FASTA input
+        ch_targets_meta = Channel.fromPath(params.targets_fasta)
+            .splitFasta(record: [id: true, seqString: true])
+            .map { record -> [id: record.id, seq: record.seqString] }
+
+        ch_targets_fasta_paths = Channel.fromPath(params.targets_fasta)
+            .splitFasta(file: true)
+
+        // [meta, fasta_path]
+        ch_targets_fasta = ch_targets_meta.merge(ch_targets_fasta_paths)
+    } else if (has_target_structures) {
+        // Structure input - extract sequences from PDBs
+        ch_target_pdbs = Channel.fromPath("${params.target_structures}/*.pdb")
+        //ch_target_pdbs.view()
+        
+        // [[id, seq, type], fasta_file]
+        ch_targets_fasta = TARGET_PDB_TO_FASTA(ch_target_pdbs, params.target_chains)
+            .map { fasta_file ->
+                [[id: fasta_file.text.split('\n')[0][1..-1], 
+                  seq: fasta_file.text.split('\n')[1..-1].join(''), 
+                  type: 'target'], 
+                  fasta_file]
+            }
+        //ch_targets_fasta.view()
+    } else if (has_complex_structures) {
+        // Complex structure input for target - extract target sequences from PDBs
+        ch_complex_pdbs = Channel.fromPath("${params.complex_structures}/*.pdb")
+        
+        // [[id, seq, type], fasta_file]
+        ch_targets_fasta = TARGET_PDB_TO_FASTA(ch_complex_pdbs, complex_target_chains)
+            .map { fasta_file ->
+                [[id: fasta_file.text.split('\n')[0][1..-1], 
+                  seq: fasta_file.text.split('\n')[1..-1].join(''), 
+                  type: 'target'], 
+                  fasta_file]
+            }
+        //ch_targets_fasta.view()
+    }
+
+    // Create binder channels based on input type
+    if (has_binders_fasta) {
+        // FASTA input
+        ch_binders_meta = Channel.fromPath(params.binders_fasta)
+            .splitFasta(record: [id: true, seqString: true])
+            .map { record -> [id: record.id, seq: record.seqString] }
+
+        ch_binders_fasta_paths = Channel.fromPath(params.binders_fasta)
+            .splitFasta(file: true)
+
+        // [meta, fasta_path]
+        ch_binders_fasta = ch_binders_meta.merge(ch_binders_fasta_paths)
+    } else if (has_binder_structures) {
+        // Structure input - extract sequences from PDBs
+        ch_binder_pdbs = Channel.fromPath("${params.binder_structures}/*.pdb")
+        
+        // [[id, seq, type], fasta_file]
+        ch_binders_fasta = BINDER_PDB_TO_FASTA(ch_binder_pdbs, params.binder_chains)
+            .map { fasta_file ->
+                [[id: fasta_file.text.split('\n')[0][1..-1], 
+                  seq: fasta_file.text.split('\n')[1..-1].join(''), 
+                  type: 'binder'], 
+                  fasta_file]
+            }
+    } else if (use_complex_for_binder) {
+        // Complex structure input for binder - extract binder sequences from PDBs
+        ch_complex_pdbs = Channel.fromPath("${params.complex_structures}/*.pdb")
+        
+        // [[id, seq, type], fasta_file]
+        ch_binders_fasta = BINDER_PDB_TO_FASTA(ch_complex_pdbs, complex_binder_chains)
+            .map { fasta_file ->
+                [[id: fasta_file.text.split('\n')[0][1..-1], 
+                  seq: fasta_file.text.split('\n')[1..-1].join(''), 
+                  type: 'binder'], 
+                  fasta_file]
+            }
+    }
 
     if (params.create_target_msa && !params.use_msa_server) {
         ch_target_msas = MMSEQS_COLABFOLDSEARCH(ch_targets_fasta, params.colabfold_envdb, params.uniref30)
@@ -196,15 +363,57 @@ workflow {
 
     // ch_pairs.view()
 
-    CREATE_BOLTZ_YAML(ch_pairs, file(params.templates))
+    CREATE_BOLTZ_YAML_COMPLEX(ch_pairs, params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates"))
 
-    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates))
+    BOLTZ_COMPLEX(
+        CREATE_BOLTZ_YAML_COMPLEX.out, 
+        params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates"), 
+        tuple('boltz_pulldown', 'complex')
+    )
 
-    // BOLTZ.out.confidence_json.view { meta, json ->
-    //     "Finshed: ${meta.target} + ${meta.binder}"
-    // }
+    // Monomer predictions: run Boltz on targets and binders individually
+    ch_targets_for_monomer = ch_target_msas.map { [it[0], it[1], 'target'] }
+    ch_binders_for_monomer = ch_binder_msas.map { [it[0], it[1], 'binder'] }
 
-    PARSE_BOLTZ_CONFIDENCE_JSON(BOLTZ.out.confidence_json)
+    CREATE_BOLTZ_YAML_TARGET_MONOMER(
+        ch_targets_for_monomer, 
+        params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates"), 
+    )
+    CREATE_BOLTZ_YAML_BINDER_MONOMER(
+        ch_binders_for_monomer, 
+        params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates"), 
+    )
+
+    // Create 4-element tuples for BOLTZ process: (meta, yaml, target_msa, binder_msa)
+    ch_target_monomer_for_boltz = CREATE_BOLTZ_YAML_TARGET_MONOMER.out
+        .map { meta, yaml, msa -> [meta, yaml, msa, file("${projectDir}/assets/dummy_files/empty_binder_msa")] }
+    
+    ch_binder_monomer_for_boltz = CREATE_BOLTZ_YAML_BINDER_MONOMER.out
+        .map { meta, yaml, msa -> [meta, yaml, file("${projectDir}/assets/dummy_files/empty_target_msa"), msa] }
+
+    BOLTZ_TARGET_MONOMER(
+        ch_target_monomer_for_boltz, 
+        params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates"), 
+        tuple('boltz_pulldown', 'target_monomer')
+    )
+    BOLTZ_BINDER_MONOMER(
+        ch_binder_monomer_for_boltz, 
+        params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates"),
+        tuple('boltz_pulldown', 'binder_monomer')
+    )
+
+    // Log progress
+    BOLTZ_COMPLEX.out.confidence_json.view { meta, json ->
+        "Finished complex: ${meta.target} + ${meta.binder}"
+    }
+    BOLTZ_TARGET_MONOMER.out.confidence_json.view { meta, json ->
+        "Finished target monomer: ${meta.target}"
+    }
+    BOLTZ_BINDER_MONOMER.out.confidence_json.view { meta, json ->
+        "Finished binder monomer: ${meta.binder}"
+    }
+
+    PARSE_BOLTZ_CONFIDENCE_JSON(BOLTZ_COMPLEX.out.confidence_json)
 
     ch_tsv_output = PARSE_BOLTZ_CONFIDENCE_JSON.out
         .collectFile(name: "boltz_pulldown.tsv", 
@@ -212,8 +421,75 @@ workflow {
                      keepHeader: true, 
                      skip: 1)
 
+    // Prepare lists of predicted structures for RMSD
+    ch_binder_monomer_structs = BOLTZ_BINDER_MONOMER.out.predicted_structure
+        .filter { it[0].type == 'binder' }
+        .map { it[1] }.collect()
+        
+    ch_target_monomer_structs = BOLTZ_TARGET_MONOMER.out.predicted_structure
+        .filter { it[0].type == 'target' }
+        .map { it[1] }.collect()
+
+    ch_complex_pred_structs = BOLTZ_COMPLEX.out.predicted_structure
+        .map { it[1] }.collect()
+
+    // Determine reference directories for RMSD comparisons
+    def original_binder_dir = null
+    def original_target_dir = null
+    
+    if (has_binder_structures) {
+        original_binder_dir = params.binder_structures
+    } else if (use_complex_for_binder) {
+        original_binder_dir = params.complex_structures
+    }
+    
+    if (has_target_structures) {
+        original_target_dir = params.target_structures
+    } else if (use_complex_for_target) {
+        original_target_dir = params.complex_structures
+    }
+
+    // Run RMSD: binder monomers vs original binders (if originals exist)
+    if (original_binder_dir) {
+        ch_binder_monomer_rmsd_tsv = RMSD4ALL_BINDER_MONOMERS(
+            ch_binder_monomer_structs,
+            original_binder_dir,
+            params.binder_chains ? params.binder_chains : '',
+            "predicted-binder-monomers_vs_input-binders.tsv"
+        ).rmsd_tsv
+    } else {
+        ch_binder_monomer_rmsd_tsv = channel.empty()
+    }
+    
+    // Run RMSD: target monomers vs original targets (if originals exist)
+    if (original_target_dir) {
+        ch_target_monomer_rmsd_tsv = RMSD4ALL_TARGET_MONOMERS(
+            ch_target_monomer_structs,
+            original_target_dir,
+            params.target_chains ? params.target_chains : '',
+            "predicted-target-monomers_vs_input-targets.tsv"
+        ).rmsd_tsv
+    } else {
+        ch_target_monomer_rmsd_tsv = channel.empty()
+    }
+
+    // Run RMSD: predicted complexes vs provided complex structures (if provided)
+    if (has_complex_structures) {
+        ch_complex_rmsd_tsv = RMSD4ALL_COMPLEXES(
+            ch_complex_pred_structs,
+            params.complex_structures,
+            '',
+            'predicted-complexes_vs_input-complexes.tsv'
+        ).rmsd_tsv
+    } else {
+        ch_complex_rmsd_tsv = channel.empty()
+    }
+
     BOLTZ_PULLDOWN_REPORTING(file("${projectDir}/assets/boltz_pulldown_reporting.qmd"), 
-                             ch_tsv_output)
+                             ch_tsv_output, 
+                             ch_binder_monomer_rmsd_tsv,
+                             ch_target_monomer_rmsd_tsv,
+                             ch_complex_rmsd_tsv)
 
     // TODO: Re-sort the table on iptm (index 5). 
     //       (An alternative would be to sort on confidence (index 3))

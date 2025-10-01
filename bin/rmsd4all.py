@@ -6,16 +6,17 @@
 # ]
 # ///
 #
-# Usage: uv run rmsd4all.py <directory> [--all-atom] [--method METHOD] [--tm-score] [--processes N]
-# Example: uv run rmsd4all.py ./pdbs --all-atom --method 3di --tm-score --processes 4
+# Usage: uv run rmsd4all.py <directory> [--all-atom] [--method-rmsd METHOD] [--method-tm METHOD] [--tm-score] [--threads N] [--matrix SCORE] [--output FILE]
+# Example: uv run rmsd4all.py ./pdbs --all-atom --method-rmsd blosum62 --method-tm 3di --tm-score --threads 4
+# Example: uv run rmsd4all.py ./pdbs --matrix rmsd_pruned
 
 import argparse
 import gzip
 import logging
 import sys
-from itertools import combinations
+from itertools import combinations, product
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional, Iterable, cast, Dict, Any
 from multiprocessing import Pool
 
 import biotite.structure as struc
@@ -66,166 +67,486 @@ def read_structure(file_path: Union[str, Path]):
     return structure
 
 
-def rmsd_pair(
-    pdb_path1: Union[str, Path],
-    pdb_path2: Union[str, Path],
-    all_atom: bool = False,
+def _parse_chains_arg(chains_arg: Optional[str]) -> Optional[List[str]]:
+    """Parse a comma/space-separated chains argument into a list of chain IDs."""
+    if chains_arg is None:
+        return None
+    if isinstance(chains_arg, str):
+        parts = [
+            c.strip() for c in chains_arg.replace(" ", ",").split(",") if c.strip()
+        ]
+        return parts if parts else None
+    return None
+
+
+def _filter_structure_by_chains(
+    structure: struc.AtomArray, chains: Optional[Iterable[str]]
+) -> struc.AtomArray:
+    """Return structure filtered to specified chain IDs. If chains is None, return unchanged."""
+    if chains is None:
+        return structure
+    chain_ids = getattr(structure, "chain_id", None)
+    if chain_ids is None:
+        return structure
+    chain_ids_str = chain_ids.astype(str)
+    mask = np.isin(chain_ids_str, np.array(list(chains), dtype=str))
+    filtered = structure[mask]
+    return cast(struc.AtomArray, filtered)
+
+
+def superimpose_structures(
+    structure_path1: Union[str, Path],
+    structure_path2: Union[str, Path],
     method: str = "blosum62",
-    tm_score: bool = False,
-) -> Tuple[str, str, float]:
+    all_atom: bool = False,
+    chains1: Optional[Iterable[str]] = None,
+    chains2: Optional[Iterable[str]] = None,
+) -> Tuple[struc.AtomArray, struc.AtomArray, Any, np.ndarray, np.ndarray]:
     """
-    Calculate RMSD or TM-score between two protein structures.
+    Superimpose two protein structures using the specified method.
 
     Args:
-        pdb_path1: Path to first PDB file
-        pdb_path2: Path to second PDB file
-        all_atom: If True, use all atoms; if False, use only CA atoms
+        structure_path1: Path to first PDB/CIF file
+        structure_path2: Path to second PDB/CIF file
         method: Alignment method - 'blosum62' for sequence-based alignment,
                 '3di' or 'pb' for structural alignment with 3Di or Protein Blocks
-        tm_score: If True, calculate TM-score instead of RMSD
+        all_atom: If True, use all atoms; if False, use only CA atoms
+        chains1: Optional list of chain IDs to use from first structure
+        chains2: Optional list of chain IDs to use from second structure
 
     Returns:
-        Tuple of (pdb1_basename, pdb2_basename, score)
+        Tuple of (fixed_ca, fitted_array, transform, fixed_indices, mobile_indices)
+    """
+    # Read structures
+    fixed: struc.AtomArray = read_structure(structure_path1)
+    mobile: struc.AtomArray = read_structure(structure_path2)
+
+    # Select chains if specified
+    if chains1:
+        fixed = _filter_structure_by_chains(fixed, chains1)
+    if chains2:
+        mobile = _filter_structure_by_chains(mobile, chains2)
+
+    # Select CA atoms or all atoms
+    if not all_atom:
+        fixed_ca = fixed[fixed.atom_name == "CA"]
+        mobile_ca = mobile[mobile.atom_name == "CA"]
+    else:
+        fixed_ca = fixed
+        mobile_ca = mobile
+
+    if fixed_ca.array_length == 0 or mobile_ca.array_length == 0:
+        raise ValueError(
+            f"No CA atoms found for {Path(structure_path1).name} or {Path(structure_path2).name}"
+        )
+
+    # Superimpose structures based on method
+    if method in ["3di", "pb"]:
+        # Use structural alignment with specified structural alphabet
+        fitted, transform, fixed_indices, mobile_indices = (
+            struc.superimpose_structural_homologs(
+                fixed_ca, mobile_ca, structural_alphabet=method
+            )
+        )
+    elif method == "blosum62":
+        # Use sequence-based alignment with BLOSUM62
+        fitted, transform, fixed_indices, mobile_indices = struc.superimpose_homologs(
+            fixed_ca, mobile_ca
+        )
+    else:
+        raise ValueError(f"Unknown method: {method}. Use 'blosum62', '3di', or 'pb'")
+
+    # Ensure fitted is an AtomArray (not AtomArrayStack)
+    if isinstance(fitted, struc.AtomArrayStack):
+        fitted_array = cast(struc.AtomArray, fitted[0])
+    else:
+        fitted_array = cast(struc.AtomArray, fitted)
+
+    return (
+        cast(struc.AtomArray, fixed_ca),
+        fitted_array,
+        transform,
+        fixed_indices,
+        mobile_indices,
+    )
+
+
+def calculate_scores(
+    fixed_ca: struc.AtomArray,
+    fitted_array: struc.AtomArray,
+    fixed_indices: np.ndarray,
+    mobile_indices: np.ndarray,
+    structure_path1: Union[str, Path],
+    structure_path2: Union[str, Path],
+    tm_score: bool = False,
+) -> Dict[str, Any]:
+    """
+    Calculate RMSD and optionally TM-score from superimposed structures.
+
+    Args:
+        fixed_ca: Fixed structure (CA atoms)
+        fitted_array: Fitted mobile structure
+        fixed_indices: Indices of aligned atoms in fixed structure
+        mobile_indices: Indices of aligned atoms in mobile structure
+        structure_path1: Path to first structure (for error messages)
+        structure_path2: Path to second structure (for error messages)
+        tm_score: If True, also calculate TM-score in addition to RMSD
+
+    Returns:
+        Dictionary with score results
+    """
+    # Initialize all values
+    rmsd_pruned = float("nan")
+    n_pairs_rmsd_pruned = 0
+    rmsd_all = float("nan")
+    n_pairs_rmsd_all = 0
+    tm_score_pruned = float("nan")
+    n_pairs_tm_score_pruned = 0
+    tm_score_all = float("nan")
+    n_pairs_tm_score_all = 0
+
+    # Ensure we have AtomArray objects
+    if isinstance(fixed_ca, struc.AtomArray) and isinstance(
+        fitted_array, struc.AtomArray
+    ):
+        # Calculate RMSD using the aligned atoms
+        try:
+            # RMSD over the pruned pairs (outliers excluded)
+            fixed_sel = cast(struc.AtomArray, fixed_ca[fixed_indices])
+            mobile_sel = cast(struc.AtomArray, fitted_array[mobile_indices])
+            rmsd_pruned = struc.rmsd(fixed_sel, mobile_sel)
+            n_pairs_rmsd_pruned = len(fixed_indices)
+        except Exception as rmsd_pruned_error:
+            logging.warning(
+                f"rmsd_pruned calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {rmsd_pruned_error}"
+            )
+
+        # Check if structures have the same length for RMSD all calculation
+        if len(fixed_ca) != len(fitted_array):
+            logging.warning(
+                f"Skipping rmsd_all for {Path(structure_path1).name} and {Path(structure_path2).name}, chains are not the same length"
+            )
+        else:
+            try:
+                # RMSD over all pairs (including outlier loops)
+                rmsd_all = struc.rmsd(cast(struc.AtomArray, fixed_ca), fitted_array)
+                n_pairs_rmsd_all = len(fixed_ca)
+            except Exception as rmsd_all_error:
+                logging.warning(
+                    f"rmsd_all calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {rmsd_all_error}"
+                )
+
+        # Optionally calculate TM-score using the aligned atoms
+        if tm_score:
+            try:
+                tm_score_pruned = struc.tm_score(
+                    fixed_ca, fitted_array, fixed_indices, mobile_indices
+                )
+                n_pairs_tm_score_pruned = len(fixed_indices)
+            except Exception as tm_score_pruned_error:
+                logging.warning(
+                    f"tm_score_pruned calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_score_pruned_error}"
+                )
+
+            # Check if structures have the same length for TM-score all calculation
+            if len(fixed_ca) != len(fitted_array):
+                logging.warning(
+                    f"Skipping tm_score_all for {Path(structure_path1).name} and {Path(structure_path2).name}, chains are not the same length"
+                )
+            else:
+                try:
+                    tm_score_all = struc.tm_score(
+                        fixed_ca,
+                        fitted_array,
+                        np.arange(len(fixed_ca)),
+                        np.arange(len(fitted_array)),
+                    )
+                    n_pairs_tm_score_all = len(fixed_ca)
+                except Exception as tm_score_all_error:
+                    logging.warning(
+                        f"tm_score_all calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_score_all_error}"
+                    )
+    else:
+        logging.warning(
+            f"Type mismatch for {Path(structure_path1).name} vs {Path(structure_path2).name}: fixed_ca={type(fixed_ca)}, fitted_array={type(fitted_array)}"
+        )
+
+    return {
+        "rmsd_pruned": rmsd_pruned,
+        "n_pairs_rmsd_pruned": n_pairs_rmsd_pruned,
+        "rmsd_all": rmsd_all,
+        "n_pairs_rmsd_all": n_pairs_rmsd_all,
+        "tm_score_pruned": tm_score_pruned,
+        "n_pairs_tm_score_pruned": n_pairs_tm_score_pruned,
+        "tm_score_all": tm_score_all,
+        "n_pairs_tm_score_all": n_pairs_tm_score_all,
+    }
+
+
+def rmsd_pair(
+    structure_path1: Union[str, Path],
+    structure_path2: Union[str, Path],
+    all_atom: bool = False,
+    method_rmsd: str = "blosum62",
+    method_tm: str = "3di",
+    tm_score: bool = False,
+    chains1: Optional[Iterable[str]] = None,
+    chains2: Optional[Iterable[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Calculate RMSD and optionally TM-score between two protein structures.
+
+    Args:
+        structure_path1: Path to first PDB/CIF file
+        structure_path2: Path to second PDB/CIF file
+        all_atom: If True, use all atoms; if False, use only CA atoms
+        method_rmsd: Alignment method for RMSD calculation - 'blosum62' for sequence-based alignment,
+                    '3di' or 'pb' for structural alignment with 3Di or Protein Blocks
+        method_tm: Alignment method for TM-score calculation - 'blosum62' for sequence-based alignment,
+                  '3di' or 'pb' for structural alignment with 3Di or Protein Blocks
+        tm_score: If True, also calculate TM-score in addition to RMSD
+        chains1: Optional list of chain IDs to use from first structure
+        chains2: Optional list of chain IDs to use from second structure
+
+    Returns:
+        Dictionary with keys: 'structure1', 'structure2', 'rmsd_pruned', 'n_pairs_rmsd_pruned',
+        'rmsd_all', 'n_pairs_rmsd_all', 'tm_score_pruned', 'n_pairs_tm_score_pruned',
+        'tm_score_all', 'n_pairs_tm_score_all' (TM-score values are NaN if tm_score=False)
     """
     try:
-        # Read structures
-        fixed = read_structure(pdb_path1)
-        mobile = read_structure(pdb_path2)
+        # Initialize result dictionary
+        result = {
+            "structure1": Path(structure_path1).name,
+            "structure2": Path(structure_path2).name,
+            "rmsd_pruned": float("nan"),
+            "n_pairs_rmsd_pruned": 0,
+            "rmsd_all": float("nan"),
+            "n_pairs_rmsd_all": 0,
+            "tm_score_pruned": float("nan"),
+            "n_pairs_tm_score_pruned": 0,
+            "tm_score_all": float("nan"),
+            "n_pairs_tm_score_all": 0,
+        }
 
-        # Filter to CA atoms if requested
-        if not all_atom:
-            fixed_ca = fixed[fixed.atom_name == "CA"]
-            mobile_ca = mobile[mobile.atom_name == "CA"]
-        else:
-            fixed_ca = fixed
-            mobile_ca = mobile
-
-        # Superimpose structures based on method
-        if method in ["3di", "pb"]:
-            # Use structural alignment with specified structural alphabet
-            if tm_score:
-                logging.info(
-                    f"Using superimpose_structural_homologs with {method} for TM-score calculation"
-                )
-            fitted, transform, fixed_indices, mobile_indices = (
-                struc.superimpose_structural_homologs(
-                    fixed_ca, mobile_ca, structural_alphabet=method
-                )
-            )
-        elif method == "blosum62":
-            # Use sequence-based alignment with BLOSUM62
-            fitted, transform, fixed_indices, mobile_indices = (
-                struc.superimpose_homologs(fixed_ca, mobile_ca)
-            )
-        else:
-            raise ValueError(
-                f"Unknown method: {method}. Use 'blosum62', '3di', or 'pb'"
+        # Superimpose for RMSD calculation
+        try:
+            (
+                fixed_ca_rmsd,
+                fitted_array_rmsd,
+                _,
+                fixed_indices_rmsd,
+                mobile_indices_rmsd,
+            ) = superimpose_structures(
+                structure_path1,
+                structure_path2,
+                method_rmsd,
+                all_atom,
+                chains1,
+                chains2,
             )
 
-        # Calculate RMSD or TM-score only on the aligned atoms
-        if len(fixed_indices) > 0 and len(mobile_indices) > 0:
-            # Ensure fitted is an AtomArray (not AtomArrayStack)
-            if isinstance(fitted, struc.AtomArrayStack):
-                fitted_array = fitted[0]
-            else:
-                fitted_array = fitted
+            # Calculate RMSD scores
+            rmsd_scores = calculate_scores(
+                fixed_ca_rmsd,
+                fitted_array_rmsd,
+                fixed_indices_rmsd,
+                mobile_indices_rmsd,
+                structure_path1,
+                structure_path2,
+                tm_score=False,
+            )
+            result.update(rmsd_scores)
 
-            # Ensure we have AtomArray objects
-            if isinstance(fixed_ca, struc.AtomArray) and isinstance(
-                fitted_array, struc.AtomArray
-            ):
-                try:
-                    if tm_score:
-                        # Calculate TM-score using the aligned atoms
-                        score_value = struc.tm_score(
-                            fixed_ca, fitted_array, fixed_indices, mobile_indices
-                        )
-                    else:
-                        # Calculate RMSD using the aligned atoms
-                        score_value = struc.rmsd(
-                            fixed_ca[fixed_indices], fitted_array[mobile_indices]
-                        )
-                except Exception as score_error:
-                    score_type = "TM-score" if tm_score else "RMSD"
-                    logging.warning(
-                        f"{score_type} calculation failed for {Path(pdb_path1).name} vs {Path(pdb_path2).name}: {score_error}"
-                    )
-                    score_value = float("nan")
-            else:
-                logging.warning(
-                    f"Type mismatch for {Path(pdb_path1).name} vs {Path(pdb_path2).name}: fixed_ca={type(fixed_ca)}, fitted_array={type(fitted_array)}"
-                )
-                score_value = float("nan")
-        else:
-            # No aligned atoms found
+        except Exception as rmsd_error:
             logging.warning(
-                f"No aligned atoms found for {Path(pdb_path1).name} vs {Path(pdb_path2).name}"
+                f"RMSD calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {rmsd_error}"
             )
-            score_value = float("nan")
 
-        return (Path(pdb_path1).name, Path(pdb_path2).name, score_value)
+        # Superimpose for TM-score calculation if needed and methods are different
+        if tm_score:
+            if method_rmsd == method_tm:
+                # Use the same superimposition for both RMSD and TM-score
+                try:
+                    tm_scores = calculate_scores(
+                        fixed_ca_rmsd,
+                        fitted_array_rmsd,
+                        fixed_indices_rmsd,
+                        mobile_indices_rmsd,
+                        structure_path1,
+                        structure_path2,
+                        tm_score=True,
+                    )
+                    # Update only TM-score values
+                    result["tm_score_pruned"] = tm_scores["tm_score_pruned"]
+                    result["n_pairs_tm_score_pruned"] = tm_scores[
+                        "n_pairs_tm_score_pruned"
+                    ]
+                    result["tm_score_all"] = tm_scores["tm_score_all"]
+                    result["n_pairs_tm_score_all"] = tm_scores["n_pairs_tm_score_all"]
+                except Exception as tm_error:
+                    logging.warning(
+                        f"TM-score calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_error}"
+                    )
+            else:
+                # Different methods - need separate superimposition for TM-score
+                try:
+                    (
+                        fixed_ca_tm,
+                        fitted_array_tm,
+                        _,
+                        fixed_indices_tm,
+                        mobile_indices_tm,
+                    ) = superimpose_structures(
+                        structure_path1,
+                        structure_path2,
+                        method_tm,
+                        all_atom,
+                        chains1,
+                        chains2,
+                    )
+
+                    tm_scores = calculate_scores(
+                        fixed_ca_tm,
+                        fitted_array_tm,
+                        fixed_indices_tm,
+                        mobile_indices_tm,
+                        structure_path1,
+                        structure_path2,
+                        tm_score=True,
+                    )
+                    # Update only TM-score values
+                    result["tm_score_pruned"] = tm_scores["tm_score_pruned"]
+                    result["n_pairs_tm_score_pruned"] = tm_scores[
+                        "n_pairs_tm_score_pruned"
+                    ]
+                    result["tm_score_all"] = tm_scores["tm_score_all"]
+                    result["n_pairs_tm_score_all"] = tm_scores["n_pairs_tm_score_all"]
+                except Exception as tm_error:
+                    logging.warning(
+                        f"TM-score calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_error}"
+                    )
 
     except Exception as e:
-        logging.error(f"Error processing {pdb_path1} vs {pdb_path2}: {e}")
-        return (Path(pdb_path1).name, Path(pdb_path2).name, float("nan"))
+        logging.warning(f"Error processing {structure_path1} vs {structure_path2}: {e}")
+
+    return result
 
 
 def rmsd_all_pairs(
-    pdb_paths: List[Union[str, Path]],
+    structure_paths_a: List[Union[str, Path]],
     all_atom: bool = False,
     n_processes: int = 1,
-    method: str = "blosum62",
+    method_rmsd: str = "blosum62",
+    method_tm: str = "3di",
     tm_score: bool = False,
-) -> List[Tuple[str, str, float]]:
+    structure_paths_b: Union[None, List[Union[str, Path]]] = None,
+    chains_a: Optional[Iterable[str]] = None,
+    chains_b: Optional[Iterable[str]] = None,
+) -> List[Dict[str, Any]]:
     """
-    Calculate RMSD or TM-score for all pairs of structures.
+    Calculate RMSD and optionally TM-score for all pairs of structures.
 
     Args:
-        pdb_paths: List of paths to PDB files
+        structure_paths_a: List of paths to PDB/CIF files for rows
         all_atom: If True, use all atoms; if False, use only CA atoms
         n_processes: Number of processes for multiprocessing
-        method: Alignment method - 'blosum62' for sequence-based alignment,
-                '3di' or 'pb' for structural alignment with 3Di or Protein Blocks
-        tm_score: If True, calculate TM-score instead of RMSD
+        method_rmsd: Alignment method for RMSD calculation - 'blosum62' for sequence-based alignment,
+                    '3di' or 'pb' for structural alignment with 3Di or Protein Blocks
+        method_tm: Alignment method for TM-score calculation - 'blosum62' for sequence-based alignment,
+                  '3di' or 'pb' for structural alignment with 3Di or Protein Blocks
+        tm_score: If True, also calculate TM-score in addition to RMSD
+        structure_paths_b: Optional list of paths to PDB/CIF files for columns. If provided,
+            perform all-vs-all between A and B (Cartesian product). If None, do all-vs-all within A (combinations).
+        chains_a: Optional list of chain IDs to use from structures in A
+        chains_b: Optional list of chain IDs to use from structures in B
 
     Returns:
-        List of tuples (fixed_pdb_path, mobile_pdb_path, score)
+        List of dictionaries with RMSD and/or TM-score results
     """
-    pairs = list(combinations(pdb_paths, 2))
+    if structure_paths_b is None:
+        pairs = list(combinations(structure_paths_a, 2))
+    else:
+        pairs = list(product(structure_paths_a, structure_paths_b))
 
     if n_processes > 1:
         with Pool(n_processes) as pool:
-            args = [(p1, p2, all_atom, method, tm_score) for p1, p2 in pairs]
+            args = [
+                (
+                    p1,
+                    p2,
+                    all_atom,
+                    method_rmsd,
+                    method_tm,
+                    tm_score,
+                    chains_a,
+                    (chains_b if structure_paths_b is not None else chains_a),
+                )
+                for p1, p2 in pairs
+            ]
             results = pool.starmap(rmsd_pair, args)
     else:
         results = []
         for p1, p2 in pairs:
             logging.info(f"Processing pair: {Path(p1).name} vs {Path(p2).name}")
-            result = rmsd_pair(p1, p2, all_atom, method, tm_score)
+            result = rmsd_pair(
+                p1,
+                p2,
+                all_atom,
+                method_rmsd,
+                method_tm,
+                tm_score,
+                chains_a,
+                (chains_b if structure_paths_b is not None else chains_a),
+            )
             results.append(result)
 
     return results
 
 
 def create_rmsd_matrix(
-    results: List[Tuple[str, str, float]], all_files: List[str]
+    results: List[Dict[str, Any]],
+    row_files: List[str],
+    col_files: Union[None, List[str]] = None,
+    score_key: str = "rmsd_pruned",
 ) -> np.ndarray:
-    """Create symmetric RMSD matrix from pairwise results."""
-    n_files = len(all_files)
-    file_to_idx = {filename: i for i, filename in enumerate(all_files)}
+    """Create RMSD/TM-score matrix from pairwise results.
 
-    # Initialize matrix with zeros on diagonal, NaN elsewhere
-    matrix = np.full((n_files, n_files), np.nan)
-    np.fill_diagonal(matrix, 0.0)
+    If col_files is None, create a symmetric square matrix for all-vs-all within row_files.
+    If col_files is provided, create a rectangular matrix with rows=row_files and cols=col_files.
 
-    # Fill in pairwise distances
-    for file1, file2, rmsd_val in results:
-        if file1 in file_to_idx and file2 in file_to_idx:
-            i, j = file_to_idx[file1], file_to_idx[file2]
-            matrix[i, j] = rmsd_val
-            matrix[j, i] = rmsd_val  # Symmetric
-
-    return matrix
+    Args:
+        results: List of result dictionaries from rmsd_pair
+        row_files: List of filenames for rows
+        col_files: List of filenames for columns (None for symmetric matrix)
+        score_key: Key in result dict to use for matrix values
+    """
+    if col_files is None:
+        n_rows = len(row_files)
+        row_to_idx = {filename: i for i, filename in enumerate(row_files)}
+        matrix = np.full((n_rows, n_rows), np.nan)
+        np.fill_diagonal(matrix, 0.0)
+        for result in results:
+            file1, file2 = result["structure1"], result["structure2"]
+            score_val = result[score_key]
+            if file1 in row_to_idx and file2 in row_to_idx:
+                i, j = row_to_idx[file1], row_to_idx[file2]
+                matrix[i, j] = score_val
+                matrix[j, i] = score_val
+        return matrix
+    else:
+        n_rows = len(row_files)
+        n_cols = len(col_files)
+        row_to_idx = {filename: i for i, filename in enumerate(row_files)}
+        col_to_idx = {filename: j for j, filename in enumerate(col_files)}
+        matrix = np.full((n_rows, n_cols), np.nan)
+        for result in results:
+            file1, file2 = result["structure1"], result["structure2"]
+            score_val = result[score_key]
+            if file1 in row_to_idx and file2 in col_to_idx:
+                i = row_to_idx[file1]
+                j = col_to_idx[file2]
+                matrix[i, j] = score_val
+        return matrix
 
 
 def main():
@@ -241,68 +562,261 @@ def main():
         "directory", type=Path, help="Directory containing PDB/CIF files"
     )
     parser.add_argument(
+        "--vs",
+        dest="vs_directory",
+        type=Path,
+        default=None,
+        help=(
+            "Optional directory containing PDB/CIF files to compare against. "
+            "If provided, compute all files in {directory} vs all files in {--vs}."
+        ),
+    )
+    parser.add_argument(
+        "--chains",
+        type=str,
+        default=None,
+        help=(
+            "Chain IDs to include from structures in {directory}. "
+            "Accepts comma or space-separated list, e.g. 'A' or 'A,B'."
+        ),
+    )
+    parser.add_argument(
+        "--vs-chains",
+        type=str,
+        default=None,
+        help=(
+            "Chain IDs to include from structures in {--vs} directory. "
+            "If not provided but --vs is set, defaults to --chains."
+        ),
+    )
+    parser.add_argument(
         "--all-atom", action="store_true", help="Use all atoms instead of just CA atoms"
     )
     parser.add_argument(
-        "--method",
+        "--method-rmsd",
         choices=["blosum62", "3di", "pb"],
         default="blosum62",
-        help="Alignment method: 'blosum62' for sequence-based alignment (superimpose_homologs) with BLOSUM62, "
+        help="Alignment method for RMSD calculation: 'blosum62' for sequence-based alignment (superimpose_homologs) with BLOSUM62, "
         "'3di' for TM-align inspired structural alignment (superimpose_structural_homologs) with 3Di alphabet, "
         "'pb' for TM-align inspired structural alignment (superimpose_structural_homologs) with Protein Blocks (default: blosum62)",
     )
     parser.add_argument(
+        "--method-tm",
+        choices=["blosum62", "3di", "pb"],
+        default="3di",
+        help="Alignment method for TM-score calculation: 'blosum62' for sequence-based alignment (superimpose_homologs) with BLOSUM62, "
+        "'3di' for TM-align inspired structural alignment (superimpose_structural_homologs) with 3Di alphabet, "
+        "'pb' for TM-align inspired structural alignment (superimpose_structural_homologs) with Protein Blocks (default: 3di)",
+    )
+    parser.add_argument(
         "--tm-score",
         action="store_true",
-        help="Calculate TM-score instead of RMSD (defaults to --method 3di if not specified)",
+        help="Also calculate TM-score in addition to RMSD using --method-tm alignment",
     )
 
     parser.add_argument(
-        "--processes",
-        "-p",
+        "--threads",
+        "-t",
         type=int,
         default=cpu_count,
-        help=f"Number of parallel processes (default: number of CPUs: {cpu_count})",
+        help=f"Number of worker processes (default: {cpu_count})",
+    )
+    parser.add_argument(
+        "--matrix",
+        type=str,
+        metavar="SCORE",
+        help="Output results as a symmetric matrix format using specified score (e.g., rmsd_pruned, rmsd_all, tm_score_pruned, tm_score_all). Default: detailed pairwise TSV",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        default="-",
+        help="Output file (default: stdout)",
     )
 
     args = parser.parse_args()
 
-    # Set default method to 3di when tm-score is specified
-    if args.tm_score and args.method == "blosum62":
-        args.method = "3di"
-        logging.info("TM-score specified: defaulting to --method 3di")
+    # Warn if using blosum62 for TM-score but allow it
+    if args.tm_score and args.method_tm == "blosum62":
+        logging.warning(
+            "Using --method-tm blosum62 and --tm-score together is not conventional, "
+            "TM-scores will not reflect common practice due to sequence-based superposition."
+        )
+
+    # Log the methods being used
+    logging.info(f"Using --method-rmsd {args.method_rmsd}")
+    if args.tm_score:
+        logging.info(f"Using --method-tm {args.method_tm}")
+
+    # Validate matrix score if specified
+    if args.matrix is not None:
+        valid_scores = ["rmsd_pruned", "rmsd_all", "tm_score_pruned", "tm_score_all"]
+        if args.matrix not in valid_scores:
+            logging.error(
+                f"Invalid matrix score '{args.matrix}'. Valid options: {', '.join(valid_scores)}"
+            )
+            sys.exit(1)
+
+        # Check if TM-score is requested but not calculated
+        if args.matrix.startswith("tm_score") and not args.tm_score:
+            logging.error(f"Matrix score '{args.matrix}' requires --tm-score flag")
+            sys.exit(1)
+
+    # If doing TM-score with structural alignment, emit a single informative log once
+    if args.tm_score and args.method_tm in ("3di", "pb"):
+        logging.info(
+            f"Using superimpose_structural_homologs with {args.method_tm} for TM-score calculation"
+        )
+
+    # Log thread/process worker count
+    logging.info(f"Using {args.threads} worker processes")
+
+    # Parse chains
+    chains_a = _parse_chains_arg(args.chains)
+    chains_b = (
+        _parse_chains_arg(args.vs_chains) if args.vs_directory is not None else None
+    )
+    if args.vs_directory is not None and chains_b is None:
+        chains_b = chains_a
 
     # Find all supported structure files
     supported_extensions = [".pdb", ".pdb.gz", ".cif", ".cif.gz", ".mmcif", ".mmcif.gz"]
-    pdb_files = []
+    pdb_files_a = []
 
     for ext in supported_extensions:
-        pdb_files.extend(args.directory.glob(f"*{ext}"))
+        pdb_files_a.extend(args.directory.glob(f"*{ext}"))
 
-    if not pdb_files:
+    if not pdb_files_a:
         logging.error(f"No structure files found in {args.directory}")
         sys.exit(1)
 
-    logging.info(f"Found {len(pdb_files)} structure files")
+    if args.vs_directory is not None:
+        pdb_files_b = []
+        for ext in supported_extensions:
+            pdb_files_b.extend(args.vs_directory.glob(f"*{ext}"))
+        if not pdb_files_b:
+            logging.error(f"No structure files found in {args.vs_directory}")
+            sys.exit(1)
+        logging.info(
+            f"Found {len(pdb_files_a)} structure files in {args.directory} and {len(pdb_files_b)} in {args.vs_directory}"
+        )
+    else:
+        pdb_files_b = None
+        logging.info(f"Found {len(pdb_files_a)} structure files")
 
     # Calculate pairwise RMSDs or TM-scores
     results = rmsd_all_pairs(
-        pdb_files,
+        pdb_files_a,
         all_atom=args.all_atom,
-        n_processes=args.processes,
-        method=args.method,
+        n_processes=args.threads,
+        method_rmsd=args.method_rmsd,
+        method_tm=args.method_tm,
         tm_score=args.tm_score,
+        structure_paths_b=pdb_files_b,
+        chains_a=chains_a,
+        chains_b=chains_b,
     )
 
-    # Create matrix and output TSV
-    filenames = [f.name for f in pdb_files]
-    matrix = create_rmsd_matrix(results, filenames)
+    # Handle output
+    if args.output == "-":
+        output_file = sys.stdout
+    else:
+        output_file = open(args.output, "w")
 
-    # Output TSV to stdout
-    print("\t" + "\t".join(filenames))
-    for i, filename in enumerate(filenames):
-        row_values = [f"{val:.2f}" if not np.isnan(val) else "NaN" for val in matrix[i]]
-        print(f"{filename}\t" + "\t".join(row_values))
+    try:
+        if args.matrix is None:
+            # Output detailed results as TSV
+            import csv
+
+            writer = csv.writer(output_file, delimiter="\t")
+
+            # Create header - always include RMSD, optionally include TM-score
+            header = [
+                "structure1",
+                "structure2",
+                "rmsd_pruned",
+                "n_pairs_rmsd_pruned",
+                "rmsd_all",
+                "n_pairs_rmsd_all",
+            ]
+            if args.tm_score:
+                header.extend(
+                    [
+                        "tm_score_pruned",
+                        "n_pairs_tm_score_pruned",
+                        "tm_score_all",
+                        "n_pairs_tm_score_all",
+                    ]
+                )
+
+            writer.writerow(header)
+
+            for result in results:
+                # Always include RMSD values
+                row = [
+                    result["structure1"],
+                    result["structure2"],
+                    (
+                        f"{result['rmsd_pruned']:.2f}"
+                        if not np.isnan(result["rmsd_pruned"])
+                        else "NaN"
+                    ),
+                    result["n_pairs_rmsd_pruned"],
+                    (
+                        f"{result['rmsd_all']:.2f}"
+                        if not np.isnan(result["rmsd_all"])
+                        else "NaN"
+                    ),
+                    result["n_pairs_rmsd_all"],
+                ]
+
+                # Optionally include TM-score values
+                if args.tm_score:
+                    row.extend(
+                        [
+                            (
+                                f"{result['tm_score_pruned']:.4f}"
+                                if not np.isnan(result["tm_score_pruned"])
+                                else "NaN"
+                            ),
+                            result["n_pairs_tm_score_pruned"],
+                            (
+                                f"{result['tm_score_all']:.4f}"
+                                if not np.isnan(result["tm_score_all"])
+                                else "NaN"
+                            ),
+                            result["n_pairs_tm_score_all"],
+                        ]
+                    )
+
+                writer.writerow(row)
+        else:
+            # Output matrix format
+            row_filenames = sorted([f.name for f in pdb_files_a])
+            col_filenames = (
+                sorted([f.name for f in pdb_files_b])
+                if pdb_files_b is not None
+                else None
+            )
+
+            # Use the specified score for matrix
+            score_key = args.matrix
+            matrix = create_rmsd_matrix(
+                results, row_filenames, col_filenames, score_key=score_key
+            )
+
+            # Output TSV to stdout
+            header_cols = col_filenames if col_filenames is not None else row_filenames
+            print("\t" + "\t".join(header_cols), file=output_file)
+            for i, filename in enumerate(row_filenames):
+                row_values = [
+                    f"{val:.2f}" if not np.isnan(val) else "NaN" for val in matrix[i]
+                ]
+                print(f"{filename}\t" + "\t".join(row_values), file=output_file)
+    finally:
+        if args.output != "-":
+            output_file.close()
 
 
 if __name__ == "__main__":

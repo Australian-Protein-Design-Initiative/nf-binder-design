@@ -32,6 +32,8 @@ from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
 import plotly.express as px
 import altair as alt
+import os
+import re
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -72,6 +74,360 @@ print(f"Score range (iptm): {df['iptm'].min():.3f} - {df['iptm'].max():.3f}")
 ```
 
 # Analyses and visualizations
+
+## Binder monomer re-prediction
+
+> TODO: Are we showing 'pruned' or 'unpruned' RMSD here - we should output both at the RMSD4ALL stage. 
+> Note for 'pruned' values because each pair of binders is pairwise aligned and are likely not sequence similar, the RMSD may be calculated over only a small sequence-similar region in many cases. This will have also have an impact on the diagonal in the table below, since even identical sequences will have non-superimposing parts pruned.
+
+The structure of the binder alone ("monomer") was re-predicted from it's sequence only, and compared to it's original bound structure from the complex.
+
+```{python}
+# | label: binder-monomer-reprediction
+# | message: false
+
+# Check if the RMSD file exists
+rmsd_file = "predicted-binder-monomers_vs_input-binders.tsv"
+
+if os.path.exists(rmsd_file):
+    # Read the RMSD matrix
+    rmsd_df = pd.read_csv(rmsd_file, sep="\t", index_col=0)
+
+    print(f"RMSD matrix dimensions: {rmsd_df.shape}")
+    print(f"Matrix contains {rmsd_df.shape[0]} rows and {rmsd_df.shape[1]} columns")
+
+    # Extract diagonal values (assuming square matrix)
+    is_square = rmsd_df.shape[0] == rmsd_df.shape[1]
+    if is_square:
+        diagonal_values = []
+        for i, col_name in enumerate(rmsd_df.columns):
+            if i < len(rmsd_df.index):
+                diagonal_value = rmsd_df.iloc[i, i]
+                diagonal_values.append(
+                    {"Column": col_name, "Diagonal_RMSD": diagonal_value}
+                )
+
+        # Create and display diagonal table
+        diagonal_df = pd.DataFrame(diagonal_values)
+        styled_diagonal = (
+            diagonal_df.style.set_caption(
+                "C-alpha RMSD Values (Predicted vs Input Complex)"
+            )
+            .format({"C-alpha RMSD": "{:.3f}"})
+            .background_gradient(cmap="viridis", subset=["Diagonal_RMSD"])
+            .hide(axis="index")
+        )
+        display(styled_diagonal)
+    else:
+        print(
+            "Warning: Binder RMSD matrix is not square. Cannot extract diagonal values."
+        )
+        print("Displaying matrix as-is:")
+        display(rmsd_df)
+
+```
+
+Hierarchically clustered heatmap of the C-alpha RMSD values between the every predicted binder monomer and every binders in the the input complex structures.
+
+> TODO: Use TM-score instead of C-alpha RMSD for all-against-all binder comparisons ? - but something faster as TM-score is too slow for this many comparisons.
+
+```{python}
+# | label: binder-monomer-reprediction-heatmap
+# | message: false
+
+if os.path.exists(rmsd_file) and is_square:
+    # Create hierarchically clustered heatmap
+    plt.figure(figsize=(12, 10))
+
+    # Convert to numpy array for clustering
+    rmsd_matrix = rmsd_df.values
+
+    # Check for NaN values and handle them
+    nan_count = np.isnan(rmsd_matrix).sum()
+    if nan_count > 0:
+        print(f"Warning: Found {nan_count} NaN values in the RMSD matrix.")
+        print(
+            "NaN values will be replaced with the maximum RMSD value for clustering purposes."
+        )
+
+        # Replace NaN values with the maximum finite value for clustering
+        max_finite_value = np.nanmax(rmsd_matrix)
+        rmsd_matrix_clean = np.where(
+            np.isnan(rmsd_matrix), max_finite_value, rmsd_matrix
+        )
+        rmsd_df_clean = pd.DataFrame(
+            rmsd_matrix_clean, index=rmsd_df.index, columns=rmsd_df.columns
+        )
+    else:
+        rmsd_df_clean = rmsd_df
+
+    # Create clustermap with hierarchical clustering
+    g = sns.clustermap(
+        rmsd_df_clean,
+        cmap="viridis_r",  # Reverse colormap so lower RMSD = darker
+        method="average",
+        metric="euclidean",
+        figsize=(12, 10),
+        cbar_kws={"label": "RMSD (Å)"},
+        xticklabels=False,
+        yticklabels=False,
+        annot=False,
+        row_cluster=True,
+        col_cluster=True,
+    )  # Set to True if you want values displayed
+
+    g.fig.suptitle(
+        "RMSD Matrix: Predicted Binder Monomers vs Input Complex\n(Hierarchically Clustered)",
+        y=1.02,
+        fontsize=14,
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+    # Print summary statistics (excluding NaN values)
+    finite_values = rmsd_matrix[~np.isnan(rmsd_matrix)]
+    print(f"\nRMSD Summary Statistics (excluding NaN values):")
+    print(f"Mean RMSD: {finite_values.mean():.3f} Å")
+    print(f"Median RMSD: {np.median(finite_values):.3f} Å")
+    print(f"Min RMSD: {finite_values.min():.3f} Å")
+    print(f"Max RMSD: {finite_values.max():.3f} Å")
+    print(f"Std RMSD: {finite_values.std():.3f} Å")
+    print(f"Total finite values: {len(finite_values)}")
+    print(f"Total NaN values: {nan_count}")
+
+    # else:
+    #     print("Warning: RMSD matrix is not square. Cannot extract diagonal values.")
+    #     print("Displaying matrix as-is:")
+    #     display(rmsd_df)
+
+else:
+    print(f"RMSD file '{rmsd_file}' not found.")
+    print(
+        "This analysis requires the RMSD comparison between predicted binder monomers and input complex structures."
+    )
+    print(
+        "The file should be generated by the RMSD4ALL process in the Nextflow pipeline."
+    )
+```
+
+## TODO: Target monomer re-prediction - current pipeline results are wrong ?
+
+The structure of the target alone ("monomer") was re-predicted from it's sequence only, and compared to it's original apo structure.
+
+```{python}
+# | label: target-monomer-reprediction
+# | message: false
+
+# Check if the target RMSD file exists
+target_rmsd_file = "predicted-target-monomers_vs_input-targets.tsv"
+
+if os.path.exists(target_rmsd_file):
+    # Read the RMSD matrix
+    target_rmsd_df = pd.read_csv(target_rmsd_file, sep="\t", index_col=0)
+
+    print(f"Target RMSD matrix dimensions: {target_rmsd_df.shape}")
+    print(
+        f"Matrix contains {target_rmsd_df.shape[0]} rows and {target_rmsd_df.shape[1]} columns"
+    )
+
+    # Extract diagonal values (assuming square matrix)
+    if target_rmsd_df.shape[0] == target_rmsd_df.shape[1]:
+        target_diagonal_values = []
+        for i, col_name in enumerate(target_rmsd_df.columns):
+            if i < len(target_rmsd_df.index):
+                diagonal_value = target_rmsd_df.iloc[i, i]
+                target_diagonal_values.append(
+                    {"Column": col_name, "Diagonal_RMSD": diagonal_value}
+                )
+
+        # Create and display diagonal table
+        target_diagonal_df = pd.DataFrame(target_diagonal_values)
+        styled_target_diagonal = (
+            target_diagonal_df.style.set_caption(
+                "Diagonal RMSD Values (Predicted Target Monomers vs Input Target)"
+            )
+            .format({"Diagonal_RMSD": "{:.3f}"})
+            .background_gradient(cmap="viridis", subset=["Diagonal_RMSD"])
+            .hide(axis="index")
+        )
+        display(styled_target_diagonal)
+
+        # Create hierarchically clustered heatmap
+        plt.figure(figsize=(12, 10))
+
+        # Convert to numpy array for clustering
+        target_rmsd_matrix = target_rmsd_df.values
+
+        # Check for NaN values and handle them
+        target_nan_count = np.isnan(target_rmsd_matrix).sum()
+        if target_nan_count > 0:
+            print(
+                f"Warning: Found {target_nan_count} NaN values in the target RMSD matrix."
+            )
+            print(
+                "NaN values will be replaced with the maximum RMSD value for clustering purposes."
+            )
+
+            # Replace NaN values with the maximum finite value for clustering
+            target_max_finite_value = np.nanmax(target_rmsd_matrix)
+            target_rmsd_matrix_clean = np.where(
+                np.isnan(target_rmsd_matrix),
+                target_max_finite_value,
+                target_rmsd_matrix,
+            )
+            target_rmsd_df_clean = pd.DataFrame(
+                target_rmsd_matrix_clean,
+                index=target_rmsd_df.index,
+                columns=target_rmsd_df.columns,
+            )
+        else:
+            target_rmsd_df_clean = target_rmsd_df
+
+        # Create clustermap with hierarchical clustering
+        g = sns.clustermap(
+            target_rmsd_df_clean,
+            cmap="viridis_r",  # Reverse colormap so lower RMSD = darker
+            method="average",
+            metric="euclidean",
+            figsize=(12, 10),
+            cbar_kws={"label": "RMSD (Å)"},
+            xticklabels=False,
+            yticklabels=False,
+            annot=False,
+            row_cluster=True,
+            col_cluster=True,
+        )
+
+        g.fig.suptitle(
+            "RMSD Matrix: Predicted Target Monomers vs Input Target\n(Hierarchically Clustered)",
+            y=1.02,
+            fontsize=14,
+        )
+
+        plt.tight_layout()
+        plt.show()
+
+        # Print summary statistics (excluding NaN values)
+        target_finite_values = target_rmsd_matrix[~np.isnan(target_rmsd_matrix)]
+        print(f"\nTarget RMSD Summary Statistics (excluding NaN values):")
+        print(f"Mean RMSD: {target_finite_values.mean():.3f} Å")
+        print(f"Median RMSD: {np.median(target_finite_values):.3f} Å")
+        print(f"Min RMSD: {target_finite_values.min():.3f} Å")
+        print(f"Max RMSD: {target_finite_values.max():.3f} Å")
+        print(f"Std RMSD: {target_finite_values.std():.3f} Å")
+        print(f"Total finite values: {len(target_finite_values)}")
+        print(f"Total NaN values: {target_nan_count}")
+
+    else:
+        print(
+            "Warning: Target RMSD matrix is not square. Cannot extract diagonal values."
+        )
+        print("Displaying matrix as-is:")
+        display(target_rmsd_df)
+
+else:
+    print(f"Target RMSD file '{target_rmsd_file}' not found.")
+    print(
+        "This analysis requires the RMSD comparison between predicted target monomers and input target structures."
+    )
+    print(
+        "The file should be generated by the RMSD4ALL process in the Nextflow pipeline."
+    )
+```
+
+## Complex re-prediction
+
+The structure of the complex was re-predicted, and superimposed on the original and the C-alpha RMSD calculated (using binder sequence only, and the target with MSA and template structure provided).
+
+```{python}
+# | label: complex-reprediction
+# | message: false
+
+# Check if the complex RMSD file exists
+complex_rmsd_file = "predicted-complexes_vs_input-complexes.tsv"
+
+if os.path.exists(complex_rmsd_file):
+    # Read the RMSD matrix
+    complex_rmsd_df = pd.read_csv(complex_rmsd_file, sep="\t", index_col=0)
+
+    print(f"Complex RMSD matrix dimensions: {complex_rmsd_df.shape}")
+    print(
+        f"Matrix contains {complex_rmsd_df.shape[0]} rows and {complex_rmsd_df.shape[1]} columns"
+    )
+
+    # Extract matching values based on column/row name patterns
+    complex_matching_values = []
+    col_design_ids = set()
+    row_design_ids = set()
+
+    for col_name in complex_rmsd_df.columns:
+        # Extract the design identifier from column name (before .pdb)
+        # binder_design_id.pdb -> binder_design_id
+        col_design_id = col_name.split(".")[0]
+        col_design_ids.add(col_design_id)
+
+        for row_name in complex_rmsd_df.index:
+            # Extract the design identifier from row name
+            # target_name_and_binder_design_id_model_0.cif -> binder_design_id
+            # Split on '_and_' and take the second part, then remove model_0.* with regex
+            row_parts = row_name.split("_and_")[1]
+            row_parts = re.sub(r"_model_\d+.*$", "", row_parts)
+            row_design_ids.add(row_parts)
+
+            # Check if the design identifiers match
+            if col_design_id == row_parts:
+                rmsd_value = complex_rmsd_df.loc[row_name, col_name]
+                complex_matching_values.append({"Design": col_name, "RMSD": rmsd_value})
+                break  # Found match, move to next column
+
+    # Create and display matching values table
+    if complex_matching_values:
+        complex_matching_df = pd.DataFrame(complex_matching_values)
+        styled_complex_matching = (
+            complex_matching_df.style.set_caption(
+                "C-alpha RMSD Values (Predicted Complexes vs Input Complexes - Matched by Design ID)"
+            )
+            .format({"RMSD": "{:.3f}"})
+            .background_gradient(cmap="viridis", subset=["RMSD"])
+            .hide(axis="index")
+        )
+        display(styled_complex_matching)
+
+        # Print summary statistics for matching values
+        matching_values_array = np.array([v["RMSD"] for v in complex_matching_values])
+        finite_matching_values = matching_values_array[~np.isnan(matching_values_array)]
+
+        print(f"\nComplex C-alpha RMSD Summary Statistics (matched values only):")
+        print(f"Mean RMSD: {finite_matching_values.mean():.3f} Å")
+        print(f"Median RMSD: {np.median(finite_matching_values):.3f} Å")
+        print(f"Min RMSD: {finite_matching_values.min():.3f} Å")
+        print(f"Max RMSD: {finite_matching_values.max():.3f} Å")
+        print(f"Std RMSD: {finite_matching_values.std():.3f} Å")
+        print(f"Total matched values: {len(complex_matching_values)}")
+        print(f"Finite matched values: {len(finite_matching_values)}")
+        print(
+            f"NaN matched values: {len(complex_matching_values) - len(finite_matching_values)}"
+        )
+    else:
+        print("No matching design IDs found between columns and rows.")
+        print(
+            "Column names should end with .pdb and row names should contain '_and' pattern."
+        )
+        print(col_design_ids)
+        print(row_design_ids)
+
+
+else:
+    print(f"Complex RMSD file '{complex_rmsd_file}' not found.")
+    print(
+        "This analysis requires the RMSD comparison between predicted complexes and input complex structures."
+    )
+    print(
+        "The file should be generated by the RMSD4ALL process in the Nextflow pipeline."
+    )
+```
+
 
 ## Top 10 High-Scoring Interactions
 
@@ -124,27 +480,6 @@ plt.ylabel('ipTM Score', fontsize=12)
 plt.xticks(rotation=45)
 plt.tight_layout()
 plt.show()
-```
-
-
-```{python}
-#| label: iptm-boxplots-plotly
-#| message: false
-#| include: false
-
-# _(same thing using plotly)_
-
-# Interactive boxplot
-fig = px.box(df, 
-              x='target', 
-              y='iptm',
-              color='target',
-              color_discrete_map=color_map_hex,
-              points='all',
-              hover_data=['binder'],
-              title='Interactive Boxplot: ipTM Scores by Target')
-fig.update_xaxes(tickangle=45)
-fig.show()
 ```
 
 ```{python}
@@ -256,44 +591,58 @@ This analysis performs Wilcoxon rank-sum tests to compare the ipTM score distrib
 from itertools import combinations
 
 targets = df['target'].unique()
-wilcoxon_results = []
-all_comparisons = list(combinations(targets, 2))
 
-
-for target1, target2 in all_comparisons:
-    scores1 = df[df['target'] == target1]['iptm']
-    scores2 = df[df['target'] == target2]['iptm']
-    
-    # Wilcoxon rank-sum test (Mann-Whitney U)
-    statistic, p_value = stats.mannwhitneyu(scores1, scores2, alternative='two-sided')
-    
-    wilcoxon_results.append({
-        'Comparison': f"{target1} vs {target2}",
-        'Statistic': statistic,
-        'P-value': p_value,
-    })
-
-# Perform multiple testing correction
-results_df = pd.DataFrame(wilcoxon_results)
-if not results_df.empty:
-    reject, p_adj, _, _ = multipletests(results_df['P-value'], alpha=0.05, method='fdr_bh')
-    results_df['Adjusted P-value'] = p_adj
-    results_df['Significant'] = reject
-
-    significant_results = results_df[results_df['Significant']].sort_values(by='Adjusted P-value')
-    
-    if not significant_results.empty:
-        styled_wilcoxon = significant_results[['Comparison', 'Statistic', 'Adjusted P-value']].style.format({
-            'Statistic': '{:.1f}', 
-            'Adjusted P-value': '{:.4g}'
-        }).set_caption("Significant Pairwise Target Comparisons (FDR Corrected)").hide(axis='index')
-        display(styled_wilcoxon)
-    else:
-        print("No significant differences found between targets after FDR correction (p < 0.05).")
+# Check if we have enough targets for comparison (need at least 2)
+if len(targets) < 2:
+    print(f"Only {len(targets)} target(s) found. Need at least 2 targets for statistical comparison.")
+    print("Skipping Wilcoxon rank-sum tests.")
 else:
-    print("No comparisons were made.")
+    wilcoxon_results = []
+    all_comparisons = list(combinations(targets, 2))
 
-print(f"\nTotal pairwise comparisons performed: {len(all_comparisons)}")
+    for target1, target2 in all_comparisons:
+        scores1 = df[df['target'] == target1]['iptm']
+        scores2 = df[df['target'] == target2]['iptm']
+        
+        # Check if we have enough data points for each target (need at least 1 per target)
+        if len(scores1) == 0 or len(scores2) == 0:
+            print(f"Warning: No data found for {target1} or {target2}. Skipping comparison.")
+            continue
+        
+        # Wilcoxon rank-sum test (Mann-Whitney U)
+        try:
+            statistic, p_value = stats.mannwhitneyu(scores1, scores2, alternative='two-sided')
+            
+            wilcoxon_results.append({
+                'Comparison': f"{target1} vs {target2}",
+                'Statistic': statistic,
+                'P-value': p_value,
+            })
+        except ValueError as e:
+            print(f"Warning: Could not perform test for {target1} vs {target2}: {e}")
+            continue
+
+    # Perform multiple testing correction
+    results_df = pd.DataFrame(wilcoxon_results)
+    if not results_df.empty:
+        reject, p_adj, _, _ = multipletests(results_df['P-value'], alpha=0.05, method='fdr_bh')
+        results_df['Adjusted P-value'] = p_adj
+        results_df['Significant'] = reject
+
+        significant_results = results_df[results_df['Significant']].sort_values(by='Adjusted P-value')
+        
+        if not significant_results.empty:
+            styled_wilcoxon = significant_results[['Comparison', 'Statistic', 'Adjusted P-value']].style.format({
+                'Statistic': '{:.1f}', 
+                'Adjusted P-value': '{:.4g}'
+            }).set_caption("Significant Pairwise Target Comparisons (FDR Corrected)").hide(axis='index')
+            display(styled_wilcoxon)
+        else:
+            print("No significant differences found between targets after FDR correction (p < 0.05).")
+    else:
+        print("No valid comparisons could be made.")
+
+    print(f"\nTotal pairwise comparisons performed: {len(all_comparisons)}")
 
 ```
 
@@ -310,50 +659,62 @@ try:
     import statsmodels.api as sm
     from statsmodels.formula.api import mixedlm
     
-    # Fit mixed effects model with target as fixed effect, binder as random effect
-    model = mixedlm("iptm ~ C(target)", df, groups=df["binder"])
-    result = model.fit()
+    # Check if we have enough data for mixed effects model
+    # Need at least 2 targets and multiple binders for meaningful analysis
+    n_targets = df['target'].nunique()
+    n_binders = df['binder'].nunique()
     
-    print("Mixed Effects Model Results:")
-    print("=" * 40)
-    print(result.summary())
-    
-    # Create a plot of the fixed-effects coefficients
-    params = result.params
-    
-    # Identify the baseline target (the one used as intercept, typically the first alphabetically)
-    baseline_target = sorted(df['target'].unique())[0]
-    
-    # Extract coefficients into a DataFrame
-    # The coefficients from the model are offsets from the baseline (intercept)
-    coef_data = []
-    # Add the baseline with a coefficient of 0
-    coef_data.append({'target': baseline_target, 'coefficient': 0})
-    
-    for param_name, value in params.items():
-        if param_name.startswith("C(target)"):
-            # Extract target name from 'C(target)[T.target_name]'
-            target_name = param_name.split("[T.")[1][:-1]
-            coef_data.append({'target': target_name, 'coefficient': value})
+    if n_targets < 2:
+        print(f"Only {n_targets} target(s) found. Need at least 2 targets for mixed effects model.")
+        print("Skipping mixed effects model analysis.")
+    elif n_binders < 2:
+        print(f"Only {n_binders} binder(s) found. Need at least 2 binders for mixed effects model.")
+        print("Skipping mixed effects model analysis.")
+    else:
+        # Fit mixed effects model with target as fixed effect, binder as random effect
+        model = mixedlm("iptm ~ C(target)", df, groups=df["binder"])
+        result = model.fit()
+        
+        print("Mixed Effects Model Results:")
+        print("=" * 40)
+        print(result.summary())
+        
+        # Create a plot of the fixed-effects coefficients
+        params = result.params
+        
+        # Identify the baseline target (the one used as intercept, typically the first alphabetically)
+        baseline_target = sorted(df['target'].unique())[0]
+        
+        # Extract coefficients into a DataFrame
+        # The coefficients from the model are offsets from the baseline (intercept)
+        coef_data = []
+        # Add the baseline with a coefficient of 0
+        coef_data.append({'target': baseline_target, 'coefficient': 0})
+        
+        for param_name, value in params.items():
+            if param_name.startswith("C(target)"):
+                # Extract target name from 'C(target)[T.target_name]'
+                target_name = param_name.split("[T.")[1][:-1]
+                coef_data.append({'target': target_name, 'coefficient': value})
 
-    coef_df = pd.DataFrame(coef_data).sort_values('coefficient', ascending=False)
-    
-    # Get colors in the correct order for the sorted targets
-    ordered_colors = [color_map_rgb[t] for t in coef_df['target']]
-    
-    # Plot the coefficients
-    fig_height = max(6, len(coef_df) * 0.5)
-    plt.figure(figsize=(8, fig_height))
-    
-    sns.barplot(x='coefficient', y='target', data=coef_df, palette=ordered_colors, hue='target', dodge=False)
-    
-    plt.title('Mixed Effects Model Coefficients', fontsize=16)
-    plt.xlabel(f'Coefficient (Offset from Baseline: {baseline_target})', fontsize=12)
-    plt.ylabel('Target', fontsize=12)
-    plt.axvline(0, color='k', linestyle='--', linewidth=1)
-    plt.legend([],[], frameon=False) # Hide legend created by 'hue'
-    plt.tight_layout()
-    plt.show()
+        coef_df = pd.DataFrame(coef_data).sort_values('coefficient', ascending=False)
+        
+        # Get colors in the correct order for the sorted targets
+        ordered_colors = [color_map_rgb[t] for t in coef_df['target']]
+        
+        # Plot the coefficients
+        fig_height = max(6, len(coef_df) * 0.5)
+        plt.figure(figsize=(8, fig_height))
+        
+        sns.barplot(x='coefficient', y='target', data=coef_df, palette=ordered_colors, hue='target', dodge=False)
+        
+        plt.title('Mixed Effects Model Coefficients', fontsize=16)
+        plt.xlabel(f'Coefficient (Offset from Baseline: {baseline_target})', fontsize=12)
+        plt.ylabel('Target', fontsize=12)
+        plt.axvline(0, color='k', linestyle='--', linewidth=1)
+        plt.legend([],[], frameon=False) # Hide legend created by 'hue'
+        plt.tight_layout()
+        plt.show()
 
 except ImportError:
     print("Mixed effects modelling requires statsmodels package. Skipping this analysis.")
@@ -426,18 +787,32 @@ This may show trends of which targets are most similar to each other, and which 
 # Create pivot table for heatmap (binders vs targets)
 heatmap_data = df.pivot_table(values='iptm', index='binder', columns='target', fill_value=0)
 
-g = sns.clustermap(heatmap_data, 
-               cmap='viridis', 
-               method='average', # Using average linkage, compatible with cosine distance
-               metric='cosine', # Using cosine distance
-               figsize=(8, 16),
-               cbar_kws={'label': 'ipTM Score'},
-               xticklabels=True,
-               yticklabels=True)
-g.fig.suptitle('Hierarchical Clustering: Binders vs Targets (Cosine Distance, Average Linkage)', y=1.02)
-plt.show()
-
-print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
+# Check if we have enough data for clustering (need at least 2 binders and 2 targets)
+if heatmap_data.shape[0] >= 2 and heatmap_data.shape[1] >= 2:
+    g = sns.clustermap(heatmap_data, 
+                   cmap='viridis', 
+                   method='average', # Using average linkage, compatible with cosine distance
+                   metric='cosine', # Using cosine distance
+                   figsize=(8, 16),
+                   cbar_kws={'label': 'ipTM Score'},
+                   xticklabels=True,
+                   yticklabels=True)
+    g.fig.suptitle('Hierarchical Clustering: Binders vs Targets (Cosine Distance, Average Linkage)', y=1.02)
+    plt.show()
+    
+    print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
+else:
+    print(f"Insufficient data for clustering heatmap. Need at least 2 binders and 2 targets.")
+    print(f"Current data: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
+    
+    # Show a simple heatmap without clustering if we have at least some data
+    if heatmap_data.shape[0] >= 1 and heatmap_data.shape[1] >= 1:
+        plt.figure(figsize=(8, max(4, heatmap_data.shape[0] * 0.3)))
+        sns.heatmap(heatmap_data, cmap='viridis', cbar_kws={'label': 'ipTM Score'}, 
+                   xticklabels=True, yticklabels=True)
+        plt.title('ipTM Scores: Binders vs Targets (No Clustering)')
+        plt.tight_layout()
+        plt.show()
 ```
 
 ## Binder ipTM Across Targets (Parallel Coordinates)
@@ -445,33 +820,47 @@ print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.sha
 This plot visualizes the performance of each individual binder across the different targets. Each line represents a single binder, allowing you to trace its ipTM score from one target to another. You can hover over a line to see the binder's name and its score for a specific target. Clicking on a binder's name in the legend on the right will highlight all of its interactions.
 
 ```{python}
-#| label: parallel-coords-plot-altair
-#| message: false
+# | label: parallel-coords-plot-altair
+# | message: false
 
-# Re-using the `target_order` from the boxplot cell
-first_target = target_order[0]
+# Check if we have enough data for parallel coordinates plot
+if len(target_order) < 2:
+    print(
+        f"Only {len(target_order)} target(s) found. Need at least 2 targets for parallel coordinates plot."
+    )
+    print("Skipping parallel coordinates visualization.")
+else:
+    # Re-using the `target_order` from the boxplot cell
+    first_target = target_order[0]
 
-# Get the initial ipTM score for each binder from the first target
-initial_iptm_df = df[df['target'] == first_target][['binder', 'iptm']].rename(columns={'iptm': 'initial_iptm'})
+    # Get the initial ipTM score for each binder from the first target
+    initial_iptm_df = df[df["target"] == first_target][["binder", "iptm"]].rename(
+        columns={"iptm": "initial_iptm"}
+    )
 
-# Merge this back into the main dataframe
-df_merged = pd.merge(df, initial_iptm_df, on='binder', how='left')
+    # Merge this back into the main dataframe
+    df_merged = pd.merge(df, initial_iptm_df, on="binder", how="left")
 
-# Create the parallel coordinates plot with Altair
-chart = alt.Chart(df_merged).mark_line().encode(
-    x=alt.X('target:N', sort=target_order.tolist(), title='Target'),
-    y=alt.Y('iptm:Q', title='ipTM Score'),
-    color=alt.Color('initial_iptm:Q', 
-                    scale=alt.Scale(scheme='viridis'),
-                    legend=alt.Legend(title=f"ipTM on {first_target}")),
-    detail='binder:N', # Use detail to group lines without affecting color
-    tooltip=['binder:N', 'target:N', 'iptm:Q']
-).properties(
-    title='Binder Performance Across Targets',
-    width=600
-).interactive()
+    # Create the parallel coordinates plot with Altair
+    chart = (
+        alt.Chart(df_merged)
+        .mark_line()
+        .encode(
+            x=alt.X("target:N", sort=target_order.tolist(), title="Target"),
+            y=alt.Y("iptm:Q", title="ipTM Score"),
+            color=alt.Color(
+                "initial_iptm:Q",
+                scale=alt.Scale(scheme="viridis"),
+                legend=alt.Legend(title=f"ipTM on {first_target}"),
+            ),
+            detail="binder:N",  # Use detail to group lines without affecting color
+            tooltip=["binder:N", "target:N", "iptm:Q"],
+        )
+        .properties(title="Binder Performance Across Targets", width=600)
+        .interactive()
+    )
 
-chart
+    chart
 ```
 
 

@@ -3,14 +3,17 @@ nextflow.enable.dsl = 2
 process BOLTZ_PULLDOWN_REPORTING {
     publishDir "${params.outdir}/boltz_pulldown", mode: 'copy'
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.9.0'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
 
     input:
-    path('boltz_pulldown_report.qmd')
-    path('boltz_pulldown.tsv')
+    path 'boltz_pulldown_report.qmd'
+    path 'boltz_pulldown.tsv'
+    path 'predicted-binder-monomers_vs_input-binders.tsv'
+    path 'predicted-target-monomers_vs_input-targets.tsv'
+    path 'predicted-complexes_vs_input-complexes.tsv'
 
     output:
-    path('boltz_pulldown_report.html')
+    path 'boltz_pulldown_report.html'
 
     script:
     def qmd_file = "${projectDir}/assets/boltz_pulldown_reporting.qmd"

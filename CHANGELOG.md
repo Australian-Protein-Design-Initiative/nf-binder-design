@@ -12,10 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Some parameter validation for `bindcraft.nf`.
 - Write `params.json` to output directory.
  - `create_boltz_yaml.py` now includes `.pdb` files in `templates` alongside `.cif`.
+ - Added `bin/rmsd4all.py`: for doing all-against-all RMSD or TM-score comparisons between structures.
 
 ### Changed
 - Made default queue size 1, for single local GPU mode.
 - Added `m3-bdi.config`, site specific for M3/MASSIVE HPC cluster.
+- boltz_pulldown: Add `--complex_structures` and `--binder_chains`/`--target_chains` to provide complex structures and chains to extract from.
 - Use the `nf-binder-design-utils` container instead of `mdanalysis`.
 
 ### Fixed

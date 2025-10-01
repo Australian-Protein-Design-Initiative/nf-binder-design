@@ -118,7 +118,7 @@ def format_score_string(scores_data: Dict[str, Any], score_columns: List[str]) -
 
 def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None, 
                 output_file: Optional[str] = None, scores_file: Optional[str] = None,
-                score_columns: Optional[List[str]] = None):
+                score_columns: Optional[List[str]] = None, include_chain_suffix: bool = False):
     """Extract sequences from PDB files and write them in FASTA format.
     
     Args:
@@ -127,6 +127,7 @@ def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None,
         output_file: Path to output file. If None or "-", write to stdout.
         scores_file: Path to TSV file containing scores
         score_columns: List of column names to include in the FASTA headers
+        include_chain_suffix: Whether to include chain ID as suffix in FASTA headers
     """
     output_lines = []
     
@@ -159,7 +160,10 @@ def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None,
             # Output only requested chains in the order specified
             for chain_id in chain_ids:
                 if chain_id in sequences:
-                    seq_id = f"{seq_id_base}"
+                    if include_chain_suffix:
+                        seq_id = f"{seq_id_base}_{chain_id}"
+                    else:
+                        seq_id = f"{seq_id_base}"
                     output_lines.append(f">{seq_id}{score_string}")
                     output_lines.append(f"{sequences[chain_id]}")
                 else:
@@ -169,21 +173,27 @@ def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None,
             chain_ids_sorted = sorted(sequences.keys())
             
             if len(chain_ids_sorted) == 1:
-                # Single chain, output without chain ID suffix
+                # Single chain
                 chain_id = chain_ids_sorted[0]
-                output_lines.append(f">{seq_id_base}{score_string}|chain={chain_id}")
-                output_lines.append(f"{sequences[chain_id]}")
-            else:
-                # Multiple chains, output combined with * separator
-                combined_seq = "*".join([sequences[c] for c in chain_ids_sorted])
-                output_lines.append(f">{seq_id_base}{score_string}")
-                output_lines.append(f"{combined_seq}")
-                
-                # Also output individual chains
-                for chain_id in chain_ids_sorted:
+                if include_chain_suffix:
                     seq_id = f"{seq_id_base}_{chain_id}"
                     output_lines.append(f">{seq_id}{score_string}")
-                    output_lines.append(f"{sequences[chain_id]}")
+                else:
+                    output_lines.append(f">{seq_id_base}{score_string}|chain={chain_id}")
+                output_lines.append(f"{sequences[chain_id]}")
+            else:
+                # Multiple chains
+                if include_chain_suffix:
+                    # Output individual chains with chain suffix
+                    for chain_id in chain_ids_sorted:
+                        seq_id = f"{seq_id_base}_{chain_id}"
+                        output_lines.append(f">{seq_id}{score_string}")
+                        output_lines.append(f"{sequences[chain_id]}")
+                else:
+                    # Output combined sequence with * separator
+                    combined_seq = "*".join([sequences[c] for c in chain_ids_sorted])
+                    output_lines.append(f">{seq_id_base}{score_string}")
+                    output_lines.append(f"{combined_seq}")
     
     # Write output
     output_text = "\n".join(output_lines) + "\n"
@@ -205,6 +215,11 @@ def main():
     )
     parser.add_argument(
         "--chains", help="Chain ID(s) to extract (comma-separated for multiple chains)", default=None
+    )
+    parser.add_argument(
+        "--include-chain-suffix", help="Include the chain ID as a suffix in the FASTA header, eg >design1_A", 
+        default=False, 
+        action="store_true"
     )
     parser.add_argument(
         "--scores-table", help="TSV file containing scores to include in FASTA headers", default=None
@@ -233,7 +248,7 @@ def main():
     if args.scores_table:
         score_columns = [c.strip() for c in args.scores.split(",")]
 
-    write_fasta(args.files, chain_ids, args.output, args.scores_table, score_columns)
+    write_fasta(args.files, chain_ids, args.output, args.scores_table, score_columns, args.include_chain_suffix)
 
 
 if __name__ == "__main__":
