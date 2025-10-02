@@ -485,11 +485,14 @@ workflow {
         ch_complex_rmsd_tsv = channel.empty()
     }
 
+    ch_rmsd_tsv = channel.of(file("${projectDir}/assets/dummy_files/empty")).mix(
+        ch_binder_monomer_rmsd_tsv, 
+        ch_target_monomer_rmsd_tsv, 
+        ch_complex_rmsd_tsv)
+
     BOLTZ_PULLDOWN_REPORTING(file("${projectDir}/assets/boltz_pulldown_reporting.qmd"), 
                              ch_tsv_output, 
-                             ch_binder_monomer_rmsd_tsv,
-                             ch_target_monomer_rmsd_tsv,
-                             ch_complex_rmsd_tsv)
+                             ch_rmsd_tsv)
 
     // TODO: Re-sort the table on iptm (index 5). 
     //       (An alternative would be to sort on confidence (index 3))
