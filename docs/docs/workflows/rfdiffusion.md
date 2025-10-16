@@ -87,26 +87,26 @@ export NXF_APPTAINER_TMPDIR=$TMPDIR
 # Load Nextflow module (if available on your HPC)
 module load nextflow/24.04.3 || true
 
-nextflow \
--c ${WF_PATH}/conf/platforms/m3.config run \
-${WF_PATH}/main.nf  \
---slurm_account=ab12 \
---input_pdb 'input/target_cropped.pdb' \
---design_name my-binder \
---outdir results \
---contigs "[B346-521/B601-696/B786-856/0 70-130]" \
---hotspot_res "B472,B476,B484,B488" \
---rfd_n_designs=1000 \
---rfd_batch_size=5 \
---rfd_filters="rg<20" \
---pmpnn_seqs_per_struct=2 \
---pmpnn_relax_cycles=1 \
---pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
---rfd_model_path="/models/rfdiffusion/Complex_beta_ckpt.pt" \
---rfd_extra_args='potentials.guiding_potentials=["type:binder_ROG,weight:7,min_dist:10"] potentials.guide_decay="quadratic"' \
--resume \
--with-report results/logs/report_${DATESTAMP}.html \
--with-trace results/logs/trace_${DATESTAMP}.txt
+nextflow run \
+    ${WF_PATH}/main.nf  \
+    --slurm_account=ab12 \
+    --input_pdb 'input/target_cropped.pdb' \
+    --design_name my-binder \
+    --outdir results \
+    --contigs "[B346-521/B601-696/B786-856/0 70-130]" \
+    --hotspot_res "B472,B476,B484,B488" \
+    --rfd_n_designs=1000 \
+    --rfd_batch_size=5 \
+    --rfd_filters="rg<20" \
+    --pmpnn_seqs_per_struct=2 \
+    --pmpnn_relax_cycles=1 \
+    --pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
+    --rfd_model_path="/models/rfdiffusion/Complex_beta_ckpt.pt" \
+    --rfd_extra_args='potentials.guiding_potentials=["type:binder_ROG,weight:7,min_dist:10"] potentials.guide_decay="quadratic"' \
+    -profile slurm,m3 \
+    -resume \
+    -with-report results/logs/report_${DATESTAMP}.html \
+    -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
 
 ### Key Parameters
@@ -120,13 +120,13 @@ ${WF_PATH}/main.nf  \
 - `--pmpnn_weights`: Custom ProteinMPNN weights
 
 
-The `-c` flag is used here to specify a configuration file specific to the M3 HPC cluster.
+We use `-profile slurm,m3` to use pre-defined configuration files specific to the M3 HPC cluster.  You could also use the `-c` flag to point to a custom configuration file.
 
-Other site-specific configuration files are provided in `conf/platforms/`:
+Other site-specific `-profile` options are provided in `conf/platforms/`:
 
-- `m3.config` - Monash M3 cluster
-- `m3-bdi.config` - Monash M3 cluster with access to the `bdi` and `m3h` partitions
-- `mlerp.config` - MLeRP cluster
+- `m3` - Monash M3 cluster
+- `m3_bdi` - Monash M3 cluster with access to the `bdi` partitions
+- `mlerp` - the MLeRP HPC cluster
 
 These can be adapted to other HPC clusters - pull requests are welcome !
 

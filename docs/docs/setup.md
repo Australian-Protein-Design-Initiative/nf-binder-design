@@ -87,18 +87,20 @@ For local execution of a single compute node, use the `-profile local` flag when
 
 For running using the SLURM executor, use the `-profile slurm` flag (this is the default profile if not specified).
 
-Site-specific configuration files are provided in `conf/platforms/`:
+Some site-specific configurations for HPC clusters and cloud platforms can be applied via eg `-profile m3`. Currently defined sites are: 
 
-- `m3.config` - Monash M3 cluster
-- `m3-bdi.config` - Monash M3 cluster with access to the `bdi` and `m3h` partitions
-- `mlerp.config` - MLeRP cluster
+- `m3` - the Monash M3 HPC cluster, generic GPU partitions
+- `m3_bdi` - the Monash M3 cluster with access to the `bdi` partitions
+- `mlerp` - the MLeRP HPC cluster
+- `hyperqueue` - for running on a generic HyperQueue (`hq`) cluster
 
-These can be adapted to other HPC clusters - pull requests are welcome!
+These configuration files are provided in `conf/platforms/` and be copied and adapted for your specific setup.
+Pull requests for additional HPC clusters are welcome!
 
-Use the `-c` flag to specify the path to a configuration file:
+In addition (on instead of) using a pre-defined `-profile`, you can use the `-c` flag to specify the path to a configuration file:
 
 ```bash
-nextflow run main.nf -c conf/platforms/m3.config ...
+nextflow run main.nf -c conf/platforms/m3.config  # etc ...
 ```
 
 #### HPC Cluster environment variables
