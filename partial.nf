@@ -37,7 +37,7 @@ params.rfd_extra_args = ''
 params.skip_renumber = false
 params.rfd_compress_trajectories = true
 
-params.pmpnn_relax_cycles = 0
+params.pmpnn_relax_cycles = 3  // or 5, or maybe even more
 params.pmpnn_seqs_per_struct = 1
 params.pmpnn_weights = false
 params.pmpnn_temperature = 0.000001
@@ -302,6 +302,8 @@ workflow.onComplete {
     params_json['workflow'] = [
         name: workflow.manifest.name,
         version: workflow.manifest.version,
+        revision: workflow.revision ?: null,
+        commit: workflow.commitId ?: null,
         runName: workflow.runName,
         start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
         complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),

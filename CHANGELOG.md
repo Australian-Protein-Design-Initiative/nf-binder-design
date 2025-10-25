@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Write `params.json` to output directory.
 
 ### Changed
+- Changed default `--pmpnn_relax_cycles` from 0 to 3
 - Made default queue size 1, for single local GPU mode.
 - Added `m3-bdi.config`, site specific for M3/MASSIVE HPC cluster.
 - Use the `nf-binder-design-utils` container instead of `mdanalysis`.
