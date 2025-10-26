@@ -42,6 +42,15 @@ params.rfd_filters = false
 
 params.af2ig_recycle = 3
 
+params.refold_af2ig_filters = false
+params.refold_max = false
+params.refold_use_msa_server = false
+params.refold_create_target_msa = false
+params.refold_target_templates = false
+params.refold_target_fasta = false
+params.uniref30 = false
+params.colabfold_envdb = false
+
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
@@ -81,11 +90,21 @@ if (params.input_pdb == false && params.rfd_backbone_models == false) {
             --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
             --max_rg              Maximum radius of gyration for backbone filtering [default: disabled]
             --rfd_filters         Semicolon-separated list of filters for RFDiffusion backbones, eg "rg<25;compactness>0.8" [default: disabled]
-
-        --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
-        --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
-        --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
-        --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+            
+            --refold_af2ig_filters       Semicolon-separated list of filters for AF2 initial guess designs, eg "pae_interaction<=10;plddt_binder>=80" [default: disabled]
+            --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
+                
+            --refold_max          Maximum number of designs to refold with Boltz-2 [default: disabled]
+            --refold_use_msa_server Use Boltz MSA server for target sequences [default: ${params.refold_use_msa_server}]
+            --refold_create_target_msa Create MSA for target sequences [default: ${params.refold_create_target_msa}]
+            --refold_target_templates Templates directory with .cif files for Boltz-2 [default: ${params.refold_target_templates}]
+            --refold_target_fasta  FASTA file with full-length target sequences (headers should match PDB basenames) [default: ${params.refold_target_fasta}]
+            --uniref30            UniRef30 database path for MSA creation [default: ${params.uniref30}]
+            --colabfold_envdb     ColabFold environment database path for MSA creation [default: ${params.colabfold_envdb}]
+                
+            --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+            --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
+            --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
 
     """.stripIndent()
     exit 1
@@ -99,6 +118,11 @@ include { COMBINE_SCORES } from './modules/combine_scores'
 include { UNIQUE_ID } from './modules/unique_id'
 include { FILTER_DESIGNS } from './modules/filter_designs'
 include { BINDCRAFT_SCORING } from './modules/bindcraft_scoring'
+include { AF2IG_SCORE_FILTER } from './modules/af2ig_score_filter'
+include { PDB_TO_FASTA } from './modules/pdb_to_fasta'
+include { BOLTZ_COMPARE_COMPLEX } from './modules/boltz_compare_complex'
+include { BOLTZ_COMPARE_BINDER_MONOMER } from './modules/boltz_compare_binder_monomer'
+include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 
 workflow {
     // Generate unique ID for this run
@@ -191,6 +215,144 @@ workflow {
         DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
     )
 
+    // Optional Boltz-2 refolding of filtered designs
+    if (params.refold_af2ig_filters) {
+        // Filter designs by score thresholds
+        AF2IG_SCORE_FILTER(
+            AF2_INITIAL_GUESS.out.scores_tsv,
+            AF2_INITIAL_GUESS.out.pdbs.collect(),
+            params.refold_af2ig_filters
+        )
+        
+        // Flatten and create metadata for each accepted PDB
+        ch_filtered_with_meta = AF2IG_SCORE_FILTER.out.accepted
+            .flatten()
+            .map { pdb -> [[id: pdb.baseName], pdb] }
+        
+        // Limit to refold_max if specified
+        ch_filtered_for_refold = params.refold_max ? 
+            ch_filtered_with_meta.take(params.refold_max) : 
+            ch_filtered_with_meta
+        
+        // Optionally create target MSAs
+        if (params.refold_create_target_msa && !params.refold_use_msa_server) {
+            if (params.refold_target_fasta) {
+                // Use the refold_target_fasta file directly for MSA creation
+                ch_target_fastas = ch_filtered_for_refold.map { meta, pdb ->
+                    [meta, file(params.refold_target_fasta)]
+                }
+                ch_target_msas = MMSEQS_COLABFOLDSEARCH(
+                    ch_target_fastas,
+                    params.colabfold_envdb,
+                    params.uniref30
+                )
+            } else {
+                // Create target FASTA files from PDBs for MSA creation
+                ch_target_fastas = ch_filtered_for_refold
+                    .map { meta, pdb -> pdb }
+                    | PDB_TO_FASTA(
+                        'B'  // target chain
+                    )
+                    .map { fasta -> 
+                        def basename = fasta.baseName.replaceAll(/_B$/, '')
+                        [[id: basename], fasta]
+                    }
+                ch_target_msas = MMSEQS_COLABFOLDSEARCH(
+                    ch_target_fastas,
+                    params.colabfold_envdb,
+                    params.uniref30
+                )
+            }
+        } else if (params.refold_create_target_msa && params.refold_use_msa_server) {
+            ch_target_msas = ch_filtered_for_refold.map { meta, pdb -> 
+                [meta, file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")] 
+            }
+        } else {
+            ch_target_msas = ch_filtered_for_refold.map { meta, pdb -> 
+                [meta, file("${projectDir}/assets/dummy_files/empty_target_msa")] 
+            }
+        }
+        
+        // Run Boltz complex refolding with RMSD analysis
+        BOLTZ_COMPARE_COMPLEX(
+            ch_filtered_for_refold,
+            'A',  // binder_chain
+            'B',  // target_chain
+            params.refold_create_target_msa,
+            params.refold_use_msa_server,
+            ch_target_msas.map { meta, target_msa -> target_msa },
+            file("${projectDir}/assets/dummy_files/empty_binder_msa"),
+            file(params.refold_target_templates ?: "${projectDir}/assets/dummy_files/empty_templates"),
+            file(params.refold_target_fasta)
+        )
+        
+        // Run Boltz binder monomer prediction with RMSD analysis
+        BOLTZ_COMPARE_BINDER_MONOMER(
+            ch_filtered_for_refold
+                .join(BOLTZ_COMPARE_COMPLEX.out.pdb)
+                .map { meta, af2ig_pdb, boltz_pdb ->
+                    [meta, af2ig_pdb, boltz_pdb]
+                },
+            'A'  // binder_chain
+        )
+        
+        // Aggregate RMSD outputs
+        ch_target_aligned_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_target_aligned
+            .map { meta, tsv_file -> tsv_file }
+            .collectFile(
+                name: 'rmsd_target_aligned_binder.tsv',
+                storeDir: "${params.outdir}/boltz_refold/rmsd",
+                keepHeader: true,
+                skip: 1
+            )
+        
+        ch_complex_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_complex
+            .map { meta, tsv_file -> tsv_file }
+            .collectFile(
+                name: 'rmsd_complex_vs_af2ig.tsv',
+                storeDir: "${params.outdir}/boltz_refold/rmsd",
+                keepHeader: true,
+                skip: 1
+            )
+        
+        ch_monomer_vs_af2ig_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_af2ig
+            .map { meta, tsv_file -> tsv_file }
+            .collectFile(
+                name: 'rmsd_monomer_vs_af2ig.tsv',
+                storeDir: "${params.outdir}/boltz_refold/rmsd",
+                keepHeader: true,
+                skip: 1
+            )
+        
+        ch_monomer_vs_complex_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_complex
+            .map { meta, tsv_file -> tsv_file }
+            .collectFile(
+                name: 'rmsd_monomer_vs_complex.tsv',
+                storeDir: "${params.outdir}/boltz_refold/rmsd",
+                keepHeader: true,
+                skip: 1
+            )
+        
+        // Aggregate confidence outputs
+        ch_complex_confidence = BOLTZ_COMPARE_COMPLEX.out.confidence_tsv
+            .map { meta, tsv_file -> tsv_file }
+            .collectFile(
+                name: 'boltz_confidence_complex.tsv',
+                storeDir: "${params.outdir}/boltz_refold",
+                keepHeader: true,
+                skip: 1
+            )
+        
+        ch_monomer_confidence = BOLTZ_COMPARE_BINDER_MONOMER.out.confidence_tsv
+            .map { meta, tsv_file -> tsv_file }
+            .collectFile(
+                name: 'boltz_confidence_binder_monomer.tsv',
+                storeDir: "${params.outdir}/boltz_refold",
+                keepHeader: true,
+                skip: 1
+            )
+    }
+
     BINDCRAFT_SCORING(
         AF2_INITIAL_GUESS.out.pdbs,
         'A',
@@ -199,7 +361,7 @@ workflow {
 
     extra_scores = BINDCRAFT_SCORING.out.scores.collectFile(
         name: 'extra_scores.tsv',
-        storeDir: "${params.outdir}",
+        //storeDir: "${params.outdir}",
         keepHeader: true,
         skip: 1)
 

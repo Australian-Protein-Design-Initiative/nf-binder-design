@@ -8,8 +8,8 @@ RFdiffusion-based workflows for _de novo_ protein binder design.
 
 The RFdiffusion workflows include:
 
-- **main.nf**: Complete binder design pipeline (RFdiffusion → ProteinMPNN → AlphaFold2 initial guess)
-- **partial.nf**: Partial diffusion refinement of existing designs or complexes
+- **main.nf**: Complete binder design pipeline (RFdiffusion → ProteinMPNN → AlphaFold2 initial guess → Boltz-2 refolding)
+- **partial.nf**: Partial diffusion refinement of existing designs or complexes (RFdiffusion Partial Diffusion → Boltz-2 refolding)
 
 ## General Information
 
@@ -65,7 +65,7 @@ nextflow run main.nf \
 
 ### Parallel tasks on an HPC Cluster
 
-Here's a more complex example for the M3 HPC cluster with custom settings:
+Here's a more complex 'kitchen sink' example using `-profile slurm,m3` for the M3 HPC cluster:
 
 ```bash
 #!/bin/bash
@@ -98,11 +98,17 @@ nextflow run \
     --rfd_n_designs=1000 \
     --rfd_batch_size=5 \
     --rfd_filters="rg<20" \
-    --pmpnn_seqs_per_struct=2 \
-    --pmpnn_relax_cycles=1 \
-    --pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
     --rfd_model_path="/models/rfdiffusion/Complex_beta_ckpt.pt" \
     --rfd_extra_args='potentials.guiding_potentials=["type:binder_ROG,weight:7,min_dist:10"] potentials.guide_decay="quadratic"' \
+    --pmpnn_seqs_per_struct=2 \
+    --pmpnn_relax_cycles=5 \
+    --pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
+    --af2ig_recycle=3 \
+    --refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
+    --refold_max=100 \
+    --refold_use_msa_server=true \
+    --refold_target_fasta='input/full/target.fasta' \
+    --refold_target_templates='input/full/' \
     -profile slurm,m3 \
     -resume \
     -with-report results/logs/report_${DATESTAMP}.html \
@@ -116,11 +122,24 @@ nextflow run \
 - `--hotspot_res`: Hotspot residues (comma-separated)
 - `--rfd_n_designs`: Number of designs to generate
 - `--rfd_filters`: Filter expression (e.g., `"rg<20"`)
-- `--rfd_model_path`: Custom RFdiffusion model
-- `--pmpnn_weights`: Custom ProteinMPNN weights
+- `--rfd_model_path`: Path to a custom RFdiffusion model (in this case the `Complex_beta_ckpt.pt` model inside the container)
+- `--rfd_extra_args`: Pass these extra arguments to RFdiffusion - in this example we apply a radius of gyration potential
+- `--pmpnn_seqs_per_struct=2`: Generate 2 sequences per backbone design with ProteinMPNN
+- `--pmpnn_relax_cycles=5`: Run 5 FastRelax cycles for ProteinMPNN
+- `--pmpnn_weights`: Use custom ProteinMPNN weights (in this case the HyperMPNN weights inside the container)
+- `--af2ig_recycle=3`: Run 3 recycles for AF2 initial guess
 
+When `--refold_af2ig_filters` is set, designs that pass these score thresholds are refolded using Boltz-2 (both the complex and unbound binder monomer):
+
+  - `--refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80"`: Filter AF2 initial guess designs by PAE interaction <= 10 and binder pLDDT >= 80
+  - `--refold_max=100`: Refold a maximum of 100 designs
+  - `--refold_use_msa_server=true`: Use the public ColabFold MMSeqs2 server to generate the MSA for the target sequence
+  - `--refold_target_fasta='input/full/target.fasta'`: Refold (re-predict) using this target sequence
+  - `--refold_target_templates='input/full/'`: Use the full length target template PDBs in this directory to improve target predictions
 
 We use `-profile slurm,m3` to use pre-defined configuration files specific to the M3 HPC cluster.  You could also use the `-c` flag to point to a custom configuration file.
+
+`--slurm_account=<your_account_id>` is required if you have multiple SLURM accounts and need to use a specific one.
 
 Other site-specific `-profile` options are provided in `conf/platforms/`:
 
@@ -151,7 +170,9 @@ nextflow run partial.nf  \
     -profile local
 ```
 
-> ⚠️ Note - if you are applying partial diffusion to designs output from the `main.nf` workflow, the binder is will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !
+The other `--refold_` parameters, as used above for the `main.nf` workflow, can also be used here if you'd like to refold the best designs with Boltz-2.
+
+> ⚠️ Note - if you are applying partial diffusion to designs output from the `main.nf` workflow, the binder will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !
 
 ## Design Filter Plugin System
 
@@ -159,10 +180,17 @@ The `main.nf` and `partial.nf` pipelines support custom metric calculation and f
 
 ### Using Filters
 
-Controlled by the `--rfd_filters` parameter:
+Filtering backbone designs from RFdiffusion by radius of gyration (before passing to ProteinMPNN and AF2 initial guess):
 
 ```bash
 --rfd_filters="rg<20"
+```
+
+Filtering AF2 initial guess designs before refolding with Boltz-2 by any of the af2ig scores (`pae_interaction`, `binder_aligned_rmsd`, `pae_binder`, `pae_target`, `plddt_binder`, `plddt_target`, `plddt_total`, `target_aligned_rmsd`), 
+as well as size/shape scores (`rg`, `dmax`, `asphericity`, `approx_rh`).
+
+```bash
+--refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80"
 ```
 
 ### Available Filters

@@ -134,6 +134,11 @@ def main():
         default="A",
         help="Comma-separated list of binder chain IDs. Defaults to 'A'.",
     )
+    parser.add_argument(
+        "--pass-col-name",
+        default="pass",
+        help="Name of the column to store pass/fail results. Defaults to 'pass'.",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -240,10 +245,10 @@ def main():
             except ValueError as e:
                 parser.error(str(e))
 
-        df["pass"] = df[all_pass_columns].all(axis=1)  # type: ignore
+        df[args.pass_col_name] = df[all_pass_columns].all(axis=1)  # type: ignore
     else:
         # If no filters, everything passes
-        df["pass"] = True
+        df[args.pass_col_name] = True
 
     # --- 6. Output Generation ---
     output_handle = open(args.output, "w") if args.output != "-" else sys.stdout
@@ -265,7 +270,7 @@ def main():
 
         for _, row in df_for_copy.iterrows():
             pdb_path = Path(str(row["pdb_path"]))
-            dest_dir = accepted_dir if row["pass"] else rejected_dir
+            dest_dir = accepted_dir if row[args.pass_col_name] else rejected_dir
             shutil.copy(pdb_path, dest_dir / pdb_path.name)
 
 

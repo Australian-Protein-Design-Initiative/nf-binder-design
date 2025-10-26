@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Refold binder designs with Boltz, with post-AF2ig filtering and 
+  RMSD analysis of predicted complex and binder monomer.
 - Added DOI (Zenodo) badge to `README.md`, added `CITATION.cff`.
 - Some parameter validation for `bindcraft.nf`.
 - Write `params.json` to output directory.
 
 ### Changed
+- Don't output redundant .tsv files to the results directory.
 - Changed default `--pmpnn_relax_cycles` from 0 to 3
 - Made default queue size 1, for single local GPU mode.
 - Added `m3-bdi.config`, site specific for M3/MASSIVE HPC cluster.

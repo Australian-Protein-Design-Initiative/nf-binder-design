@@ -12,8 +12,6 @@ process BINDCRAFT_SCORING {
     path '*.tsv', emit: scores
 
     script:
-    def advanced_settings_file = advanced_settings_preset ? "/app/BindCraft/settings_advanced/${advanced_settings_preset}.json" : '/app/BindCraft/settings_advanced/default_4stage_multimer.json'
-
     """
     /opt/conda/envs/BindCraft/bin/python ${projectDir}/bin/bindcraft_scoring.py \
       --format tsv \

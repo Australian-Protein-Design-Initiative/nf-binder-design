@@ -9,6 +9,7 @@ process AF2_INITIAL_GUESS {
     output:
     path 'pdbs/*.pdb', emit: pdbs
     path 'scores/*.cs', emit: scores
+    path 'af2ig_scores.tsv', emit: scores_tsv
 
     script:
     """
@@ -29,30 +30,8 @@ process AF2_INITIAL_GUESS {
         -outpdbdir pdbs/ \
         -recycle ${params.af2ig_recycle} \
         -scorefilename scores/\${PREFIX}.scores.cs
+
+    # Combine scores into a single TSV file
+    python ${projectDir}/bin/af2_combine_scores.py scores/ -o af2ig_scores.tsv
     """
-    /*
-usage: predict.py [-h] [-pdbdir PDBDIR] [-silent SILENT] [-outpdbdir OUTPDBDIR] [-outsilent OUTSILENT] [-runlist RUNLIST] [-checkpoint_name CHECKPOINT_NAME] [-scorefilename SCOREFILENAME]
-                  [-maintain_res_numbering] [-debug] [-max_amide_dist MAX_AMIDE_DIST] [-recycle RECYCLE] [-no_initial_guess] [-force_monomer]
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -pdbdir PDBDIR        The name of a directory of pdbs to run through the model
-  -silent SILENT        The name of a silent file to run through the model
-  -outpdbdir OUTPDBDIR  The directory to which the output PDB files will be written. Only used when -pdbdir is active
-  -outsilent OUTSILENT  The name of the silent file to which output structs will be written. Only used when -silent is active
-  -runlist RUNLIST      The path of a list of pdb tags to run. Only used when -pdbdir is active (default: ''; Run all PDBs)
-  -checkpoint_name CHECKPOINT_NAME
-                        The name of a file where tags which have finished will be written (default: check.point)
-  -scorefilename SCOREFILENAME
-                        The name of a file where scores will be written (default: out.sc)
-  -maintain_res_numbering
-                        When active, the model will not renumber the residues when bad inputs are encountered (default: False)
-  -debug                When active, errors will cause the script to crash and the error message to be printed out (default: False)
-  -max_amide_dist MAX_AMIDE_DIST
-                        The maximum distance between an amide bond's carbon and nitrogen (default: 3.0)
-  -recycle RECYCLE      The number of AF2 recycles to perform (default: 3)
-  -no_initial_guess     When active, the model will not use an initial guess (default: False)
-  -force_monomer        When active, the model will predict the structure of a monomer (default: False)
-
-    */
 }
