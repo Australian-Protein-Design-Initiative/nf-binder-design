@@ -8,8 +8,8 @@ Nextflow pipelines for de novo protein binder design.
 
 This project provides Nextflow workflows for _de novo_ design of protein binders:
 
-- **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess)** pipeline
-- **RFdiffusion Partial Diffusion** for diversification and optimization
+- **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding** pipeline
+- **RFdiffusion Partial Diffusion → Boltz-2 refolding** for diversification and optimization
 - **BindCraft** - parallel execution across multiple GPUs
 - **Boltz Pulldown** - an AlphaPulldown-like protocol using Boltz-2
 
