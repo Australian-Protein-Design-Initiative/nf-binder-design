@@ -28,10 +28,10 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 ## Quick Links
 
 - [Setup Instructions](setup.md)
-- [RFdiffusion Workflows](rfdiffusion.md)
-- [BindCraft Workflow](bindcraft.md)
-- [Boltz Pulldown](boltz-pulldown.md)
-- [Utility Scripts](utility-scripts.md)
+- [RFdiffusion Workflows](workflows/rfdiffusion.md)
+- [BindCraft Workflow](workflows/bindcraft.md)
+- [Boltz Pulldown](workflows/boltz-pulldown.md)
+- [Utility Scripts](extra/utility-scripts.md)
 - [GitHub Repository](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design)
 - [Examples Directory](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples)
 

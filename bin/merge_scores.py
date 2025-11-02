@@ -25,6 +25,66 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _is_file_empty_or_whitespace(filepath: str) -> bool:
+    """
+    Check if a file is empty or contains only whitespace.
+
+    Args:
+        filepath: Path to the file to check
+
+    Returns:
+        True if file is empty or whitespace-only, False otherwise
+    """
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+            return len(content.strip()) == 0
+    except (IOError, OSError) as e:
+        logger.warning(f"Error reading file {filepath}: {e}")
+        return True
+
+
+def _match_columns(columns: List[str], patterns: List[str]) -> List[str]:
+    """
+    Match columns against a list of patterns (literal names or regex).
+
+    Checks for exact literal matches first, then tries regex patterns.
+
+    Args:
+        columns: List of column names to match against
+        patterns: List of patterns (literal column names or regex patterns)
+
+    Returns:
+        List of matching column names
+    """
+    matched = []
+    for pattern in patterns:
+        pattern = pattern.strip()
+        if not pattern:
+            continue
+
+        # Check for exact literal match first
+        if pattern in columns:
+            if pattern not in matched:
+                matched.append(pattern)
+        else:
+            # Try to compile as regex
+            try:
+                regex = re.compile(pattern)
+                # If it compiles, treat as regex and match against all columns
+                for col in columns:
+                    if regex.search(col) and col not in matched:
+                        matched.append(col)
+            except re.error:
+                # Not a valid regex and not a literal match, skip
+                logger.warning(
+                    f"Pattern '{pattern}' does not match any column and "
+                    "is not a valid regex. Skipping."
+                )
+
+    return matched
+
+
 def _prepare_df_for_merge(
     df: pd.DataFrame, potential_keys: List[str], strip_suffix: str
 ) -> pd.DataFrame:
@@ -71,6 +131,9 @@ def merge_scores(
     output_file: Union[str, TextIO, None] = None,
     sort_by: str = "pae_interaction",
     first_column: str = "filename",
+    column_prefix: Optional[str] = None,
+    keep_columns: Optional[str] = None,
+    drop_columns: Optional[str] = None,
     verbose: bool = False,
 ) -> pd.DataFrame:
     """
@@ -91,14 +154,56 @@ def merge_scores(
         logger.warning("No TSV files provided to merge.")
         return pd.DataFrame()
 
-    logger.info(f"Reading {len(tsv_files)} TSV files.")
-    dataframes = [pd.read_csv(f, sep="\t") for f in tsv_files]
+    # Filter out empty or whitespace-only files
+    valid_files = []
+    for f in tsv_files:
+        if _is_file_empty_or_whitespace(f):
+            logger.warning(f"File '{f}' is empty or whitespace-only. Skipping.")
+        else:
+            valid_files.append(f)
+
+    if not valid_files:
+        logger.warning("No valid (non-empty) TSV files to merge.")
+        return pd.DataFrame()
+
+    if len(valid_files) < len(tsv_files):
+        logger.info(
+            f"Reading {len(valid_files)} valid TSV files "
+            f"(skipped {len(tsv_files) - len(valid_files)} empty files)."
+        )
+    else:
+        logger.info(f"Reading {len(valid_files)} TSV files.")
+
+    # Read dataframes, skipping any that fail to parse
+    dataframes = []
+    for f in valid_files:
+        try:
+            df = pd.read_csv(f, sep="\t")
+            dataframes.append(df)
+        except Exception as e:
+            logger.warning(f"Error reading file '{f}': {e}. Skipping.")
+
+    if not dataframes:
+        logger.warning("No valid dataframes to merge after reading files.")
+        return pd.DataFrame()
 
     logger.info(f"Preparing dataframes for merge using keys: {potential_keys}")
     prepared_dfs = [
         _prepare_df_for_merge(df.copy(), potential_keys, strip_suffix)
         for df in dataframes
     ]
+
+    # Apply column prefix to second and subsequent dataframes if specified
+    if column_prefix:
+        logger.info(
+            f"Applying prefix '{column_prefix}' to columns in files 2-{len(prepared_dfs)}"
+        )
+        for i in range(1, len(prepared_dfs)):
+            df = prepared_dfs[i]
+            # Prefix all columns except _merge_key
+            cols_to_prefix = [col for col in df.columns if col != "_merge_key"]
+            rename_dict = {col: f"{column_prefix}{col}" for col in cols_to_prefix}
+            prepared_dfs[i] = df.rename(columns=rename_dict)
 
     # Merge the dataframes sequentially
     logger.info("Merging dataframes...")
@@ -173,16 +278,53 @@ def merge_scores(
             f"Sort key '{sort_by}' not found in merged dataframe. Skipping sorting."
         )
 
-    # Ensure 'filename' is the first column if present
-    if first_column in merged_df.columns:
-        cols = [first_column] + [
-            col for col in merged_df.columns if col != first_column
-        ]
-        merged_df = merged_df[cols]
-    else:
-        logger.warning(
-            f"First column '{first_column}' not found in merged dataframe. Skipping."
-        )
+    # Ensure specified columns are first, in order
+    first_columns = [col.strip() for col in first_column.split(",") if col.strip()]
+    if first_columns:
+        # Find columns that exist in the dataframe
+        existing_first_cols = [col for col in first_columns if col in merged_df.columns]
+        missing_cols = [col for col in first_columns if col not in merged_df.columns]
+
+        if missing_cols:
+            logger.warning(
+                f"First column(s) not found in merged dataframe: {missing_cols}. "
+                "Skipping."
+            )
+
+        if existing_first_cols:
+            # Build column order: first columns in order, then remaining columns
+            remaining_cols = [
+                col for col in merged_df.columns if col not in existing_first_cols
+            ]
+            cols = existing_first_cols + remaining_cols
+            merged_df = merged_df[cols]
+
+    # Apply --keep-columns filter first
+    if keep_columns:
+        keep_patterns = [p.strip() for p in keep_columns.split(",") if p.strip()]
+        matched_columns = _match_columns(list(merged_df.columns), keep_patterns)
+        if matched_columns:
+            logger.info(
+                f"Keeping {len(matched_columns)} columns matching keep patterns"
+            )
+            merged_df = merged_df[matched_columns]
+        else:
+            logger.warning(
+                "No columns matched --keep-columns patterns. "
+                "All columns will be kept."
+            )
+
+    # Apply --drop-columns filter
+    if drop_columns:
+        drop_patterns = [p.strip() for p in drop_columns.split(",") if p.strip()]
+        columns_to_drop = _match_columns(list(merged_df.columns), drop_patterns)
+        if columns_to_drop:
+            logger.info(
+                f"Dropping {len(columns_to_drop)} columns matching drop patterns"
+            )
+            merged_df = merged_df.drop(columns=columns_to_drop, errors="ignore")
+        else:
+            logger.warning("No columns matched --drop-columns patterns.")
 
     # Write to output file if specified
     if output_file:
@@ -227,7 +369,24 @@ def parse_args():
     parser.add_argument(
         "--first-column",
         default="filename",
-        help='Column name to move to the first position in the output (default: "filename")',
+        help='Column name(s) to move to the first position(s) in the output, comma-separated for multiple columns (default: "filename")',
+    )
+    parser.add_argument(
+        "--column-prefix",
+        default=None,
+        help="Prefix to add to column names from the second and subsequent TSV files",
+    )
+    parser.add_argument(
+        "--keep-columns",
+        default=None,
+        help="Comma-separated list of column names or regex patterns to keep. "
+        "Only matching columns will be retained. Apply before --drop-columns.",
+    )
+    parser.add_argument(
+        "--drop-columns",
+        default=None,
+        help="Comma-separated list of column names or regex patterns to drop. "
+        "Matching columns will be removed. Apply after --keep-columns.",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
@@ -244,6 +403,9 @@ if __name__ == "__main__":
         args.output,
         args.sort_by,
         args.first_column,
+        args.column_prefix,
+        args.keep_columns,
+        args.drop_columns,
         args.verbose,
     )
     logger.info("Completed successfully")

@@ -117,7 +117,8 @@ include { AF2_INITIAL_GUESS } from './modules/af2_initial_guess'
 include { COMBINE_SCORES } from './modules/combine_scores'
 include { UNIQUE_ID } from './modules/unique_id'
 include { FILTER_DESIGNS } from './modules/filter_designs'
-include { BINDCRAFT_SCORING } from './modules/bindcraft_scoring'
+include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_AF2IG } from './modules/bindcraft_scoring'
+include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_BOLTZ_COMPLEX } from './modules/bindcraft_scoring'
 include { AF2IG_SCORE_FILTER } from './modules/af2ig_score_filter'
 include { PDB_TO_FASTA } from './modules/pdb_to_fasta'
 include { BOLTZ_COMPARE_COMPLEX } from './modules/boltz_compare_complex'
@@ -283,7 +284,7 @@ workflow {
             ch_target_msas.map { meta, target_msa -> target_msa },
             file("${projectDir}/assets/dummy_files/empty_binder_msa"),
             file(params.refold_target_templates ?: "${projectDir}/assets/dummy_files/empty_templates"),
-            file(params.refold_target_fasta)
+            params.refold_target_fasta ? file(params.refold_target_fasta): "${projectDir}/assets/dummy_files/empty"
         )
         
         // Run Boltz binder monomer prediction with RMSD analysis
@@ -337,7 +338,7 @@ workflow {
         ch_complex_confidence = BOLTZ_COMPARE_COMPLEX.out.confidence_tsv
             .map { meta, tsv_file -> tsv_file }
             .collectFile(
-                name: 'boltz_confidence_complex.tsv',
+                name: 'boltz_scores_complex.tsv',
                 storeDir: "${params.outdir}/boltz_refold",
                 keepHeader: true,
                 skip: 1
@@ -346,31 +347,55 @@ workflow {
         ch_monomer_confidence = BOLTZ_COMPARE_BINDER_MONOMER.out.confidence_tsv
             .map { meta, tsv_file -> tsv_file }
             .collectFile(
-                name: 'boltz_confidence_binder_monomer.tsv',
+                name: 'boltz_scores_binder_monomer.tsv',
                 storeDir: "${params.outdir}/boltz_refold",
                 keepHeader: true,
                 skip: 1
             )
+
+        BINDCRAFT_SCORING_BOLTZ_COMPLEX(
+            BOLTZ_COMPARE_COMPLEX.out.pdb.map { meta, pdb -> pdb },
+            'A',
+            'default_4stage_multimer'
+        )
+
+        extra_scores = BINDCRAFT_SCORING_BOLTZ_COMPLEX.out.scores.collectFile(
+            name: 'boltz_complex_extra_scores.tsv',
+            storeDir: "${params.outdir}/boltz_refold",
+            keepHeader: true,
+            skip: 1)
+
+        // Combine all the score files into a single TSV file
+        COMBINE_SCORES(
+            AF2_INITIAL_GUESS.out.scores.collect(),
+            extra_scores,
+            ch_complex_confidence,
+            ch_monomer_vs_complex_rmsd,
+            AF2_INITIAL_GUESS.out.pdbs.collect()
+        )
+    } else {
+
+        BINDCRAFT_SCORING_AF2IG(
+            AF2_INITIAL_GUESS.out.pdbs,
+            'A',
+            'default_4stage_multimer'
+        )
+
+        extra_scores = BINDCRAFT_SCORING_AF2IG.out.scores.collectFile(
+            name: "${params.outdir}/af2_initial_guess/af2ig_extra_scores.tsv",
+            //storeDir: "${params.outdir}",
+            keepHeader: true,
+            skip: 1)
+
+        // Combine all the score files into a single TSV file
+        COMBINE_SCORES(
+            AF2_INITIAL_GUESS.out.scores.collect(),
+            extra_scores,
+            "${projectDir}/assets/dummy_files/empty",
+            "${projectDir}/assets/dummy_files/empty",
+            AF2_INITIAL_GUESS.out.pdbs.collect()
+        )
     }
-
-    BINDCRAFT_SCORING(
-        AF2_INITIAL_GUESS.out.pdbs,
-        'A',
-        'default_4stage_multimer'
-    )
-
-    extra_scores = BINDCRAFT_SCORING.out.scores.collectFile(
-        name: 'extra_scores.tsv',
-        //storeDir: "${params.outdir}",
-        keepHeader: true,
-        skip: 1)
-
-    // Combine all the score files into a single TSV file
-    COMBINE_SCORES(
-        AF2_INITIAL_GUESS.out.scores.collect(),
-        extra_scores,
-        AF2_INITIAL_GUESS.out.pdbs.collect()
-    )
 }
 
 def paramsToMap(params) {

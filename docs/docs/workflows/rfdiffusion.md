@@ -40,6 +40,30 @@ eg:
 
 Parameter names typically mirror the equivalent command-line options in the underlying tools, often prefixed with `rfd_` or `pmpnn_` etc.
 
+## Key Outputs
+
+Outputs are stored in the `results` directory by default (or the path specified by `--outdir`).
+
+- `combined_scores.tsv`: Combined scores for all designs
+
+This file includes the key AF2 initial guess scores `pae_interaction` and `plddt_binder`, etc, as well as several shape scores (`rg`, `dmax`, etc), the binder sequence, and some extra BindCraft-style scores.
+
+The `rfdiffusion` `proteinmpnn` and `af2_initial_guess` directories contain the intermediate files for these steps. The 'initial guess' complex structures are in `af2_initial_guess/pdbs`.
+
+- `results/binders.fasta`: FASTA sequences of the binders
+
+----
+
+When the `--refold_af2ig_filters` option is used to do Boltz-2 refolding, `combined_scores.tsv` includes:
+
+- `boltz_confidence_score` and `boltz_iptm` for the refolded complex
+- `boltz_monomer_vs_complex_rmsd_all` (the C-alpha RMSD of the binder as an unbound monomer vs the bound form in the refolded complex). 
+
+Refolded complexes and binder monomers are in `results/boltz_refold/predict/complex` and `results/boltz_refold/predict/monomer`, respectively.
+
+In this mode, the pipeline only calculates the extra BindCraft-style scores for the Boltz-2 refolded complexes, rather than the AF2 initial guess models.
+
+
 ## Binder Design with RFdiffusion (main.nf)
 
 ### Single Node or Local Workstation

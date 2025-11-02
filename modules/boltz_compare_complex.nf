@@ -48,7 +48,7 @@ process BOLTZ_COMPARE_COMPLEX {
 
     // Determine target sequence source - swap target/binder roles so output has binder=A, target=B
     def target_source_args = ''
-    if (refold_target_fasta) {
+    if (refold_target_fasta.name != 'empty') {
         target_source_args = "--binder_from_fasta '${refold_target_fasta}' --binder_chains '${target_chain}'"
     }
     else {
