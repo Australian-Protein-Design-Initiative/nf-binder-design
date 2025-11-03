@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Write `params.json` to output directory.
 
 ### Changed
+- Move 'filtering' result folder to 'rfdiffison/filtered'
 - Don't output redundant .tsv files to the results directory.
 - Changed default `--pmpnn_relax_cycles` from 0 to 3
 - Made default queue size 1, for single local GPU mode.
