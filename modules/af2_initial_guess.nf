@@ -1,7 +1,8 @@
 process AF2_INITIAL_GUESS {
     container 'ghcr.io/australian-protein-design-initiative/containers/af2_initial_guess:nv-cuda12'
 
-    publishDir "${params.outdir}/af2_initial_guess", mode: 'copy'
+    publishDir "${params.outdir}/af2_initial_guess", pattern: 'pdbs/*.pdb', mode: 'copy'
+    publishDir "${params.outdir}/af2_initial_guess", pattern: 'scores/*.cs', mode: 'copy'
 
     input:
     path 'input/*'
