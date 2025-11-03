@@ -117,6 +117,7 @@ process BOLTZ_COMPARE_COMPLEX {
         --mobile-superimpose-chains ${target_chain} \\
         --score-chains ${binder_chain} \\
         --mobile-score-chains ${binder_chain} \\
+        --output-transformed mobile_aligned_rmsd_target_aligned_binder/ \\
         fixed/ mobile/ > rmsd_target_aligned_binder_${meta.id}.tsv
 
     # Run complex RMSD: superimpose and score both chains (A,B)
@@ -126,6 +127,7 @@ process BOLTZ_COMPARE_COMPLEX {
         --mobile-superimpose-chains ${binder_chain},${target_chain} \\
         --score-chains ${binder_chain},${target_chain} \\
         --mobile-score-chains ${binder_chain},${target_chain} \\
+        --output-transformed mobile_aligned_rmsd_complex/ \\
         fixed/ mobile/ > rmsd_complex_${meta.id}.tsv
 
     # Step 4: Parse confidence JSON

@@ -95,6 +95,23 @@ def _filter_structure_by_chains(
     return cast(struc.AtomArray, filtered)
 
 
+def _get_aligned_filename(mobile_path: Union[str, Path]) -> str:
+    """Generate output filename for aligned structure by removing extensions and adding '_aligned.pdb'."""
+    mobile_path = Path(mobile_path)
+    # Remove all known structure file extensions (.pdb, .pdb1, .cif, .mmcif, .gz)
+    # Iteratively remove suffixes until we get to the base name
+    base_name = mobile_path.name
+    known_extensions = ('.pdb', '.pdb1', '.cif', '.mmcif', '.gz')
+    previous_name = None
+    while base_name != previous_name:
+        previous_name = base_name
+        if base_name.endswith(known_extensions):
+            base_name = Path(base_name).stem
+        else:
+            break
+    return f"{base_name}_aligned.pdb"
+
+
 def superimpose_structures(
     structure_path1: Union[str, Path],
     structure_path2: Union[str, Path],
@@ -288,6 +305,7 @@ def rmsd_pair(
     superimpose_chains2: Optional[Iterable[str]] = None,
     score_chains1: Optional[Iterable[str]] = None,
     score_chains2: Optional[Iterable[str]] = None,
+    output_transformed_dir: Optional[Union[str, Path]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate RMSD and optionally TM-score between two protein structures.
@@ -304,6 +322,7 @@ def rmsd_pair(
         superimpose_chains2: Optional list of chain IDs to use for superimposition from second structure
         score_chains1: Optional list of chain IDs to use for scoring from first structure
         score_chains2: Optional list of chain IDs to use for scoring from second structure
+        output_transformed_dir: Optional directory to save transformed mobile structures
 
     Returns:
         Dictionary with keys: 'structure1', 'structure2', 'rmsd_pruned', 'n_pairs_rmsd_pruned',
@@ -358,6 +377,27 @@ def rmsd_pair(
 
             # Apply transformation to full mobile structure
             mobile_transformed = transform.apply(mobile_full)
+
+            # Save transformed structure if output directory is specified
+            if output_transformed_dir is not None:
+                try:
+                    output_dir = Path(output_transformed_dir)
+                    output_dir.mkdir(parents=True, exist_ok=True)
+                    output_filename = _get_aligned_filename(structure_path2)
+                    output_path = output_dir / output_filename
+
+                    # Write as PDB file
+                    pdb_file = pdb.PDBFile()
+                    pdb_file.set_structure(mobile_transformed)
+                    with open(output_path, "w") as f:
+                        pdb_file.write(f)
+                    logging.debug(
+                        f"Saved transformed structure to {output_path}"
+                    )
+                except Exception as save_error:
+                    logging.warning(
+                        f"Failed to save transformed structure for {Path(structure_path2).name}: {save_error}"
+                    )
 
         except Exception as superimpose_error:
             logging.warning(
@@ -502,6 +542,7 @@ def rmsd_all_pairs(
     superimpose_chains_b: Optional[Iterable[str]] = None,
     score_chains_a: Optional[Iterable[str]] = None,
     score_chains_b: Optional[Iterable[str]] = None,
+    output_transformed_dir: Optional[Union[str, Path]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Calculate RMSD and optionally TM-score for all pairs of structures.
@@ -520,6 +561,7 @@ def rmsd_all_pairs(
         superimpose_chains_b: Optional list of chain IDs to use for superimposition from structures in B
         score_chains_a: Optional list of chain IDs to use for scoring from structures in A
         score_chains_b: Optional list of chain IDs to use for scoring from structures in B
+        output_transformed_dir: Optional directory to save transformed mobile structures
 
     Returns:
         List of dictionaries with RMSD and/or TM-score results
@@ -550,6 +592,7 @@ def rmsd_all_pairs(
                         if structure_paths_b is not None
                         else score_chains_a
                     ),
+                    output_transformed_dir,
                 )
                 for p1, p2 in pairs
             ]
@@ -572,6 +615,7 @@ def rmsd_all_pairs(
                 ),
                 score_chains_a,
                 (score_chains_b if structure_paths_b is not None else score_chains_a),
+                output_transformed_dir,
             )
             results.append(result)
 
@@ -731,6 +775,16 @@ def main():
         default="-",
         help="Output file (default: stdout)",
     )
+    parser.add_argument(
+        "--output-transformed",
+        type=Path,
+        metavar="PATH",
+        default=None,
+        help=(
+            "Directory to save transformed mobile structures after superimposition. "
+            "Files are saved with '_aligned.pdb' suffix (e.g., 'structure_aligned.pdb')."
+        ),
+    )
 
     args = parser.parse_args()
 
@@ -835,6 +889,7 @@ def main():
         superimpose_chains_b=superimpose_chains_mobile,
         score_chains_a=score_chains_fixed,
         score_chains_b=score_chains_mobile,
+        output_transformed_dir=args.output_transformed,
     )
 
     # Handle output

@@ -82,6 +82,7 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
         --mobile-superimpose-chains ${binder_chain} \\
         --score-chains ${binder_chain} \\
         --mobile-score-chains ${binder_chain} \\
+        --output-transformed mobile_aligned_rmsd_monomer_vs_af2ig/ \\
         fixed/ mobile/ > rmsd_monomer_vs_af2ig_${meta.id}.tsv
 
     # Run RMSD: monomer vs Boltz complex binder (chain A)
@@ -99,6 +100,7 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
         --mobile-superimpose-chains ${binder_chain} \\
         --score-chains ${binder_chain} \\
         --mobile-score-chains ${binder_chain} \\
+        --output-transformed mobile_aligned_rmsd_monomer_vs_complex/ \\
         fixed/ mobile/ > rmsd_monomer_vs_complex_${meta.id}.tsv
 
     # Step 4: Parse confidence JSON
