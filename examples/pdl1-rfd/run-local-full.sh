@@ -41,6 +41,7 @@ nextflow run ${PIPELINE_DIR}/main.nf  \
   --refold_use_msa_server=true \
   --refold_target_fasta='input/full/3BIK_B.fasta' \
   --refold_target_templates='input/full/' \
+  --output_rmsd_aligned=true \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

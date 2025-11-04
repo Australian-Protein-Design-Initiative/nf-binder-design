@@ -2,6 +2,8 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
     tag "${meta.id}"
     container 'ghcr.io/australian-protein-design-initiative/containers/boltz:v2.2.1-2'
     publishDir "${params.outdir}/boltz_refold/predict/binder_monomer", pattern: 'boltz_results_*', mode: 'copy'
+    publishDir "${params.outdir}/boltz_refold/rmsd/aligned_rmsd_monomer_vs_af2ig", pattern: 'aligned_rmsd_monomer_vs_af2ig/*.pdb', mode: 'copy', saveAs: { file(it).name }
+    publishDir "${params.outdir}/boltz_refold/rmsd/aligned_rmsd_monomer_vs_complex", pattern: 'aligned_rmsd_monomer_vs_complex/*.pdb', mode: 'copy', saveAs: { file(it).name }
 
     input:
     tuple val(meta), path(af2ig_pdb), path(boltz_complex_pdb)
@@ -10,14 +12,19 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
     output:
     path ("boltz_results_${meta.id}_monomer"), emit: results
     tuple val(meta), path("boltz_results_${meta.id}_monomer/predictions/${meta.id}_monomer/${meta.id}_monomer_model_0.pdb"), emit: pdb
+    tuple val(meta), path("confidence_monomer_${meta.id}.tsv"), emit: confidence_tsv
     tuple val(meta), path("rmsd_monomer_vs_af2ig_${meta.id}.tsv"), emit: rmsd_monomer_vs_af2ig
     tuple val(meta), path("rmsd_monomer_vs_complex_${meta.id}.tsv"), emit: rmsd_monomer_vs_complex
-    tuple val(meta), path("confidence_monomer_${meta.id}.tsv"), emit: confidence_tsv
+    path ("aligned_rmsd_monomer_vs_af2ig/*.pdb"), emit: aligned_pdbs_monomer_vs_af2ig, optional: true
+    path ("aligned_rmsd_monomer_vs_complex/*.pdb"), emit: aligned_pdbs_monomer_vs_complex, optional: true
 
     script:
     def design_id = meta.id
     def binder_id = "${design_id}_binder_monomer"
     def yaml_file = "${design_id}_monomer.yml"
+
+    def output_transformed_flag = params.output_rmsd_aligned ? "--output-transformed aligned_rmsd_monomer_vs_af2ig/" : ''
+    def output_transformed_flag_complex = params.output_rmsd_aligned ? "--output-transformed aligned_rmsd_monomer_vs_complex/" : ''
 
     """
     set -euo pipefail
@@ -82,7 +89,7 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
         --mobile-superimpose-chains ${binder_chain} \\
         --score-chains ${binder_chain} \\
         --mobile-score-chains ${binder_chain} \\
-        --output-transformed mobile_aligned_rmsd_monomer_vs_af2ig/ \\
+        ${output_transformed_flag} \\
         fixed/ mobile/ > rmsd_monomer_vs_af2ig_${meta.id}.tsv
 
     # Run RMSD: monomer vs Boltz complex binder (chain A)
@@ -100,7 +107,7 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
         --mobile-superimpose-chains ${binder_chain} \\
         --score-chains ${binder_chain} \\
         --mobile-score-chains ${binder_chain} \\
-        --output-transformed mobile_aligned_rmsd_monomer_vs_complex/ \\
+        ${output_transformed_flag_complex} \\
         fixed/ mobile/ > rmsd_monomer_vs_complex_${meta.id}.tsv
 
     # Step 4: Parse confidence JSON

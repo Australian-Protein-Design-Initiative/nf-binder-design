@@ -58,6 +58,8 @@ params.refold_target_fasta = false
 params.uniref30 = false
 params.colabfold_envdb = false
 
+params.output_rmsd_aligned = false
+
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
@@ -155,6 +157,7 @@ workflow {
             --refold_target_fasta  FASTA file with full-length target sequences (headers should match PDB basenames) [default: ${params.refold_target_fasta}]
             --uniref30            UniRef30 database path for MSA creation [default: ${params.uniref30}]
             --colabfold_envdb     ColabFold environment database path for MSA creation [default: ${params.colabfold_envdb}]
+            --output_rmsd_aligned Output aligned PDB files from RMSD calculations [default: ${params.output_rmsd_aligned}]
             
             --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
             --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
