@@ -330,10 +330,10 @@ def merge_scores(
     if output_file:
         if output_file == "-":
             logger.info("Writing combined scores to stdout")
-            merged_df.to_csv(sys.stdout, sep="\t", index=False)
+            merged_df.to_csv(sys.stdout, sep="\t", index=False, lineterminator="\n")
         else:
             logger.info(f"Writing combined scores to {output_file}")
-            merged_df.to_csv(output_file, sep="\t", index=False)
+            merged_df.to_csv(output_file, sep="\t", index=False, lineterminator="\n")
 
     return pd.DataFrame(merged_df)
 
@@ -380,13 +380,13 @@ def parse_args():
         "--keep-columns",
         default=None,
         help="Comma-separated list of column names or regex patterns to keep. "
-        "Only matching columns will be retained. Apply before --drop-columns.",
+        "Only matching columns will be retained. Applied before --drop-columns.",
     )
     parser.add_argument(
         "--drop-columns",
         default=None,
         help="Comma-separated list of column names or regex patterns to drop. "
-        "Matching columns will be removed. Apply after --keep-columns.",
+        "Matching columns will be removed. Applied after --keep-columns.",
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"

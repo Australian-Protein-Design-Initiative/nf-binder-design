@@ -126,9 +126,9 @@ def main():
 
     # Save to TSV
     if args.output == "-":
-        combined_df.to_csv(sys.stdout, index=False, sep="\t")
+        combined_df.to_csv(sys.stdout, index=False, sep="\t", lineterminator="\n")
     else:
-        combined_df.to_csv(args.output, index=False, sep="\t")
+        combined_df.to_csv(args.output, index=False, sep="\t", lineterminator="\n")
         print(f"Combined scores saved to {args.output}", file=sys.stderr)
 
 

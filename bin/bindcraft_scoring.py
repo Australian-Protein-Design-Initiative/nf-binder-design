@@ -978,8 +978,8 @@ if __name__ == "__main__":
 
     # Write output
     if args.output == "-":
-        print(output_data)
+        sys.stdout.write(output_data)
     else:
-        with open(args.output, "w") as f:
+        with open(args.output, "w", newline="") as f:
             f.write(output_data)
         logging.info(f"Scores saved to {args.output}")

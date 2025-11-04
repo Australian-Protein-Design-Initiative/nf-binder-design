@@ -929,14 +929,14 @@ def main():
     if args.output == "-":
         output_file = sys.stdout
     else:
-        output_file = open(args.output, "w")
+        output_file = open(args.output, "w", newline="")
 
     try:
         if args.matrix is None:
             # Output detailed results as TSV
             import csv
 
-            writer = csv.writer(output_file, delimiter="\t")
+            writer = csv.writer(output_file, delimiter="\t", lineterminator="\n")
 
             # Create header - always include RMSD, optionally include TM-score
             header = [

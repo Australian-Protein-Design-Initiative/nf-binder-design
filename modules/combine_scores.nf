@@ -10,6 +10,7 @@ process COMBINE_SCORES {
   // TODO: boltz_scores must be optional, detected by dummy files ?
   path 'boltz_scores_complex.tsv'
   path 'rmsd_monomer_vs_complex.tsv'
+  path 'rmsd_target_aligned_binder.tsv'
   path 'pdbs/*'
 
   output:
@@ -39,22 +40,33 @@ process COMBINE_SCORES {
         >prerefold_combined_scores.tsv
 
     # Only run this if the boltz scores and rmsd scores are non-empty files
-    if [[ -s boltz_scores_complex.tsv && -s rmsd_monomer_vs_complex.tsv ]]; then
+    if [[ -s boltz_scores_complex.tsv && -s rmsd_monomer_vs_complex.tsv && -s rmsd_target_aligned_binder.tsv ]]; then
       # Merge boltz refolding scores with combined scores
       python ${projectDir}/bin/merge_scores.py \
         prerefold_combined_scores.tsv boltz_scores_complex.tsv \
         --column-prefix boltz_ \
-        --first-column filename,description,pae_interaction,plddt_binder,boltz_confidence_score,boltz_iptm \
         --keys id,description \
         >refold_combined_scores.tsv
 
+      csvtk -t cut -b -f structure1,rmsd_all rmsd_monomer_vs_complex.tsv >tmp_monomer_rmsd.tsv
+
       python ${projectDir}/bin/merge_scores.py \
-        refold_combined_scores.tsv rmsd_monomer_vs_complex.tsv \
+        refold_combined_scores.tsv tmp_monomer_rmsd.tsv \
         --column-prefix boltz_monomer_vs_complex_ \
-        --first-column filename,description,pae_interaction,plddt_binder,boltz_confidence_score,boltz_iptm,boltz_monomer_vs_complex_rmsd_all \
         --keys structure1,description \
         --strip-suffix '(_model_0\\.pdb|_monomer)\$' \
+        >rmsd1_scores.tsv
+
+      csvtk -t cut -b -f structure1,rmsd_all rmsd_target_aligned_binder.tsv >tmp_target_aligned_binder_rmsd.tsv
+
+      python ${projectDir}/bin/merge_scores.py \
+        rmsd1_scores.tsv tmp_target_aligned_binder_rmsd.tsv \
+        --column-prefix boltz_target_aligned_binder_ \
+        --first-column filename,description,pae_interaction,plddt_binder,boltz_confidence_score,boltz_iptm,boltz_monomer_vs_complex_rmsd_all,boltz_target_aligned_binder_rmsd_all \
+        --keys structure1,description \
+        --strip-suffix '(\\.pdb|_model_0\\.pdb)\$' \
         >combined_scores.tsv
+
     else
       cp prerefold_combined_scores.tsv combined_scores.tsv && \
       rm prerefold_combined_scores.tsv

@@ -452,6 +452,7 @@ workflow {
             extra_scores,
             ch_complex_confidence,
             ch_monomer_vs_complex_rmsd,
+            ch_target_aligned_rmsd,
             AF2_INITIAL_GUESS.out.pdbs.collect()
         )
     } else {
@@ -472,6 +473,7 @@ workflow {
         COMBINE_SCORES(
             AF2_INITIAL_GUESS.out.scores.collect(),
             extra_scores,
+            "${projectDir}/assets/dummy_files/empty",
             "${projectDir}/assets/dummy_files/empty",
             "${projectDir}/assets/dummy_files/empty",
             AF2_INITIAL_GUESS.out.pdbs.collect()
