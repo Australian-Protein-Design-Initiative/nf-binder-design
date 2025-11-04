@@ -95,13 +95,22 @@ def _filter_structure_by_chains(
     return cast(struc.AtomArray, filtered)
 
 
+def _is_structure_file(path: Union[str, Path]) -> bool:
+    """Check if a path is a file with a supported structure file extension."""
+    path = Path(path)
+    if not path.is_file():
+        return False
+    supported_extensions = [".pdb", ".pdb.gz", ".cif", ".cif.gz", ".mmcif", ".mmcif.gz"]
+    return any(str(path).endswith(ext) for ext in supported_extensions)
+
+
 def _get_aligned_filename(mobile_path: Union[str, Path]) -> str:
     """Generate output filename for aligned structure by removing extensions and adding '_aligned.pdb'."""
     mobile_path = Path(mobile_path)
     # Remove all known structure file extensions (.pdb, .pdb1, .cif, .mmcif, .gz)
     # Iteratively remove suffixes until we get to the base name
     base_name = mobile_path.name
-    known_extensions = ('.pdb', '.pdb1', '.cif', '.mmcif', '.gz')
+    known_extensions = (".pdb", ".pdb1", ".cif", ".mmcif", ".gz")
     previous_name = None
     while base_name != previous_name:
         previous_name = base_name
@@ -322,7 +331,8 @@ def rmsd_pair(
         superimpose_chains2: Optional list of chain IDs to use for superimposition from second structure
         score_chains1: Optional list of chain IDs to use for scoring from first structure
         score_chains2: Optional list of chain IDs to use for scoring from second structure
-        output_transformed_dir: Optional directory to save transformed mobile structures
+        output_transformed_dir: Optional directory or .pdb file to save transformed mobile structures.
+            If a .pdb file, writes directly to that file. If a directory, files are saved with '_aligned.pdb' suffix.
 
     Returns:
         Dictionary with keys: 'structure1', 'structure2', 'rmsd_pruned', 'n_pairs_rmsd_pruned',
@@ -378,22 +388,28 @@ def rmsd_pair(
             # Apply transformation to full mobile structure
             mobile_transformed = transform.apply(mobile_full)
 
-            # Save transformed structure if output directory is specified
+            # Save transformed structure if output directory/file is specified
             if output_transformed_dir is not None:
                 try:
-                    output_dir = Path(output_transformed_dir)
-                    output_dir.mkdir(parents=True, exist_ok=True)
-                    output_filename = _get_aligned_filename(structure_path2)
-                    output_path = output_dir / output_filename
+                    output_path_obj = Path(output_transformed_dir)
+                    # If output path ends with .pdb, write directly to that file
+                    if str(output_path_obj).endswith(".pdb"):
+                        output_path = output_path_obj
+                        # Ensure parent directory exists
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                    else:
+                        # Otherwise, treat as directory and create filename
+                        output_dir = output_path_obj
+                        output_dir.mkdir(parents=True, exist_ok=True)
+                        output_filename = _get_aligned_filename(structure_path2)
+                        output_path = output_dir / output_filename
 
                     # Write as PDB file
                     pdb_file = pdb.PDBFile()
                     pdb_file.set_structure(mobile_transformed)
                     with open(output_path, "w") as f:
                         pdb_file.write(f)
-                    logging.debug(
-                        f"Saved transformed structure to {output_path}"
-                    )
+                    logging.debug(f"Saved transformed structure to {output_path}")
                 except Exception as save_error:
                     logging.warning(
                         f"Failed to save transformed structure for {Path(structure_path2).name}: {save_error}"
@@ -431,29 +447,25 @@ def rmsd_pair(
             result["n_residues_structure2"] = len(mobile_score_ca)
 
             # Perform alignment on score-chains to get pruned pairs for RMSD
+            # We only need the indices, not the transformation (we use the superimpose-chain transformation)
             if method_rmsd in ["3di", "pb"]:
-                fitted_score, _, fixed_indices_score, mobile_indices_score = (
+                _, _, fixed_indices_score, mobile_indices_score = (
                     struc.superimpose_structural_homologs(
                         fixed_score_ca, mobile_score_ca, structural_alphabet=method_rmsd
                     )
                 )
             elif method_rmsd == "blosum62":
-                fitted_score, _, fixed_indices_score, mobile_indices_score = (
+                _, _, fixed_indices_score, mobile_indices_score = (
                     struc.superimpose_homologs(fixed_score_ca, mobile_score_ca)
                 )
             else:
                 raise ValueError(f"Unknown method: {method_rmsd}")
 
-            # Ensure fitted_score is an AtomArray
-            if isinstance(fitted_score, struc.AtomArrayStack):
-                fitted_score_array = cast(struc.AtomArray, fitted_score[0])
-            else:
-                fitted_score_array = cast(struc.AtomArray, fitted_score)
-
-            # Calculate RMSD scores
+            # Calculate RMSD scores using mobile_score_ca (already transformed via superimpose-chains)
+            # NOT using the fitted_score from the alignment above
             rmsd_scores = calculate_scores(
                 fixed_score_ca,
-                fitted_score_array,
+                mobile_score_ca,
                 fixed_indices_score,
                 mobile_indices_score,
                 structure_path1,
@@ -474,7 +486,7 @@ def rmsd_pair(
                 if method_rmsd == method_tm:
                     tm_scores = calculate_scores(
                         fixed_score_ca,
-                        fitted_score_array,
+                        mobile_score_ca,
                         fixed_indices_score,
                         mobile_indices_score,
                         structure_path1,
@@ -482,9 +494,10 @@ def rmsd_pair(
                         tm_score=True,
                     )
                 else:
-                    # Different method - need separate alignment for TM-score
+                    # Different method - need separate alignment for TM-score to get different pairs
+                    # We only need the indices, not the transformation (we use the superimpose-chain transformation)
                     if method_tm in ["3di", "pb"]:
-                        fitted_tm, _, fixed_indices_tm, mobile_indices_tm = (
+                        _, _, fixed_indices_tm, mobile_indices_tm = (
                             struc.superimpose_structural_homologs(
                                 fixed_score_ca,
                                 mobile_score_ca,
@@ -492,21 +505,15 @@ def rmsd_pair(
                             )
                         )
                     elif method_tm == "blosum62":
-                        fitted_tm, _, fixed_indices_tm, mobile_indices_tm = (
+                        _, _, fixed_indices_tm, mobile_indices_tm = (
                             struc.superimpose_homologs(fixed_score_ca, mobile_score_ca)
                         )
                     else:
                         raise ValueError(f"Unknown method: {method_tm}")
 
-                    # Ensure fitted_tm is an AtomArray
-                    if isinstance(fitted_tm, struc.AtomArrayStack):
-                        fitted_tm_array = cast(struc.AtomArray, fitted_tm[0])
-                    else:
-                        fitted_tm_array = cast(struc.AtomArray, fitted_tm)
-
                     tm_scores = calculate_scores(
                         fixed_score_ca,
-                        fitted_tm_array,
+                        mobile_score_ca,
                         fixed_indices_tm,
                         mobile_indices_tm,
                         structure_path1,
@@ -561,7 +568,8 @@ def rmsd_all_pairs(
         superimpose_chains_b: Optional list of chain IDs to use for superimposition from structures in B
         score_chains_a: Optional list of chain IDs to use for scoring from structures in A
         score_chains_b: Optional list of chain IDs to use for scoring from structures in B
-        output_transformed_dir: Optional directory to save transformed mobile structures
+        output_transformed_dir: Optional directory or .pdb file to save transformed mobile structures.
+            If a .pdb file, writes directly to that file. If a directory, files are saved with '_aligned.pdb' suffix.
 
     Returns:
         List of dictionaries with RMSD and/or TM-score results
@@ -680,7 +688,7 @@ def main():
     parser.add_argument(
         "fixed_directory",
         type=Path,
-        help="Directory containing fixed/reference PDB/CIF files",
+        help="Directory containing fixed/reference PDB/CIF files, or a single PDB/CIF file",
     )
     parser.add_argument(
         "mobile_directory",
@@ -688,7 +696,7 @@ def main():
         nargs="?",
         default=None,
         help=(
-            "Optional directory containing mobile PDB/CIF files to compare against. "
+            "Optional directory containing mobile PDB/CIF files to compare against, or a single PDB/CIF file. "
             "If provided, compute all files in {fixed_directory} vs all files in {mobile_directory}. "
             "If omitted, perform all-against-all comparisons within {fixed_directory}."
         ),
@@ -781,8 +789,9 @@ def main():
         metavar="PATH",
         default=None,
         help=(
-            "Directory to save transformed mobile structures after superimposition. "
-            "Files are saved with '_aligned.pdb' suffix (e.g., 'structure_aligned.pdb')."
+            "Directory or .pdb file to save transformed mobile structures after superimposition. "
+            "If a .pdb file, writes directly to that file. If a directory, files are saved "
+            "with '_aligned.pdb' suffix (e.g., 'structure_aligned.pdb')."
         ),
     )
 
@@ -839,43 +848,67 @@ def main():
     # Log chain usage
     if args.mobile_directory is not None:
         logging.info(
-            f"Superimposing chains {superimpose_chains_fixed} in {args.fixed_directory} onto chains {superimpose_chains_mobile} in {args.mobile_directory}"
+            f"Superimposing chains {superimpose_chains_fixed} from {args.fixed_directory} onto chains {superimpose_chains_mobile} from {args.mobile_directory}"
         )
         logging.info(
-            f"Scoring using chains {score_chains_fixed} in {args.fixed_directory} against chains {score_chains_mobile} in {args.mobile_directory}"
+            f"Scoring using chains {score_chains_fixed} from {args.fixed_directory} against chains {score_chains_mobile} from {args.mobile_directory}"
         )
     else:
         logging.info(
-            f"Superimposing using chains {superimpose_chains_fixed} in {args.fixed_directory}"
+            f"Superimposing using chains {superimpose_chains_fixed} from {args.fixed_directory}"
         )
         logging.info(
-            f"Scoring using chains {score_chains_fixed} in {args.fixed_directory}"
+            f"Scoring using chains {score_chains_fixed} from {args.fixed_directory}"
         )
 
     # Find all supported structure files
     supported_extensions = [".pdb", ".pdb.gz", ".cif", ".cif.gz", ".mmcif", ".mmcif.gz"]
-    pdb_files_fixed = []
 
-    for ext in supported_extensions:
-        pdb_files_fixed.extend(args.fixed_directory.glob(f"*{ext}"))
-
-    if not pdb_files_fixed:
-        logging.error(f"No structure files found in {args.fixed_directory}")
+    # Check if fixed_directory is a file or directory
+    if _is_structure_file(args.fixed_directory):
+        pdb_files_fixed = [args.fixed_directory]
+        logging.info(f"Using single file: {args.fixed_directory}")
+    elif args.fixed_directory.is_dir():
+        pdb_files_fixed = []
+        for ext in supported_extensions:
+            pdb_files_fixed.extend(args.fixed_directory.glob(f"*{ext}"))
+        if not pdb_files_fixed:
+            logging.error(f"No structure files found in {args.fixed_directory}")
+            sys.exit(1)
+        logging.info(
+            f"Found {len(pdb_files_fixed)} structure files in {args.fixed_directory}"
+        )
+    else:
+        logging.error(
+            f"Path {args.fixed_directory} is neither a valid structure file nor a directory"
+        )
         sys.exit(1)
 
     if args.mobile_directory is not None:
-        pdb_files_mobile = []
-        for ext in supported_extensions:
-            pdb_files_mobile.extend(args.mobile_directory.glob(f"*{ext}"))
-        if not pdb_files_mobile:
-            logging.error(f"No structure files found in {args.mobile_directory}")
+        # Check if mobile_directory is a file or directory
+        if _is_structure_file(args.mobile_directory):
+            pdb_files_mobile = [args.mobile_directory]
+            logging.info(f"Using single file: {args.mobile_directory}")
+        elif args.mobile_directory.is_dir():
+            pdb_files_mobile = []
+            for ext in supported_extensions:
+                pdb_files_mobile.extend(args.mobile_directory.glob(f"*{ext}"))
+            if not pdb_files_mobile:
+                logging.error(f"No structure files found in {args.mobile_directory}")
+                sys.exit(1)
+            logging.info(
+                f"Found {len(pdb_files_mobile)} structure files in {args.mobile_directory}"
+            )
+        else:
+            logging.error(
+                f"Path {args.mobile_directory} is neither a valid structure file nor a directory"
+            )
             sys.exit(1)
         logging.info(
-            f"Found {len(pdb_files_fixed)} structure files in {args.fixed_directory} and {len(pdb_files_mobile)} in {args.mobile_directory}"
+            f"Comparing {len(pdb_files_fixed)} fixed structure(s) against {len(pdb_files_mobile)} mobile structure(s)"
         )
     else:
         pdb_files_mobile = None
-        logging.info(f"Found {len(pdb_files_fixed)} structure files")
 
     # Calculate pairwise RMSDs or TM-scores
     results = rmsd_all_pairs(
