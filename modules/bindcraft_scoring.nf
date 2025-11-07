@@ -1,18 +1,18 @@
 process BINDCRAFT_SCORING {
-    container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:nv-cuda12'
+  container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:05702c4_nv-cuda12'
 
-    publishDir path: "${params.outdir}/af2_initial_guess/extra_scores/", pattern: '*.tsv', mode: 'copy'
+  publishDir path: "${params.outdir}/af2_initial_guess/extra_scores/", pattern: '*.tsv', mode: 'copy'
 
-    input:
-    path pdb_file
-    val binder_chain
-    val advanced_settings_preset
+  input:
+  path pdb_file
+  val binder_chain
+  val advanced_settings_preset
 
-    output:
-    path '*.tsv', emit: scores
+  output:
+  path '*.tsv', emit: scores
 
-    script:
-    """
+  script:
+  """
     /opt/conda/envs/BindCraft/bin/python ${projectDir}/bin/bindcraft_scoring.py \
       --format tsv \
       --output ${pdb_file.simpleName}.tsv \
