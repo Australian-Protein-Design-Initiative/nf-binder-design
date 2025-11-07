@@ -23,21 +23,26 @@ params.input_pdb = false
 params.outdir = 'results'
 
 params.design_name = 'fuzzed_ppi'
-params.binder_chain = 'A' // eg, our fixed target chain - usually A ?
-params.target_contigs = 'auto' // 'auto' to detect from PDB, or eg "B10-110" for fixed target chain B, residues 10-110
+params.binder_chain = 'A'
+// eg, our fixed target chain - usually A ?
+params.target_contigs = 'auto'
+// 'auto' to detect from PDB, or eg "B10-110" for fixed target chain B, residues 10-110
 params.hotspot_res = false
 params.rfd_batch_size = 10
 params.rfd_n_partial_per_binder = 10
-params.rfd_model_path = false // "models/rfdiffusion/Complex_beta_ckpt.pt"
+params.rfd_model_path = false
+// "models/rfdiffusion/Complex_beta_ckpt.pt"
 params.rfd_config = 'base'
 // noise_scale_ca and noise_scale_frame
 params.rfd_noise_scale = 0
-params.rfd_partial_T = 20 // Can be a single value or comma-separated list like "5,10,20"
+params.rfd_partial_T = 20
+// Can be a single value or comma-separated list like "5,10,20"
 params.rfd_extra_args = ''
 params.skip_renumber = false
 params.rfd_compress_trajectories = true
 
-params.pmpnn_relax_cycles = 3  // or 5, or maybe even more
+params.pmpnn_relax_cycles = 3
+// or 5, or maybe even more
 params.pmpnn_seqs_per_struct = 1
 params.pmpnn_weights = false
 params.pmpnn_temperature = 0.000001
@@ -82,40 +87,67 @@ include { BOLTZ_COMPARE_BINDER_MONOMER } from './modules/boltz_compare_binder_mo
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 include { PDB_TO_FASTA } from './modules/pdb_to_fasta'
 
+
 // Validate numeric parameters
-def validate_numeric = { param_name, value ->
+def validate_numeric(param_name, value) {
     if (!(value instanceof Number)) {
-        error "Parameter $param_name must be a number, got: $value (${value.getClass().getName()})"
+        error("Parameter ${param_name} must be a number, got: ${value} (${value.getClass().getName()})")
     }
 }
 
-validate_numeric('rfd_batch_size', params.rfd_batch_size)
-validate_numeric('rfd_n_partial_per_binder', params.rfd_n_partial_per_binder)
-validate_numeric('rfd_noise_scale', params.rfd_noise_scale)
 // Special handling for rfd_partial_T - can be a single value or comma-separated list
-def validate_rfd_partial_T = { value ->
+def validate_rfd_partial_T(value) {
     if (value instanceof Number) {
-        return [value] // Return as a list with one element
-    } else if (value instanceof String) {
+        return [value]
+    }
+    else if (value instanceof String) {
         try {
             // Try to parse as comma-separated list of numbers
             return value.split(',').collect { it.trim().toInteger() }
-        } catch (Exception e) {
-            error "Parameter rfd_partial_T must be a number or comma-separated list of numbers, got: $value"
         }
-    } else {
-        error "Parameter rfd_partial_T must be a number or comma-separated list of numbers, got: $value (${value.getClass().getName()})"
+        catch (Exception e) {
+            error("Parameter rfd_partial_T must be a number or comma-separated list of numbers, got: ${value}")
+        }
+    }
+    else {
+        error("Parameter rfd_partial_T must be a number or comma-separated list of numbers, got: ${value} (${value.getClass().getName()})")
     }
 }
-def partial_T_values = validate_rfd_partial_T(params.rfd_partial_T)
 
-validate_numeric('pmpnn_relax_cycles', params.pmpnn_relax_cycles)
-validate_numeric('pmpnn_seqs_per_struct', params.pmpnn_seqs_per_struct)
+def validate_params() {
+    validate_numeric('rfd_batch_size', params.rfd_batch_size)
+    validate_numeric('rfd_n_partial_per_binder', params.rfd_n_partial_per_binder)
+    validate_numeric('rfd_noise_scale', params.rfd_noise_scale)
+    validate_numeric('pmpnn_relax_cycles', params.pmpnn_relax_cycles)
+    validate_numeric('pmpnn_seqs_per_struct', params.pmpnn_seqs_per_struct)
+}
+
+def paramsToMap(params) {
+    def map = [:]
+    params.each { key, value ->
+        if (value instanceof Path || value instanceof File) {
+            map[key] = value.toString()
+        }
+        else if (!(value instanceof Closure) && !(key in [
+            'class',
+            'launchDir',
+            'projectDir',
+            'workDir',
+        ])) {
+            map[key] = value
+        }
+    }
+    return map
+}
 
 workflow {
+    validate_params()
+    def partial_T_values = validate_rfd_partial_T(params.rfd_partial_T)
+
     // Show help message
     if (params.input_pdb == false) {
-        log.info"""
+        log.info(
+            """
         ==================================================================
         🧬 PROTEIN BINDER DESIGN PIPELINE 🧬
         ==================================================================
@@ -164,7 +196,8 @@ workflow {
             --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
 
         """.stripIndent()
-        exit 1
+        )
+        exit(1)
     }
 
     // Generate unique ID for this run
@@ -181,7 +214,8 @@ workflow {
     ch_input_pdb = Channel.fromPath(params.input_pdb)
     if (params.rfd_model_path) {
         ch_rfd_model_path = Channel.fromPath(params.rfd_model_path).first()
-    } else {
+    }
+    else {
         ch_rfd_model_path = Channel.value(false)
     }
 
@@ -200,18 +234,19 @@ workflow {
     if (params.skip_renumber) {
         // Skip renumbering and use input PDBs directly
         ch_preprocessed_pdb = ch_input_pdb
-        log.info 'Skipping residue renumbering as --skip-renumber was set'
-    } else {
+        log.info('Skipping residue renumbering as --skip-renumber was set')
+    }
+    else {
         // Warn about renumbering when using hotspot residues
         if (params.hotspot_res) {
-            log.warn 'WARNING: Target residues will be renumbered starting at 1 - do your chosen hotspots account for this?'
-        } else {
-            log.warn 'WARNING: No hotspots defined - binders will tend to drift from target'
+            log.warn('WARNING: Target residues will be renumbered starting at 1 - do your chosen hotspots account for this?')
+        }
+        else {
+            log.warn('WARNING: No hotspots defined - binders will tend to drift from target')
         }
 
         // Apply renumbering as normal
-        ch_preprocessed_pdb = ch_input_pdb
-            .map { pdb -> [pdb, params.binder_chain] }
+        ch_preprocessed_pdb = ch_input_pdb.map { pdb -> [pdb, params.binder_chain] }
             | RENUMBER_RESIDUES
     }
 
@@ -219,8 +254,7 @@ workflow {
     // NOTE/HACK: We hardcode 'A' here, since RENUMBER_RESIDUES always
     // makes the binder chain 'A'
     def binder_chain_for_contigs = params.skip_renumber ? params.binder_chain : 'A'
-    ch_contigs = ch_preprocessed_pdb
-        .map { pdb -> [pdb, binder_chain_for_contigs] }
+    ch_contigs = ch_preprocessed_pdb.map { pdb -> [pdb, binder_chain_for_contigs] }
         | GET_CONTIGS
 
     //ch_contigs.view()
@@ -238,20 +272,20 @@ workflow {
             }
             return all_jobs
         }
-        | flatMap()  // Flatten the lists of tuples into individual tuples
+        | flatMap()
         | set { ch_rfd_jobs }
 
     // Run RFdiffusion with partial diffusion in batches
     RFDIFFUSION_PARTIAL(
         ch_rfd_config,
-        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> input_pdb },  // Extract PDB path
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> input_pdb },
         ch_rfd_model_path,
-        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> contigs },  // Extract contigs string
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> contigs },
         hotspot_res,
         params.rfd_batch_size,
-        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },  // Extract start number
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> start },
         ch_unique_id,
-        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T }  // Extract partial_T
+        ch_rfd_jobs.map { input_pdb, contigs, start, partial_T -> partial_T },
     )
     ch_rfd_backbone_models = RFDIFFUSION_PARTIAL.out.pdbs.flatten()
 
@@ -260,10 +294,11 @@ workflow {
             ch_rfd_backbone_models,
             params.rfd_filters,
             binder_chain_for_contigs,
-            'rfdiffusion'  // step name
+            'rfdiffusion',
         )
         ch_filtered_backbones = FILTER_DESIGNS.out.accepted
-    } else {
+    }
+    else {
         ch_filtered_backbones = ch_rfd_backbone_models
     }
 
@@ -274,13 +309,13 @@ workflow {
 
     // Run ProteinMPNN (dl_binder_design) on backbone-only PDBs
     DL_BINDER_DESIGN_PROTEINMPNN(
-        ch_pmpnn_inputs.map { pdb, idx -> pdb },  // Extract just the PDB for the input path
-        Channel.value(1),  // Always use seqs_per_struct=1
+        ch_pmpnn_inputs.map { pdb, idx -> pdb },
+        Channel.value(1),
         params.pmpnn_relax_cycles,
         params.pmpnn_weights,
         params.pmpnn_temperature,
         params.pmpnn_augment_eps,
-        ch_pmpnn_inputs.map { pdb, idx -> idx }  // Pass the index for unique naming
+        ch_pmpnn_inputs.map { pdb, idx -> idx },
     )
 
     // Run AF2 initial guess to build/refine sidechains for compatible sequence
@@ -292,7 +327,8 @@ workflow {
         name: 'af2ig_scores.tsv',
         storeDir: "${params.outdir}/af2_initial_guess",
         keepHeader: true,
-        skip: 1)
+        skip: 1,
+    )
 
     // Optional Boltz-2 refolding of filtered designs
     if (params.refold_af2ig_filters) {
@@ -300,22 +336,22 @@ workflow {
         AF2IG_SCORE_FILTER(
             AF2_INITIAL_GUESS.out.scores_tsv,
             AF2_INITIAL_GUESS.out.pdbs.collect(),
-            params.refold_af2ig_filters
+            params.refold_af2ig_filters,
         )
-        
+
         // Flatten and create metadata for each accepted PDB
         ch_filtered_with_meta = AF2IG_SCORE_FILTER.out.accepted
             .flatten()
             .map { pdb -> [[id: pdb.baseName], pdb] }
-        
+
         // Limit to refold_max if specified
-        ch_filtered_for_refold = params.refold_max ? 
-            ch_filtered_with_meta.take(params.refold_max) : 
-            ch_filtered_with_meta
-        
+        ch_filtered_for_refold = params.refold_max
+            ? ch_filtered_with_meta.take(params.refold_max)
+            : ch_filtered_with_meta
+
         // Determine target chain (all non-binder chains, typically 'B' in partial.nf context)
         def target_chain = 'B'
-        
+
         // Optionally create target MSAs
         if (params.refold_create_target_msa && !params.refold_use_msa_server) {
             if (params.refold_target_fasta) {
@@ -326,58 +362,57 @@ workflow {
                 ch_target_msas = MMSEQS_COLABFOLDSEARCH(
                     ch_target_fastas,
                     params.colabfold_envdb,
-                    params.uniref30
+                    params.uniref30,
                 )
-            } else {
+            }
+            else {
                 // Create target FASTA files from PDBs for MSA creation
-                ch_target_fastas = ch_filtered_for_refold
-                    .map { meta, pdb -> pdb }
+                ch_target_fastas = ch_filtered_for_refold.map { meta, pdb -> pdb }
                     | PDB_TO_FASTA(
-                        target_chain  // target chain
-                    )
-                    .map { fasta -> 
+                        target_chain
+                    ).map { fasta ->
                         def basename = fasta.baseName.replaceAll(/_B$/, '')
                         [[id: basename], fasta]
                     }
                 ch_target_msas = MMSEQS_COLABFOLDSEARCH(
                     ch_target_fastas,
                     params.colabfold_envdb,
-                    params.uniref30
+                    params.uniref30,
                 )
             }
-        } else if (params.refold_create_target_msa && params.refold_use_msa_server) {
-            ch_target_msas = ch_filtered_for_refold.map { meta, pdb -> 
-                [meta, file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")] 
-            }
-        } else {
-            ch_target_msas = ch_filtered_for_refold.map { meta, pdb -> 
-                [meta, file("${projectDir}/assets/dummy_files/empty_target_msa")] 
+        }
+        else if (params.refold_create_target_msa && params.refold_use_msa_server) {
+            ch_target_msas = ch_filtered_for_refold.map { meta, pdb ->
+                [meta, file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")]
             }
         }
-        
+        else {
+            ch_target_msas = ch_filtered_for_refold.map { meta, pdb ->
+                [meta, file("${projectDir}/assets/dummy_files/empty_target_msa")]
+            }
+        }
+
         // Run Boltz complex refolding with RMSD analysis
         BOLTZ_COMPARE_COMPLEX(
             ch_filtered_for_refold,
-            binder_chain_for_contigs,  // binder_chain
-            target_chain,              // target_chain
+            binder_chain_for_contigs,
+            target_chain,
             params.refold_create_target_msa,
             params.refold_use_msa_server,
             ch_target_msas.map { meta, target_msa -> target_msa },
             file("${projectDir}/assets/dummy_files/empty_binder_msa"),
             file(params.refold_target_templates ?: "${projectDir}/assets/dummy_files/empty_templates"),
-            params.refold_target_fasta ? file(params.refold_target_fasta): "${projectDir}/assets/dummy_files/empty"
+            params.refold_target_fasta ? file(params.refold_target_fasta) : "${projectDir}/assets/dummy_files/empty",
         )
-        
+
         // Run Boltz binder monomer prediction with RMSD analysis
         BOLTZ_COMPARE_BINDER_MONOMER(
-            ch_filtered_for_refold
-                .join(BOLTZ_COMPARE_COMPLEX.out.pdb)
-                .map { meta, af2ig_pdb, boltz_pdb ->
-                    [meta, af2ig_pdb, boltz_pdb]
-                },
-            binder_chain_for_contigs  // binder_chain
+            ch_filtered_for_refold.join(BOLTZ_COMPARE_COMPLEX.out.pdb).map { meta, af2ig_pdb, boltz_pdb ->
+                [meta, af2ig_pdb, boltz_pdb]
+            },
+            binder_chain_for_contigs,
         )
-        
+
         // Aggregate RMSD outputs
         ch_target_aligned_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_target_aligned
             .map { meta, tsv_file -> tsv_file }
@@ -385,36 +420,36 @@ workflow {
                 name: 'rmsd_target_aligned_binder.tsv',
                 storeDir: "${params.outdir}/boltz_refold/rmsd",
                 keepHeader: true,
-                skip: 1
+                skip: 1,
             )
-        
+
         ch_complex_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_complex
             .map { meta, tsv_file -> tsv_file }
             .collectFile(
                 name: 'rmsd_complex_vs_af2ig.tsv',
                 storeDir: "${params.outdir}/boltz_refold/rmsd",
                 keepHeader: true,
-                skip: 1
+                skip: 1,
             )
-        
+
         ch_monomer_vs_af2ig_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_af2ig
             .map { meta, tsv_file -> tsv_file }
             .collectFile(
                 name: 'rmsd_monomer_vs_af2ig.tsv',
                 storeDir: "${params.outdir}/boltz_refold/rmsd",
                 keepHeader: true,
-                skip: 1
+                skip: 1,
             )
-        
+
         ch_monomer_vs_complex_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_complex
             .map { meta, tsv_file -> tsv_file }
             .collectFile(
                 name: 'rmsd_monomer_vs_complex.tsv',
                 storeDir: "${params.outdir}/boltz_refold/rmsd",
                 keepHeader: true,
-                skip: 1
+                skip: 1,
             )
-        
+
         // Aggregate confidence outputs
         ch_complex_confidence = BOLTZ_COMPARE_COMPLEX.out.confidence_tsv
             .map { meta, tsv_file -> tsv_file }
@@ -422,29 +457,30 @@ workflow {
                 name: 'boltz_scores_complex.tsv',
                 storeDir: "${params.outdir}/boltz_refold",
                 keepHeader: true,
-                skip: 1
+                skip: 1,
             )
-        
+
         ch_monomer_confidence = BOLTZ_COMPARE_BINDER_MONOMER.out.confidence_tsv
             .map { meta, tsv_file -> tsv_file }
             .collectFile(
                 name: 'boltz_scores_binder_monomer.tsv',
                 storeDir: "${params.outdir}/boltz_refold",
                 keepHeader: true,
-                skip: 1
+                skip: 1,
             )
 
         BINDCRAFT_SCORING_BOLTZ_COMPLEX(
             BOLTZ_COMPARE_COMPLEX.out.pdb.map { meta, pdb -> pdb },
             binder_chain_for_contigs,
-            'default_4stage_multimer'
+            'default_4stage_multimer',
         )
 
         extra_scores = BINDCRAFT_SCORING_BOLTZ_COMPLEX.out.scores.collectFile(
             name: 'boltz_complex_extra_scores.tsv',
             storeDir: "${params.outdir}/boltz_refold",
             keepHeader: true,
-            skip: 1)
+            skip: 1,
+        )
 
         // Combine all the score files into a single TSV file
         COMBINE_SCORES(
@@ -453,21 +489,22 @@ workflow {
             ch_complex_confidence,
             ch_monomer_vs_complex_rmsd,
             ch_target_aligned_rmsd,
-            AF2_INITIAL_GUESS.out.pdbs.collect()
+            AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
-    } else {
+    }
+    else {
 
         BINDCRAFT_SCORING_AF2IG(
             AF2_INITIAL_GUESS.out.pdbs,
             binder_chain_for_contigs,
-            'default_4stage_multimer'
+            'default_4stage_multimer',
         )
 
         extra_scores = BINDCRAFT_SCORING_AF2IG.out.scores.collectFile(
             name: "${params.outdir}/af2_initial_guess/af2ig_extra_scores.tsv",
-            //storeDir: "${params.outdir}",
             keepHeader: true,
-            skip: 1)
+            skip: 1,
+        )
 
         // Combine all the score files into a single TSV file
         COMBINE_SCORES(
@@ -476,47 +513,34 @@ workflow {
             "${projectDir}/assets/dummy_files/empty",
             "${projectDir}/assets/dummy_files/empty",
             "${projectDir}/assets/dummy_files/empty",
-            AF2_INITIAL_GUESS.out.pdbs.collect()
+            AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
     }
-}
 
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        } else if (!(value instanceof Closure) && !(key in [
-            'class', 'launchDir', 'projectDir', 'workDir'])) {
-            map[key] = value
-        }
+    workflow.onComplete = {
+        // Write the pipeline parameters to a JSON file
+        def params_json = [:]
+
+        params_json['params'] = paramsToMap(params)
+
+        params_json['workflow'] = [
+            name: workflow.manifest.name,
+            version: workflow.manifest.version,
+            revision: workflow.revision ?: null,
+            commit: workflow.commitId ?: null,
+            runName: workflow.runName,
+            start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
+            complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
+            duration: workflow.duration,
+            success: workflow.success,
+        ]
+
+        def output_file = "${params.outdir}/params.json"
+        def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(params_json))
+
+        new File(params.outdir).mkdirs()
+        new File(output_file).text = json_string
+
+        log.info("Pipeline parameters saved to: ${output_file}")
     }
-    return map
-}
-
-workflow.onComplete {
-    // Write the pipeline parameters to a JSON file
-    def params_json = [:]
-
-    params_json['params'] = paramsToMap(params)
-
-    params_json['workflow'] = [
-        name: workflow.manifest.name,
-        version: workflow.manifest.version,
-        revision: workflow.revision ?: null,
-        commit: workflow.commitId ?: null,
-        runName: workflow.runName,
-        start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
-        complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
-        duration: workflow.duration,
-        success: workflow.success
-    ]
-
-    def output_file = "${params.outdir}/params.json"
-    def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(params_json))
-    
-    new File(params.outdir).mkdirs()
-    new File(output_file).text = json_string
-    
-    log.info "Pipeline parameters saved to: ${output_file}"
 }

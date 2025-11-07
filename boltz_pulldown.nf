@@ -3,9 +3,9 @@
 nextflow.enable.dsl = 2
 
 // Default parameters
-params.targets        = false
-params.binders        = false
-params.outdir         = "results"
+params.targets = false
+params.binders = false
+params.outdir = "results"
 params.use_msa_server = false
 params.create_binder_msa = false
 params.create_target_msa = false
@@ -23,6 +23,24 @@ def sanitize(name) {
     return name.replaceAll(/[^a-zA-Z0-9_.-]/, "_")
 }
 
+def paramsToMap(params) {
+    def map = [:]
+    params.each { key, value ->
+        if (value instanceof Path || value instanceof File) {
+            map[key] = value.toString()
+        }
+        else if (!(value instanceof Closure) && !(key in [
+            'class',
+            'launchDir',
+            'projectDir',
+            'workDir',
+        ])) {
+            map[key] = value
+        }
+    }
+    return map
+}
+
 process CREATE_BOLTZ_YAML {
     tag "${target_meta.id}_and_${binder_meta.id}"
 
@@ -30,7 +48,7 @@ process CREATE_BOLTZ_YAML {
 
     input:
     tuple val(target_meta), path(target_msa), val(binder_meta), path(binder_msa)
-    path(templates)
+    path templates
 
     output:
     tuple val(meta), path(yaml), path(target_msa), path(binder_msa)
@@ -54,18 +72,22 @@ process CREATE_BOLTZ_YAML {
     def target_msa_flag = ""
     if (target_msa.name == "empty_target_msa") {
         target_msa_flag = "--target_msa empty"
-    } else if (target_msa.name == "boltz_will_make_target_msa") {
+    }
+    else if (target_msa.name == "boltz_will_make_target_msa") {
         target_msa_flag = ""
-    } else {
+    }
+    else {
         target_msa_flag = "--target_msa '${target_msa}'"
     }
 
     def binder_msa_flag = ""
     if (binder_msa.name == "empty_binder_msa") {
         binder_msa_flag = "--binder_msa empty"
-    } else if (binder_msa.name == "boltz_will_make_binder_msa") {
+    }
+    else if (binder_msa.name == "boltz_will_make_binder_msa") {
         binder_msa_flag = ""
-    } else {
+    }
+    else {
         binder_msa_flag = "--binder_msa '${binder_msa}'"
     }
 
@@ -163,7 +185,7 @@ workflow {
 
     ch_targets_fasta_paths = Channel.fromPath(params.targets)
         .splitFasta(file: true)
-    
+
     ch_binders_fasta_paths = Channel.fromPath(params.binders)
         .splitFasta(file: true)
 
@@ -173,20 +195,22 @@ workflow {
 
     if (params.create_target_msa && !params.use_msa_server) {
         ch_target_msas = MMSEQS_COLABFOLDSEARCH(ch_targets_fasta, params.colabfold_envdb, params.uniref30)
-    } else if (params.create_target_msa && params.use_msa_server) {
+    }
+    else if (params.create_target_msa && params.use_msa_server) {
         ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")] }
-    } else
-    {
+    }
+    else {
         // [meta, null]
         ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/empty_target_msa")] }
     }
 
     if (params.create_binder_msa && !params.use_msa_server) {
         ch_binder_msas = MMSEQS_COLABFOLDSEARCH(ch_binders_fasta, params.colabfold_envdb, params.uniref30)
-    } else if (params.create_binder_msa && params.use_msa_server) {
+    }
+    else if (params.create_binder_msa && params.use_msa_server) {
         ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/boltz_will_make_binder_msa")] }
-    } else
-    {
+    }
+    else {
         // [meta, null]
         ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/empty_binder_msa")] }
     }
@@ -198,7 +222,7 @@ workflow {
 
     CREATE_BOLTZ_YAML(ch_pairs, file(params.templates))
 
-    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates))
+    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates), "boltz_pulldown")
 
     // BOLTZ.out.confidence_json.view { meta, json ->
     //     "Finshed: ${meta.target} + ${meta.binder}"
@@ -206,14 +230,17 @@ workflow {
 
     PARSE_BOLTZ_CONFIDENCE_JSON(BOLTZ.out.confidence_json)
 
-    ch_tsv_output = PARSE_BOLTZ_CONFIDENCE_JSON.out
-        .collectFile(name: "boltz_pulldown.tsv", 
-                     storeDir: "${params.outdir}/boltz_pulldown", 
-                     keepHeader: true, 
-                     skip: 1)
+    ch_tsv_output = PARSE_BOLTZ_CONFIDENCE_JSON.out.collectFile(
+        name: "boltz_pulldown.tsv",
+        storeDir: "${params.outdir}/boltz_pulldown",
+        keepHeader: true,
+        skip: 1,
+    )
 
-    BOLTZ_PULLDOWN_REPORTING(file("${projectDir}/assets/boltz_pulldown_reporting.qmd"), 
-                             ch_tsv_output)
+    BOLTZ_PULLDOWN_REPORTING(
+        file("${projectDir}/assets/boltz_pulldown_reporting.qmd"),
+        ch_tsv_output,
+    )
 
     // TODO: Re-sort the table on iptm (index 5). 
     //       (An alternative would be to sort on confidence (index 3))
@@ -261,42 +288,29 @@ workflow {
        - Additional interface analysis as-per Alphapulldown, or similar (eg Arpeggio, PISA ?) ?
          - https://github.com/KosinskiLab/AlphaPulldown/blob/main/alphapulldown/analysis_pipeline/pdb_analyser.py - needs pyrosetta
     */
-}
 
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        } else if (!(value instanceof Closure) && !(key in [
-            'class', 'launchDir', 'projectDir', 'workDir'])) {
-            map[key] = value
-        }
+    workflow.onComplete = {
+        // Write the pipeline parameters to a JSON file
+        def params_json = [:]
+
+        params_json['params'] = paramsToMap(params)
+
+        params_json['workflow'] = [
+            name: workflow.manifest.name,
+            version: workflow.manifest.version,
+            runName: workflow.runName,
+            start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
+            complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
+            duration: workflow.duration,
+            success: workflow.success,
+        ]
+
+        def output_file = "${params.outdir}/params.json"
+        def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(params_json))
+
+        new File(params.outdir).mkdirs()
+        new File(output_file).text = json_string
+
+        log.info("Pipeline parameters saved to: ${output_file}")
     }
-    return map
-}
-
-workflow.onComplete {
-    // Write the pipeline parameters to a JSON file
-    def params_json = [:]
-
-    params_json['params'] = paramsToMap(params)
-
-    params_json['workflow'] = [
-        name: workflow.manifest.name,
-        version: workflow.manifest.version,
-        runName: workflow.runName,
-        start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
-        complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
-        duration: workflow.duration,
-        success: workflow.success
-    ]
-
-    def output_file = "${params.outdir}/params.json"
-    def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(params_json))
-    
-    new File(params.outdir).mkdirs()
-    new File(output_file).text = json_string
-    
-    log.info "Pipeline parameters saved to: ${output_file}"
 }
