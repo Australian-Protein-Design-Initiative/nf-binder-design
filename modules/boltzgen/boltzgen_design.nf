@@ -31,7 +31,7 @@ process BOLTZGEN_DESIGN {
     fi
     
     # Stage input files at correct relative paths
-    ${projectDir}/bin/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
+    ${projectDir}/bin/boltzgen/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
     
     # Run boltzgen design step
     # HF_HOME is set to /models/boltzgen in container with pre-cached weights
@@ -46,11 +46,11 @@ process BOLTZGEN_DESIGN {
         ${task.ext.args ?: ''}
     
     # Rename files to add start_index offset
-    ${projectDir}/bin/rename_boltzgen_files.py \
+    ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
         batch_${start_index}/intermediate_designs \
         ${design_name} \
         ${start_index} \
-        --num-designs ${n_designs}
+        --num_designs ${n_designs}
     
     # Ensure directory exists and is non-empty for Nextflow output detection
     touch batch_${start_index}/.nextflow_complete

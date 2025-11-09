@@ -28,7 +28,7 @@ process BOLTZGEN_FILTERING {
     fi
     
     # Stage input files at correct relative paths
-    ${projectDir}/bin/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
+    ${projectDir}/bin/boltzgen/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
     
     # Run boltzgen filtering step
     # HF_HOME is set to /models/boltzgen in container with pre-cached weights

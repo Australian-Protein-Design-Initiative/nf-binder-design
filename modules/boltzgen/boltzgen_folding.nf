@@ -31,7 +31,7 @@ process BOLTZGEN_FOLDING {
     fi
     
     # Stage input files at correct relative paths
-    ${projectDir}/bin/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
+    ${projectDir}/bin/boltzgen/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
     
     # Run boltzgen folding step
     # HF_HOME is set to /models/boltzgen in container with pre-cached weights
@@ -46,13 +46,13 @@ process BOLTZGEN_FOLDING {
     
     # Rename files to add start_index offset
     if [ -d batch_${start_index}/intermediate_designs_inverse_folded/refold_cif ]; then
-        ${projectDir}/bin/rename_boltzgen_files.py \
+        ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
             batch_${start_index}/intermediate_designs_inverse_folded/refold_cif \
             ${design_name} \
             ${start_index}
     fi
     if [ -d batch_${start_index}/intermediate_designs_inverse_folded/fold_out_npz ]; then
-        ${projectDir}/bin/rename_boltzgen_files.py \
+        ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
             batch_${start_index}/intermediate_designs_inverse_folded/fold_out_npz \
             ${design_name} \
             ${start_index}

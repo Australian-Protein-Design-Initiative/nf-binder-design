@@ -254,13 +254,13 @@ def main():
         help='Start index offset to add',
     )
     parser.add_argument(
-        '--num-designs',
+        '--num_designs',
         type=int,
         default=None,
         help='Hint: number of designs (optional)',
     )
     parser.add_argument(
-        '--inverse-fold-num-sequences',
+        '--inverse_fold_num_sequences',
         type=int,
         default=None,
         help='Hint: inverse folding multiplicity (optional)',

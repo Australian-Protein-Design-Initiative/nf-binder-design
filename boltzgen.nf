@@ -20,6 +20,7 @@ params.batch_size = 10
 params.budget = 10
 params.devices = 1
 params.num_workers = 1
+params.inverse_fold_num_sequences = null
 
 def paramsToMap(params) {
     def map = [:]
@@ -60,6 +61,7 @@ workflow {
             --budget                   Final diversity-optimized set size [default: ${params.budget}]
             --devices                  Number of GPU devices [default: ${params.devices}]
             --num_workers              Number of DataLoader workers [default: ${params.num_workers}]
+            --inverse_fold_num_sequences Number of sequences per design in inverse folding step [default: null, inferred from config]
 
         """.stripIndent()
         )
@@ -82,7 +84,7 @@ workflow {
     // Parse config.yaml to extract input files
     def config_file = file(params.config_yaml)
     def config_dir = config_file.parent
-    def parse_cmd = ["python3", "${projectDir}/bin/parse_boltzgen_config.py", config_file.toString(), "--config-dir", config_dir.toString()]
+    def parse_cmd = ["python3", "${projectDir}/bin/boltzgen/parse_boltzgen_config.py", config_file.toString(), "--config-dir", config_dir.toString()]
     def parse_output = parse_cmd.execute().text.trim()
     def input_file_paths = parse_output.split('\n').findAll { it.trim() }
 
@@ -106,6 +108,7 @@ workflow {
     ch_protocol = Channel.value(params.protocol)
     ch_devices = Channel.value(params.devices)
     ch_num_workers = Channel.value(params.num_workers)
+    ch_inverse_fold_num_sequences = Channel.value(params.inverse_fold_num_sequences)
 
     // Phase 1: Design (Parallel)
     BOLTZGEN_DESIGN(
@@ -137,6 +140,7 @@ workflow {
         ch_batch_with_start.map { _batch_dir, start_idx -> start_idx },
         ch_devices,
         ch_num_workers,
+        ch_inverse_fold_num_sequences,
     )
 
     // Phase 3: Folding (Parallel)

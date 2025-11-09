@@ -15,12 +15,14 @@ process BOLTZGEN_INVERSE_FOLDING {
     val start_index
     val devices
     val num_workers
+    val inverse_fold_num_sequences
 
     output:
     path ("batch_${start_index}"), type: 'dir', emit: batch_dir
 
     script:
     def config_basename = config_yaml.name
+    def invfold_arg = inverse_fold_num_sequences ? "--inverse_fold_num_sequences ${inverse_fold_num_sequences}" : ""
     """
     # Copy batch directory structure
     cp -r ${batch_dir}/* batch_${start_index}/ || true
@@ -31,7 +33,7 @@ process BOLTZGEN_INVERSE_FOLDING {
     fi
     
     # Stage input files at correct relative paths
-    ${projectDir}/bin/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
+    ${projectDir}/bin/boltzgen/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
     
     # Run boltzgen inverse folding step
     # HF_HOME is set to /models/boltzgen in container with pre-cached weights
@@ -42,14 +44,16 @@ process BOLTZGEN_INVERSE_FOLDING {
         --devices ${devices} \
         --num_workers ${num_workers} \
         --cache /models/boltzgen \
+        ${invfold_arg} \
         ${task.ext.args ?: ''}
     
     # Rename files to add start_index offset
     if [ -d batch_${start_index}/intermediate_designs_inverse_folded ]; then
-        ${projectDir}/bin/rename_boltzgen_files.py \
+        ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
             batch_${start_index}/intermediate_designs_inverse_folded \
             ${design_name} \
-            ${start_index}
+            ${start_index} \
+            ${invfold_arg}
     fi
     """
 }
