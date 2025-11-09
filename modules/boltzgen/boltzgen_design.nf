@@ -32,7 +32,7 @@ process BOLTZGEN_DESIGN {
     
     # Stage input files at correct relative paths
     ${projectDir}/bin/boltzgen/stage_boltzgen_inputs.py ${config_basename} input_files --config-dir .
-    
+
     # Run boltzgen design step
     # HF_HOME is set to /models/boltzgen in container with pre-cached weights
     boltzgen run ${config_basename} \
@@ -44,6 +44,11 @@ process BOLTZGEN_DESIGN {
         --num_workers ${num_workers} \
         --cache /models/boltzgen \
         ${task.ext.args ?: ''}
+
+    if [[ grep -q "WARNING: ran out of memory, skipping batch" .command.log ]]; then
+        echo "Task failed: ran out of memory"
+        exit 1
+    fi
     
     # Rename files to add start_index offset
     ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \

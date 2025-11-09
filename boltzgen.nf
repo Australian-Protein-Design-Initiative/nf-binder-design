@@ -53,15 +53,15 @@ workflow {
             --config_yaml              Path to BoltzGen YAML config file
 
         Optional arguments:
-            --outdir                   Output directory [default: ${params.outdir}]
-            --design_name              Name of the design, used for output file prefixes [default: auto-derived from config_yaml basename]
-            --protocol                 Protocol type (protein-anything, peptide-anything, protein-small_molecule, nanobody-anything) [default: ${params.protocol}]
-            --num_designs              Total number of designs to generate [default: ${params.num_designs}]
-            --batch_size               Number of designs per batch [default: ${params.batch_size}]
-            --budget                   Final diversity-optimized set size [default: ${params.budget}]
-            --devices                  Number of GPU devices [default: ${params.devices}]
-            --num_workers              Number of DataLoader workers [default: ${params.num_workers}]
-            --inverse_fold_num_sequences Number of sequences per design in inverse folding step [default: null, inferred from config]
+            --outdir                      Output directory [default: ${params.outdir}]
+            --design_name                 Name of the design, used for output file prefixes [default: auto-derived from config_yaml basename]
+            --protocol                    Protocol type (protein-anything, peptide-anything, protein-small_molecule, nanobody-anything) [default: ${params.protocol}]
+            --num_designs                 Total number of designs to generate [default: ${params.num_designs}]
+            --batch_size                  Number of designs per batch [default: ${params.batch_size}]
+            --budget                      Final diversity-optimized set size [default: ${params.budget}]
+            --devices                     Number of GPU devices [default: ${params.devices}]
+            --num_workers                 Number of DataLoader workers [default: ${params.num_workers}]
+            --inverse_fold_num_sequences  Number of sequences per design in inverse folding step [default: 1]
 
         """.stripIndent()
         )
