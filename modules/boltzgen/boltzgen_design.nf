@@ -1,7 +1,7 @@
 process BOLTZGEN_DESIGN {
     tag "batch_${start_index}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltz:4b1e659_filename-index-offset'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:4b1e659_filename-index-offset'
 
     //publishDir path: "${params.outdir}/boltzgen/batch_${start_index}", pattern: '**', mode: 'copy'
     publishDir path: "${params.outdir}/boltzgen/batches/design", pattern: '**', mode: 'copy'
