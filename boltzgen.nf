@@ -20,7 +20,6 @@ params.batch_size = 10
 params.budget = 10
 params.devices = 1
 params.num_workers = 1
-params.boltzgen_extra_args = ''
 
 def paramsToMap(params) {
     def map = [:]
@@ -61,19 +60,20 @@ workflow {
             --budget                   Final diversity-optimized set size [default: ${params.budget}]
             --devices                  Number of GPU devices [default: ${params.devices}]
             --num_workers              Number of DataLoader workers [default: ${params.num_workers}]
-            --boltzgen_extra_args      Extra arguments for boltzgen command [default: ${params.boltzgen_extra_args}]
 
         """.stripIndent()
         )
         exit(1)
     }
 
+    def design_name = params.design_name
+    
     // Set design_name from config_yaml basename if not explicitly set
     if (!params.design_name) {
         def config_file = new File(params.config_yaml)
         def config_basename = config_file.getName()
         // Remove .yaml or .yml extension
-        params.design_name = config_basename.replaceFirst(/\.(yaml|yml)$/, '')
+        design_name = config_basename.replaceFirst(/\.(yaml|yml)$/, '')
     }
 
     // Validate config_yaml exists
@@ -102,7 +102,7 @@ workflow {
         }
 
     // Create channels for constant values
-    ch_design_name = Channel.value(params.design_name)
+    ch_design_name = Channel.value(design_name)
     ch_protocol = Channel.value(params.protocol)
     ch_devices = Channel.value(params.devices)
     ch_num_workers = Channel.value(params.num_workers)
