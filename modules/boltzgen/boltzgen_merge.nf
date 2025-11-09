@@ -20,6 +20,13 @@ process BOLTZGEN_MERGE {
     find -L . -maxdepth 1 -type d -name "batch_*" | while read batch_dir; do
         batch_path="\${batch_dir}"
         
+        # Merge intermediate_designs directory (from design step)
+        if [ -d "\${batch_path}/intermediate_designs" ]; then
+            mkdir -p merged/intermediate_designs
+            # Copy all .cif and .npz files from intermediate_designs
+            find "\${batch_path}/intermediate_designs" -maxdepth 1 \\( -name "*.cif" -o -name "*.npz" \\) -exec cp {} merged/intermediate_designs/ \\; 2>/dev/null || true
+        fi
+        
         # Merge inverse-folded design .cif and .npz files (required for analysis)
         # These are the main output files from inverse_folding + folding steps
         if [ -d "\${batch_path}/intermediate_designs_inverse_folded" ]; then
@@ -27,6 +34,12 @@ process BOLTZGEN_MERGE {
             find "\${batch_path}/intermediate_designs_inverse_folded" -maxdepth 1 -name "*.cif" -exec cp {} merged/intermediate_designs_inverse_folded/ \\; 2>/dev/null || true
             # Copy all .npz files from the intermediate_designs_inverse_folded directory (required for analysis)
             find "\${batch_path}/intermediate_designs_inverse_folded" -maxdepth 1 -name "*.npz" -exec cp {} merged/intermediate_designs_inverse_folded/ \\; 2>/dev/null || true
+            
+            # Merge metrics_tmp directory (contains data_* and metrics_* files)
+            if [ -d "\${batch_path}/intermediate_designs_inverse_folded/metrics_tmp" ]; then
+                mkdir -p merged/intermediate_designs_inverse_folded/metrics_tmp
+                cp \${batch_path}/intermediate_designs_inverse_folded/metrics_tmp/*.npz merged/intermediate_designs_inverse_folded/metrics_tmp/ 2>/dev/null || true
+            fi
             
             # Merge refold_cif directories (required for analysis)
             if [ -d "\${batch_path}/intermediate_designs_inverse_folded/refold_cif" ]; then
@@ -51,6 +64,14 @@ process BOLTZGEN_MERGE {
                 mkdir -p merged/intermediate_designs_inverse_folded/fold_out_design_npz
                 cp \${batch_path}/intermediate_designs_inverse_folded/fold_out_design_npz/*.npz merged/intermediate_designs_inverse_folded/fold_out_design_npz/ 2>/dev/null || true
             fi
+        fi
+        
+        # Copy config directory and steps.yaml from first batch (they should be identical across batches)
+        if [ ! -d "merged/config" ] && [ -d "\${batch_path}/config" ]; then
+            cp -r \${batch_path}/config merged/ 2>/dev/null || true
+        fi
+        if [ ! -f "merged/steps.yaml" ] && [ -f "\${batch_path}/steps.yaml" ]; then
+            cp \${batch_path}/steps.yaml merged/ 2>/dev/null || true
         fi
     done
     """

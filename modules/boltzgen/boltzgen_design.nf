@@ -40,11 +40,17 @@ process BOLTZGEN_DESIGN {
         --protocol ${protocol} \
         --steps design \
         --num_designs ${n_designs} \
-        --start_index ${start_index} \
         --devices ${devices} \
         --num_workers ${num_workers} \
         --cache /models/boltzgen \
         ${task.ext.args ?: ''}
+    
+    # Rename files to add start_index offset
+    ${projectDir}/bin/rename_boltzgen_files.py \
+        batch_${start_index}/intermediate_designs \
+        ${design_name} \
+        ${start_index} \
+        --num-designs ${n_designs}
     
     # Ensure directory exists and is non-empty for Nextflow output detection
     touch batch_${start_index}/.nextflow_complete

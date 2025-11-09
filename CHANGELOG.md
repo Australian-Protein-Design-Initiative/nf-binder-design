@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New BoltzGen pipeline.
 - Refold binder designs with Boltz, with post-AF2ig filtering and 
   RMSD analysis of predicted complex and binder monomer.
 - Added DOI (Zenodo) badge to `README.md`, added `CITATION.cff`.
