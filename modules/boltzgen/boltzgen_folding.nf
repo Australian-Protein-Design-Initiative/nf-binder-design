@@ -43,19 +43,5 @@ process BOLTZGEN_FOLDING {
         --num_workers ${num_workers} \
         --cache /models/boltzgen \
         ${task.ext.args ?: ''}
-    
-    # Rename files to add start_index offset
-    if [ -d batch_${start_index}/intermediate_designs_inverse_folded/refold_cif ]; then
-        ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
-            batch_${start_index}/intermediate_designs_inverse_folded/refold_cif \
-            ${design_name} \
-            ${start_index}
-    fi
-    if [ -d batch_${start_index}/intermediate_designs_inverse_folded/fold_out_npz ]; then
-        ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
-            batch_${start_index}/intermediate_designs_inverse_folded/fold_out_npz \
-            ${design_name} \
-            ${start_index}
-    fi
     """
 }
