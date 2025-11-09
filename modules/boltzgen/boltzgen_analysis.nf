@@ -1,7 +1,7 @@
 process BOLTZGEN_ANALYSIS {
     tag "analysis"
 
-    container '/home/perry/projects/nf-binder-design/repos/boltzgen/boltzgen-file-index-offset.sif'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltz:4b1e659_filename-index-offset'
 
     publishDir path: "${params.outdir}/boltzgen", pattern: '**', mode: 'copy'
 

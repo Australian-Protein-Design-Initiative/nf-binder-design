@@ -1,15 +1,16 @@
 process BOLTZGEN_CHECK {
 
-    container '/home/perry/projects/nf-binder-design/repos/boltzgen/boltzgen-file-index-offset.sif'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltz:4b1e659_filename-index-offset'
 
     input:
     path 'input/*'
+    val design_name
 
     output:
-    path "${params.design_name}.cif"
+    path "${design_name}.cif"
 
     script:
     """
-    boltzgen check ${params.design_name}.yaml
+    boltzgen check ${design_name}.yaml
     """
 }
