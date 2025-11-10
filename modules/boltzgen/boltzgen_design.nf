@@ -45,8 +45,8 @@ process BOLTZGEN_DESIGN {
         --cache /models/boltzgen \
         ${task.ext.args ?: ''}
 
-    if [[ grep -q "WARNING: ran out of memory, skipping batch" .command.log ]]; then
-        echo "Task failed: ran out of memory"
+    if grep -q "WARNING: ran out of memory, skipping batch" .command.log; then
+        echo "ERROR: Task failed due to out of memory condition" >&2
         exit 1
     fi
     
