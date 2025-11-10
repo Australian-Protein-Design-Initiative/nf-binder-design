@@ -46,14 +46,5 @@ process BOLTZGEN_INVERSE_FOLDING {
         --cache /models/boltzgen \
         ${invfold_arg} \
         ${task.ext.args ?: ''}
-    
-    # Rename files to add start_index offset
-    if [ -d batch_${start_index}/intermediate_designs_inverse_folded ]; then
-        ${projectDir}/bin/boltzgen/rename_boltzgen_files.py \
-            batch_${start_index}/intermediate_designs_inverse_folded \
-            ${design_name} \
-            ${start_index} \
-            ${invfold_arg}
-    fi
     """
 }
