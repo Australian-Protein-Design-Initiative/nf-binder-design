@@ -131,13 +131,24 @@ workflow {
         return [batch_dir, start_idx]
     }
 
+    // Join batch_dir with n_designs by matching start_idx
+    ch_batch_with_designs = ch_batch_with_start
+        .combine(ch_batch_starts)
+        .filter { batch_dir, start_idx, batch_start_idx, n_designs ->
+            start_idx == batch_start_idx
+        }
+        .map { batch_dir, start_idx, _batch_start_idx, n_designs ->
+            [batch_dir, start_idx, n_designs]
+        }
+
     BOLTZGEN_INVERSE_FOLDING(
-        ch_batch_with_start.map { batch_dir, _start_idx -> batch_dir },
+        ch_batch_with_designs.map { batch_dir, _start_idx, _n_designs -> batch_dir },
         ch_config_yaml,
         ch_input_files,
         ch_design_name,
         ch_protocol,
-        ch_batch_with_start.map { _batch_dir, start_idx -> start_idx },
+        ch_batch_with_designs.map { _batch_dir, start_idx, _n_designs -> start_idx },
+        ch_batch_with_designs.map { _batch_dir, _start_idx, n_designs -> n_designs },
         ch_devices,
         ch_num_workers,
         ch_inverse_fold_num_sequences,
