@@ -176,20 +176,27 @@ def rename_file_with_offset(
             new_j = None
         else:
             # Inverse context: disambiguate with hint/detection
-            batch_root = detect_batch_root(directory_root)
-            inferred_num_designs = (
-                num_designs_hint
-                or detect_num_designs(batch_root, design_name)
-                or None
-            )
-            if inferred_num_designs == 1:
-                # Single-design run: this index is invfold index
+            # If inverse_fold_num_sequences is set, single index is invfold index
+            if invfold_hint is not None and invfold_hint > 1:
+                # Inverse folding multiplicity > 1: single index is invfold index
                 new_i = start_index
                 new_j = i
             else:
-                # Multi-design run (or unknown): treat as design index
-                new_i = i + start_index
-                new_j = None
+                # Check if single design run
+                batch_root = detect_batch_root(directory_root)
+                inferred_num_designs = (
+                    num_designs_hint
+                    or detect_num_designs(batch_root, design_name)
+                    or None
+                )
+                if inferred_num_designs == 1:
+                    # Single-design run: this index is invfold index
+                    new_i = start_index
+                    new_j = i
+                else:
+                    # Multi-design run (or unknown): treat as design index
+                    new_i = i + start_index
+                    new_j = None
     else:
         # Both i and j present
         new_i = (i + start_index) if i is not None else start_index
