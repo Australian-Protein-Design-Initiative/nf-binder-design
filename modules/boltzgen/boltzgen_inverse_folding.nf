@@ -13,7 +13,6 @@ process BOLTZGEN_INVERSE_FOLDING {
     val design_name
     val protocol
     val start_index
-    val num_designs
     val devices
     val num_workers
     val inverse_fold_num_sequences
@@ -54,7 +53,6 @@ process BOLTZGEN_INVERSE_FOLDING {
             batch_${start_index}/intermediate_designs_inverse_folded \
             ${design_name} \
             ${start_index} \
-            --num_designs ${num_designs} \
             ${invfold_arg}
     fi
     """
