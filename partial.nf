@@ -485,10 +485,10 @@ workflow {
         // Combine all the score files into a single TSV file
         COMBINE_SCORES(
             AF2_INITIAL_GUESS.out.scores.collect(),
-            extra_scores,
-            ch_complex_confidence,
-            ch_monomer_vs_complex_rmsd,
-            ch_target_aligned_rmsd,
+            extra_scores.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            ch_complex_confidence.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            ch_monomer_vs_complex_rmsd.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            ch_target_aligned_rmsd.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
             AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
     }
