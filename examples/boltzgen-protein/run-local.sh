@@ -10,10 +10,8 @@ nextflow run ${PIPELINE_DIR}/boltzgen.nf \
   --design_name 1g13prot \
   --protocol protein-anything \
   --num_designs 4 \
-  --batch_size 2 \
+  --batch_size 1 \
   --budget 2 \
-  --devices 1 \
-  --num_workers 1 \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

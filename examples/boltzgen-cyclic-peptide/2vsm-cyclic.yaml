@@ -1,0 +1,26 @@
+entities:
+  - protein: 
+      id: B
+      sequence: 8..16
+      cyclic: true
+
+  - file:
+      path: input/2vsm_A.renum.pdb
+       
+      include:
+        - chain:
+            id: A
+
+      binding_types:
+        - chain:
+            id: A
+            binding: 314,391
+        - chain:
+            id: A
+            not_binding: 31,42,60,36,81,93,98,104,125,133,146,163,169,176,222,229,241,252,258,265,275,281,283,292,320,327,334,347,359,372,380,387,402
+          
+    structure_groups:
+        - group:
+            visibility: 0
+            id: A
+            res_index: 48..53,109..121,209..216,298..316,337..344
