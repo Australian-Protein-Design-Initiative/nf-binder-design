@@ -21,6 +21,8 @@ process BOLTZGEN_DESIGN_FOLDING {
 
     script:
     def config_basename = config_yaml.name
+    def devices_arg = devices ? "--devices ${devices}" : ""
+    def num_workers_arg = num_workers ? "--num_workers ${num_workers}" : ""
     """
     # Copy batch directory structure
     cp -r ${batch_dir}/* batch_${start_index}/ || true
@@ -39,8 +41,8 @@ process BOLTZGEN_DESIGN_FOLDING {
         --output batch_${start_index}/ \
         --protocol ${protocol} \
         --steps design_folding \
-        --devices ${devices} \
-        --num_workers ${num_workers} \
+        ${devices_arg} \
+        ${num_workers_arg} \
         --cache /models/boltzgen \
         ${task.ext.args ?: ''}
     """

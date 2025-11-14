@@ -18,8 +18,8 @@ params.protocol = 'protein-anything'
 params.num_designs = 100
 params.batch_size = 10
 params.budget = 10
-params.devices = 1
-params.num_workers = 1
+params.devices = false
+params.num_workers = false
 params.inverse_fold_num_sequences = null
 
 def paramsToMap(params) {

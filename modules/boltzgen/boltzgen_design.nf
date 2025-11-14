@@ -21,6 +21,8 @@ process BOLTZGEN_DESIGN {
 
     script:
     def config_basename = config_yaml.name
+    def devices_arg = devices ? "--devices ${devices}" : ""
+    def num_workers_arg = num_workers ? "--num_workers ${num_workers}" : ""
     """
     # Create batch output directory
     mkdir -p batch_${start_index}
@@ -40,8 +42,8 @@ process BOLTZGEN_DESIGN {
         --protocol ${protocol} \
         --steps design \
         --num_designs ${n_designs} \
-        --devices ${devices} \
-        --num_workers ${num_workers} \
+        ${devices_arg} \
+        ${num_workers_arg} \
         --cache /models/boltzgen \
         ${task.ext.args ?: ''}
 

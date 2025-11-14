@@ -23,6 +23,8 @@ process BOLTZGEN_INVERSE_FOLDING {
     script:
     def config_basename = config_yaml.name
     def invfold_arg = inverse_fold_num_sequences ? "--inverse_fold_num_sequences ${inverse_fold_num_sequences}" : ""
+    def devices_arg = devices ? "--devices ${devices}" : ""
+    def num_workers_arg = num_workers ? "--num_workers ${num_workers}" : ""
     """
     # Copy batch directory structure
     cp -r ${batch_dir}/* batch_${start_index}/ || true
@@ -41,8 +43,8 @@ process BOLTZGEN_INVERSE_FOLDING {
         --output batch_${start_index}/ \
         --protocol ${protocol} \
         --steps inverse_folding \
-        --devices ${devices} \
-        --num_workers ${num_workers} \
+        ${devices_arg} \
+        ${num_workers_arg} \
         --cache /models/boltzgen \
         ${invfold_arg} \
         ${task.ext.args ?: ''}
