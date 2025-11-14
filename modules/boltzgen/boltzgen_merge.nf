@@ -25,6 +25,12 @@ process BOLTZGEN_MERGE {
             mkdir -p merged/intermediate_designs
             # Copy all .cif and .npz files from intermediate_designs
             find "\${batch_path}/intermediate_designs" -maxdepth 1 \\( -name "*.cif" -o -name "*.npz" \\) -exec cp {} merged/intermediate_designs/ \\; 2>/dev/null || true
+            
+            # Merge molecules_out_dir (required for protein-small_molecule protocol)
+            if [ -d "\${batch_path}/intermediate_designs/molecules_out_dir" ]; then
+                mkdir -p merged/intermediate_designs/molecules_out_dir
+                cp \${batch_path}/intermediate_designs/molecules_out_dir/*.pkl merged/intermediate_designs/molecules_out_dir/ 2>/dev/null || true
+            fi
         fi
         
         # Merge inverse-folded design .cif and .npz files (required for analysis)
@@ -63,6 +69,18 @@ process BOLTZGEN_MERGE {
             if [ -d "\${batch_path}/intermediate_designs_inverse_folded/fold_out_design_npz" ]; then
                 mkdir -p merged/intermediate_designs_inverse_folded/fold_out_design_npz
                 cp \${batch_path}/intermediate_designs_inverse_folded/fold_out_design_npz/*.npz merged/intermediate_designs_inverse_folded/fold_out_design_npz/ 2>/dev/null || true
+            fi
+            
+            # Merge affinity_out_npz (if affinity step was run for protein-small_molecule protocol)
+            if [ -d "\${batch_path}/intermediate_designs_inverse_folded/affinity_out_npz" ]; then
+                mkdir -p merged/intermediate_designs_inverse_folded/affinity_out_npz
+                cp \${batch_path}/intermediate_designs_inverse_folded/affinity_out_npz/*.npz merged/intermediate_designs_inverse_folded/affinity_out_npz/ 2>/dev/null || true
+            fi
+            
+            # Merge molecules_out_dir (required for protein-small_molecule protocol)
+            if [ -d "\${batch_path}/intermediate_designs_inverse_folded/molecules_out_dir" ]; then
+                mkdir -p merged/intermediate_designs_inverse_folded/molecules_out_dir
+                cp \${batch_path}/intermediate_designs_inverse_folded/molecules_out_dir/*.pkl merged/intermediate_designs_inverse_folded/molecules_out_dir/ 2>/dev/null || true
             fi
         fi
         

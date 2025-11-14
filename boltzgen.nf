@@ -6,6 +6,7 @@ include { BOLTZGEN_DESIGN } from './modules/boltzgen/boltzgen_design'
 include { BOLTZGEN_INVERSE_FOLDING } from './modules/boltzgen/boltzgen_inverse_folding'
 include { BOLTZGEN_FOLDING } from './modules/boltzgen/boltzgen_folding'
 include { BOLTZGEN_DESIGN_FOLDING } from './modules/boltzgen/boltzgen_design_folding'
+include { BOLTZGEN_AFFINITY } from './modules/boltzgen/boltzgen_affinity'
 include { BOLTZGEN_MERGE } from './modules/boltzgen/boltzgen_merge'
 include { BOLTZGEN_ANALYSIS } from './modules/boltzgen/boltzgen_analysis'
 include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
@@ -89,19 +90,25 @@ workflow {
     def input_file_paths = parse_output.split('\n').findAll { it.trim() }
 
     // Create channel of input files
-    ch_input_files = Channel.from(input_file_paths)
-        .map { file_path -> file(file_path.trim()) }
-        .collect()
-        .map { files -> files }
-        .first()
+    if (input_file_paths.isEmpty()) {
+        ch_input_files = Channel.value([])
+    } else {
+        ch_input_files = Channel.from(input_file_paths)
+            .map { file_path -> file(file_path.trim()) }
+            .collect()
+            .map { files -> files }
+            .first()
+    }
 
-    // Generate batch start indices
-    ch_batch_starts = Channel.from(0..params.num_designs - 1)
-        .filter { it % params.batch_size == 0 }
+    // Generate batch start indices - create separate channels to avoid double consumption
+    def batch_indices = (0..params.num_designs - 1).findAll { it % params.batch_size == 0 }
+    
+    ch_batch_n_designs = Channel.from(batch_indices)
         .map { start_idx ->
-            def n_designs = Math.min(params.batch_size, params.num_designs - start_idx)
-            return [start_idx, n_designs]
+            Math.min(params.batch_size, params.num_designs - start_idx)
         }
+    
+    ch_batch_start_idx = Channel.from(batch_indices)
 
     // Create channels for constant values
     ch_design_name = Channel.value(design_name)
@@ -116,8 +123,8 @@ workflow {
         ch_input_files,
         ch_design_name,
         ch_protocol,
-        ch_batch_starts.map { _start_idx, n_designs -> n_designs },
-        ch_batch_starts.map { start_idx, _n_designs -> start_idx },
+        ch_batch_n_designs,
+        ch_batch_start_idx,
         ch_devices,
         ch_num_workers,
     )
@@ -181,7 +188,30 @@ workflow {
             ch_devices,
             ch_num_workers,
         )
-        ch_design_folded = BOLTZGEN_DESIGN_FOLDING.out.batch_dir
+        
+        if (params.protocol == 'protein-small_molecule') {
+            ch_affinity_batch_with_start = BOLTZGEN_DESIGN_FOLDING.out.batch_dir.map { batch_dir ->
+                def dir_path = batch_dir.toString()
+                def dir_name = new File(dir_path).name
+                def start_idx = dir_name.replaceAll(/batch_/, '').toInteger()
+                return [batch_dir, start_idx]
+            }
+
+            BOLTZGEN_AFFINITY(
+                ch_affinity_batch_with_start.map { batch_dir, _start_idx -> batch_dir },
+                ch_config_yaml,
+                ch_input_files,
+                ch_design_name,
+                ch_protocol,
+                ch_affinity_batch_with_start.map { _batch_dir, start_idx -> start_idx },
+                ch_devices,
+                ch_num_workers,
+            )
+            ch_design_folded = BOLTZGEN_AFFINITY.out.batch_dir
+        }
+        else {
+            ch_design_folded = BOLTZGEN_DESIGN_FOLDING.out.batch_dir
+        }
     }
     else {
         ch_design_folded = BOLTZGEN_FOLDING.out.batch_dir
