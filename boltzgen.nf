@@ -20,7 +20,7 @@ params.batch_size = 10
 params.budget = 10
 params.devices = false
 params.num_workers = false
-params.inverse_fold_num_sequences = null
+params.inverse_fold_num_sequences = false
 
 def paramsToMap(params) {
     def map = [:]
@@ -59,9 +59,9 @@ workflow {
             --num_designs                 Total number of designs to generate [default: ${params.num_designs}]
             --batch_size                  Number of designs per batch [default: ${params.batch_size}]
             --budget                      Final diversity-optimized set size [default: ${params.budget}]
-            --devices                     Number of GPU devices [default: ${params.devices}]
-            --num_workers                 Number of DataLoader workers [default: ${params.num_workers}]
-            --inverse_fold_num_sequences  Number of sequences per design in inverse folding step [default: 1]
+            --devices                     Number of GPU devices [default: unspecified]
+            --num_workers                 Number of DataLoader workers [default: unspecified]
+            --inverse_fold_num_sequences  Number of sequences per design in inverse folding step [default: unspecified]
 
         """.stripIndent()
         )
