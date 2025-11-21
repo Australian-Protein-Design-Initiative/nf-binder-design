@@ -11,6 +11,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding** pipeline
 - **RFdiffusion Partial Diffusion → Boltz-2 refolding** for diversification and optimization
 - **BindCraft** - parallel execution across multiple GPUs
+- **BoltzGen** - design proteins and complexes using BoltzGen
 - **Boltz Pulldown** - an AlphaPulldown-like protocol using Boltz-2
 
 ![RFdiffusion workflow](images/rfd-workflow.png)
@@ -30,6 +31,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - [Setup Instructions](setup.md)
 - [RFdiffusion Workflows](workflows/rfdiffusion.md)
 - [BindCraft Workflow](workflows/bindcraft.md)
+- [BoltzGen Workflow](workflows/boltzgen.md)
 - [Boltz Pulldown](workflows/boltz-pulldown.md)
 - [Utility Scripts](extra/utility-scripts.md)
 - [GitHub Repository](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design)
@@ -77,3 +79,6 @@ and include citations for the underlying tools used in the workflow as appropria
   
   - ColabFold
     - Mirdita, M., Schütze, K., Moriwaki, Y. et al. ColabFold: making protein folding accessible to all. _Nature Methods_, **19**, 679-682 (2022). [https://doi.org/10.1038/s41592-022-01488-1](https://doi.org/10.1038/s41592-022-01488-1)
+
+  - BoltzGen
+    - Stark, H., et al. "BoltzGen: Toward Universal Binder Design." Preprint (2025). [https://hannes-stark.com/assets/boltzgen.pdf](https://hannes-stark.com/assets/boltzgen.pdf) (accessed November 10, 2025).

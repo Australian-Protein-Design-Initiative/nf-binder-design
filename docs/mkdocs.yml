@@ -5,6 +5,7 @@ nav:
   - Workflows:
       - RFdiffusion: workflows/rfdiffusion.md
       - BindCraft: workflows/bindcraft.md
+      - BoltzGen: workflows/boltzgen.md
       - Boltz Pulldown: workflows/boltz-pulldown.md
   - Extra:
       - Utility Scripts: extra/utility-scripts.md

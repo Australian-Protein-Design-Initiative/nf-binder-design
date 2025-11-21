@@ -1,0 +1,10 @@
+entities:
+  - protein:
+      id: C
+      sequence: 80..140
+  - file:
+      path: input/1g13.cif
+
+      include:
+        - chain:
+            id: A
