@@ -9,6 +9,7 @@ Nextflow pipelines for de novo protein binder design.
 - RFdiffusion → ProteinMPNN → AlphaFold2 initial guess → Boltz-2 refolding
 - RFdiffusion Partial Diffusion → Boltz-2 refolding
 - BindCraft (in parallel across multiple GPUs)
+- BoltzGen (design proteins and peptides binders using BoltzGen)
 - "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
 
 > ⚠️ Note: Components of these workflows use RFdiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use. Commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
@@ -26,6 +27,7 @@ Documentation: https://australian-protein-design-initiative.github.io/nf-binder-
     - [Parallel on an HPC cluster](#parallel-on-an-hpc-cluster)
   - [Partial diffusion on binder designs](#partial-diffusion-on-binder-designs)
   - [Binder design with BindCraft](#binder-design-with-bindcraft)
+  - [Binder design with BoltzGen](#binder-design-with-boltzgen)
   - [Boltz pulldown](#boltz-pulldown)
   - [Utility scripts](#utility-scripts)
   - [Design filter plugin system](#design-filter-plugin-system)
@@ -228,6 +230,26 @@ Results are saved to the `--outdir` directory, in the `bindcraft` subdirectory, 
 ```
 
 A report summarizing the results is generated in `bindcraft_report.html`.
+
+## Binder design with BoltzGen
+
+![BoltzGen workflow](docs/docs/images/boltzgen-workflow.png)
+
+The `boltzgen.nf` workflow automates the design of binders using the [BoltzGen](https://github.com/HannesStark/boltzgen) generative model.
+It supports `protein-anything`, `peptide-anything`, `protein_small-molecule` and `nanobody-anything` protocols.
+
+Example:
+
+```bash
+nextflow run boltzgen.nf \
+    --config_yaml config/my_design.yaml \
+    --outdir results \
+    --num_designs 100 \
+    --batch_size 10 \
+    --devices 1
+```
+
+See the [BoltzGen documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltzgen/) for more details on configuration files and options.
 
 ## Boltz pulldown
 
