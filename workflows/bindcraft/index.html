@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/bindcraft/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>BindCraft - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "BindCraft";
+        var mkdocs_page_input_path = "workflows/bindcraft.md";
+        var mkdocs_page_url = "/nf-binder-design/workflows/bindcraft/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">BindCraft</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-differences">Key Differences</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#bindcraft-presets">BindCraft Presets</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#advanced-settings-presets">Advanced Settings Presets</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#filter-presets">Filter Presets</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#output-structure">Output Structure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Workflows</li>
+      <li class="breadcrumb-item active">BindCraft</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/bindcraft.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="bindcraft-workflow">BindCraft Workflow</h1>
+<p><img alt="BindCraft workflow" src="../../images/bindcraft-workflow.png" /></p>
+<p>Parallel <a href="https://github.com/martinpacesa/BindCraft">BindCraft</a> execution for protein binder design across multiple GPUs.</p>
+<h2 id="overview">Overview</h2>
+<p>The <code>bindcraft.nf</code> workflow runs <a href="https://github.com/martinpacesa/BindCraft">BindCraft</a> trajectories in parallel across multiple GPUs - ideal for HPC clusters or multi-GPU workstations.</p>
+<h2 id="key-differences">Key Differences</h2>
+<p>Unlike a 'vanilla' BindCraft run which runs on a single GPU indefinitely until finding <code>N</code> accepted designs, this pipeline:</p>
+<ul>
+<li>Runs a <strong>fixed number of trajectories</strong> (<code>--bindcraft_n_traj</code>)</li>
+<li>Stops when complete (predictable runtime)</li>
+<li>Parallelizes across available GPUs</li>
+<li>Outputs an HTML summary report</li>
+</ul>
+<p>If you want to generate a specific number of accepted designs, we suggest running a small number of trajectories (<code>--bindcraft_n_traj 100</code> or <code>--bindcraft_n_traj 300</code>) to assess the acceptance rate, then knowing the ratio of accepted designs to total trajectories, do a larger run to generate (approximately) the desired number of accepted designs.</p>
+<h2 id="command-line-options">Command-line Options</h2>
+<p>See available options with <code>--help</code>:</p>
+<pre><code class="language-bash">nextflow run bindcraft.nf --help
+</code></pre>
+<h2 id="example-usage">Example Usage</h2>
+<pre><code class="language-bash">DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+nextflow run bindcraft.nf  \
+  --input_pdb 'input/PDL1.pdb' \
+  --outdir results \
+  --target_chains &quot;A&quot; \
+  --hotspot_res &quot;A56,A125&quot; \
+  --hotspot_subsample 0.5 \
+  --binder_length_range &quot;55-120&quot; \
+  --bindcraft_n_traj 2 \
+  --bindcraft_batch_size 1 \
+  --bindcraft_advanced_settings_preset &quot;default_4stage_multimer&quot; \
+  --bindcraft_filters_preset &quot;default_filters&quot; \
+  -profile local \
+  -resume \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt
+</code></pre>
+<p>For running on SLURM, you can use the <code>-profile slurm</code> flag instead of <code>-profile local</code>, with <code>--slurm_account=xxYY</code> and the appropriate <code>-c</code> site-specific configuration file (refer to and adapt from the <a href="../rfdiffusion/#parallel-tasks-on-an-hpc-cluster">rfdiffusion example</a>).</p>
+<h2 id="key-parameters">Key Parameters</h2>
+<ul>
+<li><code>--input_pdb</code>: Target protein structure</li>
+<li><code>--target_chains</code>: Target chain IDs (comma-separated)</li>
+<li><code>--hotspot_res</code>: Hotspot residues (comma-separated)</li>
+<li><code>--hotspot_subsample</code>: Random proportion of hotspot residues per design (explores hotspot selection)</li>
+<li><code>--binder_length_range</code>: Range of binder lengths to design</li>
+<li><code>--bindcraft_n_traj</code>: Number of trajectories to run</li>
+<li><code>--bindcraft_batch_size</code>: Number of trajectories per batch</li>
+<li><code>--gpu_devices</code>: Specify multiple GPUs, e.g., <code>--gpu_devices=0,1</code> - use only for <code>-profile local</code></li>
+</ul>
+<h2 id="bindcraft-presets">BindCraft Presets</h2>
+<h3 id="advanced-settings-presets">Advanced Settings Presets</h3>
+<ul>
+<li><code>--bindcraft_advanced_settings_preset</code>: Use a preset from <a href="https://github.com/martinpacesa/BindCraft/tree/main/settings_advanced">settings_advanced</a> (without .json extension)</li>
+</ul>
+<blockquote>
+<p>Keep in mind, the experimental success rate of the advanced presets may not have been as rigorously validated as the <code>default4stage_multimer</code> preset. <em>Caveat emptor.</em></p>
+</blockquote>
+<h3 id="filter-presets">Filter Presets</h3>
+<ul>
+<li><code>--bindcraft_filters_preset</code>: Use filter settings presets from <a href="https://github.com/martinpacesa/BindCraft/tree/main/settings_filters">settings_filters</a> (without .json extension). In most cases, it's probably best to stick with the default.</li>
+</ul>
+<h2 id="output-structure">Output Structure</h2>
+<p>Results are saved to <code>--outdir</code> in the <code>bindcraft/</code> subdirectory:</p>
+<pre><code>── bindcraft
+│   ├── accepted
+│   │   └── results
+│   │       └── Accepted
+│   │           ├── bindcraft_design_1_l57_s942028_mpnn6_model1.pdb
+│   │           └── bindcraft_design_1_l57_s942028_mpnn8_model2.pdb
+│   ├── batches
+│   │   ├── 0
+│   │   │   └── results
+│   │   │       ├── failure_csv.csv
+│   │   │       ├── final_design_stats.csv
+│   │   │       ├── mpnn_design_stats.csv
+│   │   │       ├── Trajectory
+│   │   │       └── trajectory_stats.csv
+│   │   └── 1
+│   │       └── results
+│   │           ├── Accepted
+│   │           ├── failure_csv.csv
+│   │           ├── final_design_stats.csv
+│   │           ├── MPNN
+│   │           ├── mpnn_design_stats.csv
+│   │           ├── Rejected
+│   │           ├── Trajectory
+│   │           └── trajectory_stats.csv
+│   ├── bindcraft_report.html
+│   ├── failure_csv.csv
+│   ├── final_design_stats.csv
+│   ├── mpnn_design_stats.csv
+│   └── trajectory_stats.csv
+└── logs
+    ├── report_20250725_084959.html
+    ├── trace_20250725_084959.txt
+</code></pre>
+<p>A summary report is generated as <code>bindcraft_report.html</code>.</p>
+<h2 id="examples">Examples</h2>
+<p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples for BindCraft workflows:</p>
+<ul>
+<li><code>examples/pdl1-bindcraft</code>: PDL1 binder example from the BindCraft repository</li>
+<li><code>examples/egfr-bindcraft</code>: an EGFR binder design example</li>
+<li><code>examples/mdm2-bindcraft-peptide</code> - peptide binder design for MDM2, based on <a href="https://doi.org/10.1101/2025.07.23.666285">Filus et al, 2025</a></li>
+</ul>
+<p>See the <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">examples/README.md</a> for details.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../rfdiffusion/" class="btn btn-neutral float-left" title="RFdiffusion"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../boltzgen/" class="btn btn-neutral float-right" title="BoltzGen">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../rfdiffusion/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../boltzgen/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
