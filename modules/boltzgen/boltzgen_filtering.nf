@@ -3,7 +3,8 @@ process BOLTZGEN_FILTERING {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:71cf788'
 
-    publishDir path: "${params.outdir}/boltzgen", pattern: '**', mode: 'copy'
+    publishDir path: "${params.outdir}/boltzgen/merged/final_ranked_designs", pattern: 'merged/final_ranked_designs/**', mode: 'copy'
+    publishDir path: "${params.outdir}/boltzgen/merged/config", pattern: 'merged/config/*', mode: 'copy'
 
     input:
     path merged_dir
