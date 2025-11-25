@@ -27,6 +27,7 @@ process BOLTZGEN_FOLDING {
     nvidia-smi
 
     # Auto-detect MIG GPU
+    BOLTZGEN_USE_KERNELS_FLAG=""
     MIG_UUID=\$(nvidia-smi -L 2>/dev/null | sed -n 's/.*(UUID: \\(MIG-[^)]*\\)).*/\\1/p' | head -n 1)
     if [ -n "\$MIG_UUID" ]; then
     cat << 'EOF' > /tmp/mig_patch.py
