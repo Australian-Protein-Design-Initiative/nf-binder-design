@@ -75,6 +75,7 @@ EOF
 
     if grep -q "WARNING: ran out of memory, skipping batch" .command.log; then
         echo "ERROR: Task failed due to out of memory condition" >&2
+        set -e
         exit 1
     fi
     
