@@ -44,7 +44,7 @@ def paramsToMap(params) {
 process CREATE_BOLTZ_YAML {
     tag "${target_meta.id}_and_${binder_meta.id}"
 
-    container "ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0"
+    container "ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4"
 
     input:
     tuple val(target_meta), path(target_msa), val(binder_meta), path(binder_msa)
@@ -107,42 +107,25 @@ process CREATE_BOLTZ_YAML {
     """
 }
 
+
 process PARSE_BOLTZ_CONFIDENCE_JSON {
     tag "${meta.id}"
-    container "ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.8.0"
+    container "ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4"
 
     input:
-    tuple val(meta), path(json_file)
+    tuple val(meta), path(json_file), path(ipsae_tsv)
 
     output:
     stdout
 
     script:
     """
-    #!/usr/bin/env python
-    
-    #
-    # This takes a boltz confidence*.json file and flattens it into a TSV
-    # Additionally, we add the unique id, target and binder name columns
-    # Nested chains_ptm and pair_chains_iptm become chains_0, pair_chains_iptm_0_0 etc
-
-    import json
-    import sys
-    import pandas as pd
-
-    with open("${json_file}", 'r') as f:
-        data = json.load(f)
-
-    # Flatten the nested dictionaries from the JSON data
-    df_flat = pd.json_normalize(data, sep='_')
-
-    # Add the metadata columns to the beginning of the DataFrame
-    df_flat.insert(0, 'id', '${meta.id}')
-    df_flat.insert(1, 'target', '${meta.target}')
-    df_flat.insert(2, 'binder', '${meta.binder}')
-
-    # Write the flattened data to stdout as a TSV
-    df_flat.to_csv(sys.stdout, sep='\t', index=False, lineterminator='\\n')
+    python3 ${projectDir}/bin/parse_boltz_confidence.py \\
+        --json "${json_file}" \\
+        --id "${meta.id}" \\
+        --target "${meta.target}" \\
+        --binder "${meta.binder}" \\
+        --merge-ipsae "${ipsae_tsv}"
     """
 }
 
@@ -220,15 +203,17 @@ workflow {
 
     // ch_pairs.view()
 
-    CREATE_BOLTZ_YAML(ch_pairs, file(params.templates))
+    ch_templates = params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates")
 
-    BOLTZ(CREATE_BOLTZ_YAML.out, file(params.templates), "boltz_pulldown")
+    CREATE_BOLTZ_YAML(ch_pairs, ch_templates)
+
+    BOLTZ(CREATE_BOLTZ_YAML.out, ch_templates, "boltz_pulldown")
 
     // BOLTZ.out.confidence_json.view { meta, json ->
     //     "Finshed: ${meta.target} + ${meta.binder}"
     // }
 
-    PARSE_BOLTZ_CONFIDENCE_JSON(BOLTZ.out.confidence_json)
+    PARSE_BOLTZ_CONFIDENCE_JSON(BOLTZ.out.confidence_json.join(BOLTZ.out.ipsae_tsv))
 
     ch_tsv_output = PARSE_BOLTZ_CONFIDENCE_JSON.out.collectFile(
         name: "boltz_pulldown.tsv",

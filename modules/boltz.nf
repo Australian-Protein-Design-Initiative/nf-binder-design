@@ -12,6 +12,8 @@ process BOLTZ {
     path ("boltz_results_${yaml_file.baseName}"), emit: results
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/${yaml_file.baseName}_model_0.pdb"), emit: pdb
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/confidence_${yaml_file.baseName}_model_0.json"), emit: confidence_json
+    tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae.tsv"), emit: ipsae_tsv
+    tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae_byres.tsv"), emit: ipsae_byres_tsv
 
     script:
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
@@ -54,6 +56,9 @@ process BOLTZ {
         --output_format pdb \
         ${yaml_file}
 
-        #--out_dir "results"
+    ${projectDir}/bin/ipsae.py \
+        boltz_results_*/predictions/*/pae_*.npz \
+        boltz_results_*/predictions/*/*.pdb \
+        10 10
     """
 }
