@@ -11,23 +11,37 @@ import os
 import argparse
 import logging
 import csv
+import gzip
 from typing import List, Optional, Dict, Any
-from Bio import PDB
+from Bio.PDB import MMCIFParser, PDBParser
 from Bio.PDB.Polypeptide import protein_letters_3to1, is_aa
 
 
 def get_chain_sequences(pdb_file: str, chain_ids: Optional[List[str]] = None) -> Dict[str, str]:
-    """Extract one-letter amino acid sequences for specified chains in a PDB file.
+    """Extract one-letter amino acid sequences for specified chains in a PDB or 
+    CIF file.
     
     Args:
-        pdb_file: Path to the PDB file
-        chain_ids: List of chain IDs to extract sequences from. If None, extract all chains.
+        pdb_file: Path to the PDB/CIF file (can be gzipped)
+        chain_ids: List of chain IDs to extract sequences from. If None, extract 
+            all chains.
         
     Returns:
         Dictionary mapping chain IDs to their amino acid sequences
     """
-    parser = PDB.PDBParser(QUIET=True)
-    structure = parser.get_structure("structure", pdb_file)
+    is_cif = pdb_file.lower().endswith('.cif') or pdb_file.lower().endswith('.cif.gz')
+    is_gzip = pdb_file.lower().endswith('.gz')
+
+    if is_cif:
+        parser = MMCIFParser(QUIET=True)
+    else:
+        parser = PDBParser(QUIET=True)
+
+    if is_gzip:
+        with gzip.open(pdb_file, 'rt') as f:
+            structure = parser.get_structure("structure", f)
+    else:
+        structure = parser.get_structure("structure", pdb_file)
     
     sequences = {}
     
@@ -123,7 +137,8 @@ def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None,
     
     Args:
         pdb_files: List of PDB files to process
-        chain_ids: List of chain IDs to extract sequences from. If None, extract all chains.
+        chain_ids: List of chain IDs to extract sequences from. If None, extract 
+            all chains.
         output_file: Path to output file. If None or "-", write to stdout.
         scores_file: Path to TSV file containing scores
         score_columns: List of column names to include in the FASTA headers
@@ -197,20 +212,25 @@ def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract amino acid sequences from PDB files and output in FASTA format"
+        description="Extract amino acid sequences from PDB/CIF files (can be gzipped) and output in FASTA format"
     )
-    parser.add_argument("files", nargs="+", help="PDB files to process")
+    parser.add_argument("files", nargs="+", help="PDB/CIF files to process")
     parser.add_argument(
         "-o", "--output", help="Output file (default: stdout)", default="-"
     )
     parser.add_argument(
-        "--chains", help="Chain ID(s) to extract (comma-separated for multiple chains)", default=None
+        "--chains", 
+        help="Chain ID(s) to extract (comma-separated for multiple chains)", 
+        default=None
     )
     parser.add_argument(
-        "--scores-table", help="TSV file containing scores to include in FASTA headers", default=None
+        "--scores-table", 
+        help="TSV file containing scores to include in FASTA headers", 
+        default=None
     )
     parser.add_argument(
-        "--scores", help="Comma-separated list of score columns to include (default: pae_interaction,rg,length)",
+        "--scores", 
+        help="Comma-separated list of score columns to include (default: pae_interaction,rg,length)",
         default="pae_interaction,rg,length"
     )
     parser.add_argument(
@@ -237,4 +257,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
