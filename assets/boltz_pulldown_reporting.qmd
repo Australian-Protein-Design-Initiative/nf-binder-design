@@ -310,50 +310,55 @@ try:
     import statsmodels.api as sm
     from statsmodels.formula.api import mixedlm
     
-    # Fit mixed effects model with target as fixed effect, binder as random effect
-    model = mixedlm("iptm ~ C(target)", df, groups=df["binder"])
-    result = model.fit()
-    
-    print("Mixed Effects Model Results:")
-    print("=" * 40)
-    print(result.summary())
-    
-    # Create a plot of the fixed-effects coefficients
-    params = result.params
-    
-    # Identify the baseline target (the one used as intercept, typically the first alphabetically)
-    baseline_target = sorted(df['target'].unique())[0]
-    
-    # Extract coefficients into a DataFrame
-    # The coefficients from the model are offsets from the baseline (intercept)
-    coef_data = []
-    # Add the baseline with a coefficient of 0
-    coef_data.append({'target': baseline_target, 'coefficient': 0})
-    
-    for param_name, value in params.items():
-        if param_name.startswith("C(target)"):
-            # Extract target name from 'C(target)[T.target_name]'
-            target_name = param_name.split("[T.")[1][:-1]
-            coef_data.append({'target': target_name, 'coefficient': value})
+    # Check if we have more than one target (required for mixed effects model)
+    n_targets = df['target'].nunique()
+    if n_targets < 2:
+        print(f"Mixed effects model analysis requires at least 2 targets. Found {n_targets} target(s). Skipping this analysis.")
+    else:
+        # Fit mixed effects model with target as fixed effect, binder as random effect
+        model = mixedlm("iptm ~ C(target)", df, groups=df["binder"])
+        result = model.fit()
+        
+        print("Mixed Effects Model Results:")
+        print("=" * 40)
+        print(result.summary())
+        
+        # Create a plot of the fixed-effects coefficients
+        params = result.params
+        
+        # Identify the baseline target (the one used as intercept, typically the first alphabetically)
+        baseline_target = sorted(df['target'].unique())[0]
+        
+        # Extract coefficients into a DataFrame
+        # The coefficients from the model are offsets from the baseline (intercept)
+        coef_data = []
+        # Add the baseline with a coefficient of 0
+        coef_data.append({'target': baseline_target, 'coefficient': 0})
+        
+        for param_name, value in params.items():
+            if param_name.startswith("C(target)"):
+                # Extract target name from 'C(target)[T.target_name]'
+                target_name = param_name.split("[T.")[1][:-1]
+                coef_data.append({'target': target_name, 'coefficient': value})
 
-    coef_df = pd.DataFrame(coef_data).sort_values('coefficient', ascending=False)
-    
-    # Get colors in the correct order for the sorted targets
-    ordered_colors = [color_map_rgb[t] for t in coef_df['target']]
-    
-    # Plot the coefficients
-    fig_height = max(6, len(coef_df) * 0.5)
-    plt.figure(figsize=(8, fig_height))
-    
-    sns.barplot(x='coefficient', y='target', data=coef_df, palette=ordered_colors, hue='target', dodge=False)
-    
-    plt.title('Mixed Effects Model Coefficients', fontsize=16)
-    plt.xlabel(f'Coefficient (Offset from Baseline: {baseline_target})', fontsize=12)
-    plt.ylabel('Target', fontsize=12)
-    plt.axvline(0, color='k', linestyle='--', linewidth=1)
-    plt.legend([],[], frameon=False) # Hide legend created by 'hue'
-    plt.tight_layout()
-    plt.show()
+        coef_df = pd.DataFrame(coef_data).sort_values('coefficient', ascending=False)
+        
+        # Get colors in the correct order for the sorted targets
+        ordered_colors = [color_map_rgb[t] for t in coef_df['target']]
+        
+        # Plot the coefficients
+        fig_height = max(6, len(coef_df) * 0.5)
+        plt.figure(figsize=(8, fig_height))
+        
+        sns.barplot(x='coefficient', y='target', data=coef_df, palette=ordered_colors, hue='target', dodge=False)
+        
+        plt.title('Mixed Effects Model Coefficients', fontsize=16)
+        plt.xlabel(f'Coefficient (Offset from Baseline: {baseline_target})', fontsize=12)
+        plt.ylabel('Target', fontsize=12)
+        plt.axvline(0, color='k', linestyle='--', linewidth=1)
+        plt.legend([],[], frameon=False) # Hide legend created by 'hue'
+        plt.tight_layout()
+        plt.show()
 
 except ImportError:
     print("Mixed effects modelling requires statsmodels package. Skipping this analysis.")
@@ -426,18 +431,33 @@ This may show trends of which targets are most similar to each other, and which 
 # Create pivot table for heatmap (binders vs targets)
 heatmap_data = df.pivot_table(values='iptm', index='binder', columns='target', fill_value=0)
 
-g = sns.clustermap(heatmap_data, 
-               cmap='viridis', 
-               method='average', # Using average linkage, compatible with cosine distance
-               metric='cosine', # Using cosine distance
-               figsize=(8, 16),
-               cbar_kws={'label': 'ipTM Score'},
-               xticklabels=True,
-               yticklabels=True)
-g.fig.suptitle('Hierarchical Clustering: Binders vs Targets (Cosine Distance, Average Linkage)', y=1.02)
-plt.show()
+# Check if we have enough data for clustering (need at least 2 binders and 2 targets)
+n_binders = heatmap_data.shape[0]
+n_targets = heatmap_data.shape[1]
 
-print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
+if n_binders < 2 or n_targets < 2:
+    print(f"Hierarchical clustering requires at least 2 binders and 2 targets. Found {n_binders} binder(s) and {n_targets} target(s). Skipping clustering heatmap.")
+    # Still show a simple heatmap without clustering
+    plt.figure(figsize=(max(6, n_targets * 0.8), max(6, n_binders * 0.3)))
+    sns.heatmap(heatmap_data, cmap='viridis', cbar_kws={'label': 'ipTM Score'}, 
+                xticklabels=True, yticklabels=True)
+    plt.title('Heatmap: Binders vs Targets (No Clustering)', fontsize=14)
+    plt.tight_layout()
+    plt.show()
+    print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
+else:
+    g = sns.clustermap(heatmap_data, 
+                   cmap='viridis', 
+                   method='average', # Using average linkage, compatible with cosine distance
+                   metric='cosine', # Using cosine distance
+                   figsize=(8, 16),
+                   cbar_kws={'label': 'ipTM Score'},
+                   xticklabels=True,
+                   yticklabels=True)
+    g.fig.suptitle('Hierarchical Clustering: Binders vs Targets (Cosine Distance, Average Linkage)', y=1.02)
+    plt.show()
+    
+    print(f"Heatmap dimensions: {heatmap_data.shape[0]} binders × {heatmap_data.shape[1]} targets")
 ```
 
 ## Binder ipTM Across Targets (Parallel Coordinates)
@@ -448,30 +468,35 @@ This plot visualizes the performance of each individual binder across the differ
 #| label: parallel-coords-plot-altair
 #| message: false
 
-# Re-using the `target_order` from the boxplot cell
-first_target = target_order[0]
-
-# Get the initial ipTM score for each binder from the first target
-initial_iptm_df = df[df['target'] == first_target][['binder', 'iptm']].rename(columns={'iptm': 'initial_iptm'})
-
-# Merge this back into the main dataframe
-df_merged = pd.merge(df, initial_iptm_df, on='binder', how='left')
-
-# Create the parallel coordinates plot with Altair
-chart = alt.Chart(df_merged).mark_line().encode(
-    x=alt.X('target:N', sort=target_order.tolist(), title='Target'),
-    y=alt.Y('iptm:Q', title='ipTM Score'),
-    color=alt.Color('initial_iptm:Q', 
-                    scale=alt.Scale(scheme='viridis'),
-                    legend=alt.Legend(title=f"ipTM on {first_target}")),
-    detail='binder:N', # Use detail to group lines without affecting color
-    tooltip=['binder:N', 'target:N', 'iptm:Q']
-).properties(
-    title='Binder Performance Across Targets',
-    width=600
-).interactive()
-
-chart
+# Check if we have more than one target (required for parallel coordinates)
+n_targets = len(target_order)
+if n_targets < 2:
+    print(f"Parallel coordinates plot requires at least 2 targets. Found {n_targets} target(s). Skipping this visualization.")
+else:
+    # Re-using the `target_order` from the boxplot cell
+    first_target = target_order[0]
+    
+    # Get the initial ipTM score for each binder from the first target
+    initial_iptm_df = df[df['target'] == first_target][['binder', 'iptm']].rename(columns={'iptm': 'initial_iptm'})
+    
+    # Merge this back into the main dataframe
+    df_merged = pd.merge(df, initial_iptm_df, on='binder', how='left')
+    
+    # Create the parallel coordinates plot with Altair
+    chart = alt.Chart(df_merged).mark_line().encode(
+        x=alt.X('target:N', sort=target_order.tolist(), title='Target'),
+        y=alt.Y('iptm:Q', title='ipTM Score'),
+        color=alt.Color('initial_iptm:Q', 
+                        scale=alt.Scale(scheme='viridis'),
+                        legend=alt.Legend(title=f"ipTM on {first_target}")),
+        detail='binder:N', # Use detail to group lines without affecting color
+        tooltip=['binder:N', 'target:N', 'iptm:Q']
+    ).properties(
+        title='Binder Performance Across Targets',
+        width=600
+    ).interactive()
+    
+    chart
 ```
 
 
