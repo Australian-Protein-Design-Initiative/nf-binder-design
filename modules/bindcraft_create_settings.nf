@@ -1,5 +1,5 @@
 process BINDCRAFT_CREATE_SETTINGS {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     input:
     tuple val(batch_id), val(n_designs)

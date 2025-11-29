@@ -1,6 +1,6 @@
 process RMSD4ALL {
     tag "${out_name}"
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
     publishDir "${params.outdir}/${step_name}/rmsd", mode: 'copy'
 
     input:

@@ -1,7 +1,7 @@
 process FILTER_DESIGNS {
     tag "filter_${pdb.name}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     publishDir "${params.outdir}/${step}/scores", mode: 'copy', pattern: '*.scores.tsv'
     publishDir "${params.outdir}/${step}/filtered", mode: 'copy', pattern: 'accepted/*.pdb'

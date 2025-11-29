@@ -1,5 +1,5 @@
 process GET_CONTIGS {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     input:
     tuple path(input_pdb), val(chain_id)

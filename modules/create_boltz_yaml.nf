@@ -7,7 +7,7 @@ def sanitize(name) {
 process CREATE_BOLTZ_YAML {
     tag "${target_meta.id}_and_${binder_meta.id}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     input:
     tuple val(target_meta), path(target_msa), val(binder_meta), path(binder_msa)
@@ -74,7 +74,7 @@ process CREATE_BOLTZ_YAML {
 process CREATE_BOLTZ_YAML_MONOMER {
     tag "${meta.id}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     input:
     tuple val(meta), path(msa), val(type)

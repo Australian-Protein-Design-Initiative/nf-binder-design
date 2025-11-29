@@ -1,7 +1,7 @@
 process AF2IG_SCORE_FILTER {
     tag "af2ig_score_filter"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     publishDir "${params.outdir}/af2_initial_guess/filtered", mode: 'copy'
 

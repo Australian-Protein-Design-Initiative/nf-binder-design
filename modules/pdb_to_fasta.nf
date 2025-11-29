@@ -1,6 +1,6 @@
 process PDB_TO_FASTA {
     //tag "${meta.id}"
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.4'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     input:
     path(pdb_file)
