@@ -23,6 +23,26 @@ params.devices = false
 params.num_workers = false
 params.inverse_fold_num_sequences = false
 
+// Function to validate design_name does not end with a number
+def validateDesignName(design_name) {
+    if (design_name == null) {
+        return true  // No validation needed if parameter is not provided
+    }
+
+    // Check for empty or whitespace-only string
+    if (design_name.trim().isEmpty()) {
+        error "Invalid design_name format: '${design_name}'. Design name cannot be empty or whitespace only."
+    }
+
+    // Check if design_name ends with a digit
+    def pattern = ~/\d$/
+    if (design_name =~ pattern) {
+        error "Invalid design_name format: '${design_name}'. Design name cannot end with a number. Use a name like 'mydesign' instead of 'mydesign_1'."
+    }
+
+    return true
+}
+
 def paramsToMap(params) {
     def map = [:]
     params.each { key, value ->
@@ -78,6 +98,9 @@ workflow {
         // Remove .yaml or .yml extension
         design_name = config_basename.replaceFirst(/\.(yaml|yml)$/, '')
     }
+
+    // Validate design_name does not end with a number
+    validateDesignName(design_name)
 
     // Validate config_yaml exists
     ch_config_yaml = Channel.fromPath(params.config_yaml).first()
