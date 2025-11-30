@@ -3,7 +3,7 @@ nextflow.enable.dsl = 2
 process BOLTZ_PULLDOWN_REPORTING {
     publishDir "${params.outdir}/boltz_pulldown", mode: 'copy'
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/mdanalysis:2.9.0'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
     input:
     path('boltz_pulldown_report.qmd')
