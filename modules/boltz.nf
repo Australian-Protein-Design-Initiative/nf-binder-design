@@ -1,6 +1,6 @@
 process BOLTZ {
     tag "${meta.id}"
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltz:v2.2.1'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltz:v2.2.1-2'
     publishDir "${params.outdir}/${step_name}", mode: 'copy'
 
     input:
