@@ -63,6 +63,24 @@ Refolded complexes and binder monomers are in `results/boltz_refold/predict/comp
 
 In this mode, the pipeline only calculates the extra BindCraft-style scores for the Boltz-2 refolded complexes, rather than the AF2 initial guess models.
 
+### RMSD Comparisons
+
+When Boltz-2 refolding is enabled, several C-alpha RMSD comparisons are calculated and saved to `results/boltz_refold/rmsd/`:
+
+| File | Superimpose On | Measure | Interpretation |
+|------|----------------|---------|----------------|
+| `rmsd_target_aligned_binder.tsv` | Target (B) | Binder (A) | Binding pose deviation after refolding |
+| `rmsd_complex_vs_af2ig.tsv` | Both (A,B) | Both (A,B) | Overall structural agreement between AF2IG and Boltz |
+| `rmsd_monomer_vs_af2ig.tsv` | Binder (A) | Binder (A) | Binder folding change between bound/unbound (monomer vs AF2IG complex) |
+| `rmsd_monomer_vs_complex.tsv` | Binder (A) | Binder (A) | Binder folding change between bound/unbound  (monomer vs Boltz complex) |
+
+Each file contains `rmsd_pruned` (aligned core residues only) and `rmsd_all` (all residues) values.
+
+**Key metrics for assessing binder quality:**
+
+- **`rmsd_target_aligned_binder.tsv` → `rmsd_all`**: Low values (<~3.5 Å?) indicate the binder maintains its binding pose relative to the target after Boltz refolding. High values indicate the binder is in a different binding site or pose in the Boltz-2 refolded prediction, relative to the initial AF2 initial guess. This value is included in the `combined_scores.tsv` file as `boltz_target_aligned_binder_rmsd_all`.
+
+- **`rmsd_monomer_vs_complex.tsv` → `rmsd_all`**: Indicative of possible binder conformational changes upon binding. Low values (<~3.5 Å?) mean the binder structure is similar whether predicted alone or in complex - a good sign for a stable, foldable binder. This value is included in the `combined_scores.tsv` file as `boltz_monomer_vs_complex_rmsd_all`.
 
 ## Binder Design with RFdiffusion (main.nf)
 
