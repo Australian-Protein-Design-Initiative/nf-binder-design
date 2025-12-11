@@ -323,19 +323,21 @@ workflow {
         DL_BINDER_DESIGN_PROTEINMPNN.out.pdbs
     )
 
-    af2ig_scores = AF2_INITIAL_GUESS.out.scores_tsv.collectFile(
-        name: 'af2ig_scores.tsv',
-        storeDir: "${params.outdir}/af2_initial_guess",
-        keepHeader: true,
-        skip: 1,
-    )
+    af2ig_scores = AF2_INITIAL_GUESS.out.pdbs_with_scores
+        .map { pdbs, scores -> scores }
+        .collectFile(
+            name: 'af2ig_scores.tsv',
+            storeDir: "${params.outdir}/af2_initial_guess",
+            keepHeader: true,
+            skip: 1,
+        )
 
     // Optional Boltz-2 refolding of filtered designs
     if (params.refold_af2ig_filters) {
         // Filter designs by score thresholds
         AF2IG_SCORE_FILTER(
-            AF2_INITIAL_GUESS.out.scores_tsv,
-            AF2_INITIAL_GUESS.out.pdbs.collect(),
+            AF2_INITIAL_GUESS.out.pdbs_with_scores.map { pdbs, scores -> scores },
+            AF2_INITIAL_GUESS.out.pdbs_with_scores.map { pdbs, scores -> pdbs },
             params.refold_af2ig_filters,
         )
 

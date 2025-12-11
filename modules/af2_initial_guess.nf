@@ -8,9 +8,9 @@ process AF2_INITIAL_GUESS {
     path 'input/*'
 
     output:
+    tuple path('pdbs/*.pdb'), path('af2ig_scores.tsv'), emit: pdbs_with_scores
     path 'pdbs/*.pdb', emit: pdbs
     path 'scores/*.cs', emit: scores
-    path 'af2ig_scores.tsv', emit: scores_tsv
 
     script:
     """
