@@ -24,11 +24,13 @@ process BOLTZGEN_DESIGN {
     def devices_arg = devices ? "--devices ${devices}" : ""
     def num_workers_arg = num_workers ? "--num_workers ${num_workers}" : ""
     """
+    set -euo pipefail
+    
     nvidia-smi
 
     # Auto-detect MIG GPU
     BOLTZGEN_USE_KERNELS_FLAG=""
-    MIG_UUID=\$(nvidia-smi -L 2>/dev/null | sed -n 's/.*(UUID: \\(MIG-[^)]*\\)).*/\\1/p' | head -n 1)
+    MIG_UUID=\$(nvidia-smi -L 2>/dev/null | sed -n 's/.*(UUID: \\(MIG-[^)]*\\)).*/\\1/p' | head -n 1 || true)
     if [ -n "\$MIG_UUID" ]; then
     cat << 'EOF' > /tmp/mig_patch.py
 import pynvml
@@ -75,7 +77,6 @@ EOF
 
     if grep -q "WARNING: ran out of memory, skipping batch" .command.log; then
         echo "ERROR: Task failed due to out of memory condition" >&2
-        set -e
         exit 1
     fi
     

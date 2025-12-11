@@ -18,11 +18,13 @@ process BOLTZGEN_ANALYSIS {
     script:
     def config_basename = config_yaml.name
     """
+    set -euo pipefail
+
     nvidia-smi
 
     # Auto-detect MIG GPU
     BOLTZGEN_USE_KERNELS_FLAG=""
-    MIG_UUID=\$(nvidia-smi -L 2>/dev/null | sed -n 's/.*(UUID: \\(MIG-[^)]*\\)).*/\\1/p' | head -n 1)
+    MIG_UUID=\$(nvidia-smi -L 2>/dev/null | sed -n 's/.*(UUID: \\(MIG-[^)]*\\)).*/\\1/p' | head -n 1 || true)
     if [ -n "\$MIG_UUID" ]; then
     cat << 'EOF' > /tmp/mig_patch.py
 import pynvml

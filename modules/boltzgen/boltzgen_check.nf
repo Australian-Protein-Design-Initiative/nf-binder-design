@@ -11,6 +11,8 @@ process BOLTZGEN_CHECK {
 
     script:
     """
+    set -euo pipefail
+
     boltzgen check ${design_name}.yaml
     """
 }

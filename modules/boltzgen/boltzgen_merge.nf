@@ -13,6 +13,8 @@ process BOLTZGEN_MERGE {
 
     script:
     """
+    set -euo pipefail
+
     mkdir -p merged/intermediate_designs_inverse_folded
     
     # Find all batch directories (batch_*) - follow symlinks with -L
