@@ -35,6 +35,8 @@ process BOLTZGEN_INVERSE_FOLDING {
     mkdir -p \$XDG_CONFIG_HOME
     export TRITON_CACHE_DIR="\$(pwd)/.triton_cache"
     mkdir -p \$TRITON_CACHE_DIR
+    export CUEQ_TRITON_CACHE_DIR="\$(pwd)/.cuequivariance_triton_cache"
+    mkdir -p \$CUEQ_TRITON_CACHE_DIR
 
     nvidia-smi
 
