@@ -25,6 +25,14 @@ process BOLTZGEN_DESIGN {
     def num_workers_arg = num_workers ? "--num_workers ${num_workers}" : ""
     """
     set -euo pipefail
+
+    # Create various tmp/cache directories that are expected to be in \$HOME by default
+    export NUMBA_CACHE_DIR="\$(pwd)/.numba_cache"
+    mkdir -p \$NUMBA_CACHE_DIR
+    export XDG_CONFIG_HOME="\$(pwd)/.config"
+    mkdir -p \$XDG_CONFIG_HOME
+    export TRITON_CACHE_DIR="\$(pwd)/.triton_cache"
+    mkdir -p \$TRITON_CACHE_DIR
     
     nvidia-smi
 
