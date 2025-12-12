@@ -1,7 +1,7 @@
 process BOLTZGEN_ANALYSIS {
     tag "analysis"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:71cf788'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.2.0'
 
     publishDir path: "${params.outdir}/boltzgen", pattern: '**', mode: 'copy'
 

@@ -1,6 +1,6 @@
 process BOLTZGEN_CHECK {
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:71cf788'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.2.0'
 
     input:
     path 'input/*'

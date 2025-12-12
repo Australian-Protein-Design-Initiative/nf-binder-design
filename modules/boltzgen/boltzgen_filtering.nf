@@ -1,7 +1,7 @@
 process BOLTZGEN_FILTERING {
     tag "filtering"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:71cf788'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.2.0'
 
     publishDir path: "${params.outdir}/boltzgen/merged/final_ranked_designs", pattern: 'merged/final_ranked_designs/**', mode: 'copy'
     publishDir path: "${params.outdir}/boltzgen/merged/config", pattern: 'merged/config/*', mode: 'copy'

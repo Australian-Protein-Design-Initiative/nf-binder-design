@@ -1,7 +1,7 @@
 process BOLTZGEN_FOLDING {
     tag "batch_${start_index}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:71cf788'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.2.0'
 
     //publishDir path: "${params.outdir}/boltzgen/batch_${start_index}", pattern: '**', mode: 'copy'
     publishDir path: "${params.outdir}/boltzgen/batches/folding", pattern: '**', mode: 'copy'
