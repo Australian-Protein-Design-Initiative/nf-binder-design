@@ -155,9 +155,7 @@ workflow {
     // Phase 2: Inverse Folding (Parallel)
     // Extract start_index from batch_dir path (batch_dir is batch_{start_index}/)
     ch_batch_with_start = BOLTZGEN_DESIGN.out.batch_dir.map { batch_dir ->
-        def dir_path = batch_dir.toString()
-        def dir_name = new File(dir_path).name
-        def start_idx = dir_name.replaceAll(/batch_/, '').toInteger()
+        def start_idx = batch_dir.name.replaceAll(/batch_/, '').toInteger()
         return [batch_dir, start_idx]
     }
 
@@ -175,9 +173,7 @@ workflow {
 
     // Phase 3: Folding (Parallel)
     ch_folding_batch_with_start = BOLTZGEN_INVERSE_FOLDING.out.batch_dir.map { batch_dir ->
-        def dir_path = batch_dir.toString()
-        def dir_name = new File(dir_path).name
-        def start_idx = dir_name.replaceAll(/batch_/, '').toInteger()
+        def start_idx = batch_dir.name.replaceAll(/batch_/, '').toInteger()
         return [batch_dir, start_idx]
     }
 
@@ -195,9 +191,7 @@ workflow {
     // Phase 4: Design Folding (Parallel, if applicable)
     if (params.protocol in ['protein-anything', 'protein-small_molecule']) {
         ch_design_folding_batch_with_start = BOLTZGEN_FOLDING.out.batch_dir.map { batch_dir ->
-            def dir_path = batch_dir.toString()
-            def dir_name = new File(dir_path).name
-            def start_idx = dir_name.replaceAll(/batch_/, '').toInteger()
+            def start_idx = batch_dir.name.replaceAll(/batch_/, '').toInteger()
             return [batch_dir, start_idx]
         }
 
@@ -214,9 +208,7 @@ workflow {
         
         if (params.protocol == 'protein-small_molecule') {
             ch_affinity_batch_with_start = BOLTZGEN_DESIGN_FOLDING.out.batch_dir.map { batch_dir ->
-                def dir_path = batch_dir.toString()
-                def dir_name = new File(dir_path).name
-                def start_idx = dir_name.replaceAll(/batch_/, '').toInteger()
+                def start_idx = batch_dir.name.replaceAll(/batch_/, '').toInteger()
                 return [batch_dir, start_idx]
             }
 
@@ -240,27 +232,31 @@ workflow {
         ch_design_folded = BOLTZGEN_FOLDING.out.batch_dir
     }
 
-    // Phase 5: Merge
-    BOLTZGEN_MERGE(
-        ch_design_folded.collect()
-    )
-
-    // Phase 6: Analysis (Single process)
-    ch_merged_dir = BOLTZGEN_MERGE.out.merged_dir.first()
+    // Phase 5: Analysis (Parallel)
+    ch_analysis_batch_with_start = ch_design_folded.map { batch_dir ->
+        def start_idx = batch_dir.name.replaceAll(/batch_/, '').toInteger()
+        return [batch_dir, start_idx]
+    }
 
     BOLTZGEN_ANALYSIS(
-        ch_merged_dir,
+        ch_analysis_batch_with_start.map { batch_dir, _start_idx -> batch_dir },
         ch_config_yaml,
         ch_input_files,
         ch_design_name,
         ch_protocol,
+        ch_analysis_batch_with_start.map { _batch_dir, start_idx -> start_idx },
+    )
+
+    // Phase 6: Merge
+    BOLTZGEN_MERGE(
+        BOLTZGEN_ANALYSIS.out.batch_dir.collect()
     )
 
     // Phase 7: Filtering (Single process)
-    ch_analysis_merged_dir = BOLTZGEN_ANALYSIS.out.merged_dir.first()
+    ch_merged_dir = BOLTZGEN_MERGE.out.merged_dir.first()
 
     BOLTZGEN_FILTERING(
-        ch_analysis_merged_dir,
+        ch_merged_dir,
         ch_config_yaml,
         ch_input_files,
         ch_design_name,
