@@ -3,8 +3,8 @@ process BOLTZGEN_FILTERING {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.2.0'
 
-    publishDir path: "${params.outdir}/boltzgen/merged/final_ranked_designs", pattern: 'merged/final_ranked_designs/**', mode: 'copy'
-    publishDir path: "${params.outdir}/boltzgen/merged/config", pattern: 'merged/config/*', mode: 'copy'
+    publishDir path: "${params.outdir}/boltzgen/", pattern: 'merged/**', mode: 'copy', overwrite: true
+    publishDir path: "${params.outdir}/boltzgen/merged/config/", pattern: 'filtering.yaml', mode: 'copy', overwrite: true
 
     input:
     path merged_dir
@@ -15,7 +15,8 @@ process BOLTZGEN_FILTERING {
     val budget
 
     output:
-    path 'merged', type: 'dir', emit: merged_dir
+    path 'merged/final_ranked_designs', type: 'dir', emit: final_ranked_designs_dir
+    path 'merged/config/filtering.yaml', type: 'file', emit: filtering_config_yaml
 
     script:
     def config_basename = config_yaml.name
