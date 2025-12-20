@@ -9,13 +9,16 @@
 import argparse
 import yaml
 import os
-import shutil
 import sys
 from pathlib import Path
+from typing import Optional
 
 
-def stage_input_files(config_path: str, input_files_dir: str, config_dir: str = None):
-    """Stage input files from config.yaml at correct relative paths.
+def stage_input_files(config_path: str, input_files_dir: str, config_dir: Optional[str] = None):
+    """Stage input files from config.yaml at correct relative paths using symlinks.
+    
+    Creates relative symlinks from the paths specified in the config YAML to the
+    staged input files, preserving the directory structure expected by boltzgen.
     
     Args:
         config_path: Path to the config YAML file
@@ -65,16 +68,39 @@ def stage_input_files(config_path: str, input_files_dir: str, config_dir: str = 
             
             # Find the input file by basename
             file_basename = os.path.basename(file_path)
+            
+            # Resolve target path (where symlink will be created)
+            target_path = Path(config_dir) / rel_path if not os.path.isabs(rel_path) else Path(rel_path)
+            target_dir = target_path.parent
+            
             if file_basename in input_files_map:
-                # Copy to correct relative path
-                shutil.copy2(input_files_map[file_basename], rel_path)
+                # Create relative symlink to staged input file
+                source_path = Path(input_files_map[file_basename]).resolve()
+                # Calculate relative path from target directory to source file
+                rel_source = os.path.relpath(source_path, target_dir)
+                
+                # Remove existing file/symlink if it exists
+                if target_path.exists() or target_path.is_symlink():
+                    target_path.unlink()
+                
+                # Create relative symlink
+                target_path.symlink_to(rel_source)
             elif os.path.exists(file_basename):
                 # Fallback: file might already be in current directory
-                shutil.copy2(file_basename, rel_path)
+                source_path = Path(file_basename).resolve()
+                rel_source = os.path.relpath(source_path, target_dir)
+                
+                if target_path.exists() or target_path.is_symlink():
+                    target_path.unlink()
+                
+                target_path.symlink_to(rel_source)
             else:
                 # Check if file already exists at the target location
-                if not os.path.exists(rel_path):
-                    print(f"Warning: Input file not found: {file_path} (basename: {file_basename})", file=sys.stderr)
+                if not os.path.exists(rel_path) and not target_path.exists():
+                    raise FileNotFoundError(
+                        f"Input file not found: {file_path} "
+                        f"(basename: {file_basename})"
+                    )
 
 
 def main():
