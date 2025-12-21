@@ -2,15 +2,6 @@
 
 nextflow.enable.dsl = 2
 
-include { BOLTZGEN_DESIGN } from './modules/boltzgen/boltzgen_design'
-include { BOLTZGEN_INVERSE_FOLDING } from './modules/boltzgen/boltzgen_inverse_folding'
-include { BOLTZGEN_FOLDING } from './modules/boltzgen/boltzgen_folding'
-include { BOLTZGEN_DESIGN_FOLDING } from './modules/boltzgen/boltzgen_design_folding'
-include { BOLTZGEN_AFFINITY } from './modules/boltzgen/boltzgen_affinity'
-include { BOLTZGEN_MERGE } from './modules/boltzgen/boltzgen_merge'
-include { BOLTZGEN_ANALYSIS } from './modules/boltzgen/boltzgen_analysis'
-include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
-
 // Default parameters
 params.config_yaml = false
 params.outdir = 'results'
@@ -22,6 +13,15 @@ params.budget = 10
 params.devices = false
 params.num_workers = false
 params.inverse_fold_num_sequences = false
+
+include { BOLTZGEN_DESIGN } from './modules/boltzgen/boltzgen_design'
+include { BOLTZGEN_INVERSE_FOLDING } from './modules/boltzgen/boltzgen_inverse_folding'
+include { BOLTZGEN_FOLDING } from './modules/boltzgen/boltzgen_folding'
+include { BOLTZGEN_DESIGN_FOLDING } from './modules/boltzgen/boltzgen_design_folding'
+include { BOLTZGEN_AFFINITY } from './modules/boltzgen/boltzgen_affinity'
+include { BOLTZGEN_MERGE } from './modules/boltzgen/boltzgen_merge'
+include { BOLTZGEN_ANALYSIS } from './modules/boltzgen/boltzgen_analysis'
+include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
 
 // Function to validate design_name does not end with a number
 def validateDesignName(design_name) {
@@ -262,6 +262,7 @@ workflow {
         ch_design_name,
         ch_protocol,
         Channel.value(params.budget),
+        Channel.value(''),
     )
 
     ///////////////////////////////////////////////////////////////////////////

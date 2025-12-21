@@ -1,0 +1,262 @@
+#!/usr/bin/env nextflow
+
+nextflow.enable.dsl = 2
+
+// Default parameters
+params.help = false
+params.config_yaml = false
+params.run = 'results/boltzgen/merged'
+params.outdir = 'results'
+params.protocol = false
+params.budget = 10
+params.alpha = false
+params.filter_biased = false
+params.metrics_override = []
+params.additional_filters = []
+params.size_buckets = []
+params.refolding_rmsd_threshold = false
+
+include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
+
+def paramsToMap(params) {
+    def map = [:]
+    params.each { key, value ->
+        if (value instanceof Path || value instanceof File) {
+            map[key] = value.toString()
+        }
+        else if (!(value instanceof Closure) && !(key in [
+            'class',
+            'launchDir',
+            'projectDir',
+            'workDir',
+        ])) {
+            map[key] = value
+        }
+    }
+    return map
+}
+
+def detectParams(params) {
+    // If config_yaml and protocol are already set, return them
+    def config_yaml = params.config_yaml
+    def protocol = params.protocol
+    
+    // if (config_yaml && config_yaml != false && protocol && protocol != false) {
+    //     return [config_yaml: config_yaml, protocol: protocol]
+    // }
+
+    // Validate run directory exists (needed for reading params.json)
+    def run_dir = file(params.run)
+    if (!run_dir.exists() || !run_dir.isDirectory()) {
+        error "Input directory does not exist or is not a directory: ${params.run}"
+    }
+
+    // Try to read params.json for auto-detection
+    def params_json_path = file("${params.run}/../../params.json")
+    def params_json = null
+    if (params_json_path.exists()) {
+        params_json = new groovy.json.JsonSlurper().parse(params_json_path)
+    }
+
+    // Determine config_yaml - use existing value if set, otherwise try to read from params.json
+    if (!config_yaml || config_yaml == false) {
+        if (params_json && params_json.params && params_json.params.config_yaml) {
+            config_yaml = params_json.params.config_yaml
+            log.info("Auto-detected config_yaml from params.json: ${config_yaml}")
+        }
+    }
+    if (!config_yaml || config_yaml == false) {
+        error "config_yaml not specified and could not be auto-detected from ${params_json_path}. Please specify --config_yaml."
+    }
+
+    // Determine protocol - use existing value if set, otherwise try to read from params.json
+    if (!protocol || protocol == false) {
+        if (params_json && params_json.params && params_json.params.protocol) {
+            protocol = params_json.params.protocol
+            log.info("Auto-detected protocol from params.json: ${protocol}")
+        }
+    }
+    if (!protocol || protocol == false) {
+        error "Protocol not specified and could not be auto-detected from ${params_json_path}. Please specify --protocol."
+    }
+
+    return [config_yaml: config_yaml, protocol: protocol]
+}
+
+def buildFilteringArgs(alpha, filter_biased, metrics_override, additional_filters, size_buckets, refolding_rmsd_threshold) {
+    def filtering_args_list = []
+    
+    if (alpha != false) {
+        filtering_args_list.add("--alpha ${alpha}")
+    }
+    
+    // filter_biased defaults to true in boltzgen, only pass if user wants to disable it
+    if (filter_biased != false) {
+        if (filter_biased.toString().toLowerCase() == 'false') {
+            filtering_args_list.add("--filter_biased false")
+        }
+        // If true, don't pass it (use boltzgen default)
+    }
+    
+    // Handle metrics_override - can be a list or a single string
+    // Quote values to handle special characters like = in shell
+    if (metrics_override) {
+        def metrics_list = metrics_override instanceof List ? metrics_override : [metrics_override]
+        def filtered_metrics = metrics_list.findAll { it && it.toString().trim() }
+        if (filtered_metrics.size() > 0) {
+            def metrics_override_str = filtered_metrics.collect { "'${it}'" }.join(' ')
+            filtering_args_list.add("--metrics_override ${metrics_override_str}")
+        }
+    }
+    
+    // Handle additional_filters - can be a list or a single string
+    // Quote values to handle special characters like < and > in shell
+    if (additional_filters) {
+        def filters_list = additional_filters instanceof List ? additional_filters : [additional_filters]
+        def filtered_filters = filters_list.findAll { it && it.toString().trim() }
+        if (filtered_filters.size() > 0) {
+            def additional_filters_str = filtered_filters.collect { "'${it}'" }.join(' ')
+            filtering_args_list.add("--additional_filters ${additional_filters_str}")
+        }
+    }
+    
+    // Handle size_buckets - can be a list or a single string
+    // Quote values to handle special characters like - and : in shell
+    if (size_buckets) {
+        def buckets_list = size_buckets instanceof List ? size_buckets : [size_buckets]
+        def filtered_buckets = buckets_list.findAll { it && it.toString().trim() }
+        if (filtered_buckets.size() > 0) {
+            def size_buckets_str = filtered_buckets.collect { "'${it}'" }.join(' ')
+            filtering_args_list.add("--size_buckets ${size_buckets_str}")
+        }
+    }
+    
+    if (refolding_rmsd_threshold != false) {
+        filtering_args_list.add("--refolding_rmsd_threshold ${refolding_rmsd_threshold}")
+    }
+    
+    return filtering_args_list
+}
+
+workflow {
+    // Show help message
+    if (params.help) {
+        log.info(
+            """
+        ==================================================================
+        🧬 BOLTZGEN FILTERING WORKFLOW 🧬
+        ==================================================================
+
+        Re-run filtering on existing BoltzGen merged results with custom parameters.
+
+        If left unset, --config_yaml and --protocol are auto-detected from ${params.run}/../params.json.
+
+        Optional arguments:
+            --run                         Input directory containing merged results [default: ${params.run}]
+            --outdir                      Output directory [default: ${params.outdir}]
+            --config_yaml                 Path to BoltzGen YAML config file [auto-detected from --run/../params.json if not specified]
+            --protocol                    Protocol type (protein-anything, peptide-anything, protein-small_molecule, nanobody-anything) [auto-detected from --run/../params.json if not specified]
+            --budget                      Final diversity-optimized set size [default: ${params.budget}]
+            --alpha                       Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only
+            --filter_biased               Remove amino-acid composition outliers (default: true, use --filter_biased false to disable)
+            --metrics_override            Per-metric inverse-importance weights for ranking. Format: metric_name=weight (e.g., 'plip_hbonds_refolded=4' 'delta_sasa_refolded=2')
+            --additional_filters          Extra hard filters. Format: feature>threshold or feature<threshold (e.g., 'design_ALA>0.3' 'design_GLY<0.2')
+            --size_buckets                Optional constraint for maximum number of designs in size ranges. Format: min-max:count (e.g., '10-20:5' '20-30:10')
+            --refolding_rmsd_threshold     Threshold used for RMSD-based filters (lower is better)
+
+        Example:
+            nextflow run boltzgen_filter.nf --budget 20 --alpha 0.05
+
+        """.stripIndent()
+        )
+        exit(0)
+    }
+
+    // Auto-detect config_yaml and protocol from params.json if not specified
+    def loaded_params = detectParams(params)
+    def config_yaml = loaded_params.config_yaml
+    def protocol = loaded_params.protocol
+
+    // Validate config_yaml exists
+    ch_config_yaml = Channel.fromPath(config_yaml).first()
+
+    // Parse config.yaml to extract input files
+    def config_file = file(config_yaml)
+    def config_dir = config_file.parent
+    def parse_cmd = ["python3", "${projectDir}/bin/boltzgen/parse_boltzgen_config.py", config_file.toString(), "--config-dir", config_dir.toString()]
+    def parse_output = parse_cmd.execute().text.trim()
+    def input_file_paths = parse_output.split('\n').findAll { it.trim() }
+
+    // Create channel of input files
+    if (input_file_paths.isEmpty()) {
+        ch_input_files = Channel.value([])
+    } else {
+        ch_input_files = Channel.from(input_file_paths)
+            .map { file_path -> file(file_path.trim()) }
+            .collect()
+            .map { files -> files }
+            .first()
+    }
+
+    // Set design_name from config_yaml basename
+    def config_file_obj = new File(config_yaml)
+    def config_basename = config_file_obj.getName()
+    def design_name = config_basename.replaceFirst(/\.(yaml|yml)$/, '')
+
+    // Build filtering arguments string
+    def filtering_args = buildFilteringArgs(
+        params.alpha,
+        params.filter_biased,
+        params.metrics_override,
+        params.additional_filters,
+        params.size_buckets,
+        params.refolding_rmsd_threshold
+    )
+
+    // Create channels for constant values
+    ch_merged_dir = Channel.fromPath("${params.run}", type: 'dir').first()
+    ch_design_name = Channel.value(design_name)
+    ch_protocol = Channel.value(protocol)
+    ch_filtering_arg_list = Channel.value(filtering_args)
+
+    // Run filtering
+    BOLTZGEN_FILTERING(
+        ch_merged_dir,
+        ch_config_yaml,
+        ch_input_files,
+        ch_design_name,
+        ch_protocol,
+        Channel.value(params.budget),
+        ch_filtering_arg_list,
+    )
+
+    ///////////////////////////////////////////////////////////////////////////
+    workflow.onComplete = {
+        // Write the pipeline parameters to a JSON file
+        def filter_params_json = [:]
+
+        filter_params_json['params'] = paramsToMap(params)
+
+        filter_params_json['workflow'] = [
+            name: workflow.manifest.name,
+            version: workflow.manifest.version,
+            revision: workflow.revision ?: null,
+            commit: workflow.commitId ?: null,
+            runName: workflow.runName,
+            start: workflow.start.format('yyyy-MM-dd HH:mm:ss'),
+            complete: workflow.complete.format('yyyy-MM-dd HH:mm:ss'),
+            duration: workflow.duration,
+            success: workflow.success,
+        ]
+
+        def output_file = "${params.outdir}/boltzgen/filtered/final_ranked_designs/config/filter_params.json"
+        def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(filter_params_json))
+
+        // Create the directory for the output file
+        new File(output_file).parentFile.mkdirs()
+        new File(output_file).text = json_string
+
+        log.info("Filtering parameters saved to: ${output_file}")
+    }
+}
+

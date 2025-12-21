@@ -3,8 +3,8 @@ process BOLTZGEN_FILTERING {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.2.0'
 
-    publishDir path: "${params.outdir}/boltzgen/", pattern: 'merged/**', mode: 'copy', overwrite: true
-    publishDir path: "${params.outdir}/boltzgen/merged/config/", pattern: 'filtering.yaml', mode: 'copy', overwrite: true
+    // Only publish the final filtering outputs to avoid collisions when re-filtering an existing merged directory
+    publishDir path: "${params.outdir}/boltzgen", pattern: 'filtered/final_ranked_designs', mode: 'copy', overwrite: true
 
     input:
     path merged_dir
@@ -13,10 +13,11 @@ process BOLTZGEN_FILTERING {
     val design_name
     val protocol
     val budget
+    val filtering_arg_list
 
     output:
-    path 'merged/final_ranked_designs', type: 'dir', emit: final_ranked_designs_dir
-    path 'merged/config/filtering.yaml', type: 'file', emit: filtering_config_yaml
+    path 'filtered/final_ranked_designs', type: 'dir', emit: final_ranked_designs_dir
+    path 'filtered/final_ranked_designs/config/filtering.yaml', type: 'file', emit: filtering_config_yaml
 
     script:
     def config_basename = config_yaml.name
@@ -59,7 +60,8 @@ EOF
     fi
 
     # Copy merged directory structure
-    cp -r ${merged_dir}/* merged/ || true
+    mkdir -p filtered
+    cp -r ${merged_dir}/* filtered/ || true
     
     # Stage config.yaml (skip if already exists with same name)
     if [ ! -f ${config_basename} ]; then
@@ -72,12 +74,20 @@ EOF
     # Run boltzgen filtering step
     # HF_HOME is set to /models/boltzgen in container with pre-cached weights
     boltzgen run ${config_basename} \
-        --output merged/ \
+        --output filtered/ \
         --protocol ${protocol} \
         --steps filtering \
         --budget ${budget} \
         --cache /models/boltzgen \
         \${BOLTZGEN_USE_KERNELS_FLAG} \
+        ${filtering_arg_list.join(' ')} \
         ${task.ext.args ?: ''}
+    
+    # Move filtering.yaml to final_ranked_designs/config/ so when running filtering 
+    # multiple times we can keep the config with that output
+    mkdir -p filtered/final_ranked_designs/config
+    if [ -f filtered/config/filtering.yaml ]; then
+        cp filtered/config/filtering.yaml filtered/final_ranked_designs/config/filtering.yaml
+    fi
     """
 }
