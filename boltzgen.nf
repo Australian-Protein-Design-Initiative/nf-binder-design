@@ -13,6 +13,12 @@ params.budget = 10
 params.devices = false
 params.num_workers = false
 params.inverse_fold_num_sequences = false
+params.alpha = false
+params.filter_biased = false
+params.metrics_override = []
+params.additional_filters = []
+params.size_buckets = []
+params.refolding_rmsd_threshold = false
 
 include { BOLTZGEN_DESIGN } from './modules/boltzgen/boltzgen_design'
 include { BOLTZGEN_INVERSE_FOLDING } from './modules/boltzgen/boltzgen_inverse_folding'
@@ -22,6 +28,8 @@ include { BOLTZGEN_AFFINITY } from './modules/boltzgen/boltzgen_affinity'
 include { BOLTZGEN_MERGE } from './modules/boltzgen/boltzgen_merge'
 include { BOLTZGEN_ANALYSIS } from './modules/boltzgen/boltzgen_analysis'
 include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
+
+include { detectParams; buildFilteringArgs } from './modules/boltzgen/boltzgen_utils'
 
 // Function to validate design_name does not end with a number
 def validateDesignName(design_name) {
@@ -83,6 +91,12 @@ workflow {
             --devices                     Number of GPU devices [default: unspecified]
             --num_workers                 Number of DataLoader workers [default: unspecified]
             --inverse_fold_num_sequences  Number of sequences per design in inverse folding step [default: unspecified]
+            --alpha                       Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only
+            --filter_biased               Remove amino-acid composition outliers (default: true, use --filter_biased false to disable)
+            --metrics_override            Per-metric inverse-importance weights for ranking. Format: metric_name=weight (e.g., 'plip_hbonds_refolded=4' 'delta_sasa_refolded=2')
+            --additional_filters          Extra hard filters. Format: feature>threshold or feature<threshold (e.g., 'design_ALA>0.3' 'design_GLY<0.2')
+            --size_buckets                Optional constraint for maximum number of designs in size ranges. Format: min-max:count (e.g., '10-20:5' '20-30:10')
+            --refolding_rmsd_threshold     Threshold used for RMSD-based filters (lower is better)
 
         """.stripIndent()
         )
@@ -255,6 +269,16 @@ workflow {
     // Phase 7: Filtering (Single process)
     ch_merged_dir = BOLTZGEN_MERGE.out.merged_dir.first()
 
+    // Build filtering arguments string
+    def filtering_args = buildFilteringArgs(
+        params.alpha,
+        params.filter_biased,
+        params.metrics_override,
+        params.additional_filters,
+        params.size_buckets,
+        params.refolding_rmsd_threshold
+    )
+
     BOLTZGEN_FILTERING(
         ch_merged_dir,
         ch_config_yaml,
@@ -262,7 +286,7 @@ workflow {
         ch_design_name,
         ch_protocol,
         Channel.value(params.budget),
-        Channel.value(''),
+        Channel.value(filtering_args),
     )
 
     ///////////////////////////////////////////////////////////////////////////
