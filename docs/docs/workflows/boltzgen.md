@@ -56,11 +56,20 @@ nextflow run boltzgen.nf --config_yaml config/my_design.yaml
     - `protein-small_molecule`
     - `nanobody-anything`
 - `--num_designs`: Total number of designs to generate (default: 100).
-- `--inverse_fold_num_sequences`: Number of sequences to generate per backbone during the inverse folding step  (default: 1).
+- `--inverse_fold_num_sequences`: Number of sequences to generate per backbone during the inverse folding step (default: 1).
 - `--batch_size`: Number of designs to process per batch (default: 10).
 - `--budget`: Final number of designs to keep after diversity optimization and filtering (default: 10).
 - `--devices`: Number of GPU devices to use (default: 1).
 - `--num_workers`: Number of DataLoader workers.
+
+#### Filtering Parameters
+
+- `--alpha`: Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only.
+- `--filter_biased`: Remove amino-acid composition outliers (default: true, use `--filter_biased false` to disable).
+- `--metrics_override`: Per-metric inverse-importance weights for ranking. Format: `metric_name=weight` (e.g., `'plip_hbonds_refolded=4' 'delta_sasa_refolded=2'`).
+- `--additional_filters`: Extra hard filters. Format: `feature>threshold` or `feature<threshold` (e.g., `'design_ALA>0.3' 'design_GLY<0.2'`).
+- `--size_buckets`: Constraint for maximum designs in size ranges. Format: `min-max:count` (e.g., `'10-20:5' '20-30:10'`).
+- `--refolding_rmsd_threshold`: Threshold used for RMSD-based filters (lower is better).
 
 ## Key Outputs
 
@@ -68,9 +77,22 @@ The `results` directory (or specified `--outdir`) will contain:
 
 - `params.json`: A record of the parameters used for the run.
 - `boltzgen/batches`: Each independent design batch, in folders for each step (`design`, `inverse_folding`, `folding`, `design_folding`)
-- `bolzgen/merged`: All batches merged, after analysis and filtering. Final designs are in `final_ranked_designs`
+- `bolzgen/merged`: All batches merged, after the 'analysis' step. 
+- `boltzgen/filtered`: Final designs are in `filtered/final_ranked_designs` after the 'filtering' step.
 
 `boltzgen/merged` should be equivalent to the output of a non-Nextflow execution of `boltzgen run` - see the [BoltzGen docs for details on the pipeline output](https://github.com/HannesStark/boltzgen?tab=readme-ov-file#pipeline-output).
+
+## Re-running Filtering
+
+Use `boltzgen_filter.nf` to re-run filtering on existing results with different parameters:
+
+```bash
+nextflow run boltzgen_filter.nf --run results/boltzgen/merged --budget 20 --alpha 0.05
+```
+
+The `--config_yaml` and `--protocol` are auto-detected from `params.json` if not specified. All filtering parameters from the main workflow are available.
+
+Results are saved to `results/boltzgen/filtered/final_ranked_designs/`.
 
 ## Examples
 
