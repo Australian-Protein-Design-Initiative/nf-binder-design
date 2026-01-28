@@ -54,7 +54,7 @@ The pipeline code the comprises `nf-binder-design` is licensed under the MIT Lic
 
 If you use `nf-binder-design` in your research, please cite:
 
-- Perry, A., Taveneau, C., & Knott, G. J. (2025). nf-binder-design: a Nextflow pipeline for protein binder design (0.1.4). Zenodo. [https://doi.org/10.5281/zenodo.16809705](https://doi.org/10.5281/zenodo.16809705)
+- Perry, A., Taveneau, C., & Knott, G. J. (2025). nf-binder-design: a Nextflow pipeline for protein binder design (0.1.5). Zenodo. [https://doi.org/10.5281/zenodo.16809705](https://doi.org/10.5281/zenodo.16809705)
 
 and include citations for the underlying tools used in the workflow as appropriate:
   

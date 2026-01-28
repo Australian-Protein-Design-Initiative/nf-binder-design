@@ -58,7 +58,7 @@ nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
 you can pull a specific version like:
 
 ```bash
-nextflow pull -r 0.1.4 Australian-Protein-Design-Initiative/nf-binder-design
+nextflow pull -r 0.1.5 Australian-Protein-Design-Initiative/nf-binder-design
 ```
 
 Test that you have successfully cached the repository by running:
