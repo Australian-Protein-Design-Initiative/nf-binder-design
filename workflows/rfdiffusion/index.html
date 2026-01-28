@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/rfdiffusion/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>RFdiffusion - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "RFdiffusion";
+        var mkdocs_page_input_path = "workflows/rfdiffusion.md";
+        var mkdocs_page_url = "/nf-binder-design/workflows/rfdiffusion/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">RFdiffusion</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#general-information">General Information</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#parameters-file">Parameters File</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-outputs">Key Outputs</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#rmsd-comparisons">RMSD Comparisons</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#binder-design-with-rfdiffusion-mainnf">Binder Design with RFdiffusion (main.nf)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#single-node-or-local-workstation">Single Node or Local Workstation</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#parallel-tasks-on-an-hpc-cluster">Parallel tasks on an HPC Cluster</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#partial-diffusion-on-binder-designs-partialnf">Partial Diffusion on Binder Designs (partial.nf)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#design-filter-plugin-system">Design Filter Plugin System</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#using-filters">Using Filters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#available-filters">Available Filters</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#creating-custom-filters">Creating Custom Filters</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#1-register_metrics-liststr">1. register_metrics() -&gt; list[str]</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#2-calculate_metricspdb_files-liststr-binder_chains-liststr-pddataframe">2. calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -&gt; pd.DataFrame</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Workflows</li>
+      <li class="breadcrumb-item active">RFdiffusion</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/rfdiffusion.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="rfdiffusion-workflows">RFdiffusion Workflows</h1>
+<p><img alt="RFdiffusion workflow" src="../../images/rfd-workflow.png" /></p>
+<p>RFdiffusion-based workflows for <em>de novo</em> protein binder design.</p>
+<h2 id="overview">Overview</h2>
+<p>The RFdiffusion workflows include:</p>
+<ul>
+<li><strong>main.nf</strong>: Complete binder design pipeline (RFdiffusion → ProteinMPNN → AlphaFold2 initial guess → Boltz-2 refolding)</li>
+<li><strong>partial.nf</strong>: Partial diffusion refinement of existing designs or complexes (RFdiffusion Partial Diffusion → Boltz-2 refolding)</li>
+</ul>
+<h2 id="general-information">General Information</h2>
+<h3 id="command-line-options">Command-line Options</h3>
+<p>For any workflow, you can see available options with <code>--help</code>:</p>
+<pre><code class="language-bash">nextflow run main.nf --help
+nextflow run partial.nf --help
+</code></pre>
+<h3 id="parameters-file">Parameters File</h3>
+<p>Parameter command-line options (those prefixed with <code>--</code>) can also be defined in a <code>params.json</code> file:</p>
+<pre><code class="language-bash">nextflow run main.nf -params-file params.json
+</code></pre>
+<p>eg:</p>
+<pre><code class="language-json">{
+    &quot;hotspot_res&quot;: &quot;A473,A995,A411,A421&quot;,
+    &quot;rfd_n_designs&quot;: 10
+}
+</code></pre>
+<p>Parameter names typically mirror the equivalent command-line options in the underlying tools, often prefixed with <code>rfd_</code> or <code>pmpnn_</code> etc.</p>
+<h2 id="key-outputs">Key Outputs</h2>
+<p>Outputs are stored in the <code>results</code> directory by default (or the path specified by <code>--outdir</code>).</p>
+<ul>
+<li><code>combined_scores.tsv</code>: Combined scores for all designs</li>
+</ul>
+<p>This file includes the key AF2 initial guess scores <code>pae_interaction</code> and <code>plddt_binder</code>, etc, as well as several shape scores (<code>rg</code>, <code>dmax</code>, etc), the binder sequence, and some extra BindCraft-style scores.</p>
+<p>The <code>rfdiffusion</code> <code>proteinmpnn</code> and <code>af2_initial_guess</code> directories contain the intermediate files for these steps. The 'initial guess' complex structures are in <code>af2_initial_guess/pdbs</code>.</p>
+<ul>
+<li><code>results/binders.fasta</code>: FASTA sequences of the binders</li>
+</ul>
+<hr />
+<p>When the <code>--refold_af2ig_filters</code> option is used to do Boltz-2 refolding, <code>combined_scores.tsv</code> includes:</p>
+<ul>
+<li><code>boltz_confidence_score</code> and <code>boltz_iptm</code> for the refolded complex</li>
+<li><code>boltz_monomer_vs_complex_rmsd_all</code> (the C-alpha RMSD of the binder as an unbound monomer vs the bound form in the refolded complex). </li>
+</ul>
+<p>Refolded complexes and binder monomers are in <code>results/boltz_refold/predict/complex</code> and <code>results/boltz_refold/predict/monomer</code>, respectively.</p>
+<p>In this mode, the pipeline only calculates the extra BindCraft-style scores for the Boltz-2 refolded complexes, rather than the AF2 initial guess models.</p>
+<h3 id="rmsd-comparisons">RMSD Comparisons</h3>
+<p>When Boltz-2 refolding is enabled, several C-alpha RMSD comparisons are calculated and saved to <code>results/boltz_refold/rmsd/</code>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Superimpose On</th>
+<th>Measure</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>rmsd_target_aligned_binder.tsv</code></td>
+<td>Target (B)</td>
+<td>Binder (A)</td>
+<td>Binding pose deviation after refolding</td>
+</tr>
+<tr>
+<td><code>rmsd_complex_vs_af2ig.tsv</code></td>
+<td>Both (A,B)</td>
+<td>Both (A,B)</td>
+<td>Overall structural agreement between AF2IG and Boltz</td>
+</tr>
+<tr>
+<td><code>rmsd_monomer_vs_af2ig.tsv</code></td>
+<td>Binder (A)</td>
+<td>Binder (A)</td>
+<td>Binder folding change between bound/unbound (monomer vs AF2IG complex)</td>
+</tr>
+<tr>
+<td><code>rmsd_monomer_vs_complex.tsv</code></td>
+<td>Binder (A)</td>
+<td>Binder (A)</td>
+<td>Binder folding change between bound/unbound  (monomer vs Boltz complex)</td>
+</tr>
+</tbody>
+</table>
+<p>Each file contains <code>rmsd_pruned</code> (aligned core residues only) and <code>rmsd_all</code> (all residues) values.</p>
+<p><strong>Key metrics for assessing binder quality:</strong></p>
+<ul>
+<li>
+<p><strong><code>rmsd_target_aligned_binder.tsv</code> → <code>rmsd_all</code></strong>: Low values (&lt;~3.5 Å?) indicate the binder maintains its binding pose relative to the target after Boltz refolding. High values indicate the binder is in a different binding site or pose in the Boltz-2 refolded prediction, relative to the initial AF2 initial guess. This value is included in the <code>combined_scores.tsv</code> file as <code>boltz_target_aligned_binder_rmsd_all</code>.</p>
+</li>
+<li>
+<p><strong><code>rmsd_monomer_vs_complex.tsv</code> → <code>rmsd_all</code></strong>: Indicative of possible binder conformational changes upon binding. Low values (&lt;~3.5 Å?) mean the binder structure is similar whether predicted alone or in complex - a good sign for a stable, foldable binder. This value is included in the <code>combined_scores.tsv</code> file as <code>boltz_monomer_vs_complex_rmsd_all</code>.</p>
+</li>
+</ul>
+<h2 id="binder-design-with-rfdiffusion-mainnf">Binder Design with RFdiffusion (main.nf)</h2>
+<h3 id="single-node-or-local-workstation">Single Node or Local Workstation</h3>
+<p>Simple example for local execution:</p>
+<pre><code class="language-bash">OUTDIR=results
+mkdir -p $OUTDIR/logs
+
+nextflow run main.nf \
+    --input_pdb target.pdb \
+    --outdir $OUTDIR \
+    --contigs &quot;[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]&quot; \
+    --hotspot_res &quot;A473,A995,A411,A421&quot; \
+    --rfd_n_designs=10 \
+    --rfd_batch_size 1 \
+    -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
+    -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
+    -resume \
+    -profile local
+</code></pre>
+<h3 id="parallel-tasks-on-an-hpc-cluster">Parallel tasks on an HPC Cluster</h3>
+<p>Here's a more complex 'kitchen sink' example using <code>-profile slurm,m3</code> for the M3 HPC cluster:</p>
+<pre><code class="language-bash">#!/bin/bash
+# Path to your git clone of this repo
+WF_PATH=&quot;/path/to/nf-binder-design&quot;
+
+mkdir -p results/logs
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+# Ensure tmp directory has enough space
+export TMPDIR=$(realpath ./tmp)
+export NXF_TEMP=$TMPDIR
+mkdir -p $TMPDIR
+
+# Set apptainer cache directory (change to your scratch path)
+export NXF_APPTAINER_CACHEDIR=/path/to/scratch2/apptainer_cache
+export NXF_APPTAINER_TMPDIR=$TMPDIR
+
+# Load Nextflow module (if available on your HPC)
+module load nextflow/24.04.3 || true
+
+nextflow run \
+    ${WF_PATH}/main.nf  \
+    --slurm_account=ab12 \
+    --input_pdb 'input/target_cropped.pdb' \
+    --design_name my-binder \
+    --outdir results \
+    --contigs &quot;[B346-521/B601-696/B786-856/0 70-130]&quot; \
+    --hotspot_res &quot;B472,B476,B484,B488&quot; \
+    --rfd_n_designs=1000 \
+    --rfd_batch_size=5 \
+    --rfd_filters=&quot;rg&lt;20&quot; \
+    --rfd_model_path=&quot;/models/rfdiffusion/Complex_beta_ckpt.pt&quot; \
+    --rfd_extra_args='potentials.guiding_potentials=[&quot;type:binder_ROG,weight:7,min_dist:10&quot;] potentials.guide_decay=&quot;quadratic&quot;' \
+    --pmpnn_seqs_per_struct=2 \
+    --pmpnn_relax_cycles=5 \
+    --pmpnn_weigths=&quot;/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt&quot; \
+    --af2ig_recycle=3 \
+    --refold_af2ig_filters=&quot;pae_interaction&lt;=10;plddt_binder&gt;=80&quot; \
+    --refold_max=100 \
+    --refold_use_msa_server=true \
+    --refold_target_fasta='input/full/target.fasta' \
+    --refold_target_templates='input/full/' \
+    -profile slurm,m3 \
+    -resume \
+    -with-report results/logs/report_${DATESTAMP}.html \
+    -with-trace results/logs/trace_${DATESTAMP}.txt
+</code></pre>
+<h3 id="key-parameters">Key Parameters</h3>
+<ul>
+<li><code>--input_pdb</code>: Target protein structure</li>
+<li><code>--contigs</code>: Contig definition for RFdiffusion</li>
+<li><code>--hotspot_res</code>: Hotspot residues (comma-separated)</li>
+<li><code>--rfd_n_designs</code>: Number of designs to generate</li>
+<li><code>--rfd_filters</code>: Filter expression (e.g., <code>"rg&lt;20"</code>)</li>
+<li><code>--rfd_model_path</code>: Path to a custom RFdiffusion model (in this case the <code>Complex_beta_ckpt.pt</code> model inside the container)</li>
+<li><code>--rfd_extra_args</code>: Pass these extra arguments to RFdiffusion - in this example we apply a radius of gyration potential</li>
+<li><code>--pmpnn_seqs_per_struct=2</code>: Generate 2 sequences per backbone design with ProteinMPNN</li>
+<li><code>--pmpnn_relax_cycles=5</code>: Run 5 FastRelax cycles for ProteinMPNN</li>
+<li><code>--pmpnn_weights</code>: Use custom ProteinMPNN weights (in this case the HyperMPNN weights inside the container)</li>
+<li><code>--af2ig_recycle=3</code>: Run 3 recycles for AF2 initial guess</li>
+</ul>
+<p>When <code>--refold_af2ig_filters</code> is set, designs that pass these score thresholds are refolded using Boltz-2 (both the complex and unbound binder monomer):</p>
+<ul>
+<li><code>--refold_af2ig_filters="pae_interaction&lt;=10;plddt_binder&gt;=80"</code>: Filter AF2 initial guess designs by PAE interaction &lt;= 10 and binder pLDDT &gt;= 80</li>
+<li><code>--refold_max=100</code>: Refold a maximum of 100 designs</li>
+<li><code>--refold_use_msa_server=true</code>: Use the public ColabFold MMSeqs2 server to generate the MSA for the target sequence</li>
+<li><code>--refold_target_fasta='input/full/target.fasta'</code>: Refold (re-predict) using this target sequence</li>
+<li><code>--refold_target_templates='input/full/'</code>: Use the full length target template PDBs in this directory to improve target predictions</li>
+</ul>
+<p>We use <code>-profile slurm,m3</code> to use pre-defined configuration files specific to the M3 HPC cluster.  You could also use the <code>-c</code> flag to point to a custom configuration file.</p>
+<p><code>--slurm_account=&lt;your_account_id&gt;</code> is required if you have multiple SLURM accounts and need to use a specific one.</p>
+<p>Other site-specific <code>-profile</code> options are provided in <code>conf/platforms/</code>:</p>
+<ul>
+<li><code>m3</code> - Monash M3 cluster</li>
+<li><code>m3_bdi</code> - Monash M3 cluster with access to the <code>bdi</code> partitions</li>
+<li><code>mlerp</code> - the MLeRP HPC cluster</li>
+</ul>
+<p>These can be adapted to other HPC clusters - pull requests are welcome !</p>
+<h2 id="partial-diffusion-on-binder-designs-partialnf">Partial Diffusion on Binder Designs (partial.nf)</h2>
+<p>Refine existing binder designs with partial diffusion:</p>
+<pre><code class="language-bash">OUTDIR=results
+mkdir -p $OUTDIR/logs
+
+# Generate 10 partial designs for each binder, in batches of 5
+# Note the 'single quotes' around the '*.pdb' glob pattern!
+nextflow run partial.nf  \
+    --input_pdb 'my_designs/*.pdb' \
+    --rfd_n_partial_per_binder=10 \
+    --rfd_batch_size=5 \
+    --hotspot_res &quot;A473,A995,A411,A421&quot; \
+    --rfd_partial_T=2,5,10,20 \
+    -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
+    -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
+    -profile local
+</code></pre>
+<p>The other <code>--refold_</code> parameters, as used above for the <code>main.nf</code> workflow, can also be used here if you'd like to refold the best designs with Boltz-2.</p>
+<blockquote>
+<p>⚠️ Note - if you are applying partial diffusion to designs output from the <code>main.nf</code> workflow, the binder will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !</p>
+</blockquote>
+<h2 id="design-filter-plugin-system">Design Filter Plugin System</h2>
+<p>The <code>main.nf</code> and <code>partial.nf</code> pipelines support custom metric calculation and filtering via plugins.</p>
+<h3 id="using-filters">Using Filters</h3>
+<p>Filtering backbone designs from RFdiffusion by radius of gyration (before passing to ProteinMPNN and AF2 initial guess):</p>
+<pre><code class="language-bash">--rfd_filters=&quot;rg&lt;20&quot;
+</code></pre>
+<p>Filtering AF2 initial guess designs before refolding with Boltz-2 by any of the af2ig scores (<code>pae_interaction</code>, <code>binder_aligned_rmsd</code>, <code>pae_binder</code>, <code>pae_target</code>, <code>plddt_binder</code>, <code>plddt_target</code>, <code>plddt_total</code>, <code>target_aligned_rmsd</code>), 
+as well as size/shape scores (<code>rg</code>, <code>dmax</code>, <code>asphericity</code>, <code>approx_rh</code>).</p>
+<pre><code class="language-bash">--refold_af2ig_filters=&quot;pae_interaction&lt;=10;plddt_binder&gt;=80&quot;
+</code></pre>
+<h3 id="available-filters">Available Filters</h3>
+<p>Filters are Python scripts in <code>bin/filters.d/</code>. Currently available:</p>
+<ul>
+<li><strong>rg</strong> (radius of gyration) - in <code>bin/filters.d/rg.py</code></li>
+</ul>
+<p><img alt="Rg theoretical curves" src="../Rg_theoretical_curves.png" /></p>
+<h3 id="creating-custom-filters">Creating Custom Filters</h3>
+<p>Create a new <code>.py</code> file in <code>bin/filters.d/</code> implementing two functions:</p>
+<h4 id="1-register_metrics-liststr">1. <code>register_metrics() -&gt; list[str]</code></h4>
+<p>Returns list of metric names:</p>
+<pre><code class="language-python">def register_metrics() -&gt; list[str]:
+    return [&quot;rg&quot;, &quot;my_custom_score&quot;]
+</code></pre>
+<h4 id="2-calculate_metricspdb_files-liststr-binder_chains-liststr-pddataframe">2. <code>calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -&gt; pd.DataFrame</code></h4>
+<p>Calculates metrics and returns a DataFrame:</p>
+<pre><code class="language-python">def calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -&gt; pd.DataFrame:
+    # Perform calculations
+    # Return DataFrame with:
+    #   - Index: design ID (PDB filename without .pdb)
+    #   - Columns: metric names from register_metrics()
+    return results_df
+</code></pre>
+<p>The <code>bin/filter_designs.py</code> script automatically discovers and calls plugins based on filter expressions.</p>
+<h2 id="examples">Examples</h2>
+<p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples for RFdiffusion workflows:</p>
+<ul>
+<li><code>examples/pdl1-rfd</code>: binder design with RFdiffusion + ProteinMPNN + AlphaFold2 initial guess</li>
+<li><code>examples/pdl1-rfd-partial</code>: partial diffusion of existing designs</li>
+<li><code>examples/egfr-rfd-hypermpnn</code>: binder design with inverse folding using the HyperMPNN weights</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../../setup/" class="btn btn-neutral float-left" title="Setup"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../bindcraft/" class="btn btn-neutral float-right" title="BindCraft">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../../setup/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../bindcraft/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

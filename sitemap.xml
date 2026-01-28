@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/setup/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/extra/utility-scripts/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/bindcraft/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltz-pulldown/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltzgen/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+    <url>
+         <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/rfdiffusion/</loc>
+         <lastmod>2026-01-28</lastmod>
+    </url>
+</urlset>

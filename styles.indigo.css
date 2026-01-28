@@ -1,0 +1,102 @@
+/* Custom CSS to change ReadTheDocs theme colors to indigo */
+
+/* Primary color overrides */
+.rst-content a,
+.rst-content a:visited {
+    color: #AB47BD;
+    /* Indigo primary */
+}
+
+.rst-content a:hover {
+    color: #8E24AA;
+    /* Darker indigo on hover */
+}
+
+/* Navigation and header colors */
+.wy-side-nav-search {
+    background-color: #AB47BD;
+    /* Indigo primary */
+}
+
+.wy-side-nav-search input[type="text"] {
+    border-color: #8E24AA;
+    /* Darker indigo border */
+}
+
+.wy-side-nav-search input[type="text"]:focus {
+    border-color: #8E24AA;
+    box-shadow: 0 0 5px rgba(171, 71, 189, 0.3);
+}
+
+/* Top navigation bar */
+.wy-nav-top {
+    background-color: #AB47BD;
+    /* Indigo primary */
+}
+
+/* Sidebar navigation */
+.wy-menu-vertical a {
+    color: #AB47BD;
+    /* Indigo for links */
+}
+
+.wy-menu-vertical a:hover {
+    background-color: rgba(171, 71, 189, 0.1);
+    /* Light indigo background on hover */
+}
+
+/* Current page indicator */
+.wy-menu-vertical .current>a {
+    background-color: #AB47BD;
+    /* Indigo for current page */
+    color: white;
+}
+
+/* Code blocks and syntax highlighting */
+.rst-content .highlight {
+    background-color: #f8f9fa;
+    border-left: 4px solid #AB47BD;
+    /* Indigo accent border */
+}
+
+/* Buttons and interactive elements */
+.rst-content .btn,
+.rst-content .btn:visited {
+    background-color: #AB47BD;
+    border-color: #AB47BD;
+}
+
+.rst-content .btn:hover {
+    background-color: #8E24AA;
+    border-color: #8E24AA;
+}
+
+/* Table headers */
+.rst-content table.docutils thead th {
+    background-color: #AB47BD;
+    color: white;
+}
+
+/* Admonition boxes */
+.rst-content .admonition-title {
+    background-color: #AB47BD;
+    color: white;
+}
+
+.rst-content .admonition {
+    border-left: 4px solid #AB47BD;
+}
+
+/* Version and breadcrumb */
+.wy-breadcrumbs a {
+    color: #AB47BD;
+}
+
+/* Footer links */
+.rst-footer-buttons a {
+    color: #AB47BD;
+}
+
+.rst-footer-buttons a:hover {
+    color: #8E24AA;
+}

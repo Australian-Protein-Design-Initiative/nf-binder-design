@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltz-pulldown/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Boltz Pulldown - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Boltz Pulldown";
+        var mkdocs_page_input_path = "workflows/boltz-pulldown.md";
+        var mkdocs_page_url = "/nf-binder-design/workflows/boltz-pulldown/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Boltz Pulldown</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#msa-generation-options">MSA Generation Options</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#option-1-remote-server">Option 1: Remote Server</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#option-2-local-databases">Option 2: Local Databases</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#custom-boltz-arguments">Custom Boltz Arguments</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#output">Output</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Workflows</li>
+      <li class="breadcrumb-item active">Boltz Pulldown</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/boltz-pulldown.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="boltz-pulldown">Boltz Pulldown</h1>
+<p>An experimental <a href="https://github.com/KosinskiLab/AlphaPulldown">AlphaPulldown</a>-like protocol using <a href="https://github.com/jwohlwend/boltz">Boltz</a> for multimer predictions.</p>
+<h2 id="overview">Overview</h2>
+<p>Boltz Pulldown runs multimer predictions from sequence for all target-binder pairs, allowing you to assess binding interactions between multiple potential interaciton partners.</p>
+<h2 id="command-line-options">Command-line Options</h2>
+<p>See available options with <code>--help</code>:</p>
+<pre><code class="language-bash">nextflow run boltz_pulldown.nf --help
+</code></pre>
+<h2 id="multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</h2>
+<p>By default, <strong>no MSAs are used</strong>. To enable:</p>
+<ul>
+<li><code>--create_target_msa=true</code>: Generate MSAs for targets</li>
+<li><code>--create_binder_msa=true</code>: Generate MSAs for binders</li>
+</ul>
+<blockquote>
+<p>⚠️ For <em>de novo</em> designed binders, use <code>--create_target_msa=true</code> to improve <em>target</em> prediction accuracy, but skip generating <em>binder</em> MSAs (<code>--create_binder_msa=false</code>, the default) as these are less informative since no homologs exist.</p>
+</blockquote>
+<h2 id="msa-generation-options">MSA Generation Options</h2>
+<h3 id="option-1-remote-server">Option 1: Remote Server</h3>
+<pre><code class="language-bash">--use_msa_server
+</code></pre>
+<p>Uses the remote ColabFold mmseqs2 server.</p>
+<h3 id="option-2-local-databases">Option 2: Local Databases</h3>
+<p>Download and set up databases with the ColabFold <a href="https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh">setup_databases.sh</a> script, then specify paths:</p>
+<pre><code class="language-bash">--uniref30 /path/to/uniref30
+--colabfold_envdb /path/to/colabfold_envdb
+</code></pre>
+<h2 id="custom-boltz-arguments">Custom Boltz Arguments</h2>
+<p>Add extra Boltz command-line arguments via <code>ext.args</code> in <code>nextflow.config</code>:</p>
+<pre><code class="language-groovy">process {
+    withName: BOLTZ {
+        accelerator = 1
+        time = 2.hours
+        memory = '8g'
+        cpus = 2
+
+        // Example: CPU-only mode
+        ext.args = &quot;--accelerator cpu&quot;
+    }
+}
+</code></pre>
+<h2 id="output">Output</h2>
+<p>Default output directory: <code>results/boltz_pulldown/</code></p>
+<p>Includes:</p>
+<ul>
+<li>Boltz predictions with scores and structures</li>
+<li><code>boltz_pulldown.tsv</code> - summary table</li>
+<li><code>boltz_pulldown_report.html</code> - report with statistics and ipTM score plots</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../boltzgen/" class="btn btn-neutral float-left" title="BoltzGen"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../extra/utility-scripts/" class="btn btn-neutral float-right" title="Utility Scripts">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../boltzgen/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../extra/utility-scripts/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

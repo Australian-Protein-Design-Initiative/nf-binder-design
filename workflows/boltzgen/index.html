@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltzgen/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>BoltzGen - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "BoltzGen";
+        var mkdocs_page_input_path = "workflows/boltzgen.md";
+        var mkdocs_page_url = "/nf-binder-design/workflows/boltzgen/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">BoltzGen</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#general-information">General Information</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#yaml-configuration">YAML Configuration</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#basic-execution">Basic Execution</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#filtering-parameters">Filtering Parameters</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-outputs">Key Outputs</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#re-running-filtering">Re-running Filtering</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Workflows</li>
+      <li class="breadcrumb-item active">BoltzGen</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/boltzgen.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="boltzgen-workflow">BoltzGen Workflow</h1>
+<p><img alt="BoltzGen workflow" src="../../images/boltzgen-workflow.png" /></p>
+<p>The <code>boltzgen.nf</code> workflow automates the design of binders using the <a href="https://github.com/HannesStark/boltzgen">BoltzGen</a> generative model.
+The key advantage of this workflow is improved parallelization across multiple GPUs and better resource allocation on HPC clusters.</p>
+<p>It supports the <code>protein-anything</code>, <code>peptide-anything</code>, <code>protein_small-molecule</code> and <code>nanobody-anything</code> protocols.</p>
+<h2 id="overview">Overview</h2>
+<p>The BoltzGen workflow performs the following steps, as per <code>boltzgen run</code>:</p>
+<ul>
+<li><strong>Design</strong>: Generates binder backbone structures based on a YAML configuration.</li>
+<li><strong>Inverse Folding</strong>: Generates sequences for the designed backbones.</li>
+<li><strong>Folding</strong>: Re-folds the designed binder in complex with the target.</li>
+<li><strong>Design Folding</strong>: Re-folds the designed binder alone.</li>
+<li><strong>Affinity</strong>: (Optional -  <code>protein_small-molecule</code> protocol only) Calculates affinity scores for protein-small molecule complexes.</li>
+<li>(<strong>Merge batches</strong>: nf-binder-design <code>bolzgen.nf</code> merges independently generated batches of designs, ready for analysis and filtering)</li>
+<li><strong>Analysis &amp; Filtering</strong>: Aggregates scores and filters designs based on user-defined criteria.</li>
+</ul>
+<h2 id="general-information">General Information</h2>
+<h3 id="command-line-options">Command-line Options</h3>
+<p>You can see available options with <code>--help</code>:</p>
+<pre><code class="language-bash">nextflow run boltzgen.nf --help
+</code></pre>
+<h3 id="yaml-configuration">YAML Configuration</h3>
+<p>The BoltzGen workflow is controlled by a YAML configuration file passed via <code>--config_yaml</code>. This file defines the input structure, constraints, and design objectives. Refer to the <a href="https://github.com/HannesStark/boltzgen?tab=readme-ov-file#how-to-make-a-design-specification-yaml">BoltzGen documentation</a> on how to prepare your configuration file.</p>
+<blockquote>
+<p><strong>Note:</strong> ⚠️ BoltzGen expects residues specified as indices starting at 1, irresepctive of the numbering in your PDB/mmCIF file. You may find it easier to use <code>bin/renumber_chains.py</code> to renumber your input PDB to be sequentially numbered starting at 1 to simplify choosing hotspot residues in ChimeraX/Pymol/Molstar etc.</p>
+</blockquote>
+<h2 id="usage">Usage</h2>
+<h3 id="basic-execution">Basic Execution</h3>
+<p>To run the workflow with a configuration file:</p>
+<pre><code class="language-bash">nextflow run boltzgen.nf --config_yaml config/my_design.yaml
+</code></pre>
+<h3 id="key-parameters">Key Parameters</h3>
+<ul>
+<li><code>--config_yaml</code>: <strong>(Required)</strong> Path to the BoltzGen YAML configuration file.</li>
+<li><code>--outdir</code>: Output directory for results (default: <code>results</code>).</li>
+<li><code>--design_name</code>: Name of the design, used for output file prefixes. Defaults to the basename of the config file.</li>
+<li><code>--protocol</code>: Protocol type. Options:<ul>
+<li><code>protein-anything</code> (default)</li>
+<li><code>peptide-anything</code></li>
+<li><code>protein-small_molecule</code></li>
+<li><code>nanobody-anything</code></li>
+</ul>
+</li>
+<li><code>--num_designs</code>: Total number of designs to generate (default: 100).</li>
+<li><code>--inverse_fold_num_sequences</code>: Number of sequences to generate per backbone during the inverse folding step (default: 1).</li>
+<li><code>--batch_size</code>: Number of designs to process per batch (default: 10).</li>
+<li><code>--budget</code>: Final number of designs to keep after diversity optimization and filtering (default: 10).</li>
+<li><code>--devices</code>: Number of GPU devices to use (default: 1).</li>
+<li><code>--num_workers</code>: Number of DataLoader workers.</li>
+</ul>
+<h4 id="filtering-parameters">Filtering Parameters</h4>
+<ul>
+<li><code>--alpha</code>: Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only.</li>
+<li><code>--filter_biased</code>: Remove amino-acid composition outliers (default: true, use <code>--filter_biased false</code> to disable).</li>
+<li><code>--metrics_override</code>: Per-metric inverse-importance weights for ranking. Format: <code>metric_name=weight</code> (e.g., <code>'plip_hbonds_refolded=4' 'delta_sasa_refolded=2'</code>).</li>
+<li><code>--additional_filters</code>: Extra hard filters. Format: <code>feature&gt;threshold</code> or <code>feature&lt;threshold</code> (e.g., <code>'design_ALA&gt;0.3' 'design_GLY&lt;0.2'</code>).</li>
+<li><code>--size_buckets</code>: Constraint for maximum designs in size ranges. Format: <code>min-max:count</code> (e.g., <code>'10-20:5' '20-30:10'</code>).</li>
+<li><code>--refolding_rmsd_threshold</code>: Threshold used for RMSD-based filters (lower is better).</li>
+</ul>
+<h2 id="key-outputs">Key Outputs</h2>
+<p>The <code>results</code> directory (or specified <code>--outdir</code>) will contain:</p>
+<ul>
+<li><code>params.json</code>: A record of the parameters used for the run.</li>
+<li><code>boltzgen/batches</code>: Each independent design batch, in folders for each step (<code>design</code>, <code>inverse_folding</code>, <code>folding</code>, <code>design_folding</code>)</li>
+<li><code>bolzgen/merged</code>: All batches merged, after the 'analysis' step. </li>
+<li><code>boltzgen/filtered</code>: Final designs are in <code>filtered/final_ranked_designs</code> after the 'filtering' step.</li>
+</ul>
+<p><code>boltzgen/merged</code> should be equivalent to the output of a non-Nextflow execution of <code>boltzgen run</code> - see the <a href="https://github.com/HannesStark/boltzgen?tab=readme-ov-file#pipeline-output">BoltzGen docs for details on the pipeline output</a>.</p>
+<h2 id="re-running-filtering">Re-running Filtering</h2>
+<p>Use <code>boltzgen_filter.nf</code> to re-run filtering on existing results with different parameters:</p>
+<pre><code class="language-bash">nextflow run boltzgen_filter.nf --run results/boltzgen/merged --budget 20 --alpha 0.05
+</code></pre>
+<p>The <code>--config_yaml</code> and <code>--protocol</code> are auto-detected from <code>params.json</code> if not specified. All filtering parameters from the main workflow are available.</p>
+<p>Results are saved to <code>results/boltzgen/filtered/final_ranked_designs/</code>.</p>
+<h2 id="examples">Examples</h2>
+<p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples for BoltzGen workflows:</p>
+<ul>
+<li><code>examples/boltzgen-protein</code>: Protein binder design (protocol <code>protein-anything</code>)</li>
+<li><code>examples/boltzgen-cyclic-peptide</code>: Cyclic peptide binder design (protocol <code>peptide-anything</code>)</li>
+<li><code>examples/boltzgen-small-molecule-binder</code>: Small molecule binder design (protocol <code>protein-small_molecule</code>)</li>
+</ul>
+<p>See the <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">examples/README.md</a> for details.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../bindcraft/" class="btn btn-neutral float-left" title="BindCraft"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../boltz-pulldown/" class="btn btn-neutral float-right" title="Boltz Pulldown">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../bindcraft/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../boltz-pulldown/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

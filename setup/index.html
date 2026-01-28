@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/setup/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Setup - nf-binder-design</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../styles.green.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Setup";
+        var mkdocs_page_input_path = "setup.md";
+        var mkdocs_page_url = "/nf-binder-design/setup/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Setup</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#install-nextflow">Install Nextflow</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#clone-the-repository-using-git">Clone the repository using git</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#alternative-pull-using-nextflow">Alternative: pull using Nextflow</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#container-setup">Container Setup</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#platform-specific-configuration">Platform-Specific Configuration</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#local-workstation-single-compute-node">Local Workstation / single compute node</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#hpc-clusters-with-slurm">HPC Clusters with SLURM</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#hpc-cluster-environment-variables">HPC Cluster environment variables</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Setup</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/setup.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="setup">Setup</h1>
+<h2 id="prerequisites">Prerequisites</h2>
+<h3 id="install-nextflow">Install Nextflow</h3>
+<p>Follow the official <a href="https://www.nextflow.io/docs/latest/install.html">Nextflow installation guide</a>.</p>
+<p>Nextflow requires:</p>
+<ul>
+<li>Java 11 or later</li>
+<li>Linux or macOS (Windows via WSL2)</li>
+</ul>
+<p>The quick version is:</p>
+<pre><code class="language-bash"># Optional, if you don't have Java 17+
+# Check your Java version
+# java -version
+
+# Install Java 17+, if you don't have it
+# curl -s https://get.sdkman.io | bash
+# sdk install java 17.0.10-tem
+
+# Install Nextflow
+curl -s https://get.nextflow.io | bash
+chmod +x nextflow
+mv nextflow $HOME/.local/bin/
+
+# Ensure $HOME/.local/bin/ is on your PATH
+# you should also add this line to your ~/.bashrc or ~/.zshrc if required
+export PATH=&quot;$PATH:$HOME/.local/bin&quot;
+
+# Test it works
+nextflow info
+</code></pre>
+<h2 id="clone-the-repository-using-git">Clone the repository using git</h2>
+<p>For development, it's often more convenient to clone the git repository directly:</p>
+<pre><code class="language-bash">git clone https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
+cd nf-binder-design
+
+# See the help as a first test
+nextflow run main.nf --help
+</code></pre>
+<h2 id="alternative-pull-using-nextflow">Alternative: pull using Nextflow</h2>
+<p>To pre-cache the <code>nf-binder-design</code> repository in <code>~/.nextflow/assets/</code>, run:</p>
+<pre><code class="language-bash">nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
+</code></pre>
+<p>you can pull a specific version like:</p>
+<pre><code class="language-bash">nextflow pull -r 0.1.5 Australian-Protein-Design-Initiative/nf-binder-design
+</code></pre>
+<p>Test that you have successfully cached the repository by running:</p>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design/main.nf --help
+</code></pre>
+<p><strong>Note:</strong> The documentation examples currently assume you have <code>git clone</code>'d the repository, but can be adapted to use this alternative method. In this case, platform-specific config files will be in <code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/</code> - in the future these will be turned into config profiles to simplify usage.</p>
+<h2 id="container-setup">Container Setup</h2>
+<p>These workflows use Apptainer containers for reproducibility. 
+You'll typically need <a href="https://apptainer.org/">Apptainer</a> installed - this is usually already available on modern HPC clusters.</p>
+<p>Containers are automatically downloaded when running the pipeline - you will need ~60Gb+ of storage space for the containers.</p>
+<p>Model weights / parameters are currently packaged inside the containers - this makes the containers large, but simplifies the workflow setup. In the future we will very likely provide more compact alternative containers without weights.</p>
+<h2 id="platform-specific-configuration">Platform-Specific Configuration</h2>
+<h3 id="local-workstation-single-compute-node">Local Workstation / single compute node</h3>
+<p>For local execution of a single compute node, use the <code>-profile local</code> flag when running workflows. See <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/pdl1-rfd/nextflow.dual-gpu.config"><code>examples/pdl1-rfd/nextflow.dual-gpu.config</code></a> for a config example using dual-GPUs.</p>
+<h3 id="hpc-clusters-with-slurm">HPC Clusters with SLURM</h3>
+<p>For running using the SLURM executor, use the <code>-profile slurm</code> flag (this is the default profile if not specified).</p>
+<p>Some site-specific configurations for HPC clusters and cloud platforms can be applied via eg <code>-profile m3</code>. Currently defined sites are: </p>
+<ul>
+<li><code>m3</code> - the Monash M3 HPC cluster, generic GPU partitions</li>
+<li><code>m3_bdi</code> - the Monash M3 cluster with access to the <code>bdi</code> partitions</li>
+<li><code>mlerp</code> - the MLeRP HPC cluster</li>
+<li><code>hyperqueue</code> - for running on a generic HyperQueue (<code>hq</code>) cluster</li>
+</ul>
+<p>These configuration files are provided in <code>conf/platforms/</code> and be copied and adapted for your specific setup.
+Pull requests for additional HPC clusters are welcome!</p>
+<p>In addition (on instead of) using a pre-defined <code>-profile</code>, you can use the <code>-c</code> flag to specify the path to a configuration file:</p>
+<pre><code class="language-bash">nextflow run main.nf -c conf/platforms/m3.config  # etc ...
+</code></pre>
+<h4 id="hpc-cluster-environment-variables">HPC Cluster environment variables</h4>
+<p>Set up your Apptainer cache directory to store downloaded containers:</p>
+<pre><code class="language-bash"># Add to your ~/.bashrc or set before running
+export APPTAINER_CACHEDIR=${HOME}/.apptainer/cache
+export NXF_APPTAINER_CACHEDIR=${APPTAINER_CACHEDIR}
+</code></pre>
+<p>Changing this location is particularly important on HPC clusters where you may have limited space in your home directory.</p>
+<p>Ensure your temporary directory is set to a location with sufficient space, eg:</p>
+<pre><code class="language-bash">export TMPDIR=/scratch2/myproject/tmp
+export NXF_TEMP=$TMPDIR
+mkdir -p $TMPDIR
+</code></pre>
+<h2 id="next-steps">Next Steps</h2>
+<p>See the <a href="usage.md">Usage</a> page for examples and detailed workflow documentation.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href=".." class="btn btn-neutral float-left" title="Home"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../workflows/rfdiffusion/" class="btn btn-neutral float-right" title="RFdiffusion">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href=".." style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../workflows/rfdiffusion/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
