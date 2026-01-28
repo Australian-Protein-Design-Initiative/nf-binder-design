@@ -9,7 +9,6 @@
 from typing import List, Tuple, Optional
 import argparse
 import sys
-import json
 from pathlib import Path
 from collections import defaultdict
 from Bio import PDB
@@ -60,11 +59,43 @@ def get_chain_ranges(structure: PDB.Structure.Structure) -> List[Tuple[str, int,
     return ranges
 
 
+def format_chimerax_selection(ranges: List[Tuple[str, int, int]]) -> str:
+    """Format ranges as a ChimeraX selection string.
+
+    Args:
+        ranges: List of (chain_id, start_res, end_res) tuples
+
+    Returns:
+        ChimeraX selection string like "@A:1-100 or @B:50-75"
+    """
+    if not ranges:
+        return ""
+
+    # Group ranges by chain ID
+    chain_groups = defaultdict(list)
+    for chain_id, start, end in ranges:
+        chain_groups[chain_id].append((start, end))
+
+    # Format each chain's ranges
+    chain_selections = []
+    for chain_id in sorted(chain_groups.keys()):
+        ranges_list = sorted(chain_groups[chain_id])
+        # Combine consecutive or overlapping ranges on the same chain
+        range_parts = []
+        for start, end in ranges_list:
+            range_parts.append(f"{start}-{end}")
+        chain_selection = f"@{chain_id}:" + ",".join(range_parts)
+        chain_selections.append(chain_selection)
+
+    return " or ".join(chain_selections)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="""Get the contigs string for RFdiffusion from a PDB file.
 If no binder chain is specified, we return the contigs for each of chains in the target.
 If a binder chain is specified, we return the length of the binder chain and the contigs for the target chains.
+Use --chimerax to output ChimeraX selection strings instead of RFdiffusion contigs.
 """
     )
     parser.add_argument("pdb_file", type=Path, help="Input PDB file")
@@ -78,6 +109,11 @@ If a binder chain is specified, we return the length of the binder chain and the
         "--target_contigs",
         default=None,
         help="Target contigs string - if not provided, will auto-detect from PDB",
+    )
+    parser.add_argument(
+        "--chimerax",
+        action="store_true",
+        help="Output ChimeraX selection strings instead of RFdiffusion contigs",
     )
     args = parser.parse_args()
 
@@ -94,6 +130,38 @@ If a binder chain is specified, we return the length of the binder chain and the
 
     ranges = get_chain_ranges(structure)
 
+    # ChimeraX output format
+    if args.chimerax:
+        if args.binder_chain:
+            # Find binder and target ranges
+            binder_ranges = [r for r in ranges if r[0] == args.binder_chain]
+            target_ranges = [r for r in ranges if r[0] != args.binder_chain]
+            
+            if not binder_ranges:
+                print(
+                    f"Error: Binder chain {args.binder_chain} not found in {args.pdb_file}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            
+            if target_ranges:
+                binder_sel = format_chimerax_selection(binder_ranges)
+                target_sel = format_chimerax_selection(target_ranges)
+                print("# ChimeraX contig selection")
+                print(f"select {binder_sel}")
+                print(f"select {target_sel}")
+            else:
+                binder_sel = format_chimerax_selection(binder_ranges)
+                print("# ChimeraX contig selection")
+                print(f"select {binder_sel}")
+        else:
+            # No binder specified, output all chains
+            all_sel = format_chimerax_selection(ranges)
+            print("# ChimeraX contig selection")
+            print(f"select {all_sel}")
+        return
+
+    # RFdiffusion contigs output format (original behaviour)
     # Use provided target_contigs if specified, otherwise detect from PDB
     if args.target_contigs:
         target_contigs_str = args.target_contigs
