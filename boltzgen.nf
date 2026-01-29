@@ -28,6 +28,7 @@ include { BOLTZGEN_AFFINITY } from './modules/boltzgen/boltzgen_affinity'
 include { BOLTZGEN_MERGE } from './modules/boltzgen/boltzgen_merge'
 include { BOLTZGEN_ANALYSIS } from './modules/boltzgen/boltzgen_analysis'
 include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
+include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
 
 include { detectParams; buildFilteringArgs } from './modules/boltzgen/boltzgen_utils'
 
@@ -49,24 +50,6 @@ def validateDesignName(design_name) {
     }
 
     return true
-}
-
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        }
-        else if (!(value instanceof Closure) && !(key in [
-            'class',
-            'launchDir',
-            'projectDir',
-            'workDir',
-        ])) {
-            map[key] = value
-        }
-    }
-    return map
 }
 
 workflow {
@@ -97,6 +80,9 @@ workflow {
             --additional_filters          Extra hard filters. Format: feature>threshold or feature<threshold (e.g., 'design_ALA>0.3' 'design_GLY<0.2')
             --size_buckets                Optional constraint for maximum number of designs in size ranges. Format: min-max:count (e.g., '10-20:5' '20-30:10')
             --refolding_rmsd_threshold     Threshold used for RMSD-based filters (lower is better)
+
+            --enable_gpu_stats             Enable GPU utilisation monitoring [default: ${params.enable_gpu_stats}]
+            --gpu_stats_interval           GPU monitoring sampling interval in seconds [default: ${params.gpu_stats_interval}]
 
         """.stripIndent()
         )
@@ -288,6 +274,29 @@ workflow {
         Channel.value(params.budget),
         Channel.value(filtering_args),
     )
+
+    // Merge GPU stats from all processes
+    ch_gpu_stats_all = BOLTZGEN_DESIGN.out.gpu_stats
+        .mix(BOLTZGEN_INVERSE_FOLDING.out.gpu_stats)
+        .mix(BOLTZGEN_FOLDING.out.gpu_stats)
+        .mix(BOLTZGEN_ANALYSIS.out.gpu_stats)
+        .mix(BOLTZGEN_MERGE.out.gpu_stats)
+        .mix(BOLTZGEN_FILTERING.out.gpu_stats)
+
+    // Add conditional process outputs
+    if (params.protocol in ['protein-anything', 'protein-small_molecule']) {
+        ch_gpu_stats_all = ch_gpu_stats_all
+            .mix(BOLTZGEN_DESIGN_FOLDING.out.gpu_stats)
+        if (params.protocol == 'protein-small_molecule') {
+            ch_gpu_stats_all = ch_gpu_stats_all
+                .mix(BOLTZGEN_AFFINITY.out.gpu_stats)
+        }
+    }
+
+    ch_gpu_stats_merged = ch_gpu_stats_all
+        .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+
+    COMPRESS_GPU_STATS(ch_gpu_stats_merged)
 
     ///////////////////////////////////////////////////////////////////////////
     workflow.onComplete = {

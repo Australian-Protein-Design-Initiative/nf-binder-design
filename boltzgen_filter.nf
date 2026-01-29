@@ -17,26 +17,9 @@ params.size_buckets = []
 params.refolding_rmsd_threshold = false
 
 include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
+include { paramsToMap } from './modules/utils.nf'
 
 include { detectParams; buildFilteringArgs } from './modules/boltzgen/boltzgen_utils'
-
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        }
-        else if (!(value instanceof Closure) && !(key in [
-            'class',
-            'launchDir',
-            'projectDir',
-            'workDir',
-        ])) {
-            map[key] = value
-        }
-    }
-    return map
-}
 
 workflow {
     // Show help message

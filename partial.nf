@@ -86,6 +86,7 @@ include { BOLTZ_COMPARE_COMPLEX } from './modules/boltz_compare_complex'
 include { BOLTZ_COMPARE_BINDER_MONOMER } from './modules/boltz_compare_binder_monomer'
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 include { PDB_TO_FASTA } from './modules/pdb_to_fasta'
+include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
 
 
 // Validate numeric parameters
@@ -120,24 +121,6 @@ def validate_params() {
     validate_numeric('rfd_noise_scale', params.rfd_noise_scale)
     validate_numeric('pmpnn_relax_cycles', params.pmpnn_relax_cycles)
     validate_numeric('pmpnn_seqs_per_struct', params.pmpnn_seqs_per_struct)
-}
-
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        }
-        else if (!(value instanceof Closure) && !(key in [
-            'class',
-            'launchDir',
-            'projectDir',
-            'workDir',
-        ])) {
-            map[key] = value
-        }
-    }
-    return map
 }
 
 workflow {
@@ -194,6 +177,8 @@ workflow {
             --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
             --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
             --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+            --enable_gpu_stats    Enable GPU utilisation monitoring [default: ${params.enable_gpu_stats}]
+            --gpu_stats_interval GPU monitoring sampling interval in seconds [default: ${params.gpu_stats_interval}]
 
         """.stripIndent()
         )
@@ -493,6 +478,16 @@ workflow {
             ch_target_aligned_rmsd.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
             AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
+
+        // Merge GPU stats including Boltz processes
+        ch_gpu_stats_merged = RFDIFFUSION_PARTIAL.out.gpu_stats
+            .mix(DL_BINDER_DESIGN_PROTEINMPNN.out.gpu_stats)
+            .mix(AF2_INITIAL_GUESS.out.gpu_stats)
+            .mix(BOLTZ_COMPARE_COMPLEX.out.gpu_stats)
+            .mix(BOLTZ_COMPARE_BINDER_MONOMER.out.gpu_stats)
+            .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+        
+        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
     }
     else {
 
@@ -517,6 +512,14 @@ workflow {
             "${projectDir}/assets/dummy_files/empty",
             AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
+
+        // Merge GPU stats (no Boltz processes in this branch)
+        ch_gpu_stats_merged = RFDIFFUSION_PARTIAL.out.gpu_stats
+            .mix(DL_BINDER_DESIGN_PROTEINMPNN.out.gpu_stats)
+            .mix(AF2_INITIAL_GUESS.out.gpu_stats)
+            .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+        
+        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
     }
 
     workflow.onComplete = {

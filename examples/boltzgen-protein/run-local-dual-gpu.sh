@@ -14,6 +14,7 @@ nextflow run ${PIPELINE_DIR}/boltzgen.nf \
   --budget 2 \
   --devices 2 \
   --num_workers 2 \
+  --enable_gpu_stats=true \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

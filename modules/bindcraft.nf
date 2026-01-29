@@ -3,6 +3,7 @@ process BINDCRAFT {
 
     publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'results/**', mode: 'copy'
     publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: '*.{pdb,pdb.gz,json}', mode: 'copy'
+    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'gpu_stats.csv', mode: 'copy'
     publishDir(
         path: "${params.outdir}/bindcraft/accepted",
         pattern: 'results/Accepted/*.{pdb,pdb.gz}',
@@ -33,6 +34,7 @@ process BINDCRAFT {
     path '*.json', followLinks: true, includeInputs: true, optional: true, emit: settings_files
     path '*.pdb', followLinks: true, includeInputs: true, optional: true, emit: input_pdb
     path 'results/**', emit: all_results
+    path 'gpu_stats.csv', optional: true, emit: gpu_stats
 
     script:
     def advanced_settings_filename = advanced_settings_preset ? "/app/BindCraft/settings_advanced/${advanced_settings_preset}.json" : '/app/BindCraft/settings_advanced/default_4stage_multimer.json'
@@ -55,6 +57,24 @@ process BINDCRAFT {
         free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
         export CUDA_VISIBLE_DEVICES="\$free_gpu"
         echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    fi
+
+    # Start GPU monitoring in background if enabled
+    if [[ "${params.enable_gpu_stats}" == "true" ]]; then
+        PARENT_DIR=\$(basename \$(dirname \$(pwd)))
+        CURRENT_DIR=\$(basename \$(pwd))
+        TASK_HASH="\${PARENT_DIR}/\${CURRENT_DIR}"
+        TASK_HASH="\${TASK_HASH:0:9}"
+        ${baseDir}/bin/monitor-gpu.py \
+            --process-name "BINDCRAFT" \
+            --task-hash "\${TASK_HASH}" \
+            --task-index "${task.index}" \
+            --interval ${params.gpu_stats_interval} \
+            --output gpu_stats.csv &
+        GPU_MONITOR_PID=\${!:-}
+        if [[ -n "\${GPU_MONITOR_PID}" ]]; then
+            trap "kill \${GPU_MONITOR_PID} 2>/dev/null || true" EXIT
+        fi
     fi
 
     ##

@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-...
+### Added
+- GPU monitoring script (`bin/monitor-gpu.py`) to track GPU utilisation 
+  during task execution via the `--enable_gpu_stats` parameter (default: `false`). 
+  GPU stats from all tasks are merged into a single `gpu_stats.csv.gz` in `${outdir}/logs/`.
 
 ## [0.1.5] - 2026-01-28
 

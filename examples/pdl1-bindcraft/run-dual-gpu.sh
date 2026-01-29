@@ -19,6 +19,7 @@ nextflow run ${PIPELINE_DIR}/bindcraft.nf \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   --gpu_devices=0,1 \
+  --enable_gpu_stats=true \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

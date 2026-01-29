@@ -6,6 +6,7 @@ include { TRIM_TO_CONTIGS } from './modules/trim_to_contigs.nf'
 include { BINDCRAFT_CREATE_SETTINGS } from './modules/bindcraft_create_settings.nf'
 include { BINDCRAFT } from './modules/bindcraft'
 include { BINDCRAFT_REPORTING } from './modules/bindcraft_reporting.nf'
+include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
 
 params.outdir = 'results'
 params.bindcraft_advanced_settings_preset = 'default_4stage_multimer'
@@ -153,19 +154,6 @@ def validateChainConsistency(hotspot_residues, target_chains) {
     return true
 }
 
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        } else if (!(value instanceof Closure) && !(key in [
-            'class', 'launchDir', 'projectDir', 'workDir'])) {
-            map[key] = value
-            }
-    }
-    return map
-}
-
 if (!params.input_pdb) {
     log.info"""
     ==================================================================
@@ -197,6 +185,8 @@ if (!params.input_pdb) {
         --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
         --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
         --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+        --enable_gpu_stats      Enable GPU utilisation monitoring [default: ${params.enable_gpu_stats}]
+        --gpu_stats_interval    GPU monitoring sampling interval in seconds [default: ${params.gpu_stats_interval}]
 
     """.stripIndent()
     exit 1
@@ -351,6 +341,16 @@ workflow {
             return "${header}\n${summedValues}"
         }
         .collectFile(name: 'failure_csv.csv', storeDir: "${params.outdir}/bindcraft")
+
+    // Merge GPU stats CSV files from all tasks
+    ch_gpu_stats_merged = BINDCRAFT.out.gpu_stats
+        .collectFile(name: 'gpu_stats.csv',
+                     keepHeader: true,
+                     skip: 1)
+    
+    // Compress the merged GPU stats CSV
+    COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+    ch_gpu_stats_gz = COMPRESS_GPU_STATS.out.gz_file
 
     // Collect per-batch directories into a single list for reporting
     ch_batch_dirs_list = BINDCRAFT.out.batch_dir.collect()

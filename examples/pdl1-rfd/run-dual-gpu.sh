@@ -16,6 +16,7 @@ nextflow run ${PIPELINE_DIR}/main.nf  \
   --hotspot_res "A56" \
   --rfd_n_designs=4 \
   --gpu_devices=0,1 \
+  --enable_gpu_stats=true \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

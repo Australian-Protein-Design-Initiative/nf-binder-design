@@ -25,6 +25,7 @@ nextflow run ${PIPELINE_DIR}/partial.nf  \
   --refold_max=100 \
   --refold_use_msa_server=true \
   --gpu_devices=0,1 \
+  --enable_gpu_stats=true \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

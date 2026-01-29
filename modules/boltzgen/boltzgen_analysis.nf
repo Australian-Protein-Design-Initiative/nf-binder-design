@@ -15,6 +15,7 @@ process BOLTZGEN_ANALYSIS {
 
     output:
     path ("batch_${start_index}"), type: 'dir', emit: batch_dir
+    path 'gpu_stats.csv', optional: true, emit: gpu_stats
 
     script:
     def config_basename = config_yaml.name
@@ -32,6 +33,24 @@ process BOLTZGEN_ANALYSIS {
     mkdir -p \$CUEQ_TRITON_CACHE_DIR
 
     nvidia-smi
+
+    # Start GPU monitoring in background if enabled
+    if [[ "${params.enable_gpu_stats}" == "true" ]]; then
+        PARENT_DIR=\$(basename \$(dirname \$(pwd)))
+        CURRENT_DIR=\$(basename \$(pwd))
+        TASK_HASH="\${PARENT_DIR}/\${CURRENT_DIR}"
+        TASK_HASH="\${TASK_HASH:0:9}"
+        ${baseDir}/bin/monitor-gpu.py \
+            --process-name "BOLTZGEN_ANALYSIS" \
+            --task-hash "\${TASK_HASH}" \
+            --task-index "${task.index}" \
+            --interval ${params.gpu_stats_interval} \
+            --output gpu_stats.csv &
+        GPU_MONITOR_PID=\${!:-}
+        if [[ -n "\${GPU_MONITOR_PID}" ]]; then
+            trap "kill \${GPU_MONITOR_PID} 2>/dev/null || true" EXIT
+        fi
+    fi
 
     # Auto-detect MIG GPU
     BOLTZGEN_USE_KERNELS_FLAG=""

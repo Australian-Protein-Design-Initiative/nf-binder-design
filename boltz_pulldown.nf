@@ -17,28 +17,11 @@ params.gpu_allocation_detect_process_regex = "(python.*/app/dl_binder_design/af2
 include { BOLTZ } from './modules/boltz'
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 include { BOLTZ_PULLDOWN_REPORTING } from './modules/boltz_pulldown_reporting.nf'
+include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
 
 // Helper function to sanitize strings for filenames
 def sanitize(name) {
     return name.replaceAll(/[^a-zA-Z0-9_.-]/, "_")
-}
-
-def paramsToMap(params) {
-    def map = [:]
-    params.each { key, value ->
-        if (value instanceof Path || value instanceof File) {
-            map[key] = value.toString()
-        }
-        else if (!(value instanceof Closure) && !(key in [
-            'class',
-            'launchDir',
-            'projectDir',
-            'workDir',
-        ])) {
-            map[key] = value
-        }
-    }
-    return map
 }
 
 process CREATE_BOLTZ_YAML {
@@ -153,6 +136,8 @@ workflow {
 
             --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
             --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+            --enable_gpu_stats    Enable GPU utilisation monitoring [default: ${params.enable_gpu_stats}]
+            --gpu_stats_interval  GPU monitoring sampling interval in seconds [default: ${params.gpu_stats_interval}]
         """.stripIndent()
         )
         exit(1)
@@ -226,6 +211,12 @@ workflow {
         file("${projectDir}/assets/boltz_pulldown_reporting.qmd"),
         ch_tsv_output,
     )
+
+    // Merge GPU stats from all BOLTZ tasks
+    ch_gpu_stats_merged = BOLTZ.out.gpu_stats
+        .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+    
+    COMPRESS_GPU_STATS(ch_gpu_stats_merged)
 
     // TODO: Re-sort the table on iptm (index 5). 
     //       (An alternative would be to sort on confidence (index 3))

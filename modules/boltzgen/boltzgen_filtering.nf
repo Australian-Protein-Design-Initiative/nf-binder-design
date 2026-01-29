@@ -18,6 +18,7 @@ process BOLTZGEN_FILTERING {
     output:
     path 'filtered/final_ranked_designs', type: 'dir', emit: final_ranked_designs_dir
     path 'filtered/final_ranked_designs/config/filtering.yaml', type: 'file', emit: filtering_config_yaml
+    path 'gpu_stats.csv', optional: true, emit: gpu_stats
 
     script:
     def config_basename = config_yaml.name
@@ -35,6 +36,24 @@ process BOLTZGEN_FILTERING {
     mkdir -p \$CUEQ_TRITON_CACHE_DIR
 
     nvidia-smi
+
+    # Start GPU monitoring in background if enabled
+    if [[ "${params.enable_gpu_stats}" == "true" ]]; then
+        PARENT_DIR=\$(basename \$(dirname \$(pwd)))
+        CURRENT_DIR=\$(basename \$(pwd))
+        TASK_HASH="\${PARENT_DIR}/\${CURRENT_DIR}"
+        TASK_HASH="\${TASK_HASH:0:9}"
+        ${baseDir}/bin/monitor-gpu.py \
+            --process-name "BOLTZGEN_FILTERING" \
+            --task-hash "\${TASK_HASH}" \
+            --task-index "${task.index}" \
+            --interval ${params.gpu_stats_interval} \
+            --output gpu_stats.csv &
+        GPU_MONITOR_PID=\${!:-}
+        if [[ -n "\${GPU_MONITOR_PID}" ]]; then
+            trap "kill \${GPU_MONITOR_PID} 2>/dev/null || true" EXIT
+        fi
+    fi
 
     # Auto-detect MIG GPU
     BOLTZGEN_USE_KERNELS_FLAG=""

@@ -14,6 +14,7 @@ process BOLTZ {
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/confidence_${yaml_file.baseName}_model_0.json"), emit: confidence_json
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae.tsv"), emit: ipsae_tsv
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae_byres.tsv"), emit: ipsae_byres_tsv
+    path 'gpu_stats.csv', optional: true, emit: gpu_stats
 
     script:
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
@@ -24,6 +25,24 @@ process BOLTZ {
         free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
         export CUDA_VISIBLE_DEVICES="\$free_gpu"
         echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    fi
+
+    # Start GPU monitoring in background if enabled
+    if [[ "${params.enable_gpu_stats}" == "true" ]]; then
+        PARENT_DIR=\$(basename \$(dirname \$(pwd)))
+        CURRENT_DIR=\$(basename \$(pwd))
+        TASK_HASH="\${PARENT_DIR}/\${CURRENT_DIR}"
+        TASK_HASH="\${TASK_HASH:0:9}"
+        ${baseDir}/bin/monitor-gpu.py \
+            --process-name "BOLTZ" \
+            --task-hash "\${TASK_HASH}" \
+            --task-index "${task.index}" \
+            --interval ${params.gpu_stats_interval} \
+            --output gpu_stats.csv &
+        GPU_MONITOR_PID=\${!:-}
+        if [[ -n "\${GPU_MONITOR_PID}" ]]; then
+            trap "kill \${GPU_MONITOR_PID} 2>/dev/null || true" EXIT
+        fi
     fi
 
     # Boltz model weights are stored in our container
