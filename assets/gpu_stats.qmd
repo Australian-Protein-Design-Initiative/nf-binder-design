@@ -1,0 +1,372 @@
+---
+title: "GPU Utilisation Report"
+author: "Australian-Protein-Design-Initiative/nf-binder-design"
+date: last-modified
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+    page-layout: full
+execute:
+  echo: false
+jupyter: python3
+---
+
+```{=html}
+<style>
+.content {
+  max-width: 1400px;
+}
+</style>
+```
+
+# Overview
+
+This report presents GPU utilisation statistics collected during the pipeline run, broken down by Nextflow process.
+
+```{python}
+#| label: setup
+#| message: false
+#| warning: false
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import warnings
+warnings.filterwarnings('ignore')
+
+plt.style.use('seaborn-v0_8')
+
+# Load data
+df = pd.read_csv('gpu_stats.csv')
+
+# Convert timestamp to datetime
+df['timestamp'] = pd.to_datetime(df['timestamp'])
+
+# Ensure numeric columns are numeric
+df['utilization_gpu'] = pd.to_numeric(df['utilization_gpu'], errors='coerce')
+df['utilization_memory'] = pd.to_numeric(df['utilization_memory'], errors='coerce')
+df['temperature_gpu'] = pd.to_numeric(df['temperature_gpu'], errors='coerce')
+
+# Create a unique task identifier
+df['task_id'] = df['process_name'] + '_' + df['task_index'].astype(str)
+
+# Summary info
+n_processes = df['process_name'].nunique()
+n_tasks = df['task_id'].nunique()
+n_samples = len(df)
+
+print(f"Unique processes: {n_processes}")
+print(f"Unique tasks: {n_tasks}")
+print(f"Total samples: {n_samples}")
+print(f"Time range: {df['timestamp'].min()} to {df['timestamp'].max()}")
+```
+
+# GPU Statistics by Process
+
+## Boxplots
+
+These boxplots show the distribution of GPU compute utilisation, memory utilisation, and temperature for each Nextflow process.
+
+```{python}
+#| label: boxplots
+#| fig-width: 12
+#| fig-height: 14
+
+# Order processes by median GPU utilisation
+process_order = df.groupby('process_name')['utilization_gpu'].median().sort_values(ascending=False).index.tolist()
+
+fig, axes = plt.subplots(3, 1, figsize=(12, 14))
+
+# GPU Utilisation boxplot
+ax1 = axes[0]
+sns.boxplot(data=df, x='process_name', y='utilization_gpu', order=process_order, 
+            ax=ax1, palette='viridis', width=0.5)
+ax1.set_xlabel('')
+ax1.set_ylabel('GPU Utilisation (%)')
+ax1.set_title('GPU Compute Utilisation by Process')
+ax1.tick_params(axis='x', rotation=45)
+plt.setp(ax1.get_xticklabels(), ha='right')
+ax1.set_ylim(0, 105)
+
+# Memory Utilisation boxplot
+ax2 = axes[1]
+sns.boxplot(data=df, x='process_name', y='utilization_memory', order=process_order,
+            ax=ax2, palette='viridis', width=0.5)
+ax2.set_xlabel('')
+ax2.set_ylabel('Memory Utilisation (%)')
+ax2.set_title('GPU Memory Utilisation by Process')
+ax2.tick_params(axis='x', rotation=45)
+plt.setp(ax2.get_xticklabels(), ha='right')
+ax2.set_ylim(0, 105)
+
+# Temperature boxplot
+ax3 = axes[2]
+sns.boxplot(data=df, x='process_name', y='temperature_gpu', order=process_order,
+            ax=ax3, palette='YlOrRd', width=0.5)
+ax3.set_xlabel('Process Name')
+ax3.set_ylabel('Temperature (°C)')
+ax3.set_title('GPU Temperature by Process')
+ax3.tick_params(axis='x', rotation=45)
+plt.setp(ax3.get_xticklabels(), ha='right')
+
+plt.tight_layout()
+plt.show()
+```
+
+## Summary Statistics
+
+The tables below show summary statistics for GPU utilisation metrics per process.
+
+### GPU Compute Utilisation
+
+```{python}
+#| label: gpu-summary
+#| message: false
+
+gpu_summary = df.groupby('process_name')['utilization_gpu'].agg([
+    ('min', 'min'),
+    ('25%', lambda x: x.quantile(0.25)),
+    ('median', 'median'),
+    ('mean', 'mean'),
+    ('75%', lambda x: x.quantile(0.75)),
+    ('max', 'max'),
+    ('count', 'count')
+]).round(2)
+
+gpu_summary = gpu_summary.sort_values('median', ascending=False)
+
+styled_gpu = gpu_summary.style.background_gradient(cmap='viridis', subset=['median', 'mean']) \
+                              .set_caption("GPU Compute Utilisation (%) by Process") \
+                              .format('{:.1f}', subset=['min', '25%', 'median', 'mean', '75%', 'max'])
+display(styled_gpu)
+```
+
+### GPU Memory Utilisation
+
+```{python}
+#| label: memory-summary
+#| message: false
+
+mem_summary = df.groupby('process_name')['utilization_memory'].agg([
+    ('min', 'min'),
+    ('25%', lambda x: x.quantile(0.25)),
+    ('median', 'median'),
+    ('mean', 'mean'),
+    ('75%', lambda x: x.quantile(0.75)),
+    ('max', 'max'),
+    ('count', 'count')
+]).round(2)
+
+mem_summary = mem_summary.sort_values('median', ascending=False)
+
+styled_mem = mem_summary.style.background_gradient(cmap='viridis', subset=['median', 'mean']) \
+                              .set_caption("GPU Memory Utilisation (%) by Process") \
+                              .format('{:.1f}', subset=['min', '25%', 'median', 'mean', '75%', 'max'])
+display(styled_mem)
+```
+
+### GPU Temperature
+
+```{python}
+#| label: temperature-summary
+#| message: false
+
+temp_summary = df.groupby('process_name')['temperature_gpu'].agg([
+    ('min', 'min'),
+    ('25%', lambda x: x.quantile(0.25)),
+    ('median', 'median'),
+    ('mean', 'mean'),
+    ('75%', lambda x: x.quantile(0.75)),
+    ('max', 'max'),
+    ('count', 'count')
+]).round(2)
+
+temp_summary = temp_summary.sort_values('median', ascending=False)
+
+styled_temp = temp_summary.style.background_gradient(cmap='YlOrRd', subset=['mean', 'max']) \
+                                .set_caption("GPU Temperature (°C) by Process") \
+                                .format('{:.1f}', subset=['min', '25%', 'median', 'mean', '75%', 'max'])
+display(styled_temp)
+```
+
+# GPU Timeseries by Process
+
+These plots show GPU utilisation and temperature over time for each process, with individual lines for each task. Time is shown relative to the start of each task to allow comparison of patterns.
+
+```{python}
+#| label: timeseries
+#| fig-width: 12
+#| message: false
+
+processes = df['process_name'].unique()
+
+for process_name in sorted(processes):
+    process_df = df[df['process_name'] == process_name].copy()
+    
+    # Skip if no data
+    if len(process_df) == 0:
+        continue
+    
+    # Calculate relative time per task
+    task_groups = process_df.groupby('task_index')
+    relative_dfs = []
+    
+    for task_idx, task_df in task_groups:
+        task_df = task_df.copy()
+        start_time = task_df['timestamp'].min()
+        task_df['relative_seconds'] = (task_df['timestamp'] - start_time).dt.total_seconds()
+        relative_dfs.append(task_df)
+    
+    if not relative_dfs:
+        continue
+        
+    process_rel_df = pd.concat(relative_dfs, ignore_index=True)
+    
+    n_tasks = process_rel_df['task_index'].nunique()
+    max_duration = process_rel_df['relative_seconds'].max()
+    
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+    
+    # GPU Utilisation timeseries
+    ax1 = axes[0]
+    for task_idx in process_rel_df['task_index'].unique():
+        task_data = process_rel_df[process_rel_df['task_index'] == task_idx]
+        ax1.plot(task_data['relative_seconds'], task_data['utilization_gpu'], 
+                 alpha=0.6, linewidth=0.8)
+    ax1.set_ylabel('GPU Utilisation (%)')
+    ax1.set_title(f'{process_name} - GPU Compute Utilisation ({n_tasks} tasks)')
+    ax1.set_ylim(0, 105)
+    ax1.grid(True, alpha=0.3)
+    
+    # Memory Utilisation timeseries
+    ax2 = axes[1]
+    for task_idx in process_rel_df['task_index'].unique():
+        task_data = process_rel_df[process_rel_df['task_index'] == task_idx]
+        ax2.plot(task_data['relative_seconds'], task_data['utilization_memory'],
+                 alpha=0.6, linewidth=0.8)
+    ax2.set_ylabel('Memory Utilisation (%)')
+    ax2.set_title(f'{process_name} - GPU Memory Utilisation ({n_tasks} tasks)')
+    ax2.set_ylim(0, 105)
+    ax2.grid(True, alpha=0.3)
+    
+    # Temperature timeseries
+    ax3 = axes[2]
+    for task_idx in process_rel_df['task_index'].unique():
+        task_data = process_rel_df[process_rel_df['task_index'] == task_idx]
+        ax3.plot(task_data['relative_seconds'], task_data['temperature_gpu'],
+                 alpha=0.6, linewidth=0.8)
+    ax3.set_xlabel('Time (seconds from task start)')
+    ax3.set_ylabel('Temperature (°C)')
+    ax3.set_title(f'{process_name} - GPU Temperature ({n_tasks} tasks)')
+    ax3.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print task duration stats
+    task_durations = process_rel_df.groupby('task_index')['relative_seconds'].max()
+    print(f"\n{process_name} task durations (seconds):")
+    print(f"  Min: {task_durations.min():.1f}, Median: {task_durations.median():.1f}, Max: {task_durations.max():.1f}")
+```
+
+# Combined Process Comparison
+
+This section provides a side-by-side comparison of all processes.
+
+```{python}
+#| label: combined-violin
+#| fig-width: 14
+#| fig-height: 12
+
+fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+
+# GPU Utilisation violin plot
+ax1 = axes[0, 0]
+sns.violinplot(data=df, x='process_name', y='utilization_gpu', order=process_order,
+               ax=ax1, palette='viridis', inner='box', width=0.7)
+ax1.set_xlabel('Process Name')
+ax1.set_ylabel('GPU Utilisation (%)')
+ax1.set_title('GPU Compute Utilisation Distribution')
+ax1.tick_params(axis='x', rotation=45)
+plt.setp(ax1.get_xticklabels(), ha='right')
+ax1.set_ylim(0, 105)
+
+# Memory Utilisation violin plot
+ax2 = axes[0, 1]
+sns.violinplot(data=df, x='process_name', y='utilization_memory', order=process_order,
+               ax=ax2, palette='viridis', inner='box', width=0.7)
+ax2.set_xlabel('Process Name')
+ax2.set_ylabel('Memory Utilisation (%)')
+ax2.set_title('GPU Memory Utilisation Distribution')
+ax2.tick_params(axis='x', rotation=45)
+plt.setp(ax2.get_xticklabels(), ha='right')
+ax2.set_ylim(0, 105)
+
+# Temperature violin plot
+ax3 = axes[1, 0]
+sns.violinplot(data=df, x='process_name', y='temperature_gpu', order=process_order,
+               ax=ax3, palette='YlOrRd', inner='box', width=0.7)
+ax3.set_xlabel('Process Name')
+ax3.set_ylabel('Temperature (°C)')
+ax3.set_title('GPU Temperature Distribution')
+ax3.tick_params(axis='x', rotation=45)
+plt.setp(ax3.get_xticklabels(), ha='right')
+
+# Hide the empty subplot
+axes[1, 1].axis('off')
+
+plt.tight_layout()
+plt.show()
+```
+
+# Task-Level Statistics
+
+```{python}
+#| label: task-stats
+#| message: false
+
+# Calculate per-task statistics
+task_stats = df.groupby(['process_name', 'task_index']).agg({
+    'utilization_gpu': ['mean', 'max'],
+    'utilization_memory': ['mean', 'max'],
+    'temperature_gpu': ['mean', 'max'],
+    'timestamp': ['min', 'max']
+}).reset_index()
+
+task_stats.columns = ['process_name', 'task_index', 
+                      'gpu_mean', 'gpu_max', 
+                      'mem_mean', 'mem_max',
+                      'temp_mean', 'temp_max',
+                      'start_time', 'end_time']
+
+task_stats['duration_seconds'] = (task_stats['end_time'] - task_stats['start_time']).dt.total_seconds()
+
+# Summary by process
+process_task_summary = task_stats.groupby('process_name').agg({
+    'gpu_mean': ['mean', 'std'],
+    'gpu_max': 'mean',
+    'mem_mean': ['mean', 'std'],
+    'mem_max': 'mean',
+    'temp_mean': ['mean', 'std'],
+    'temp_max': 'mean',
+    'duration_seconds': ['mean', 'min', 'max'],
+    'task_index': 'count'
+}).round(2)
+
+process_task_summary.columns = ['GPU Mean Avg', 'GPU Mean Std', 'GPU Max Avg',
+                                'Mem Mean Avg', 'Mem Mean Std', 'Mem Max Avg',
+                                'Temp Mean Avg (°C)', 'Temp Mean Std', 'Temp Max Avg (°C)',
+                                'Duration Avg (s)', 'Duration Min (s)', 'Duration Max (s)',
+                                'Task Count']
+
+styled_task = process_task_summary.style.background_gradient(cmap='viridis', subset=['GPU Mean Avg', 'Mem Mean Avg']) \
+                                        .background_gradient(cmap='YlOrRd', subset=['Temp Mean Avg (°C)', 'Temp Max Avg (°C)']) \
+                                        .set_caption("Task-Level Summary Statistics by Process") \
+                                        .format('{:.1f}')
+display(styled_task)
+```

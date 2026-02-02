@@ -87,6 +87,7 @@ include { BOLTZ_COMPARE_BINDER_MONOMER } from './modules/boltz_compare_binder_mo
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 include { PDB_TO_FASTA } from './modules/pdb_to_fasta'
 include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
+include { GPU_STATS_REPORTING } from './modules/gpu_stats_reporting.nf'
 
 
 // Validate numeric parameters
@@ -479,15 +480,18 @@ workflow {
             AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
 
-        // Merge GPU stats including Boltz processes
-        ch_gpu_stats_merged = RFDIFFUSION_PARTIAL.out.gpu_stats
-            .mix(DL_BINDER_DESIGN_PROTEINMPNN.out.gpu_stats)
-            .mix(AF2_INITIAL_GUESS.out.gpu_stats)
-            .mix(BOLTZ_COMPARE_COMPLEX.out.gpu_stats)
-            .mix(BOLTZ_COMPARE_BINDER_MONOMER.out.gpu_stats)
-            .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
-        
-        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+        if (params.enable_gpu_stats) {
+            // Merge GPU stats including Boltz processes
+            ch_gpu_stats_merged = RFDIFFUSION_PARTIAL.out.gpu_stats
+                .mix(DL_BINDER_DESIGN_PROTEINMPNN.out.gpu_stats)
+                .mix(AF2_INITIAL_GUESS.out.gpu_stats)
+                .mix(BOLTZ_COMPARE_COMPLEX.out.gpu_stats)
+                .mix(BOLTZ_COMPARE_BINDER_MONOMER.out.gpu_stats)
+                .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+            
+            COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+            GPU_STATS_REPORTING(ch_gpu_stats_merged)
+        }
     }
     else {
 
@@ -513,13 +517,16 @@ workflow {
             AF2_INITIAL_GUESS.out.pdbs.collect(),
         )
 
-        // Merge GPU stats (no Boltz processes in this branch)
-        ch_gpu_stats_merged = RFDIFFUSION_PARTIAL.out.gpu_stats
-            .mix(DL_BINDER_DESIGN_PROTEINMPNN.out.gpu_stats)
-            .mix(AF2_INITIAL_GUESS.out.gpu_stats)
-            .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
-        
-        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+        if (params.enable_gpu_stats) {
+            // Merge GPU stats (no Boltz processes in this branch)
+            ch_gpu_stats_merged = RFDIFFUSION_PARTIAL.out.gpu_stats
+                .mix(DL_BINDER_DESIGN_PROTEINMPNN.out.gpu_stats)
+                .mix(AF2_INITIAL_GUESS.out.gpu_stats)
+                .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+            
+            COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+            GPU_STATS_REPORTING(ch_gpu_stats_merged)
+        }
     }
 
     workflow.onComplete = {

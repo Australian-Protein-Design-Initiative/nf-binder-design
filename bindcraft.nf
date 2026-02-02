@@ -7,6 +7,7 @@ include { BINDCRAFT_CREATE_SETTINGS } from './modules/bindcraft_create_settings.
 include { BINDCRAFT } from './modules/bindcraft'
 include { BINDCRAFT_REPORTING } from './modules/bindcraft_reporting.nf'
 include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
+include { GPU_STATS_REPORTING } from './modules/gpu_stats_reporting.nf'
 
 params.outdir = 'results'
 params.bindcraft_advanced_settings_preset = 'default_4stage_multimer'
@@ -342,15 +343,17 @@ workflow {
         }
         .collectFile(name: 'failure_csv.csv', storeDir: "${params.outdir}/bindcraft")
 
-    // Merge GPU stats CSV files from all tasks
-    ch_gpu_stats_merged = BINDCRAFT.out.gpu_stats
-        .collectFile(name: 'gpu_stats.csv',
-                     keepHeader: true,
-                     skip: 1)
-    
-    // Compress the merged GPU stats CSV
-    COMPRESS_GPU_STATS(ch_gpu_stats_merged)
-    ch_gpu_stats_gz = COMPRESS_GPU_STATS.out.gz_file
+    if (params.enable_gpu_stats) {
+        // Merge GPU stats CSV files from all tasks
+        ch_gpu_stats_merged = BINDCRAFT.out.gpu_stats
+            .collectFile(name: 'gpu_stats.csv',
+                         keepHeader: true,
+                         skip: 1)
+        
+        // Compress the merged GPU stats CSV
+        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+        GPU_STATS_REPORTING(ch_gpu_stats_merged)
+    }
 
     // Collect per-batch directories into a single list for reporting
     ch_batch_dirs_list = BINDCRAFT.out.batch_dir.collect()

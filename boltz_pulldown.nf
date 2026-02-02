@@ -1,5 +1,14 @@
 #!/usr/bin/env nextflow
 
+
+/*
+ TODO:
+   - Include ipSAE (min) as key score
+   - Investigate this approach 'boltzgen-score-ppi` for PPI scoring: 
+     https://github.com/erikedlund/boltzgen/blob/main/PPI_SCORING_METHODOLOGY.md
+
+*/
+
 nextflow.enable.dsl = 2
 
 // Default parameters
@@ -18,6 +27,7 @@ include { BOLTZ } from './modules/boltz'
 include { MMSEQS_COLABFOLDSEARCH } from './modules/mmseqs_colabfoldsearch'
 include { BOLTZ_PULLDOWN_REPORTING } from './modules/boltz_pulldown_reporting.nf'
 include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
+include { GPU_STATS_REPORTING } from './modules/gpu_stats_reporting.nf'
 
 // Helper function to sanitize strings for filenames
 def sanitize(name) {
@@ -212,11 +222,14 @@ workflow {
         ch_tsv_output,
     )
 
-    // Merge GPU stats from all BOLTZ tasks
-    ch_gpu_stats_merged = BOLTZ.out.gpu_stats
-        .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
-    
-    COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+    if (params.enable_gpu_stats) {
+        // Merge GPU stats from all BOLTZ tasks
+        ch_gpu_stats_merged = BOLTZ.out.gpu_stats
+            .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+        
+        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+        GPU_STATS_REPORTING(ch_gpu_stats_merged)
+    }
 
     // TODO: Re-sort the table on iptm (index 5). 
     //       (An alternative would be to sort on confidence (index 3))

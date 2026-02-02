@@ -22,7 +22,7 @@ process BOLTZGEN_MERGE {
         CURRENT_DIR=\$(basename \$(pwd))
         TASK_HASH="\${PARENT_DIR}/\${CURRENT_DIR}"
         TASK_HASH="\${TASK_HASH:0:9}"
-        ${baseDir}/bin/monitor-gpu.py \
+        ${baseDir}/bin/monitor_gpu.py \
             --process-name "BOLTZGEN_MERGE" \
             --task-hash "\${TASK_HASH}" \
             --task-index "${task.index}" \

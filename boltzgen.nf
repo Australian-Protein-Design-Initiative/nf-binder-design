@@ -1,5 +1,23 @@
 #!/usr/bin/env nextflow
 
+// TODO: Consider using this fork https://github.com/HannesStark/boltzgen/pull/86
+//       to calculate ipSAE (or at least output the PAE npz files then use our own bin/ipsae.py)
+//       Or add it to confidence_utils.py as suggested: https://github.com/HannesStark/boltzgen/pull/86#issuecomment-3587364678
+
+// TODO: Gzip all the .cif and .pdb files everywhere except metged/final_*
+//       This should be done in the BOLTZGEN_MERGE step it's a little tricky to do in the 
+//       batches steps before that. Add an --output-batches option that outputs the batches, otherwise
+//       we won't publish results/batches.
+
+// TODO: Bugfix - sometimes BOLTZGEN_DESIGN fails to generate a design 
+//       (CUDA out of memory error without non-zero exit code)
+//       We try to catch this, but it seems to not be working ?
+//       Downstream in BOLTZGEN_INVERSE_FOLDING we get a fail due to missing files
+//       "ValueError('No designs found in batch_3052/intermediate_designs_inverse_folded')
+//       Maybe detecting if (any) of the expected .cif files are generated in BOLTZGEN_DESIGN
+//       and raise an exit 1 if they are missing would be a better solution ?
+
+
 nextflow.enable.dsl = 2
 
 // Default parameters
@@ -29,6 +47,7 @@ include { BOLTZGEN_MERGE } from './modules/boltzgen/boltzgen_merge'
 include { BOLTZGEN_ANALYSIS } from './modules/boltzgen/boltzgen_analysis'
 include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
 include { COMPRESS_GPU_STATS; paramsToMap } from './modules/utils.nf'
+include { GPU_STATS_REPORTING } from './modules/gpu_stats_reporting.nf'
 
 include { detectParams; buildFilteringArgs } from './modules/boltzgen/boltzgen_utils'
 
@@ -275,28 +294,31 @@ workflow {
         Channel.value(filtering_args),
     )
 
-    // Merge GPU stats from all processes
-    ch_gpu_stats_all = BOLTZGEN_DESIGN.out.gpu_stats
-        .mix(BOLTZGEN_INVERSE_FOLDING.out.gpu_stats)
-        .mix(BOLTZGEN_FOLDING.out.gpu_stats)
-        .mix(BOLTZGEN_ANALYSIS.out.gpu_stats)
-        .mix(BOLTZGEN_MERGE.out.gpu_stats)
-        .mix(BOLTZGEN_FILTERING.out.gpu_stats)
+    if (params.enable_gpu_stats) {
+        // Merge GPU stats from all processes
+        ch_gpu_stats_all = BOLTZGEN_DESIGN.out.gpu_stats
+            .mix(BOLTZGEN_INVERSE_FOLDING.out.gpu_stats)
+            .mix(BOLTZGEN_FOLDING.out.gpu_stats)
+            .mix(BOLTZGEN_ANALYSIS.out.gpu_stats)
+            .mix(BOLTZGEN_MERGE.out.gpu_stats)
+            .mix(BOLTZGEN_FILTERING.out.gpu_stats)
 
-    // Add conditional process outputs
-    if (params.protocol in ['protein-anything', 'protein-small_molecule']) {
-        ch_gpu_stats_all = ch_gpu_stats_all
-            .mix(BOLTZGEN_DESIGN_FOLDING.out.gpu_stats)
-        if (params.protocol == 'protein-small_molecule') {
+        // Add conditional process outputs
+        if (params.protocol in ['protein-anything', 'protein-small_molecule']) {
             ch_gpu_stats_all = ch_gpu_stats_all
-                .mix(BOLTZGEN_AFFINITY.out.gpu_stats)
+                .mix(BOLTZGEN_DESIGN_FOLDING.out.gpu_stats)
+            if (params.protocol == 'protein-small_molecule') {
+                ch_gpu_stats_all = ch_gpu_stats_all
+                    .mix(BOLTZGEN_AFFINITY.out.gpu_stats)
+            }
         }
+
+        ch_gpu_stats_merged = ch_gpu_stats_all
+            .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
+
+        COMPRESS_GPU_STATS(ch_gpu_stats_merged)
+        GPU_STATS_REPORTING(ch_gpu_stats_merged)
     }
-
-    ch_gpu_stats_merged = ch_gpu_stats_all
-        .collectFile(name: 'gpu_stats.csv', keepHeader: true, skip: 1)
-
-    COMPRESS_GPU_STATS(ch_gpu_stats_merged)
 
     ///////////////////////////////////////////////////////////////////////////
     workflow.onComplete = {

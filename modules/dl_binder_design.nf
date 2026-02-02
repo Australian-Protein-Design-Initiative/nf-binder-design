@@ -38,7 +38,7 @@ process DL_BINDER_DESIGN_PROTEINMPNN {
         CURRENT_DIR=\$(basename \$(pwd))
         TASK_HASH="\${PARENT_DIR}/\${CURRENT_DIR}"
         TASK_HASH="\${TASK_HASH:0:9}"
-        ${baseDir}/bin/monitor-gpu.py \
+        ${baseDir}/bin/monitor_gpu.py \
             --process-name "DL_BINDER_DESIGN_PROTEINMPNN" \
             --task-hash "\${TASK_HASH}" \
             --task-index "${task.index}" \
