@@ -1,5 +1,5 @@
 process BINDCRAFT_SCORING {
-  container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:05702c4_nv-cuda12'
+  container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:0366085-nv-cuda120'
 
   publishDir path: "${params.outdir}/af2_initial_guess/extra_scores/", pattern: '*.tsv', mode: 'copy'
 
