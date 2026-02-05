@@ -5,7 +5,7 @@ These examples are setup for quick test runs on a local GPU workstation. For rea
 
 ## RFdiffusion Workflows
 
-Run with `main.nf` or `partial.nf`.
+Run with `--method rfd` or `--method rfd_partial`.
 
 - **`pdl1-rfd`**: Standard binder design against PD-L1.
   - Workflow: RFdiffusion → ProteinMPNN → AlphaFold2 (initial guess) → Boltz-2 (optional refolding).
@@ -16,7 +16,7 @@ Run with `main.nf` or `partial.nf`.
 
 ## BindCraft Workflows
 
-Run with `bindcraft.nf`.
+Run with `--method bindcraft`.
 
 - **`pdl1-bindcraft`**: PD-L1 binder design.
   - Standard protein binder design using BindCraft.
@@ -24,7 +24,7 @@ Run with `bindcraft.nf`.
 
 ## BoltzGen Workflows
 
-Run with `boltzgen.nf`.
+Run with `--method boltzgen`.
 
 - **`boltzgen-protein`**: Protein binder design.
   - Protocol: `protein-anything`

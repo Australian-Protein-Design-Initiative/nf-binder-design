@@ -9,6 +9,7 @@ nav:
       - Boltz Pulldown: workflows/boltz-pulldown.md
   - Extra:
       - Utility Scripts: extra/utility-scripts.md
+  - Release history: changelog.md
 
 plugins:
   - search

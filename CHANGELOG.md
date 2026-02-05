@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-...
+### Changed
+- Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
+  - `--method rfd` for RFdiffusion binder design (previously `main.nf`)
+  - `--method rfd_partial` for partial diffusion (previously `partial.nf`)
+  - `--method bindcraft` for BindCraft (previously `bindcraft.nf`)
+  - `--method boltzgen` for BoltzGen (previously `boltzgen.nf`)
+  - `--method boltz_pulldown` for Boltz Pulldown (previously `boltz_pulldown.nf`)
+- Modules reorganised into `modules/local/` with workflow-specific subdirectories (`rfd/`, `bindcraft/`, `boltzgen/`, `common/`).
+- Extracted common Boltz-2 refolding and scoring logic into `BOLTZ_REFOLD_SCORING` subworkflow (`subworkflows/local/boltz_refold_scoring.nf`).
+
 
 ## [0.1.5] - 2026-01-28
 

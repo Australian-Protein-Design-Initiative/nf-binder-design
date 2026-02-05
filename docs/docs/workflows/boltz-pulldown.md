@@ -11,7 +11,8 @@ Boltz Pulldown runs multimer predictions from sequence for all target-binder pai
 See available options with `--help`:
 
 ```bash
-nextflow run boltz_pulldown.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method boltz_pulldown --help
 ```
 
 ## Multiple Sequence Alignments (MSAs)

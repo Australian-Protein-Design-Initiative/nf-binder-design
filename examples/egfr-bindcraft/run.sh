@@ -8,8 +8,9 @@ PIPELINE_DIR=../../
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/bindcraft.nf \
+nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
+  --method bindcraft \
   --input_pdb 'input/6aru_cropped.pdb' \
   --outdir results \
   --target_chains "A" \

@@ -8,8 +8,9 @@ PIPELINE_DIR=../../
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/main.nf  \
+nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
+  --method rfd \
   --input_pdb 'input/*.pdb' \
   --outdir results \
   --contigs "[A18-132/0 65-120]" \

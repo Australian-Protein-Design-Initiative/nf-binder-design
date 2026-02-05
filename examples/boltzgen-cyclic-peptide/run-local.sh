@@ -4,7 +4,8 @@ PIPELINE_DIR=../../
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/boltzgen.nf \
+nextflow run ${PIPELINE_DIR}/main.nf \
+  --method boltzgen \
   --config_yaml 2vsm-cyclic.yaml \
   --outdir results \
   --design_name 2vsm-cyclic \

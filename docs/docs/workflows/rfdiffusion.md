@@ -8,8 +8,8 @@ RFdiffusion-based workflows for _de novo_ protein binder design.
 
 The RFdiffusion workflows include:
 
-- **main.nf**: Complete binder design pipeline (RFdiffusion → ProteinMPNN → AlphaFold2 initial guess → Boltz-2 refolding)
-- **partial.nf**: Partial diffusion refinement of existing designs or complexes (RFdiffusion Partial Diffusion → Boltz-2 refolding)
+- **`--method rfd`**: Complete binder design pipeline (RFdiffusion → ProteinMPNN → AlphaFold2 initial guess → Boltz-2 refolding)
+- **`--method rfd_partial`**: Partial diffusion refinement of existing designs or complexes (RFdiffusion Partial Diffusion → Boltz-2 refolding)
 
 ## General Information
 
@@ -18,8 +18,11 @@ The RFdiffusion workflows include:
 For any workflow, you can see available options with `--help`:
 
 ```bash
-nextflow run main.nf --help
-nextflow run partial.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method rfd --help
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method rfd_partial --help
 ```
 
 ### Parameters File
@@ -27,7 +30,9 @@ nextflow run partial.nf --help
 Parameter command-line options (those prefixed with `--`) can also be defined in a `params.json` file:
 
 ```bash
-nextflow run main.nf -params-file params.json
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method rfd \
+  -params-file params.json
 ```
 
 eg:
@@ -82,7 +87,7 @@ Each file contains `rmsd_pruned` (aligned core residues only) and `rmsd_all` (al
 
 - **`rmsd_monomer_vs_complex.tsv` → `rmsd_all`**: Indicative of possible binder conformational changes upon binding. Low values (<~3.5 Å?) mean the binder structure is similar whether predicted alone or in complex - a good sign for a stable, foldable binder. This value is included in the `combined_scores.tsv` file as `boltz_monomer_vs_complex_rmsd_all`.
 
-## Binder Design with RFdiffusion (main.nf)
+## Binder Design with RFdiffusion (--method rfd)
 
 ### Single Node or Local Workstation
 
@@ -92,7 +97,8 @@ Simple example for local execution:
 OUTDIR=results
 mkdir -p $OUTDIR/logs
 
-nextflow run main.nf \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+    --method rfd \
     --input_pdb target.pdb \
     --outdir $OUTDIR \
     --contigs "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]" \
@@ -129,8 +135,8 @@ export NXF_APPTAINER_TMPDIR=$TMPDIR
 # Load Nextflow module (if available on your HPC)
 module load nextflow/24.04.3 || true
 
-nextflow run \
-    ${WF_PATH}/main.nf  \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+    --method rfd \
     --slurm_account=ab12 \
     --input_pdb 'input/target_cropped.pdb' \
     --design_name my-binder \
@@ -191,7 +197,7 @@ Other site-specific `-profile` options are provided in `conf/platforms/`:
 
 These can be adapted to other HPC clusters - pull requests are welcome !
 
-## Partial Diffusion on Binder Designs (partial.nf)
+## Partial Diffusion on Binder Designs (--method rfd_partial)
 
 Refine existing binder designs with partial diffusion:
 
@@ -201,7 +207,8 @@ mkdir -p $OUTDIR/logs
 
 # Generate 10 partial designs for each binder, in batches of 5
 # Note the 'single quotes' around the '*.pdb' glob pattern!
-nextflow run partial.nf  \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+    --method rfd_partial \
     --input_pdb 'my_designs/*.pdb' \
     --rfd_n_partial_per_binder=10 \
     --rfd_batch_size=5 \
@@ -212,13 +219,13 @@ nextflow run partial.nf  \
     -profile local
 ```
 
-The other `--refold_` parameters, as used above for the `main.nf` workflow, can also be used here if you'd like to refold the best designs with Boltz-2.
+The other `--refold_` parameters, as used above for the `--method rfd` workflow, can also be used here if you'd like to refold the best designs with Boltz-2.
 
-> ⚠️ Note - if you are applying partial diffusion to designs output from the `main.nf` workflow, the binder will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !
+> ⚠️ Note - if you are applying partial diffusion to designs output from the `--method rfd` workflow, the binder will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !
 
 ## Design Filter Plugin System
 
-The `main.nf` and `partial.nf` pipelines support custom metric calculation and filtering via plugins.
+The `--method rfd` and `--method rfd_partial` pipelines support custom metric calculation and filtering via plugins.
 
 ### Using Filters
 

@@ -10,7 +10,8 @@ PIPELINE_DIR=../../
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/main.nf  \
+nextflow run ${PIPELINE_DIR}/main.nf \
+  --method rfd \
   --input_pdb 'input/*.pdb' \
   --outdir results \
   --contigs "[A310-481/0 65-120]" \

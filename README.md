@@ -4,6 +4,8 @@
 
 Nextflow pipelines for de novo protein binder design.
 
+> ⚠️ NOTE: Major change in `v0.2.0` - individual workflows have been shifted into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag. ⚠️
+
 ![RFdiffusion workflow](docs/docs/images/rfd-workflow.png)
 
 - RFdiffusion → ProteinMPNN → AlphaFold2 initial guess → Boltz-2 refolding
@@ -54,8 +56,15 @@ See the [examples](examples/) directory for examples.
 For any of the workflows, you can see the commandline options with `--help`, eg:
 
 ```bash
-nextflow run main.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method rfd --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bindcraft --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method boltzgen --help
 ```
+
+Available methods: `rfd`, `rfd_partial`, `bindcraft`, `boltzgen`, `boltz_pulldown`
 
 Any of the `--params` commandline options can alternatively be defined in a `params.json` file and passed to the workflow with `-params-file params.json`.
 
@@ -69,7 +78,8 @@ Simple example (single 'local' compute node):
 OUTDIR=results
 mkdir -p $OUTDIR/logs
 
-nextflow run main.nf \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+    --method rfd \
     --input_pdb target.pdb \
     --outdir $OUTDIR \
     --contigs "[A371-508/A753-883/A946-1118/A1135-1153/0 70-100]" \
@@ -113,7 +123,8 @@ module load nextflow/24.04.3 || true
 # CHANGE the --slurm_account to match the project ID you wish to run SLURM jobs under
 nextflow \
 -c ${WF_PATH}/conf/platforms/m3.config run \
-${WF_PATH}/main.nf  \
+${WF_PATH}/main.nf \
+--method rfd \
 --slurm_account=ab12 \
 --input_pdb 'input/target_cropped.pdb' \
 --design_name my-binder \
@@ -143,7 +154,8 @@ mkdir -p $OUTDIR/logs
 
 # Generate 10 partial designs for each binder, in batches of 5
 # Note the 'single quotes' around the '*.pdb' glob pattern !
-nextflow run partial.nf  \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+    --method rfd_partial \
     --input_pdb 'my_designs/*.pdb' \
     --rfd_n_partial_per_binder=10 \
     --rfd_batch_size=5 \
@@ -158,7 +170,7 @@ nextflow run partial.nf  \
 
 ![BindCraft workflow](docs/docs/images/bindcraft-workflow.png)
 
-The `bindcraft.nf` helps run [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs.
+The `--method bindcraft` workflow helps run [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs.
 This is particularly well suited for running BindCraft on an HPC cluster, or a workstation with multiple GPUs.
 
 Unlike the default BindCraft configuration which runs for an indeterminate amount of time until a number of accepted designs are found,
@@ -169,7 +181,8 @@ Example:
 ```bash
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run bindcraft.nf  \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
   --outdir results \
   --target_chains "A" \
@@ -235,13 +248,14 @@ A report summarizing the results is generated in `bindcraft_report.html`.
 
 ![BoltzGen workflow](docs/docs/images/boltzgen-workflow.png)
 
-The `boltzgen.nf` workflow automates the design of binders using the [BoltzGen](https://github.com/HannesStark/boltzgen) generative model.
+The `--method boltzgen` workflow automates the design of binders using the [BoltzGen](https://github.com/HannesStark/boltzgen) generative model.
 It supports `protein-anything`, `peptide-anything`, `protein_small-molecule` and `nanobody-anything` protocols.
 
 Example:
 
 ```bash
-nextflow run boltzgen.nf \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+    --method boltzgen \
     --config_yaml config/my_design.yaml \
     --outdir results \
     --num_designs 100 \
@@ -279,7 +293,7 @@ process {
 }
 ```
 
-By default, `boltz_pulldown.nf` will output to `results/boltz_pulldown`, which includes the Boltz outputs with scores and predicted structures, and a summary table `boltz_pulldown.tsv`. It also outputs `boltz_pulldown_report.html` with summary statistics and plots of the binder/target ipTM scores.
+By default, `--method boltz_pulldown` will output to `results/boltz_pulldown`, which includes the Boltz outputs with scores and predicted structures, and a summary table `boltz_pulldown.tsv`. It also outputs `boltz_pulldown_report.html` with summary statistics and plots of the binder/target ipTM scores.
 
 ## Utility scripts
 
@@ -295,7 +309,7 @@ uv run bin/af2_combine_scores.py -o $OUTDIR/combined_scores.tsv -p $OUTDIR/af2_r
 
 ## Design filter plugin system
 
-The `main.nf` and `partial.nf` pipelines support a plugin system for calculating and filtering on custom metrics for designs. This is currently controlled by the `--rfd_filters` parameter.
+The `--method rfd` and `--method rfd_partial` pipelines support a plugin system for calculating and filtering on custom metrics for designs. This is currently controlled by the `--rfd_filters` parameter.
 
 Filters are simple Python scripts located in the `bin/filters.d/` directory. Any `*.py` file in this directory will be automatically discovered.
 

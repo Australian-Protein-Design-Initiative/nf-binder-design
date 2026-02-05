@@ -6,7 +6,7 @@ Parallel [BindCraft](https://github.com/martinpacesa/BindCraft) execution for pr
 
 ## Overview
 
-The `bindcraft.nf` workflow runs [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs - ideal for HPC clusters or multi-GPU workstations.
+The `--method bindcraft` workflow runs [BindCraft](https://github.com/martinpacesa/BindCraft) trajectories in parallel across multiple GPUs - ideal for HPC clusters or multi-GPU workstations.
 
 ## Key Differences
 
@@ -24,7 +24,8 @@ If you want to generate a specific number of accepted designs, we suggest runnin
 See available options with `--help`:
 
 ```bash
-nextflow run bindcraft.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bindcraft --help
 ```
 
 ## Example Usage
@@ -32,7 +33,8 @@ nextflow run bindcraft.nf --help
 ```bash
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run bindcraft.nf  \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
   --outdir results \
   --target_chains "A" \

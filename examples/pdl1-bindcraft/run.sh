@@ -4,7 +4,8 @@ PIPELINE_DIR=../../
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/bindcraft.nf  \
+nextflow run ${PIPELINE_DIR}/main.nf \
+  --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
   --outdir results \
   --target_chains "A" \

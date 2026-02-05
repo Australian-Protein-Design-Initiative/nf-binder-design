@@ -36,6 +36,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - [Utility Scripts](extra/utility-scripts.md)
 - [GitHub Repository](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design)
 - [Examples Directory](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples)
+- [Release history](changelog.md)
 
 ## License
 

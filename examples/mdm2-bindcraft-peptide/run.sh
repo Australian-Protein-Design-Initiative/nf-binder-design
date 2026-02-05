@@ -7,7 +7,8 @@ PIPELINE_DIR=../../
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # TODO: We need support for filter sets and use: peptide_filters_relaxed
-nextflow run ${PIPELINE_DIR}/bindcraft.nf  \
+nextflow run ${PIPELINE_DIR}/main.nf \
+  --method bindcraft \
   -params-file params.json \
   -profile local \
   -resume \

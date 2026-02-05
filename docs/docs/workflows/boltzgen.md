@@ -2,7 +2,7 @@
 
 ![BoltzGen workflow](../images/boltzgen-workflow.png)
 
-The `boltzgen.nf` workflow automates the design of binders using the [BoltzGen](https://github.com/HannesStark/boltzgen) generative model.
+The `--method boltzgen` workflow automates the design of binders using the [BoltzGen](https://github.com/HannesStark/boltzgen) generative model.
 The key advantage of this workflow is improved parallelization across multiple GPUs and better resource allocation on HPC clusters.
 
 It supports the `protein-anything`, `peptide-anything`, `protein_small-molecule` and `nanobody-anything` protocols.
@@ -16,7 +16,7 @@ The BoltzGen workflow performs the following steps, as per `boltzgen run`:
 -  **Folding**: Re-folds the designed binder in complex with the target.
 -  **Design Folding**: Re-folds the designed binder alone.
 -  **Affinity**: (Optional -  `protein_small-molecule` protocol only) Calculates affinity scores for protein-small molecule complexes.
-- (**Merge batches**: nf-binder-design `bolzgen.nf` merges independently generated batches of designs, ready for analysis and filtering)
+- (**Merge batches**: nf-binder-design `--method boltzgen` merges independently generated batches of designs, ready for analysis and filtering)
 -  **Analysis & Filtering**: Aggregates scores and filters designs based on user-defined criteria.
 
 ## General Information
@@ -26,7 +26,8 @@ The BoltzGen workflow performs the following steps, as per `boltzgen run`:
 You can see available options with `--help`:
 
 ```bash
-nextflow run boltzgen.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method boltzgen --help
 ```
 
 ### YAML Configuration
@@ -42,7 +43,9 @@ The BoltzGen workflow is controlled by a YAML configuration file passed via `--c
 To run the workflow with a configuration file:
 
 ```bash
-nextflow run boltzgen.nf --config_yaml config/my_design.yaml
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method boltzgen \
+  --config_yaml config/my_design.yaml
 ```
 
 ### Key Parameters
