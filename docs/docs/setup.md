@@ -4,7 +4,9 @@
 
 ### Install Nextflow
 
-Follow the official [Nextflow installation guide](https://www.nextflow.io/docs/latest/install.html).
+You may already have Nextflow available - on HPC clusters check `module avail nextflow`. 
+
+If not, follow the official [Nextflow installation guide](https://www.nextflow.io/docs/latest/install.html).
 
 Nextflow requires:
 
@@ -35,19 +37,7 @@ export PATH="$PATH:$HOME/.local/bin"
 nextflow info
 ```
 
-## Clone the repository using git
-
-For development, it's often more convenient to clone the git repository directly:
-
-```bash
-git clone https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
-cd nf-binder-design
-
-# See the help as a first test
-nextflow run main.nf --help
-```
-
-## Alternative: pull using Nextflow
+## Pull the workflow using Nextflow
 
 To pre-cache the `nf-binder-design` repository in `~/.nextflow/assets/`, run:
 
@@ -63,10 +53,20 @@ nextflow pull -r 0.1.5 Australian-Protein-Design-Initiative/nf-binder-design
 
 Test that you have successfully cached the repository by running:
 ```bash
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design/main.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design --help
 ```
 
-**Note:** The documentation examples currently assume you have `git clone`'d the repository, but can be adapted to use this alternative method. In this case, platform-specific config files will be in `~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/` - in the future these will be turned into config profiles to simplify usage.
+## Alternative: Clone the repository using git
+
+For development, it's often more convenient to clone the git repository directly:
+
+```bash
+git clone https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
+cd nf-binder-design
+
+# See the help as a first test
+nextflow run main.nf --help
+```
 
 ## Container Setup
 
@@ -78,6 +78,10 @@ Containers are automatically downloaded when running the pipeline - you will nee
 Model weights / parameters are currently packaged inside the containers - this makes the containers large, but simplifies the workflow setup. In the future we will very likely provide more compact alternative containers without weights.
 
 ## Platform-Specific Configuration
+
+Configuration profiles for specific HPC clusters and cloud platforms are provided in `conf/platforms/` (`~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/`).
+
+You can use these profiles by adding the `-profile <profile>` flag to activate one or more configuration profiles (eg `-profile slurm,m3`).
 
 ### Local Workstation / single compute node
 
@@ -100,7 +104,7 @@ Pull requests for additional HPC clusters are welcome!
 In addition (on instead of) using a pre-defined `-profile`, you can use the `-c` flag to specify the path to a configuration file:
 
 ```bash
-nextflow run main.nf -c conf/platforms/m3.config  # etc ...
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design -c conf/platforms/m3.config  # etc ...
 ```
 
 #### HPC Cluster environment variables

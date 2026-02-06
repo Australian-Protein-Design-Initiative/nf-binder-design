@@ -9,6 +9,7 @@ nav:
       - Boltz Pulldown: workflows/boltz-pulldown.md
   - Extra:
       - Utility Scripts: extra/utility-scripts.md
+      - M3 HPC Examples: extra/m3-hpc-examples.md
   - Release history: changelog.md
 
 plugins:

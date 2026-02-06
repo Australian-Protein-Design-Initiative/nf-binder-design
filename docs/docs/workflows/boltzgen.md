@@ -23,7 +23,7 @@ The BoltzGen workflow performs the following steps, as per `boltzgen run`:
 
 ### Command-line Options
 
-You can see available options with `--help`:
+You can see available options with `--method boltzgen --help`:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \

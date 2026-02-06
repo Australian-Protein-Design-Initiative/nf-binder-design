@@ -8,7 +8,7 @@ Boltz Pulldown runs multimer predictions from sequence for all target-binder pai
 
 ## Command-line Options
 
-See available options with `--help`:
+See available options with `--method boltz_pulldown --help`:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \

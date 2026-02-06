@@ -21,7 +21,7 @@ If you want to generate a specific number of accepted designs, we suggest runnin
 
 ## Command-line Options
 
-See available options with `--help`:
+See available options with `--method bindcraft --help`:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \

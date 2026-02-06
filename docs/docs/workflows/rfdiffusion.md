@@ -15,7 +15,7 @@ The RFdiffusion workflows include:
 
 ### Command-line Options
 
-For any workflow, you can see available options with `--help`:
+For any workflow, you can see available options with `--method rfd --help` or `--method rfd_partial --help`:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \

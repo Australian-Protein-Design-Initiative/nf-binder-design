@@ -4,7 +4,9 @@
 
 Nextflow pipelines for de novo protein binder design.
 
-> ⚠️ NOTE: Major change in `v0.2.0` - individual workflows have been shifted into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag. ⚠️
+> ⚠️ NOTE: Major change in `v0.2.0` - individual workflows have been shifted into `workflows/`, all launched via a single `main.nf` entry point with the `--method` flag. 
+>          To modify any existing wrapper scripts, you should be able to simply use `nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method <method>`.
+>          and keep other arguments the same. ⚠️
 
 ![RFdiffusion workflow](docs/docs/images/rfd-workflow.png)
 
@@ -14,11 +16,13 @@ Nextflow pipelines for de novo protein binder design.
 - BoltzGen (design proteins and peptides binders using BoltzGen)
 - "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
 
+----
+
 > ⚠️ Note: Components of these workflows use RFdiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use. Commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
 
 ----
 
-Documentation: https://australian-protein-design-initiative.github.io/nf-binder-design/
+Full documentation: https://australian-protein-design-initiative.github.io/nf-binder-design/
 
 - [nf-binder-design](#nf-binder-design)
   - [Setup](#setup)
@@ -30,10 +34,6 @@ Documentation: https://australian-protein-design-initiative.github.io/nf-binder-
   - [Partial diffusion on binder designs](#partial-diffusion-on-binder-designs)
   - [Binder design with BindCraft](#binder-design-with-bindcraft)
   - [Binder design with BoltzGen](#binder-design-with-boltzgen)
-  - [Boltz pulldown](#boltz-pulldown)
-  - [Utility scripts](#utility-scripts)
-  - [Design filter plugin system](#design-filter-plugin-system)
-    - [Plugin API](#plugin-api)
   - [License](#license)
 
 
@@ -94,6 +94,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 > If you are working on a specific HPC cluster like M3 or MLeRP, you should omit `-profile local` and add the `-c` flag pointing to the specific platform config, eg `-c conf/platforms/m3.config` for M3.
 
+See the [rfd workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/rfdiffusion/) for more details on options available.
+
 ### Parallel on an HPC cluster
 
 A more complex example, as a wrapper script for the M3 HPC cluster, using a the site-specific config (`-c`), a specific RFdiffusion model (`--rfd_model_path`), a radius of gyration filter on the generated RFdiffusion backbones (`--rfd_filters`), custom ProteinMPNN weights (`--pmpnn_weigths`) and radius of gyration potentials (`--rfd_extra_args`):
@@ -144,6 +146,8 @@ ${WF_PATH}/main.nf \
 -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
 
+See the [M3 HPC cluster examples](https://australian-protein-design-initiative.github.io/nf-binder-design/extra/m3-hpc-examples/) for more examples specific to running on SLURM.
+
 ## Partial diffusion on binder designs
 
 > NOTE: It seems with output from previous designs that the binder is always named chain A, and your other chains are named B, C, etc - irrespective of the chain ID in the original target PDB file. Residue numbering is 1 to N, sequential irrespective of gaps in the chain, rather than original target chain numbering.
@@ -165,6 +169,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
     -profile local
 ```
+
+See the [rfd_partial workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/rfdiffusion/rfdiffusion/#partial-diffusion-on-binder-designs-method-rfd_partial) for more details on options available.
 
 ## Binder design with BindCraft
 
@@ -205,44 +211,11 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 If you have multiple GPUs per compute node, you can specify them with the `--gpu_devices` flag, eg `--gpu_devices=0,1`.
 
-Results are saved to the `--outdir` directory, in the `bindcraft` subdirectory, with CSV outputs from each batch combined into single tables, eg `bindcraft/final_design_stats.csv`, eg:
-
-```
-── bindcraft
-│   ├── accepted
-│   │   └── results
-│   │       └── Accepted
-│   │           ├── bindcraft_design_1_l57_s942028_mpnn6_model1.pdb
-│   │           └── bindcraft_design_1_l57_s942028_mpnn8_model2.pdb
-│   ├── batches
-│   │   ├── 0
-│   │   │   └── results
-│   │   │       ├── failure_csv.csv
-│   │   │       ├── final_design_stats.csv
-│   │   │       ├── mpnn_design_stats.csv
-│   │   │       ├── Trajectory
-│   │   │       └── trajectory_stats.csv
-│   │   └── 1
-│   │       └── results
-│   │           ├── Accepted
-│   │           ├── failure_csv.csv
-│   │           ├── final_design_stats.csv
-│   │           ├── MPNN
-│   │           ├── mpnn_design_stats.csv
-│   │           ├── Rejected
-│   │           ├── Trajectory
-│   │           └── trajectory_stats.csv
-│   ├── bindcraft_report.html
-│   ├── failure_csv.csv
-│   ├── final_design_stats.csv
-│   ├── mpnn_design_stats.csv
-│   └── trajectory_stats.csv
-└── logs
-    ├── report_20250725_084959.html
-    ├── trace_20250725_084959.txt
-```
+Results are saved to the `--outdir` directory, in the `bindcraft` subdirectory, with CSV outputs from each batch combined into single tables, eg `bindcraft/final_design_stats.csv`.
 
 A report summarizing the results is generated in `bindcraft_report.html`.
+
+See the [bindcraft workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/bindcraft/) for more details on options and output.
 
 ## Binder design with BoltzGen
 
@@ -263,71 +236,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --devices 1
 ```
 
-See the [BoltzGen documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltzgen/) for more details on configuration files and options.
-
-## Boltz pulldown
-
-An [AlphaPulldown](https://github.com/KosinskiLab/AlphaPulldown)-like protocol, using [Boltz](https://github.com/jwohlwend/boltz). This is essentially running multimer predictions for all sequences in the target set (`--targets targets.fasta`) against all sequences in the binder set (`--binders binders.fasta`).
-
-By default, no multiple sequence alignments are used. If you set the `--create_target_msa=true` and `--create_binder_msa=true` flags, target and binder multiple sequence alignments will be generated, respectively.
-
-For _de novo_ designed binders a typical pattern might be to use `--create_target_msa=true` to allow the target to use an MSA to improve prediction accuracy, but not attempt to find homologs for the _de novo_ designed partner.
-
-Specifying `--use_msa_server` will use the remote ColabFold mmseq2 server to generate multiple sequence alignments.
-
-If generating the MSAs locally, indexed mmseqs2 databases can be downloaded and generated with the ColabFold [setup_databases.sh](https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh) script. You'll need to specify the `--uniref30` and `--colabfold_envdb` paths to point to these databases.
-
-You can add additional args to the Boltz command line via `ext.args` for the `BOLTZ` process in `nextflow.config`, eg:
-
-```
-process {
-    withName: BOLTZ {
-        accelerator = 1
-        time = 2.hours
-        memory = '8g'
-        cpus = 2
-        
-        // if using CPU only
-        ext.args = "--accelerator cpu"
-    }
-}
-```
-
-By default, `--method boltz_pulldown` will output to `results/boltz_pulldown`, which includes the Boltz outputs with scores and predicted structures, and a summary table `boltz_pulldown.tsv`. It also outputs `boltz_pulldown_report.html` with summary statistics and plots of the binder/target ipTM scores.
-
-## Utility scripts
-
-The `bin/` directory contains utility scripts, most of which are used internally by the workflows, but can also be run as standalone scripts. Run `uv run bin/somescript.py --help` for usage _(use [uv](https://docs.astral.sh/uv/getting-started/installation/) to run the scripts and dependencies with be automatically dealt with)_
-
-The `bin/af2_combine_scores.py` can be useful for the RFdiffusion pipelines to monitor mid-run how things are going:
-
-```bash
-OUTDIR=results
-
-uv run bin/af2_combine_scores.py -o $OUTDIR/combined_scores.tsv -p $OUTDIR/af2_results
-```
-
-## Design filter plugin system
-
-The `--method rfd` and `--method rfd_partial` pipelines support a plugin system for calculating and filtering on custom metrics for designs. This is currently controlled by the `--rfd_filters` parameter.
-
-Filters are simple Python scripts located in the `bin/filters.d/` directory. Any `*.py` file in this directory will be automatically discovered.
-
-Currently, only a radius of gyration (`rg`) filter is implemented in `bin/filters.d/rg.py`, which can be used as a template for creating new filters.
-
-### Plugin API
-
-A filter plugin must implement two functions:
-
-1.  `register_metrics() -> list[str]`
-    This function should return a list of the metric names (as strings) that the plugin can calculate. For example: `return ["rg", "my_custom_score"]`.
-
-2.  `calculate_metrics(pdb_files: list[str], binder_chains: list[str]) -> pd.DataFrame`
-    This function takes a list of PDB file paths and a list of binder chain IDs. It should perform its calculations and return a `pandas.DataFrame` with the following structure:
-    *   The **index** of the DataFrame must be the design ID (i.e., the PDB filename without the `.pdb` extension).
-    *   The **columns** must correspond to the metric names returned by `register_metrics()`.
-
-The main `bin/filter_designs.py` script will call these plugins as needed based on the filter expressions provided to the pipeline (e.g., `--rfd_filters "rg<20"`).
+See the [boltzgen workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltzgen/) for more details on configuration files and options.
 
 ## License
 
