@@ -3,6 +3,7 @@ process BINDCRAFT {
 
     publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'results/**', mode: 'copy'
     publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: '*.{pdb,pdb.gz,json}', mode: 'copy'
+    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'bindcraft.log', mode: 'copy'
     publishDir(
         path: "${params.outdir}/bindcraft/accepted",
         pattern: 'results/Accepted/*.{pdb,pdb.gz}',
@@ -30,6 +31,7 @@ process BINDCRAFT {
     path 'results/trajectory_stats.csv', optional: true,           emit: trajectory_stats_csv
     path 'results/mpnn_design_stats.csv', optional: true,          emit: mpnn_design_stats_csv
     path 'results/failure_csv.csv', optional: true,                emit: failure_csv
+    path 'bindcraft.log', optional: true,                          emit: bindcraft_log
     path '*.json', followLinks: true, includeInputs: true, optional: true, emit: settings_files
     path '*.pdb', followLinks: true, includeInputs: true, optional: true, emit: input_pdb
     path 'results/**', emit: all_results
@@ -92,7 +94,7 @@ with open("${modified_advanced_settings_filename}", "w") as f:
         --filters /app/BindCraft/settings_filters/default_filters.json \
         --advanced ${modified_advanced_settings_filename} \
         --filters ${modified_filters_filename} \
-        ${task.ext.args ?: ''}
+        ${task.ext.args ?: ''} 2>&1 | tee bindcraft.log
 
     if [[ ${compress_html} == "true" ]]; then
         find ./results -type f -name '*.html' -exec gzip -9 {} +
