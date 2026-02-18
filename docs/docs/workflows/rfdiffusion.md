@@ -194,6 +194,7 @@ Other site-specific `-profile` options are provided in `conf/platforms/`:
 - `m3` - Monash M3 cluster
 - `m3_bdi` - Monash M3 cluster with access to the `bdi` partitions
 - `mlerp` - the MLeRP HPC cluster
+- `nci_gadi` - NCI Gadi HPC (PBS Pro)
 
 These can be adapted to other HPC clusters - pull requests are welcome !
 

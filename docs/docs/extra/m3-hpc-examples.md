@@ -22,6 +22,12 @@ nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
 
 (this creates a local cache of the workflow in `~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/`)
 
+You can also pull a specific version like: 
+
+```bash
+nextflow pull -r 0.1.5 Australian-Protein-Design-Initiative/nf-binder-design
+```
+
 ## RFdiffusion Workflows
 
 Create an SBATCH script named `run.sh` like:

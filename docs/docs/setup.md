@@ -97,6 +97,7 @@ Some site-specific configurations for HPC clusters and cloud platforms can be ap
 - `m3_bdi` - the Monash M3 cluster with access to the `bdi` partitions
 - `mlerp` - the MLeRP HPC cluster
 - `hyperqueue` - for running on a generic HyperQueue (`hq`) cluster
+- `nci_gadi` - NCI Gadi HPC (PBS Pro)
 
 These configuration files are provided in `conf/platforms/` and be copied and adapted for your specific setup.
 Pull requests for additional HPC clusters are welcome!

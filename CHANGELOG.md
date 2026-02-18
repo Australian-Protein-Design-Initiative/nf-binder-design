@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
+
 ### Changed
 - Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
   - `--method rfd` for RFdiffusion binder design (previously `main.nf`)
