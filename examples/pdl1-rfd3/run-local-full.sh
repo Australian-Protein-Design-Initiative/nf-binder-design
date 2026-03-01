@@ -15,6 +15,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --hotspot_res "A56" \
   --rfd3_n_designs=4 \
   --rfd3_filters="rg<=20" \
+  --rfd3_is_non_loopy=false \
   --refold_with 'boltz' \
   --refold_filter_sort='pair_pae_min' \
   --refold_max=2 \

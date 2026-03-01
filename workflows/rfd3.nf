@@ -25,21 +25,38 @@ params.rfd3_n_designs = 1
 params.rfd3_batch_size = 1
 params.rfd3_step_scale = 3
 params.rfd3_gamma_0 = 0.2
-params.rfd3_allow_loopy = false
+params.rfd3_is_non_loopy = null  // null = omit from config; true/false = add to config (params mode only; with --rfd3_config set in JSON)
 params.rfd3_extra_args = ''
 
 params.rfd3_filters = false
 
 // RosettaFold3 params
+// Default path is the one that exists in the "...-weights" container
 //params.rf3_ckpt_path = '/weights/rf3_foundry_01_24_latest_remapped.ckpt'
 params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
 
-// MPNN params - legacy (pmpnn_*) for compatibility with rfd workflow
-params.pmpnn_seqs_per_struct = 1
-params.pmpnn_temperature = false
-params.pmpnn_augment_eps = false
-params.pmpnn_omit_aas = false
-params.pmpnn_weights = false
+// MPNN params - new (mpnn_*)
+params.mpnn_model_type = 'protein_mpnn'
+params.mpnn_legacy_weights = true
+params.mpnn_designed_chains = 'A'
+params.mpnn_batch_size = false
+params.mpnn_temperature = 0.1
+params.mpnn_structure_noise = 0
+params.mpnn_omit = 'CX'
+params.mpnn_checkpoint_path = false
+
+// Legacy MPNN params (pmpnn_*) - for backward compatibility with rfd workflow
+params.pmpnn_seqs_per_struct = 1  // mpnn_batch_size
+params.pmpnn_temperature = false  // mpnn_temperature 
+params.pmpnn_augment_eps = false  // mpnn_structure_noise
+params.pmpnn_omit_aas = false     // mpnn_omit (with 1-letter -> 3-letter conversion)
+params.pmpnn_weights = false      // mpnn_checkpoint_path
+
+// RosettaFold3 params
+params.rf3_early_stopping_plddt_threshold = 0.5  // exits early if mean pLDDT < 0.5 after the first recycle
+params.rf3_num_steps = 50                        // default for rf3 cli is 200, however 50 is faster with no difference in quality
+params.rf3_n_recycles = 10                       // default for rf3 cli is 10
+params.rf3_diffusion_batch_size = 5              // default for rf3 cli is 5
 
 // Boltz refolding params
 params.refold_with = '' // comma-separated list of methods, e.g., 'boltz'
@@ -52,16 +69,6 @@ params.refold_target_fasta = false
 params.uniref30 = false
 params.colabfold_envdb = false
 params.output_rmsd_aligned = false
-
-// MPNN params - new (mpnn_*)
-params.mpnn_model_type = 'protein_mpnn'
-params.mpnn_legacy_weights = true
-params.mpnn_designed_chains = 'A'
-params.mpnn_batch_size = false
-params.mpnn_temperature = 0.1
-params.mpnn_structure_noise = 0
-params.mpnn_omit = 'CX'
-params.mpnn_checkpoint_path = false
 
 params.require_gpu = true
 params.gpu_devices = ''
@@ -84,6 +91,10 @@ workflow RFD3 {
 
     if (params.rfd3_config && params.input_pdb) {
         throw new Exception('--rfd3_config and --input_pdb are mutually exclusive. Use --rfd3_config (input path is read from the config) or --input_pdb with --contigs.')
+    }
+
+    if (params.rfd3_config && params.rfd3_is_non_loopy != null) {
+        throw new Exception('--rfd3_is_non_loopy cannot be used with --rfd3_config. Put "is_non_loopy": true or "is_non_loopy": false in your JSON config file instead.')
     }
 
     // Show help message
@@ -114,7 +125,7 @@ workflow RFD3 {
             --rfd3_batch_size     Designs per batch (diffusion_batch_size) [default: ${params.rfd3_batch_size}]
             --rfd3_step_scale     inference_sampler.step_scale [default: ${params.rfd3_step_scale}]
             --rfd3_gamma_0        inference_sampler.gamma_0 [default: ${params.rfd3_gamma_0}]
-            --rfd3_allow_loopy   Allow loopy designs (disable is_non_loopy) [default: ${params.rfd3_allow_loopy}]
+            --rfd3_is_non_loopy  Set "is_non_loopy" in config: true/false to add, unset to omit (params mode only) [default: omit]
             --rfd3_extra_args     Additional CLI arguments for rfd3 [default: ${params.rfd3_extra_args}]
             --rfd3_filters        Semicolon-separated filters for RFD3 backbones (binder = chain B), e.g. "rg<25" [default: disabled]
 
@@ -199,7 +210,7 @@ workflow RFD3 {
             normaliseContigToV3(params.contigs),
             params.hotspot_res ?: false,
             false,  // partial_t - not used in de novo design
-            params.rfd3_allow_loopy,
+            params.rfd3_is_non_loopy,
         )
 
         ch_rfd3_startnum = Channel.of(0..n_batches - 1)

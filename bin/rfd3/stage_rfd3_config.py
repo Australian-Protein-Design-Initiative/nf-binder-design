@@ -114,7 +114,7 @@ def generate_config(
     contigs: str,
     hotspot_res: Optional[str] = None,
     partial_t: Optional[float] = None,
-    non_loopy: bool = True,
+    is_non_loopy: Optional[bool] = None,
     translate_v1: bool = True,
 ) -> dict:
     """Generate an rfd3 JSON config from CLI parameters."""
@@ -133,8 +133,8 @@ def generate_config(
             spec["select_hotspots"] = hotspots
             spec["infer_ori_strategy"] = "hotspots"
 
-    if non_loopy:
-        spec["is_non_loopy"] = True
+    if is_non_loopy is not None:
+        spec["is_non_loopy"] = is_non_loopy
 
     if partial_t is not None:
         spec["partial_t"] = partial_t
@@ -185,13 +185,20 @@ def cmd_stage(args: argparse.Namespace) -> int:
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
+    is_non_loopy: Optional[bool] = None
+    if args.is_non_loopy and args.allow_loopy:
+        raise ValueError("--is-non-loopy and --allow-loopy are mutually exclusive")
+    if args.is_non_loopy:
+        is_non_loopy = True
+    elif args.allow_loopy:
+        is_non_loopy = False
     config = generate_config(
         design_name=args.design_name,
         input_pdb=args.input_pdb,
         contigs=args.contigs,
         hotspot_res=args.hotspot_res,
         partial_t=args.partial_t,
-        non_loopy=not args.allow_loopy,
+        is_non_loopy=is_non_loopy,
         translate_v1=not args.no_translate,
     )
     save_config(config, args.output)
@@ -238,8 +245,12 @@ def main() -> int:
         help="Partial diffusion noise level (angstroms)",
     )
     gen_parser.add_argument(
+        "--is-non-loopy", action="store_true",
+        help="Set is_non_loopy to true in the generated config",
+    )
+    gen_parser.add_argument(
         "--allow-loopy", action="store_true",
-        help="Allow loopy designs (disable is_non_loopy; non-loopy is default)",
+        help="Set is_non_loopy to false (allow loopy designs)",
     )
     gen_parser.add_argument(
         "--no-translate", action="store_true",

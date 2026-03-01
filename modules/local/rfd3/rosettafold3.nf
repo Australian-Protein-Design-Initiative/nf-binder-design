@@ -21,6 +21,7 @@ process ROSETTAFOLD3 {
     //
     // TODO: support (and encourage) batching for lower process startup costs, inputs='folder/of/cifs'
     // TODO: add params.rf3_early_stopping_plddt_threshold=0.5 as default for filtering low-confidence predictions
+    //       (this happens by default when no MSA is provided)
     // TODO: support JSON config mode with template_selection to template target chain(s)
     // TODO: support n_recycles, diffusion_batch_size, num_steps, seed, and consider if we can use a faster
     //       default num_steps=50 as a good compromise between speed and quality
@@ -51,6 +52,12 @@ process ROSETTAFOLD3 {
         inputs=${structure_cif} \
         out_dir=output \
         ckpt_path=${params.rf3_ckpt_path} \
+        num_steps=${params.rf3_num_steps} \
+        n_recycles=${params.rf3_n_recycles} \
+        diffusion_batch_size=${params.rf3_diffusion_batch_size} \
+        early_stopping_plddt_threshold=${params.rf3_early_stopping_plddt_threshold} \
+        annotate_b_factor_with_plddt=true \
+        one_model_per_file=true \
         ${task.ext.args ?: ''}
 
     full_conf=\$(find output -maxdepth 2 -name '*_confidences.json' ! -name '*summary*' -print | head -1)

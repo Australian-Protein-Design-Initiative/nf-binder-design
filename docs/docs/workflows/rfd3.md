@@ -150,20 +150,19 @@ Below is a summary of the most important parameters for `--method rfd3`.
   Total number of RFDiffusion3 backbones to generate.
 
 - **`--rfd3_batch_size`**  
-  Number of designs per RFD3 batch (`diffusion_batch_size`).
+  Number of designs per RFD3 batch (`diffusion_batch_size`). Default is `1`. Increasing this will make jobs individual jobs longer but more efficient, and can speed up the workflow overall, since less time is spent on model initialization (once per batch).
 
 - **`--rfd3_step_scale`**  
-  Sets `inference_sampler.step_scale`. Default is `3`, following the Foundry recommendation for improved PPI designability.
+  Sets `inference_sampler.step_scale`. Default is `3`, following the Foundry recommendation for improved PPI designability (rather than rfd3 default of 1.5).
 
 - **`--rfd3_gamma_0`**  
-  Sets `inference_sampler.gamma_0`. Default is `0.2`, again matching the Foundry recommendation.
+  Sets `inference_sampler.gamma_0`. Default is `0.2`, matching the Foundry recommendation for improved PPI designability (rather than rfd3 default of 0.6).
 
-- **`--rfd3_allow_loopy`**  
-  When `false` (default), the generated config enables `is_non_loopy: true`, encouraging more structured binders with fewer loops.  
-  When `true`, `is_non_loopy` conditioning is disabled and the model is allowed to make loopier designs.
+- **`--rfd3_is_non_loopy`**  
+  Passed through to the generated config as `is_non_loopy`. When unset (default), the key is omitted from the config. When `true`, adds `is_non_loopy: true` (more all-helical binders, less loops); when `false`, adds `is_non_loopy: false` (more loops, more beta-sheet and mixed-alpha/beta designs).
 
 - **`--rfd3_extra_args`**  
-  Additional CLI arguments passed through to the RFDiffusion3 CLI (e.g. extra sampler overrides).
+  Additional CLI arguments passed through to the RFDiffusion3 CLI (e.g. extra sampler overrides). eg, `--rfd3_extra_args "low_memory_mode=True"`.
 
 - **`--rfd3_filters`**  
   Semicolon-separated list of filters applied to RFD3 backbone structures **immediately after** RFDiffusion3, before MPNN. Uses the same filter system as the RFdiffusion v1 workflow (e.g. `bin/filter_designs.py` and `bin/filters.d/`). Example: `--rfd3_filters "rg<25"` to keep only binders with a radius of gyration (Rg) below 25 Å.
@@ -204,6 +203,18 @@ Common options:
 
 - **`--rf3_ckpt_path`**  
   Path to the RF3 checkpoint used for structure prediction of designed binders (and complexes). A sensible default path inside the container is set in the workflow, but it can be overridden if needed.
+
+- **`--rf3_early_stopping_plddt_threshold`**  
+  Exit early if mean pLDDT is below this value after the first recycle. **Default:** `0.5`. This helps speed up the workflow by stopping early if the structure is not likely to be a high-quality selected binder.
+
+- **`--rf3_num_steps`**  
+  Number of diffusion steps for RF3. **Default:** `50` (different to the the `rf3` CLI default, which is 200; 50 is faster with no observed difference in quality).
+
+- **`--rf3_n_recycles`**  
+  Number of recycles in the RF3 structure module. **Default:** `10` (matches `rf3` CLI default).
+
+- **`--rf3_diffusion_batch_size`**  
+  Batch size for the diffusion step in RF3. **Default:** `5` (matches `rf3` CLI default).
 
 #### Refolding Parameters
 
