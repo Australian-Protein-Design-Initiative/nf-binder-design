@@ -2,14 +2,15 @@ process ROSETTAFOLD3 {
     container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.1.11-weights'
     // container "rosettacommons/foundry:0.1.9-weights"
 
-    publishDir path: "${params.outdir}/rfd3/rf3/output", pattern: 'output/*', mode: 'copy', saveAs: { it.replaceFirst('output/', '') }
+    publishDir path: "${params.outdir}/rfd3/rosettafold3/output", pattern: 'output/*', mode: 'copy', saveAs: { it.replaceFirst('output/', '') }
 
     input:
-    path structure_cif
+    tuple val(meta), path(structure_cif)
 
     output:
     path 'output/*', emit: results
     path 'output/*/*_summary_confidences.json', emit: confidence_json
+    tuple val(meta), path('output/*/*_model.cif'), emit: refolded_cif
 
     // TODO: support (and encourage) batching for lower process startup costs, inputs='folder/of/cifs'
     // TODO: support MSA input for target chain(s) to improve prediction quality

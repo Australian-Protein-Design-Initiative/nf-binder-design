@@ -202,6 +202,10 @@ Common options:
 - **`--rf3_ckpt_path`**  
   Path to the RF3 checkpoint used for structure prediction of designed binders (and complexes). A sensible default path inside the container is set in the workflow, but it can be overridden if needed.
 
+#### RMSD (design vs refold)
+
+After RosettaFold3, the workflow compares the C-alpha RMSD of each design (MPNN output) to the refolded structure (RF3 output).
+
 ### Key Outputs
 
 By default outputs are written under `results/rfd3/` (or the directory specified by `--outdir`). The key outputs of the `--method rfd3` workflow include:
@@ -214,10 +218,15 @@ By default outputs are written under `results/rfd3/` (or the directory specified
  with these sidechains.
 
 - **RosettaFold3 predictions**  
-  - `rf3/output/` - contains the RosettaFold3-predicted structures for each designed binder+target.
+  - `rosettafold3/output/` - contains the RosettaFold3-predicted structures for each designed binder+target.
+
+- **RMSD (design vs refold)**  
+  - `rfd3/rmsd/` - TSV files comparing each design (MPNN CIF) to its refolded structure (RF3 CIF):  
+    `rmsd_target_aligned_binder.tsv`, `rmsd_complex.tsv`, `rmsd_binder_aligned_binder.tsv`, `rmsd_target_aligned_target.tsv`.  
+  Per-design TSVs are also published in the same directory.
 
 - **`combined_scores.tsv`**  
-  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. See `RFD3_PROTOCOL.md` for recommended score cutoffs and column meanings.
+  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. The RMSD values (initial design vs refold) are also included as `refold_rmsd_*` columns.
 
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 

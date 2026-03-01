@@ -58,6 +58,7 @@ include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
 include { GENERATE_RFD3_CONFIG } from '../modules/local/rfd3/generate_rfd3_config'
 include { MPNN } from '../modules/local/rfd3/mpnn'
 include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
+include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
 include { EXTRACT_RFD3_BACKBONE_SCORES; EXTRACT_RF3_SCORES } from '../modules/local/rfd3/extract_rfd3_scores'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
 include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
@@ -189,10 +190,26 @@ workflow RFD3 {
         mpnn_args,
     )
 
+    ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.name], c) }
+
     // Run RosettaFold3 structure prediction on each MPNN-designed structure
-    ROSETTAFOLD3(
-        MPNN.out.cifs.flatten(),
-    )
+    ROSETTAFOLD3(ch_mpnn_with_meta)
+
+    ch_rmsd_input = ch_mpnn_with_meta.join(ROSETTAFOLD3.out.refolded_cif)
+    RFD3_RMSD(ch_rmsd_input)
+
+    ch_rmsd_target_aligned_binder = RFD3_RMSD.out.rmsd_target_aligned_binder
+        .map { meta, tsv -> tsv }
+        .collectFile(name: 'rmsd_target_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+    ch_rmsd_complex = RFD3_RMSD.out.rmsd_complex
+        .map { meta, tsv -> tsv }
+        .collectFile(name: 'rmsd_complex.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+    ch_rmsd_binder_aligned_binder = RFD3_RMSD.out.rmsd_binder_aligned_binder
+        .map { meta, tsv -> tsv }
+        .collectFile(name: 'rmsd_binder_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+    ch_rmsd_target_aligned_target = RFD3_RMSD.out.rmsd_target_aligned_target
+        .map { meta, tsv -> tsv }
+        .collectFile(name: 'rmsd_target_aligned_target.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
 
     ch_rfd3_json = RFDIFFUSION3.out.json_metrics.flatten().combine(ch_unique_id)
     ch_rf3_conf = ROSETTAFOLD3.out.confidence_json.flatten().combine(ch_unique_id)
@@ -200,9 +217,21 @@ workflow RFD3 {
     EXTRACT_RFD3_BACKBONE_SCORES(ch_rfd3_json)
     EXTRACT_RF3_SCORES(ch_rf3_conf)
 
+    ch_rmsd_tuple = ch_rmsd_target_aligned_binder
+        .combine(ch_rmsd_complex)
+        .combine(ch_rmsd_binder_aligned_binder)
+        .combine(ch_rmsd_target_aligned_target)
+        .ifEmpty(Channel.of(tuple(
+            file("${projectDir}/assets/dummy_files/empty"),
+            file("${projectDir}/assets/dummy_files/empty"),
+            file("${projectDir}/assets/dummy_files/empty"),
+            file("${projectDir}/assets/dummy_files/empty"),
+        )))
+
     COMBINE_RFD3_SCORES(
         EXTRACT_RF3_SCORES.out.scores.collect(),
         EXTRACT_RFD3_BACKBONE_SCORES.out.scores.collect(),
+        ch_rmsd_tuple,
     )
 
     emit:
@@ -211,4 +240,8 @@ workflow RFD3 {
     mpnn_fastas = MPNN.out.fastas
     rf3_results = ROSETTAFOLD3.out.results
     combined_scores = COMBINE_RFD3_SCORES.out.combined_scores
+    rfd3_rmsd_target_aligned_binder = ch_rmsd_target_aligned_binder
+    rfd3_rmsd_complex = ch_rmsd_complex
+    rfd3_rmsd_binder_aligned_binder = ch_rmsd_binder_aligned_binder
+    rfd3_rmsd_target_aligned_target = ch_rmsd_target_aligned_target
 }
