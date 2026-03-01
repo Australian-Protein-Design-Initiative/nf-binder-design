@@ -9,6 +9,7 @@ process ROSETTAFOLD3 {
 
     output:
     path 'output/*', emit: results
+    path 'output/*/*_summary_confidences.json', emit: confidence_json
 
     // TODO: support (and encourage) batching for lower process startup costs, inputs='folder/of/cifs'
     // TODO: support MSA input for target chain(s) to improve prediction quality

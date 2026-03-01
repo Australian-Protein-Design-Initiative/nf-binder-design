@@ -58,6 +58,8 @@ include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
 include { GENERATE_RFD3_CONFIG } from '../modules/local/rfd3/generate_rfd3_config'
 include { MPNN } from '../modules/local/rfd3/mpnn'
 include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
+include { EXTRACT_RFD3_BACKBONE_SCORES; EXTRACT_RF3_SCORES } from '../modules/local/rfd3/extract_rfd3_scores'
+include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
 include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
 
 workflow RFD3 {
@@ -192,9 +194,21 @@ workflow RFD3 {
         MPNN.out.cifs.flatten(),
     )
 
+    ch_rfd3_json = RFDIFFUSION3.out.json_metrics.flatten().combine(ch_unique_id)
+    ch_rf3_conf = ROSETTAFOLD3.out.confidence_json.flatten().combine(ch_unique_id)
+
+    EXTRACT_RFD3_BACKBONE_SCORES(ch_rfd3_json)
+    EXTRACT_RF3_SCORES(ch_rf3_conf)
+
+    COMBINE_RFD3_SCORES(
+        EXTRACT_RF3_SCORES.out.scores.collect(),
+        EXTRACT_RFD3_BACKBONE_SCORES.out.scores.collect(),
+    )
+
     emit:
     rfd3_cifs = RFDIFFUSION3.out.cifs
     mpnn_cifs = MPNN.out.cifs
     mpnn_fastas = MPNN.out.fastas
     rf3_results = ROSETTAFOLD3.out.results
+    combined_scores = COMBINE_RFD3_SCORES.out.combined_scores
 }

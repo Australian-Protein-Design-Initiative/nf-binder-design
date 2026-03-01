@@ -21,7 +21,10 @@ process RFDIFFUSION3 {
     path 'output/*.json', emit: json_metrics
 
     script:
-    def global_prefix = design_startnum > 0 ? "global_prefix=batch${design_startnum}" : ''
+    // Always set global_prefix so all batches share the {design_name}_ prefix.
+    // rfd3 appends the config key after global_prefix, so we include a trailing
+    // separator to keep the batch index visually distinct.
+    def global_prefix = "global_prefix=${design_name}_b${design_startnum}_"
     def extra_args_str = extra_args ?: ''
     """
     set -euo pipefail

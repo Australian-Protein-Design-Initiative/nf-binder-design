@@ -204,17 +204,20 @@ Common options:
 
 ### Key Outputs
 
-By default outputs are written under `results` (or the directory specified by `--outdir`). The key outputs of the `--method rfd3` workflow include:
+By default outputs are written under `results/rfd3/` (or the directory specified by `--outdir`). The key outputs of the `--method rfd3` workflow include:
 
 - **RFDiffusion3 backbones**  
-  CIF files for each generated backbone design.
+  `rfdiffusion3/output/` - contains the CIF files and JSON-format metrics for each generated backbone design.
 
 - **ProteinMPNN sequences and structures**  
-  - Designed sequences for each backbone as FASTA files.  
-  - Structure files (CIF/PDB) for each designed sequence.
+  - `mpnn/output/` - contained the designed sequences for each backbone as FASTA files and structure files (CIF)
+ with these sidechains.
 
 - **RosettaFold3 predictions**  
-  RF3-predicted structures for the designed binders (and/or complexes), matching the MPNN-designed sequences.
+  - `rf3/output/` - contains the RosettaFold3-predicted structures for each designed binder+target.
+
+- **`combined_scores.tsv`**  
+  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. See `RFD3_PROTOCOL.md` for recommended score cutoffs and column meanings.
 
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 
