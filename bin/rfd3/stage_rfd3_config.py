@@ -162,7 +162,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         contigs=args.contigs,
         hotspot_res=args.hotspot_res,
         partial_t=args.partial_t,
-        non_loopy=not args.no_non_loopy,
+        non_loopy=not args.allow_loopy,
         translate_v1=not args.no_translate,
     )
     save_config(config, args.output)
@@ -197,8 +197,8 @@ def main() -> int:
         help="Partial diffusion noise level (angstroms)",
     )
     gen_parser.add_argument(
-        "--no-non-loopy", action="store_true",
-        help="Disable is_non_loopy (enabled by default)",
+        "--allow-loopy", action="store_true",
+        help="Allow loopy designs (disable is_non_loopy; non-loopy is default)",
     )
     gen_parser.add_argument(
         "--no-translate", action="store_true",

@@ -7,6 +7,7 @@ process GENERATE_RFD3_CONFIG {
     val contigs
     val hotspot_res
     val partial_t
+    val allow_loopy
 
     output:
     path "${design_name}.json", emit: config_json
@@ -14,6 +15,7 @@ process GENERATE_RFD3_CONFIG {
     script:
     def hotspot_arg = hotspot_res ? "--hotspot-res '${hotspot_res}'" : ''
     def partial_t_arg = partial_t ? "--partial-t ${partial_t}" : ''
+    def allow_loopy_arg = allow_loopy ? '--allow-loopy' : ''
     """
     ${projectDir}/bin/rfd3/stage_rfd3_config.py generate \
         --design-name "${design_name}" \
@@ -21,6 +23,7 @@ process GENERATE_RFD3_CONFIG {
         --contigs '${contigs}' \
         ${hotspot_arg} \
         ${partial_t_arg} \
+        ${allow_loopy_arg} \
         -o ${design_name}.json
     """
 }

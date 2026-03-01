@@ -25,6 +25,7 @@ params.rfd3_n_designs = 1
 params.rfd3_batch_size = 1
 params.rfd3_step_scale = 3
 params.rfd3_gamma_0 = 0.2
+params.rfd3_allow_loopy = false
 params.rfd3_extra_args = ''
 
 // RosettaFold3 params
@@ -57,7 +58,7 @@ include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
 include { GENERATE_RFD3_CONFIG } from '../modules/local/rfd3/generate_rfd3_config'
 include { MPNN } from '../modules/local/rfd3/mpnn'
 include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
-include { buildMpnnArgs } from '../modules/local/rfd3/rfd3_utils'
+include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
 
 workflow RFD3 {
 
@@ -90,6 +91,7 @@ workflow RFD3 {
             --rfd3_batch_size     Designs per batch (diffusion_batch_size) [default: ${params.rfd3_batch_size}]
             --rfd3_step_scale     inference_sampler.step_scale [default: ${params.rfd3_step_scale}]
             --rfd3_gamma_0        inference_sampler.gamma_0 [default: ${params.rfd3_gamma_0}]
+            --rfd3_allow_loopy   Allow loopy designs (disable is_non_loopy) [default: ${params.rfd3_allow_loopy}]
             --rfd3_extra_args     Additional CLI arguments for rfd3 [default: ${params.rfd3_extra_args}]
 
         MPNN options (new names / legacy names):
@@ -153,9 +155,10 @@ workflow RFD3 {
         GENERATE_RFD3_CONFIG(
             params.design_name,
             ch_input_pdb,
-            params.contigs,
+            normaliseContigToV3(params.contigs),
             params.hotspot_res ?: false,
             false,  // partial_t - not used in de novo design
+            params.rfd3_allow_loopy,
         )
 
         ch_rfd3_startnum = Channel.of(0..n_batches - 1)

@@ -12,6 +12,21 @@ def AA_1TO3 = [
 ]
 
 /**
+ * Normalise contig string for RFD3: if it looks like v1 style (starts with [ and ends with ]),
+ * translate to v3 style (comma-separated, e.g. A18-132,/0,65-120). Otherwise pass through.
+ */
+def normaliseContigToV3(String contig) {
+    def s = contig?.trim() ?: ''
+    if (s.length() >= 2 && s.startsWith('[') && s.endsWith(']')) {
+        s = s[1..-2].trim()
+        s = s.replace(' ', ',')
+        s = s.replace('/', ',/')
+        return s
+    }
+    return contig
+}
+
+/**
  * Resolve a parameter with dual naming (legacy pmpnn_* and new mpnn_*).
  * The modern (new) value takes precedence if explicitly set.
  */

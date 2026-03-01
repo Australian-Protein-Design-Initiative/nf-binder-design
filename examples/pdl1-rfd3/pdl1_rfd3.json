@@ -5,7 +5,7 @@
         "input": "input/PDL1.pdb",
         "contig": "50-120,/0,A18-132",
         "select_hotspots": {
-            "A56": "ALL"
+            "A56": "CG,OH"
         },
         "is_non_loopy": true
     }
