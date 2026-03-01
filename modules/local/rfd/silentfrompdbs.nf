@@ -1,7 +1,7 @@
 process SILENT_FROM_PDBS {
     container "ghcr.io/australian-protein-design-initiative/containers/proteinmpnn_fastrelax:latest"
 
-    publishDir "${params.outdir}/silent", mode: 'copy'
+    publishDir "${params.outdir}/rfd/silent", mode: 'copy'
     
     input:
     path '*.pdb'

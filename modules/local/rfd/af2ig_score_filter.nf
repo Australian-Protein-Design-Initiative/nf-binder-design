@@ -3,7 +3,7 @@ process AF2IG_SCORE_FILTER {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
 
-    publishDir "${params.outdir}/af2_initial_guess/filtered", mode: 'copy'
+    publishDir "${params.outdir}/rfd/af2_initial_guess/filtered", mode: 'copy'
 
     input:
     path scores_tsv

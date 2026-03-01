@@ -13,8 +13,8 @@ This subworkflow is shared between the RFD and RFD_PARTIAL workflows.
 
 include { AF2IG_SCORE_FILTER } from '../../modules/local/rfd/af2ig_score_filter'
 include { COMBINE_SCORES } from '../../modules/local/common/combine_scores'
-include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_AF2IG } from '../../modules/local/bindcraft/bindcraft_scoring'
-include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_BOLTZ_COMPLEX } from '../../modules/local/bindcraft/bindcraft_scoring'
+include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_AF2IG } from '../../modules/local/rfd/bindcraft_scoring'
+include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_BOLTZ_COMPLEX } from '../../modules/local/rfd/bindcraft_scoring'
 include { PDB_TO_FASTA } from '../../modules/local/common/pdb_to_fasta'
 include { BOLTZ_COMPARE_COMPLEX } from '../../modules/local/common/boltz_compare_complex'
 include { BOLTZ_COMPARE_BINDER_MONOMER } from '../../modules/local/common/boltz_compare_binder_monomer'
@@ -212,7 +212,7 @@ workflow BOLTZ_REFOLD_SCORING {
         )
 
         extra_scores = BINDCRAFT_SCORING_AF2IG.out.scores.collectFile(
-            name: "${outdir}/af2_initial_guess/af2ig_extra_scores.tsv",
+            name: "${outdir}/rfd/af2_initial_guess/af2ig_extra_scores.tsv",
             keepHeader: true,
             skip: 1,
         )

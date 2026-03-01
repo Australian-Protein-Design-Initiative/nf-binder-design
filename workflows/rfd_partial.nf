@@ -291,7 +291,7 @@ workflow RFD_PARTIAL {
         .map { pdbs, scores -> scores }
         .collectFile(
             name: 'af2ig_scores.tsv',
-            storeDir: "${params.outdir}/af2_initial_guess",
+            storeDir: "${params.outdir}/rfd/af2_initial_guess",
             keepHeader: true,
             skip: 1,
         )
