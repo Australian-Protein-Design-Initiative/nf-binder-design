@@ -204,13 +204,17 @@ workflow RFD3 {
             throw new Exception('Either --rfd3_config or --contigs must be provided')
         }
 
+        def is_non_loopy_mode = (params.rfd3_is_non_loopy == null)
+            ? 'omit'
+            : (params.rfd3_is_non_loopy ? 'non_loopy' : 'allow_loopy')
+
         GENERATE_RFD3_CONFIG(
             params.design_name,
             ch_input_pdb,
             normaliseContigToV3(params.contigs),
             params.hotspot_res ?: false,
             false,  // partial_t - not used in de novo design
-            params.rfd3_is_non_loopy,
+            is_non_loopy_mode,
         )
 
         ch_rfd3_startnum = Channel.of(0..n_batches - 1)
