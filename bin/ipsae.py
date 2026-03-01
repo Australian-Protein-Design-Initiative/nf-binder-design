@@ -93,6 +93,28 @@ def main():
         default=10.0,
         help="Distance cutoff value (default: 10.0)",
     )
+    parser.add_argument(
+        "--format",
+        choices=("auto", "af2", "af3", "boltz", "rf3"),
+        default="auto",
+        help="Input format (default: auto from file extensions). Use rf3 for RosettaFold3 confidences JSON.",
+    )
+    parser.add_argument(
+        "--update-summary",
+        metavar="PATH",
+        default=None,
+        help="After computing scores, add ipsae_binder_target, ipsae_target_binder, ipsae_min to this summary JSON and save.",
+    )
+    parser.add_argument(
+        "--binder-chain",
+        default="A",
+        help="Chain ID for binder (used with --update-summary). Default: A",
+    )
+    parser.add_argument(
+        "--target-chain",
+        default="B",
+        help="Chain ID for target (used with --update-summary). Default: B",
+    )
 
     args = parser.parse_args()
 
@@ -140,6 +162,11 @@ def main():
     else:
         print("Wrong PDB or PAE file type ", pdb_path)
         sys.exit()
+
+    rf3 = args.format == "rf3" and af3
+    if args.format == "rf3" and ".cif" in pdb_path and pae_file_path.endswith(".json"):
+        af3 = True
+        rf3 = True
 
     file_path = path_stem + "_ipsae.tsv"
     file2_path = path_stem + "_ipsae_byres.tsv"
@@ -615,6 +642,8 @@ def main():
             sys.exit()
 
         atom_plddts = np.array(data["atom_plddts"])
+        if rf3:
+            atom_plddts = atom_plddts * 100.0
         plddt = atom_plddts[CA_atom_num]  # pull out residue plddts from Calpha atoms
         cb_plddt = atom_plddts[
             CB_atom_num
@@ -653,18 +682,28 @@ def main():
         if summary_file_path is not None and os.path.exists(summary_file_path):
             with open(summary_file_path, "r") as file:
                 data_summary = json.load(file)
-            af3_chain_pair_iptm_data = data_summary["chain_pair_iptm"]
-            for chain1 in unique_chains:
-                nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
-                for chain2 in unique_chains:
-                    if chain1 == chain2:
-                        continue
-                    nchain2 = ord(chain2) - ord("A")
-                    iptm_af3[chain1][chain2] = af3_chain_pair_iptm_data[nchain1][
-                        nchain2
-                    ]
+            af3_chain_pair_iptm_data = data_summary.get("chain_pair_iptm")
+            if af3_chain_pair_iptm_data is not None:
+                for chain1 in unique_chains:
+                    nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
+                    for chain2 in unique_chains:
+                        if chain1 == chain2:
+                            continue
+                        nchain2 = ord(chain2) - ord("A")
+                        if nchain1 < len(af3_chain_pair_iptm_data) and nchain2 < len(
+                            af3_chain_pair_iptm_data[nchain1]
+                        ):
+                            iptm_af3[chain1][chain2] = af3_chain_pair_iptm_data[
+                                nchain1
+                            ][nchain2]
+            elif rf3:
+                print(
+                    "Warning: RF3 summary has no chain_pair_iptm; ipTM from summary will be 0",
+                    file=sys.stderr,
+                )
         else:
-            print("AF3 summary file does not exist: ", summary_file_path)
+            if not rf3:
+                print("AF3 summary file does not exist: ", summary_file_path)
 
     # Compute chain-pair-specific interchain PTM and PAE, count valid pairs, and count unique residues
     # First, create dictionaries of appropriate size: top keys are chain1 and chain2 where chain1 != chain2
@@ -1438,6 +1477,43 @@ def main():
                 f"alias {chain_pair}, color gray80, all; color {color1}, {chain1_residues}; color {color2}, {chain2_residues}\n\n"
             )
         OUT.write("\n")
+
+    OUT.close()
+    PML.close()
+    OUT2.close()
+
+    if getattr(args, "update_summary", None) and af3:
+        summary_path = args.update_summary
+        binder_chain = getattr(args, "binder_chain", "A")
+        target_chain = getattr(args, "target_chain", "B")
+        ipsae_binder_target = None
+        ipsae_target_binder = None
+        ipsae_min = None
+        if binder_chain in unique_chains and target_chain in unique_chains:
+            ipsae_binder_target = float(
+                ipsae_d0res_asym[binder_chain][target_chain]
+            )
+            ipsae_target_binder = float(
+                ipsae_d0res_asym[target_chain][binder_chain]
+            )
+            ch_lo, ch_hi = (
+                min(binder_chain, target_chain),
+                max(binder_chain, target_chain),
+            )
+            ipsae_min = float(ipsae_d0res_min[ch_hi][ch_lo])
+        if os.path.exists(summary_path):
+            with open(summary_path, "r") as f:
+                summary_data = json.load(f)
+            summary_data["ipsae_binder_target"] = ipsae_binder_target
+            summary_data["ipsae_target_binder"] = ipsae_target_binder
+            summary_data["ipsae_min"] = ipsae_min
+            with open(summary_path, "w") as f:
+                json.dump(summary_data, f, indent=2)
+        else:
+            print(
+                f"Warning: --update-summary path does not exist: {summary_path}",
+                file=sys.stderr,
+            )
 
 
 if __name__ == "__main__":

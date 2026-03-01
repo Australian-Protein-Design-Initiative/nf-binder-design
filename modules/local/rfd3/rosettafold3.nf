@@ -6,11 +6,13 @@ process ROSETTAFOLD3 {
 
     input:
     tuple val(meta), path(structure_cif)
+    val(uid)
 
     output:
     path 'output/*', emit: results
     path 'output/*/*_summary_confidences.json', emit: confidence_json
     tuple val(meta), path('output/*/*_model.cif'), emit: refolded_cif
+    path 'rfd3_*_rf3_*.tsv', emit: scores
 
     // TODO: support MSA input for target chain(s) to improve prediction quality
     //       - this is important, since in my limited testing RosettaFold3 isn't performing very well
@@ -49,5 +51,23 @@ process ROSETTAFOLD3 {
         out_dir=output \
         ckpt_path=${params.rf3_ckpt_path} \
         ${task.ext.args ?: ''}
+
+    full_conf=\$(find output -maxdepth 2 -name '*_confidences.json' ! -name '*summary*' -print | head -1)
+    summary_conf=\$(find output -maxdepth 2 -name '*_summary_confidences.json' -print | head -1)
+    cif=\$(find output -maxdepth 2 -name '*_model.cif' -print | head -1)
+    if [[ -n "\$full_conf" && -n "\$summary_conf" && -n "\$cif" ]]; then
+        outdir=\$(dirname "\$cif")
+        (cd "\$outdir" && python ${projectDir}/bin/ipsae.py \\
+            --format rf3 \\
+            --update-summary "\$(basename "\$summary_conf")" \\
+            --binder-chain A --target-chain B \\
+            "\$(basename "\$full_conf")" "\$(basename "\$cif")" 10 10)
+    fi
+
+    if [[ -n "\$summary_conf" ]]; then
+        suffix=\$(basename "\$summary_conf" _summary_confidences.json | sed -n 's/.*\\(cif_b[0-9]*_d[0-9]*\\)/\\1/p')
+        [[ -z "\$suffix" ]] && suffix=rf3
+        python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rosettafold3 "\$summary_conf" -o rfd3_${uid}_batch0_rf3_\${suffix}.tsv
+    fi
     """
 }

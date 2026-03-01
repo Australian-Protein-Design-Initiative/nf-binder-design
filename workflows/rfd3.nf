@@ -61,7 +61,6 @@ include { GENERATE_RFD3_CONFIG } from '../modules/local/rfd3/generate_rfd3_confi
 include { MPNN } from '../modules/local/rfd3/mpnn'
 include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
 include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
-include { EXTRACT_RFD3_BACKBONE_SCORES; EXTRACT_RF3_SCORES } from '../modules/local/rfd3/extract_rfd3_scores'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
 include { FILTER_DESIGNS as RFD3_FILTER_DESIGNS } from '../modules/local/rfd3/filter_designs'
 include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
@@ -208,8 +207,8 @@ workflow RFD3 {
 
     ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.name], c) }
 
-    // Run RosettaFold3 structure prediction on each MPNN-designed structure
-    ROSETTAFOLD3(ch_mpnn_with_meta)
+    // Run RosettaFold3 structure prediction on each MPNN-designed structure (run unique id as value channel)
+    ROSETTAFOLD3(ch_mpnn_with_meta, ch_unique_id)
 
     ch_rmsd_input = ch_mpnn_with_meta.join(ROSETTAFOLD3.out.refolded_cif)
     RFD3_RMSD(ch_rmsd_input)
@@ -227,12 +226,6 @@ workflow RFD3 {
         .map { meta, tsv -> tsv }
         .collectFile(name: 'rmsd_target_aligned_target.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
 
-    ch_rfd3_json = RFDIFFUSION3.out.json_metrics.flatten().combine(ch_unique_id)
-    ch_rf3_conf = ROSETTAFOLD3.out.confidence_json.flatten().combine(ch_unique_id)
-
-    EXTRACT_RFD3_BACKBONE_SCORES(ch_rfd3_json)
-    EXTRACT_RF3_SCORES(ch_rf3_conf)
-
     ch_rmsd_tuple = ch_rmsd_target_aligned_binder
         .combine(ch_rmsd_complex)
         .combine(ch_rmsd_binder_aligned_binder)
@@ -244,11 +237,19 @@ workflow RFD3 {
             file("${projectDir}/assets/dummy_files/empty"),
         )))
 
-    COMBINE_RFD3_SCORES(
-        EXTRACT_RF3_SCORES.out.scores.collect(),
-        EXTRACT_RFD3_BACKBONE_SCORES.out.scores.collect(),
-        ch_rmsd_tuple,
-    )
+    ch_rf3_scores_merged = ROSETTAFOLD3.out.scores
+        .collectFile(name: 'rf3_scores.tsv', storeDir: "${params.outdir}/rfd3/rf3_scores", keepHeader: true, skip: 1)
+    ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
+        .collectFile(name: 'rfd3_scores.tsv', storeDir: "${params.outdir}/rfd3/rfd3_scores", keepHeader: true, skip: 1)
+
+    ch_combine_input = ch_rf3_scores_merged
+        .combine(ch_rfd3_scores_merged)
+        .combine(ch_rmsd_tuple)
+        .map { it ->
+            def f = it.flatten()
+            tuple(f[0], f[1], f[2], f[3], f[4], f[5])
+        }
+    COMBINE_RFD3_SCORES(ch_combine_input)
 
     emit:
     rfd3_cifs = RFDIFFUSION3.out.cifs

@@ -4,9 +4,7 @@ process COMBINE_RFD3_SCORES {
     publishDir path: "${params.outdir}/rfd3", pattern: 'combined_scores.tsv', mode: 'copy'
 
     input:
-    path rf3_scores, stageAs: 'rf3_scores/*'
-    path rfd3_scores, stageAs: 'rfd3_scores/*'
-    tuple path(rmsd_target_aligned_binder_tsv), path(rmsd_complex_tsv), path(rmsd_binder_aligned_binder_tsv), path(rmsd_target_aligned_target_tsv)
+    tuple path(rf3_scores), path(rfd3_scores), path(rmsd_target_aligned_binder_tsv), path(rmsd_complex_tsv), path(rmsd_binder_aligned_binder_tsv), path(rmsd_target_aligned_target_tsv)
 
     output:
     path 'combined_scores.tsv', emit: combined_scores
@@ -15,11 +13,8 @@ process COMBINE_RFD3_SCORES {
     """
     set -euo pipefail
 
-    awk 'NR==1 || FNR>1' rf3_scores/*.tsv > rf3_all.tsv
-    awk 'NR==1 || FNR>1' rfd3_scores/*.tsv > rfd3_all.tsv
-
     python ${projectDir}/bin/merge_scores.py \\
-      rf3_all.tsv rfd3_all.tsv \\
+      ${rf3_scores} ${rfd3_scores} \\
       --keys backbone_id \\
       --sort-by pair_pae_min \\
       --first-column id,filename,pair_pae_min,ranking_score,iptm,plddt \\

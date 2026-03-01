@@ -11,7 +11,7 @@ DATESTAMP=$(date +%Y%m%d_%H%M%S)
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
   --method rfd3 \
-  --input_pdb 'input/*.pdb' \
+  --input_pdb 'input/PDL1.pdb' \
   --rfd3_config pdl1_rfd3.json \
   --outdir results \
   --rfd3_n_designs=4 \

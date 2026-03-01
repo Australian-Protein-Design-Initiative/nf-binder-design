@@ -19,6 +19,7 @@ process RFDIFFUSION3 {
     output:
     path 'output/*.cif.gz', emit: cifs
     path 'output/*.json', emit: json_metrics
+    path 'rfd3_*_batch*_backbone.tsv', emit: scores
 
     script:
     // Always set global_prefix so all batches share the {design_name}_ prefix.
@@ -26,6 +27,7 @@ process RFDIFFUSION3 {
     // separator to keep the batch index visually distinct.
     def global_prefix = "global_prefix=${design_name}_b${design_startnum}_"
     def extra_args_str = extra_args ?: ''
+    def uid = design_name.replaceFirst(/^rfd3_/, '')
     """
     set -euo pipefail
 
@@ -59,5 +61,12 @@ process RFDIFFUSION3 {
         ${global_prefix} \
         ${extra_args_str} \
         ${task.ext.args ?: ''}
+
+    for j in output/*.json; do
+      [[ -f "\$j" ]] || continue
+      batch=\$(basename "\$j" .json | sed -n 's/.*batch\\([0-9]*\\).*/\1/p; s/.*_b\\([0-9]*\\)_.*/\1/p' | head -1)
+      [[ -z "\$batch" ]] && batch=0
+      python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rfdiffusion3 "\$j" -o rfd3_${uid}_batch\${batch}_backbone.tsv
+    done
     """
 }
