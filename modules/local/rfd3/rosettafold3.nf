@@ -72,3 +72,79 @@ process ROSETTAFOLD3 {
     fi
     """
 }
+
+/*
+Usage:
+
+https://rosettacommons.github.io/foundry/models/rf3/index.html
+https://github.com/RosettaCommons/foundry/tree/production/models/rf3
+
+$ python models/rf3/src/rf3/inference.py --help
+
+inference is powered by Hydra.
+
+== Configuration groups ==
+Compose your configuration from those groups (group=option)
+
+callbacks: default, dump_validation_structures, metrics_logging, train_logging
+dataloader: default
+datasets: base, pdb_and_distillation, pdb_only
+datasets/train: disorder_distillation, domain_distillation, monomer_distillation, na_complex_distillation, rna_monomer_distillation
+datasets/train/pdb: af3_weighted_sampling, base, plinder, train_interface, train_pn_unit
+datasets/val: af3_ab_set, af3_validation, base, runs_and_poses
+debug: default, train_specific_examples
+experiment: quick-rf3, quick-rf3-with-confidence
+experiment/pretrained: rf3, rf3_with_confidence
+inference_engine: base, rf3
+logger: csv, default, wandb
+model: rf3, rf3_with_confidence
+model/components: ema, rf3_net, rf3_net_with_confidence_head
+model/optimizers: adam
+model/schedulers: af3
+paths: default
+paths/data: default
+trainer: cpu, ddp, rf3, rf3_with_confidence, xpu
+trainer/loss: structure_prediction, structure_prediction_with_confidence
+trainer/loss/losses: confidence_loss, diffusion_loss, distogram_loss
+trainer/metrics: structure_prediction
+
+
+== Config ==
+Override anything in the config (foo.bar=value)
+
+ckpt_path: rf3_foundry_01_24_latest.ckpt
+num_nodes: 1
+devices_per_node: 1
+compress_outputs: false
+inputs: ???
+out_dir: ???
+dump_predictions: true
+dump_trajectories: false
+one_model_per_file: false
+annotate_b_factor_with_plddt: true
+sharding_pattern: null
+skip_existing: false
+template_selection: null
+ground_truth_conformer_selection: null
+cyclic_chains: []
+_target_: rf3.inference_engines.rf3.RF3InferenceEngine
+n_recycles: 10
+diffusion_batch_size: 5
+num_steps: 50
+template_noise_scale: 1.0e-05
+early_stopping_plddt_threshold: 0.5
+seed: null
+verbose: false
+raise_if_missing_msa_for_protein_of_length_n: null
+metrics_cfg:
+  ptm:
+    _target_: rf3.metrics.predicted_error.ComputePTM
+  iptm:
+    _target_: rf3.metrics.predicted_error.ComputeIPTM
+  count_clashing_chains:
+    _target_: rf3.metrics.clashing_chains.CountClashingChains
+
+
+Powered by Hydra (https://hydra.cc)
+Use --hydra-help to view Hydra specific help
+*/

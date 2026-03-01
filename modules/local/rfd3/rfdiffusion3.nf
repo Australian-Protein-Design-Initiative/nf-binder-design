@@ -70,3 +70,92 @@ process RFDIFFUSION3 {
     done
     """
 }
+
+/*
+Usage:
+
+https://rosettacommons.github.io/foundry/models/rfd3/index.html
+https://github.com/RosettaCommons/foundry/tree/production/models/rfd3
+
+$ python models/rfd3/src/rfd3/run_inference.py --help
+
+run_inference is powered by Hydra.
+
+== Configuration groups ==
+Compose your configuration from those groups (group=option)
+
+callbacks: design_callbacks, metrics_logging, train_logging
+dataloader: default, fast
+datasets: design_base
+datasets/conditions: dna_condition, island, ppi, sequence_design, tipatom, unconditional
+datasets/train: rfd3_monomer_distillation
+datasets/train/pdb: af3_train_interface, af3_train_pn_unit, base, base_no_weights, base_transform_args, na_complex_distillation, pdb_base, rfd3_train_interface, rfd3_train_pn_unit
+datasets/val: bcov_ppi_easy_medium, design_validation_base, dna_binder_design5, dna_binder_long, dna_binder_short, indexed, mcsa_41, mcsa_41_short_rigid, ppi_inference, sm_binder_hbonds, sm_binder_hbonds_short, unconditional, unconditional_deep, unindexed
+datasets/val/val_examples: bcov_ppi_easy_medium_with_ori, bcov_ppi_easy_medium_with_ori_spoof_helical_bundle, bcov_ppi_easy_medium_with_ori_varying_lengths, bpem_ori_hb
+debug: default, train_specific_examples
+experiment: debug, pretrain, test-uncond, test-unindexed
+inference_engine: base, dev, rfdiffusion3
+logger: csv, default, wandb
+model: rfd3_base
+model/components: ema, rfd3_net
+model/optimizers: adam
+model/samplers: edm, symmetry
+model/schedulers: af3
+paths: default
+paths/data: default
+trainer: cpu, ddp, rfd3_base, xpu
+trainer/loss/losses: diffusion_loss, sequence_loss
+trainer/metrics: design_metrics
+
+
+== Config ==
+Override anything in the config (foo.bar=value)
+
+ckpt_path: rfd3
+num_nodes: 1
+devices_per_node: 1
+verbose: false
+seed: null
+inputs: ???
+out_dir: ???
+_target_: rfd3.engine.RFD3InferenceEngine
+json_keys_subset: null
+skip_existing: true
+specification: {}
+diffusion_batch_size: 8
+n_batches: 1
+inference_sampler:
+  kind: default
+  cfg_features:
+  - active_donor
+  - active_acceptor
+  - ref_atomwise_rasa
+  use_classifier_free_guidance: false
+  cfg_t_max: null
+  cfg_scale: 1.5
+  center_option: all
+  s_trans: 1.0
+  inference_noise_scaling_factor: 1.0
+  allow_realignment: false
+  num_timesteps: 200
+  step_scale: 1.5
+  noise_scale: 1.003
+  p: 7
+  gamma_0: 0.6
+  gamma_min: 1.0
+  s_jitter_origin: 0.0
+cleanup_guideposts: true
+cleanup_virtual_atoms: true
+read_sequence_from_sequence_head: true
+output_full_json: true
+global_prefix: null
+dump_prediction_metadata_json: true
+dump_trajectories: false
+align_trajectory_structures: false
+prevalidate_inputs: false
+low_memory_mode: false
+
+
+Powered by Hydra (https://hydra.cc)
+Use --hydra-help to view Hydra specific help
+*/
