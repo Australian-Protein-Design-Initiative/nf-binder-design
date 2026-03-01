@@ -63,7 +63,7 @@ include { AF2IG_SCORE_FILTER } from '../modules/local/rfd/af2ig_score_filter'
 
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 
-include { BOLTZ_REFOLD_SCORING } from '../subworkflows/local/boltz_refold_scoring'
+include { BOLTZ_REFOLD_SCORING } from '../subworkflows/local/boltz_refold_scoring_rfd'
 
 workflow RFD {
 
