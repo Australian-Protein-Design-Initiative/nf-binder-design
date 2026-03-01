@@ -41,6 +41,18 @@ params.pmpnn_augment_eps = false
 params.pmpnn_omit_aas = false
 params.pmpnn_weights = false
 
+// Boltz refolding params
+params.refold_with = '' // comma-separated list of methods, e.g., 'boltz'
+params.refold_max = false
+params.refold_filter_sort = 'pair_pae_min'
+params.refold_use_msa_server = false
+params.refold_create_target_msa = false
+params.refold_target_templates = false
+params.refold_target_fasta = false
+params.uniref30 = false
+params.colabfold_envdb = false
+params.output_rmsd_aligned = false
+
 // MPNN params - new (mpnn_*)
 params.mpnn_model_type = 'protein_mpnn'
 params.mpnn_legacy_weights = true
@@ -64,6 +76,7 @@ include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
 include { FILTER_DESIGNS as RFD3_FILTER_DESIGNS } from '../modules/local/rfd3/filter_designs'
 include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
+include { BOLTZ_REFOLD_SCORING_RFD3 } from '../subworkflows/local/boltz_refold_scoring_rfd3'
 
 workflow RFD3 {
 
@@ -115,6 +128,12 @@ workflow RFD3 {
             --mpnn_omit / --pmpnn_omit_aas             Omit residue types (1-letter eg "CX") [default: ${params.mpnn_omit}]
             --mpnn_checkpoint_path / --pmpnn_weights   Custom weights path [default: ${params.mpnn_checkpoint_path}]
 
+        Refolding options:
+            --refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.refold_with}]
+            --refold_max          Maximum designs to refold [default: ${params.refold_max}]
+            --refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.refold_filter_sort}]
+            --refold_create_target_msa  Create target MSA for refolding structure prediction [default: ${params.refold_create_target_msa}]
+
         Other options:
             --require_gpu         Fail tasks without a GPU [default: ${params.require_gpu}]
             --gpu_devices         GPU devices to use (comma-separated or 'all') [default: ${params.gpu_devices}]
@@ -123,6 +142,8 @@ workflow RFD3 {
         )
         exit(1)
     }
+    def refold_methods = params.refold_with ? params.refold_with.toString().split(',').collect{it.trim()} : []
+    println("Refold methods: ${refold_methods}")
 
     def ch_input_pdb
     if (params.rfd3_config) {
@@ -227,18 +248,74 @@ workflow RFD3 {
     ch_rmsd_input = ch_mpnn_with_meta.join(ROSETTAFOLD3.out.refolded_cif)
     RFD3_RMSD(ch_rmsd_input)
 
+    ch_boltz_complex = Channel.empty()
+    ch_boltz_monomer = Channel.empty()
+
+    if (refold_methods.contains('boltz')) {
+        ch_boltz_input = ROSETTAFOLD3.out.refolded_cif
+            .join(ROSETTAFOLD3.out.scores_with_meta)
+            .map { meta, cif, score_tsv ->
+                def lines = score_tsv.readLines()
+                def header = lines[0].split('\t')
+                def values = lines[1].split('\t')
+                def scoreMap = [:]
+                for (int i = 0; i < header.size(); i++) {
+                    scoreMap[header[i]] = values[i]
+                }
+                return [meta, cif, scoreMap]
+            }
+            .toSortedList { a, b ->
+                def sort_key = params.refold_filter_sort ?: 'pair_pae_min'
+                def descending = false
+                if (sort_key.startsWith('-')) {
+                    descending = true
+                    sort_key = sort_key.substring(1)
+                }
+                def valA = a[2][sort_key]
+                def valB = b[2][sort_key]
+                
+                valA = valA && valA != 'None' && valA != '' ? valA.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
+                valB = valB && valB != 'None' && valB != '' ? valB.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
+
+                return descending ? valB <=> valA : valA <=> valB
+            }
+            .flatMap { list ->
+                if (params.refold_max) {
+                    return list.take(params.refold_max as int)
+                }
+                return list
+            }
+            .map { meta, cif, scoreMap -> tuple(meta, cif) }
+
+        BOLTZ_REFOLD_SCORING_RFD3(
+            ch_boltz_input,
+            'B', // binder_chain
+            'A', // target_chain
+            params.refold_max,
+            params.refold_create_target_msa,
+            params.refold_use_msa_server,
+            params.refold_target_fasta,
+            params.refold_target_templates,
+            params.colabfold_envdb,
+            params.uniref30,
+            params.outdir
+        )
+        ch_boltz_complex = BOLTZ_REFOLD_SCORING_RFD3.out.boltz_scores_complex
+        ch_boltz_monomer = BOLTZ_REFOLD_SCORING_RFD3.out.boltz_scores_monomer
+    }
+
     ch_rmsd_target_aligned_binder = RFD3_RMSD.out.rmsd_target_aligned_binder
         .map { meta, tsv -> tsv }
-        .collectFile(name: 'rmsd_target_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+        .collectFile(name: 'rmsd_target_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
     ch_rmsd_complex = RFD3_RMSD.out.rmsd_complex
         .map { meta, tsv -> tsv }
-        .collectFile(name: 'rmsd_complex.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+        .collectFile(name: 'rmsd_complex.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
     ch_rmsd_binder_aligned_binder = RFD3_RMSD.out.rmsd_binder_aligned_binder
         .map { meta, tsv -> tsv }
-        .collectFile(name: 'rmsd_binder_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+        .collectFile(name: 'rmsd_binder_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
     ch_rmsd_target_aligned_target = RFD3_RMSD.out.rmsd_target_aligned_target
         .map { meta, tsv -> tsv }
-        .collectFile(name: 'rmsd_target_aligned_target.tsv', storeDir: "${params.outdir}/rfd3/rmsd", keepHeader: true, skip: 1)
+        .collectFile(name: 'rmsd_target_aligned_target.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
 
     ch_rmsd_tuple = ch_rmsd_target_aligned_binder
         .combine(ch_rmsd_complex)
@@ -252,16 +329,18 @@ workflow RFD3 {
         )))
 
     ch_rf3_scores_merged = ROSETTAFOLD3.out.scores
-        .collectFile(name: 'rf3_scores.tsv', storeDir: "${params.outdir}/rfd3/rf3_scores", keepHeader: true, skip: 1)
+        .collectFile(name: 'rf3_scores.tsv', keepHeader: true, skip: 1)
     ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
-        .collectFile(name: 'rfd3_scores.tsv', storeDir: "${params.outdir}/rfd3/rfd3_scores", keepHeader: true, skip: 1)
+        .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1)
 
     ch_combine_input = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
         .combine(ch_rmsd_tuple)
+        .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
+        .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
         .map { it ->
             def f = it.flatten()
-            tuple(f[0], f[1], f[2], f[3], f[4], f[5])
+            tuple(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7])
         }
     COMBINE_RFD3_SCORES(ch_combine_input)
 

@@ -13,6 +13,7 @@ process ROSETTAFOLD3 {
     path 'output/*/*_summary_confidences.json', emit: confidence_json
     tuple val(meta), path('output/*/*_model.cif'), emit: refolded_cif
     path 'rfd3_*_rf3_*.tsv', emit: scores
+    tuple val(meta), path('rfd3_*_rf3_*.tsv'), emit: scores_with_meta
 
     // TODO: support MSA input for target chain(s) to improve prediction quality
     //       - this is important, since in my limited testing RosettaFold3 isn't performing very well

@@ -42,6 +42,8 @@ workflow BOLTZ_REFOLD_SCORING {
 
     // Define output channel variable
     ch_combined_scores = Channel.empty()
+    ch_ipsae_tsv = Channel.empty()
+    ch_ipsae_byres_tsv = Channel.empty()
 
     if (refold_af2ig_filters) {
         // Filter designs by score thresholds
@@ -178,6 +180,9 @@ workflow BOLTZ_REFOLD_SCORING {
                 skip: 1,
             )
 
+        ch_ipsae_tsv = BOLTZ_COMPARE_COMPLEX.out.ipsae_tsv
+        ch_ipsae_byres_tsv = BOLTZ_COMPARE_COMPLEX.out.ipsae_byres_tsv
+
         // BindCraft-score the Boltz-2 refolded complexes
         BINDCRAFT_SCORING_BOLTZ_COMPLEX(
             BOLTZ_COMPARE_COMPLEX.out.pdb.map { meta, pdb -> pdb },
@@ -231,4 +236,6 @@ workflow BOLTZ_REFOLD_SCORING {
 
     emit:
     scores = ch_combined_scores
+    ipsae_tsv = ch_ipsae_tsv
+    ipsae_byres_tsv = ch_ipsae_byres_tsv
 }

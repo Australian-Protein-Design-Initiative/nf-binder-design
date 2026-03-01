@@ -4,7 +4,7 @@ process COMBINE_RFD3_SCORES {
     publishDir path: "${params.outdir}/rfd3", pattern: 'combined_scores.tsv', mode: 'copy'
 
     input:
-    tuple path(rf3_scores), path(rfd3_scores), path(rmsd_target_aligned_binder_tsv), path(rmsd_complex_tsv), path(rmsd_binder_aligned_binder_tsv), path(rmsd_target_aligned_target_tsv)
+    tuple path(rf3_scores), path(rfd3_scores), path(rmsd_target_aligned_binder_tsv), path(rmsd_complex_tsv), path(rmsd_binder_aligned_binder_tsv), path(rmsd_target_aligned_target_tsv), path(boltz_scores_complex), path(boltz_scores_monomer)
 
     output:
     path 'combined_scores.tsv', emit: combined_scores
@@ -52,6 +52,28 @@ process COMBINE_RFD3_SCORES {
         --column-prefix refold_rmsd_target_aligned_target_ \\
         --drop-columns 'refold_rmsd_target_aligned_target_structure.*' \\
         -o combined_scores.tsv
+    fi
+
+    if [[ -s ${boltz_scores_complex} ]]; then
+      cp ${boltz_scores_complex} tmp_boltz_complex.tsv
+      python ${projectDir}/bin/merge_scores.py \\
+        combined_scores.tsv tmp_boltz_complex.tsv \\
+        --keys filename,id \\
+        --column-prefix boltz_complex_ \\
+        --drop-columns 'boltz_complex_target,boltz_complex_binder,boltz_complex_state,boltz_complex_ptm,boltz_complex_iptm,boltz_complex_ligand_iptm,boltz_complex_protein_iptm,boltz_complex_has_clash' \\
+        -o step4.tsv
+      mv step4.tsv combined_scores.tsv
+    fi
+
+    if [[ -s ${boltz_scores_monomer} ]]; then
+      csvtk replace -t -f id -p "_monomer\$" -r "" ${boltz_scores_monomer} > tmp_boltz_monomer.tsv
+      python ${projectDir}/bin/merge_scores.py \\
+        combined_scores.tsv tmp_boltz_monomer.tsv \\
+        --keys filename,id \\
+        --column-prefix boltz_monomer_ \\
+        --drop-columns 'boltz_monomer_target,boltz_monomer_binder,boltz_monomer_state,boltz_monomer_ptm,boltz_monomer_iptm,boltz_monomer_ligand_iptm,boltz_monomer_protein_iptm,boltz_monomer_has_clash' \\
+        -o step5.tsv
+      mv step5.tsv combined_scores.tsv
     fi
     """
 }

@@ -24,6 +24,8 @@ process BOLTZ_COMPARE_COMPLEX {
     path ("aligned_rmsd_target_aligned_binder/*.pdb"), emit: aligned_pdbs_target_aligned_binder, optional: true
     path ("aligned_rmsd_complex/*.pdb"), emit: aligned_pdbs_complex, optional: true
     tuple val(meta), path("confidence_${meta.id}.tsv"), emit: confidence_tsv
+    tuple val(meta), path("boltz_results_${meta.id}/predictions/${meta.id}/*_ipsae.tsv"), emit: ipsae_tsv
+    tuple val(meta), path("boltz_results_${meta.id}/predictions/${meta.id}/*_ipsae_byres.tsv"), emit: ipsae_byres_tsv
 
     script:
     def design_id = meta.id
@@ -137,16 +139,20 @@ process BOLTZ_COMPARE_COMPLEX {
         ${output_transformed_flag_complex} \\
         fixed/ mobile/ > rmsd_complex_${meta.id}.tsv
 
+    /usr/bin/python3 ${projectDir}/bin/ipsae.py \\
+        --update-summary "boltz_results_${meta.id}/predictions/${meta.id}/confidence_${meta.id}_model_0.json" \\
+        --binder-chain ${binder_chain} \\
+        --target-chain ${target_chain} \\
+        --format boltz \\
+        boltz_results_${meta.id}/predictions/${meta.id}/pae*.npz \\
+        boltz_results_${meta.id}/predictions/${meta.id}/*.pdb \\
+        10 10
+
     # Parse confidence JSON
     /usr/bin/python3 ${projectDir}/bin/parse_boltz_confidence.py \\
         --json "boltz_results_${meta.id}/predictions/${meta.id}/confidence_${meta.id}_model_0.json" \\
         --id "${meta.id}" \\
         --target "${target_id}" \\
         --binder "${binder_id}" > confidence_${meta.id}.tsv
-
-    /usr/bin/python3 ${projectDir}/bin/ipsae.py \
-      boltz_results_${meta.id}/predictions/${meta.id}/pae*.npz \
-      boltz_results_${meta.id}/predictions/${meta.id}/*.pdb \
-      10 10
     """
 }

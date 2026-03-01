@@ -205,6 +205,21 @@ Common options:
 - **`--rf3_ckpt_path`**  
   Path to the RF3 checkpoint used for structure prediction of designed binders (and complexes). A sensible default path inside the container is set in the workflow, but it can be overridden if needed.
 
+#### Refolding Parameters
+
+The workflow supports an optional secondary refolding step (e.g. using Boltz-2) to validate the ROSETTAFOLD3 predicted structures, optionally using a non-truncated target sequence, with an optional target MSA and/or target template structure.
+
+- **`--refold_with`**  
+  Tool to use for refolding (e.g. `boltz`). **Default:** disabled.
+
+- **`--refold_max`**  
+  Maximum number of top scoring ROSETTAFOLD3 designs to pass to the refolding step.
+
+- **`--refold_filter_sort`**  
+  The metric used to sort the ROSETTAFOLD3 outputs before prioritizing them for refolding via `--refold_max`.  
+  Use a `-` prefix to sort in descending order (e.g. `-plddt`).  
+  **Default:** `pair_pae_min` (ascending).
+
 #### RMSD (design vs refold)
 
 After RosettaFold3, the workflow compares the C-alpha RMSD of each design (MPNN output) to the refolded structure (RF3 output).
@@ -224,7 +239,7 @@ By default outputs are written under `results/rfd3/` (or the directory specified
   - `rosettafold3/output/` - contains the RosettaFold3-predicted structures for each designed binder+target.
 
 - **RMSD (design vs refold)**  
-  - `rfd3/rmsd/` - TSV files comparing each design (MPNN CIF) to its refolded structure (RF3 CIF):  
+  - `rfd3/rosettafold3/rmsd/` - TSV files comparing each design (MPNN CIF) to its refolded structure (RF3 CIF):  
     `rmsd_target_aligned_binder.tsv`, `rmsd_complex.tsv`, `rmsd_binder_aligned_binder.tsv`, `rmsd_target_aligned_target.tsv`.  
   Per-design TSVs are also published in the same directory.
 

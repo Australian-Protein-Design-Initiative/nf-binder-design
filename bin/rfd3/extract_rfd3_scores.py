@@ -103,9 +103,9 @@ def extract_rf3(json_path: Path) -> dict[str, Any]:
     row["iptm"] = data.get("iptm")
     row["has_clash"] = data.get("has_clash")
     row["ranking_score"] = data.get("ranking_score")
-    row["ipsae_binder_target"] = data.get("ipsae_binder_target")
-    row["ipsae_target_binder"] = data.get("ipsae_target_binder")
-    row["ipsae_min"] = data.get("ipsae_min")
+    row["rf3_ipsae_binder_target"] = data.get("rf3_ipsae_binder_target", data.get("ipsae_binder_target"))
+    row["rf3_ipsae_target_binder"] = data.get("rf3_ipsae_target_binder", data.get("ipsae_target_binder"))
+    row["rf3_ipsae_min"] = data.get("rf3_ipsae_min", data.get("ipsae_min"))
 
     return row
 

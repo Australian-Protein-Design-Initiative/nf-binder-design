@@ -56,9 +56,11 @@ process BOLTZ {
         --output_format pdb \
         ${yaml_file}
 
-    ${projectDir}/bin/ipsae.py \
-        boltz_results_*/predictions/*/pae_*.npz \
-        boltz_results_*/predictions/*/*.pdb \
+    ${projectDir}/bin/ipsae.py \\
+        --update-summary boltz_results_*/predictions/*/confidence_*_model_0.json \\
+        --format boltz \\
+        boltz_results_*/predictions/*/pae_*.npz \\
+        boltz_results_*/predictions/*/*.pdb \\
         10 10
     """
 }
