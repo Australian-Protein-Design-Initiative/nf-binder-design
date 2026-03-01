@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "biotite<=1.4",
+#     "biotite<=1.6",
 #     "numpy",
 # ]
 # ///
@@ -16,9 +16,9 @@ import gzip
 import logging
 import sys
 from itertools import combinations, product
+from multiprocessing import Pool
 from pathlib import Path
 from typing import List, Tuple, Union, Optional, Iterable, cast, Dict, Any
-from multiprocessing import Pool
 
 import biotite.structure as struc
 import biotite.structure.io.pdb as pdb
@@ -127,6 +127,7 @@ def superimpose_structures(
     method: str = "blosum62",
     chains1: Optional[Iterable[str]] = None,
     chains2: Optional[Iterable[str]] = None,
+    max_structural_iterations: Optional[int] = None,
 ) -> Tuple[struc.AtomArray, struc.AtomArray, Any, np.ndarray, np.ndarray]:
     """
     Superimpose two protein structures using the specified method.
@@ -156,18 +157,19 @@ def superimpose_structures(
     fixed_ca = fixed[fixed.atom_name == "CA"]
     mobile_ca = mobile[mobile.atom_name == "CA"]
 
-    if fixed_ca.array_length == 0 or mobile_ca.array_length == 0:
+    if len(fixed_ca) == 0 or len(mobile_ca) == 0:
         raise ValueError(
             f"No CA atoms found for {Path(structure_path1).name} or {Path(structure_path2).name}"
         )
 
     # Superimpose structures based on method
     if method in ["3di", "pb"]:
-        # Use structural alignment with specified structural alphabet
+        # Use structural alignment; cap iterations (3di refinement can fail to converge, loop until anchors stable)
+        kwargs: Dict[str, Any] = {"structural_alphabet": method}
+        if max_structural_iterations is not None and max_structural_iterations > 0:
+            kwargs["max_iterations"] = max_structural_iterations
         fitted, transform, fixed_indices, mobile_indices = (
-            struc.superimpose_structural_homologs(
-                fixed_ca, mobile_ca, structural_alphabet=method
-            )
+            struc.superimpose_structural_homologs(fixed_ca, mobile_ca, **kwargs)
         )
     elif method == "blosum62":
         # Use sequence-based alignment with BLOSUM62
@@ -315,6 +317,7 @@ def rmsd_pair(
     score_chains1: Optional[Iterable[str]] = None,
     score_chains2: Optional[Iterable[str]] = None,
     output_transformed_dir: Optional[Union[str, Path]] = None,
+    max_structural_iterations: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Calculate RMSD and optionally TM-score between two protein structures.
@@ -383,6 +386,7 @@ def rmsd_pair(
                 method_rmsd,
                 superimpose_chains1,
                 superimpose_chains2,
+                max_structural_iterations=max_structural_iterations,
             )
 
             # Apply transformation to full mobile structure
@@ -437,7 +441,7 @@ def rmsd_pair(
                 struc.AtomArray, mobile_score[mobile_score.atom_name == "CA"]
             )
 
-            if fixed_score_ca.array_length == 0 or mobile_score_ca.array_length == 0:
+            if len(fixed_score_ca) == 0 or len(mobile_score_ca) == 0:
                 raise ValueError(
                     f"No CA atoms found in score-chains for {Path(structure_path1).name} or {Path(structure_path2).name}"
                 )
@@ -449,9 +453,14 @@ def rmsd_pair(
             # Perform alignment on score-chains to get pruned pairs for RMSD
             # We only need the indices, not the transformation (we use the superimpose-chain transformation)
             if method_rmsd in ["3di", "pb"]:
+                kwargs_s: Dict[str, Any] = {
+                    "structural_alphabet": method_rmsd,
+                }
+                if max_structural_iterations is not None and max_structural_iterations > 0:
+                    kwargs_s["max_iterations"] = max_structural_iterations
                 _, _, fixed_indices_score, mobile_indices_score = (
                     struc.superimpose_structural_homologs(
-                        fixed_score_ca, mobile_score_ca, structural_alphabet=method_rmsd
+                        fixed_score_ca, mobile_score_ca, **kwargs_s
                     )
                 )
             elif method_rmsd == "blosum62":
@@ -479,63 +488,65 @@ def rmsd_pair(
                 f"RMSD calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {rmsd_error}"
             )
 
-        # Step 3: Calculate TM-score if requested
+        # Step 3: Calculate TM-score if requested (only with 3di/pb)
         if tm_score:
-            try:
-                # Use same alignment if methods are the same
-                if method_rmsd == method_tm:
-                    tm_scores = calculate_scores(
-                        fixed_score_ca,
-                        mobile_score_ca,
-                        fixed_indices_score,
-                        mobile_indices_score,
-                        structure_path1,
-                        structure_path2,
-                        tm_score=True,
-                    )
-                else:
-                    # Different method - need separate alignment for TM-score to get different pairs
-                    # We only need the indices, not the transformation (we use the superimpose-chain transformation)
-                    if method_tm in ["3di", "pb"]:
+            if method_tm not in ("3di", "pb"):
+                pass
+            else:
+                try:
+                    # Use same alignment if methods match (avoids duplicate alignment)
+                    if method_rmsd == method_tm:
+                        tm_scores = calculate_scores(
+                            fixed_score_ca,
+                            mobile_score_ca,
+                            fixed_indices_score,
+                            mobile_indices_score,
+                            structure_path1,
+                            structure_path2,
+                            tm_score=True,
+                        )
+                    else:
+                        kwargs_tm: Dict[str, Any] = {
+                            "structural_alphabet": method_tm,
+                        }
+                        if max_structural_iterations is not None and max_structural_iterations > 0:
+                            kwargs_tm["max_iterations"] = max_structural_iterations
                         _, _, fixed_indices_tm, mobile_indices_tm = (
                             struc.superimpose_structural_homologs(
                                 fixed_score_ca,
                                 mobile_score_ca,
-                                structural_alphabet=method_tm,
+                                **kwargs_tm,
                             )
                         )
-                    elif method_tm == "blosum62":
-                        _, _, fixed_indices_tm, mobile_indices_tm = (
-                            struc.superimpose_homologs(fixed_score_ca, mobile_score_ca)
+                        tm_scores = calculate_scores(
+                            fixed_score_ca,
+                            mobile_score_ca,
+                            fixed_indices_tm,
+                            mobile_indices_tm,
+                            structure_path1,
+                            structure_path2,
+                            tm_score=True,
                         )
-                    else:
-                        raise ValueError(f"Unknown method: {method_tm}")
 
-                    tm_scores = calculate_scores(
-                        fixed_score_ca,
-                        mobile_score_ca,
-                        fixed_indices_tm,
-                        mobile_indices_tm,
-                        structure_path1,
-                        structure_path2,
-                        tm_score=True,
+                    result["tm_score_pruned"] = tm_scores["tm_score_pruned"]
+                    result["n_pairs_tm_score_pruned"] = tm_scores["n_pairs_tm_score_pruned"]
+                    result["tm_score_all"] = tm_scores["tm_score_all"]
+                    result["n_pairs_tm_score_all"] = tm_scores["n_pairs_tm_score_all"]
+
+                except Exception as tm_error:
+                    logging.warning(
+                        f"TM-score calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_error}"
                     )
-
-                # Update only TM-score values
-                result["tm_score_pruned"] = tm_scores["tm_score_pruned"]
-                result["n_pairs_tm_score_pruned"] = tm_scores["n_pairs_tm_score_pruned"]
-                result["tm_score_all"] = tm_scores["tm_score_all"]
-                result["n_pairs_tm_score_all"] = tm_scores["n_pairs_tm_score_all"]
-
-            except Exception as tm_error:
-                logging.warning(
-                    f"TM-score calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_error}"
-                )
 
     except Exception as e:
         logging.warning(f"Error processing {structure_path1} vs {structure_path2}: {e}")
 
     return result
+
+
+def _rmsd_pair_star(args: tuple) -> Dict[str, Any]:
+    """Unpack args and call rmsd_pair; used for Process pool so worker is picklable."""
+    return rmsd_pair(*args)
 
 
 def rmsd_all_pairs(
@@ -550,6 +561,7 @@ def rmsd_all_pairs(
     score_chains_a: Optional[Iterable[str]] = None,
     score_chains_b: Optional[Iterable[str]] = None,
     output_transformed_dir: Optional[Union[str, Path]] = None,
+    max_structural_iterations: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Calculate RMSD and optionally TM-score for all pairs of structures.
@@ -579,53 +591,41 @@ def rmsd_all_pairs(
     else:
         pairs = list(product(structure_paths_a, structure_paths_b))
 
-    if n_processes > 1:
-        with Pool(n_processes) as pool:
-            args = [
-                (
-                    p1,
-                    p2,
-                    method_rmsd,
-                    method_tm,
-                    tm_score,
-                    superimpose_chains_a,
-                    (
-                        superimpose_chains_b
-                        if structure_paths_b is not None
-                        else superimpose_chains_a
-                    ),
-                    score_chains_a,
-                    (
-                        score_chains_b
-                        if structure_paths_b is not None
-                        else score_chains_a
-                    ),
-                    output_transformed_dir,
-                )
-                for p1, p2 in pairs
-            ]
-            results = pool.starmap(rmsd_pair, args)
+    n_workers = min(n_processes, max(1, len(pairs)))
+    if n_workers < n_processes:
+        logging.info(
+            f"Using {n_workers} worker(s) for {len(pairs)} pair(s) (capped from {n_processes})"
+        )
+
+    super_b = (
+        superimpose_chains_b if structure_paths_b is not None else superimpose_chains_a
+    )
+    score_b = score_chains_b if structure_paths_b is not None else score_chains_a
+    args_list = [
+        (
+            p1,
+            p2,
+            method_rmsd,
+            method_tm,
+            tm_score,
+            superimpose_chains_a,
+            super_b,
+            score_chains_a,
+            score_b,
+            output_transformed_dir,
+            max_structural_iterations,
+        )
+        for p1, p2 in pairs
+    ]
+
+    if n_workers > 1:
+        with Pool(n_workers) as pool:
+            results = pool.starmap(rmsd_pair, args_list)
     else:
         results = []
-        for p1, p2 in pairs:
+        for (p1, p2, *_), args in zip(pairs, args_list):
             logging.info(f"Processing pair: {Path(p1).name} vs {Path(p2).name}")
-            result = rmsd_pair(
-                p1,
-                p2,
-                method_rmsd,
-                method_tm,
-                tm_score,
-                superimpose_chains_a,
-                (
-                    superimpose_chains_b
-                    if structure_paths_b is not None
-                    else superimpose_chains_a
-                ),
-                score_chains_a,
-                (score_chains_b if structure_paths_b is not None else score_chains_a),
-                output_transformed_dir,
-            )
-            results.append(result)
+            results.append(rmsd_pair(*args))
 
     return results
 
@@ -771,6 +771,13 @@ def main():
         help=f"Number of worker processes (default: {cpu_count})",
     )
     parser.add_argument(
+        "--max-structural-iterations",
+        type=int,
+        default=100,
+        metavar="N",
+        help="Max refinement iterations for 3di/pb alignment (biotite default is inf; 3di can fail to converge). 0 = no limit. Default 100.",
+    )
+    parser.add_argument(
         "--matrix",
         type=str,
         metavar="SCORE",
@@ -829,8 +836,8 @@ def main():
             f"Using superimpose_structural_homologs with {args.method_tm} for TM-score calculation"
         )
 
-    # Log thread/process worker count
-    logging.info(f"Using {args.threads} worker processes")
+    # Log thread/process worker count (max workers; actual may be capped by number of pairs)
+    logging.info(f"Using up to {args.threads} worker processes")
 
     # Parse chain arguments
     superimpose_chains_fixed = _parse_chains_arg(args.superimpose_chains)
@@ -923,6 +930,7 @@ def main():
         score_chains_a=score_chains_fixed,
         score_chains_b=score_chains_mobile,
         output_transformed_dir=args.output_transformed,
+        max_structural_iterations=args.max_structural_iterations or None,
     )
 
     # Handle output
