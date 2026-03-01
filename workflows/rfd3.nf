@@ -6,7 +6,7 @@ nextflow.enable.dsl = 2
 RFDiffusion3-based binder design workflow
 
 Usage via main.nf:
-  nextflow run main.nf --method rfd3 --rfd3_config config.json --input_pdb target.pdb
+  nextflow run main.nf --method rfd3 --rfd3_config config.json
   nextflow run main.nf --method rfd3 --input_pdb target.pdb --contigs "A17-131,/0,50-120" --hotspot_res "A56,A115,A123"
 
 */
@@ -53,7 +53,7 @@ params.mpnn_checkpoint_path = false
 
 params.require_gpu = true
 params.gpu_devices = ''
-params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|rfd3)'
+params.gpu_allocation_detect_process_regex = '(boltz predict|rfd3 design|rf3 fold)'
 
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
@@ -69,6 +69,10 @@ workflow RFD3 {
 
     main:
 
+    if (params.rfd3_config && params.input_pdb) {
+        throw new Exception('--rfd3_config and --input_pdb are mutually exclusive. Use --rfd3_config (input path is read from the config) or --input_pdb with --contigs.')
+    }
+
     // Show help message
     if (params.input_pdb == false && params.rfd3_config == false) {
         log.info(
@@ -77,14 +81,15 @@ workflow RFD3 {
         PROTEIN BINDER DESIGN PIPELINE - RFDiffusion3
         ==================================================================
 
-        Required arguments:
-            --input_pdb           Input PDB/CIF file for the target
-
-        Config mode (recommended for advanced use):
+        Required (one of):
             --rfd3_config         Path to RFDiffusion3 JSON/YAML config file
-                                  (see https://rosettacommons.github.io/foundry/models/rfd3/input.html)
+                                  (input path is read from the config, e.g. "designname": {"input": "path/to/target.pdb"})
+            --input_pdb           Input PDB/CIF file (params mode only)
 
-        Params mode (generates config automatically):
+        Config mode (--rfd3_config):
+            Input file path is taken from the config; do not use --input_pdb.
+
+        Params mode (--input_pdb, generates config automatically):
             --contigs             Contig string for rfd3 (v3 format: "A17-131,/0,50-120")
                                   v1 format is also accepted and auto-translated [default: ${params.contigs}]
             --hotspot_res         Hotspot residues, eg "A56,A115,A123" [default: ${params.hotspot_res}]
@@ -119,16 +124,25 @@ workflow RFD3 {
         exit(1)
     }
 
-    if (!params.input_pdb) {
-        throw new Exception('--input_pdb must be provided')
+    def ch_input_pdb
+    if (params.rfd3_config) {
+        def config_file = file(params.rfd3_config)
+        def config_dir = config_file.parent.toString()
+        def parse_cmd = ["python3", "${projectDir}/bin/rfd3/stage_rfd3_config.py", "parse-inputs", config_file.toString(), "--config-dir", config_dir]
+        def parse_output = parse_cmd.execute().text.trim()
+        def input_paths = parse_output.split('\n').findAll { it.trim() }
+        if (input_paths.isEmpty()) {
+            throw new Exception("No 'input' path found in --rfd3_config ${params.rfd3_config}")
+        }
+        ch_input_pdb = Channel.fromPath(input_paths[0]).first()
+    } else {
+        ch_input_pdb = Channel.fromPath(params.input_pdb).first()
     }
 
     // Generate unique ID for this run
     UNIQUE_ID()
     ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
     ch_design_name = ch_unique_id.map { uid -> "${params.design_name}_${uid}" }
-
-    ch_input_pdb = Channel.fromPath(params.input_pdb).first()
 
     // Calculate number of batches
     def n_batches = Math.ceil(params.rfd3_n_designs / params.rfd3_batch_size).toInteger()

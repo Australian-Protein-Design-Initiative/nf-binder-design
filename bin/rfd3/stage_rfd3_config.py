@@ -150,6 +150,42 @@ def generate_config(
     return config
 
 
+def extract_input_paths(config_path: str, config_dir: Optional[str] = None) -> list[str]:
+    """Extract 'input' paths from each spec in an rfd3 JSON/YAML config.
+
+    Paths are resolved relative to the config file directory (or config_dir if given).
+    Returns unique paths in order of first occurrence.
+    """
+    path_obj = Path(config_path)
+    if config_dir is None:
+        config_dir = str(path_obj.parent.resolve())
+    else:
+        config_dir = str(Path(config_dir).resolve())
+
+    if not path_obj.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    config = load_config(config_path)
+    seen: set[str] = set()
+    result: list[str] = []
+    for key, spec in config.items():
+        if isinstance(spec, dict) and "input" in spec:
+            raw = spec["input"]
+            resolved = Path(raw) if os.path.isabs(raw) else Path(config_dir) / raw
+            resolved_str = str(resolved.resolve())
+            if resolved_str not in seen:
+                seen.add(resolved_str)
+                result.append(resolved_str)
+    return result
+
+
+def cmd_parse_inputs(args: argparse.Namespace) -> int:
+    paths = extract_input_paths(args.config, args.config_dir)
+    for p in paths:
+        print(p)
+    return 0
+
+
 def cmd_stage(args: argparse.Namespace) -> int:
     stage_config(args.config, args.output)
     return 0
@@ -183,6 +219,18 @@ def main() -> int:
     stage_parser.add_argument("config", help="Path to JSON/YAML config file")
     stage_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
+    # --- parse-inputs subcommand ---
+    parse_parser = subparsers.add_parser(
+        "parse-inputs",
+        help="Print resolved input file path(s) from config (one per line)",
+    )
+    parse_parser.add_argument("config", help="Path to JSON/YAML config file")
+    parse_parser.add_argument(
+        "--config-dir",
+        default=None,
+        help="Directory for resolving relative paths (default: config file directory)",
+    )
+
     # --- generate subcommand ---
     gen_parser = subparsers.add_parser(
         "generate",
@@ -210,7 +258,9 @@ def main() -> int:
 
     if args.command == "stage":
         return cmd_stage(args)
-    elif args.command == "generate":
+    if args.command == "parse-inputs":
+        return cmd_parse_inputs(args)
+    if args.command == "generate":
         return cmd_generate(args)
 
     return 1
