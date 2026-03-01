@@ -24,5 +24,14 @@ process MPNN {
         --out_directory output \
         ${mpnn_args} \
         ${task.ext.args ?: ''}
+    
+    ####
+    # Fix unquoted [] in CIF files output by mpnn (v0.1.11) so that ChimeraX can read them
+    # Issue: https://github.com/RosettaCommons/foundry/issues/128
+    ####
+    for f in output/*.cif; do
+        [ -f "\${f}" ] || continue
+        sed -i "s/\\([[:space:]]\\)\\[\\]/\\1'[]'/g" "\${f}"
+    done
     """
 }
