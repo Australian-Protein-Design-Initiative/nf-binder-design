@@ -4,7 +4,14 @@ process COMBINE_RFD3_SCORES {
     publishDir path: "${params.outdir}/rfd3", pattern: 'combined_scores.tsv', mode: 'copy'
 
     input:
-    tuple path(rf3_scores), path(rfd3_scores), path(rmsd_target_aligned_binder_tsv), path(rmsd_complex_tsv), path(rmsd_binder_aligned_binder_tsv), path(rmsd_target_aligned_target_tsv), path(boltz_scores_complex), path(boltz_scores_monomer)
+    tuple path(rf3_scores), 
+          path(rfd3_scores), 
+          path(rmsd_target_aligned_binder_tsv, stageAs: 'rmsd_target_aligned_binder.tsv'), 
+          path(rmsd_complex_tsv, stageAs: 'rmsd_complex.tsv'), 
+          path(rmsd_binder_aligned_binder_tsv, stageAs: 'rmsd_binder_aligned_binder.tsv'), 
+          path(rmsd_target_aligned_target_tsv, stageAs: 'rmsd_target_aligned_target.tsv'), 
+          path(boltz_scores_complex, stageAs: 'boltz_scores_complex.tsv'), 
+          path(boltz_scores_monomer, stageAs: 'boltz_scores_monomer.tsv')
 
     output:
     path 'combined_scores.tsv', emit: combined_scores
