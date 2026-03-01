@@ -8,7 +8,6 @@ DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 nextflow run ${PIPELINE_DIR}/main.nf \
   --method rfd3 \
-  --input_pdb 'input/*.pdb' \
   --rfd3_config pdl1_rfd3.json \
   --outdir results \
   --rfd3_n_designs=8 \

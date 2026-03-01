@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 # /// script
 # requires-python = ">=3.9"
-# dependencies = [
-#     "pyyaml",
-# ]
 # ///
 
 """
 Helper script for RFDiffusion3 config handling in Nextflow.
 
 Two modes:
-  stage  - Rewrite input paths in an existing JSON/YAML config so they point
+  stage  - Rewrite input paths in an existing JSON config so they point
            to Nextflow-staged files (basename only).
   generate - Create a new JSON config from CLI flags, translating
              RFDiffusion v1-style contigs/hotspots to v3 format.
@@ -25,16 +22,12 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-import yaml
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
 
 
 def load_config(path: str) -> dict:
     with open(path) as f:
-        if path.endswith((".yaml", ".yml")):
-            return yaml.safe_load(f)
         return json.load(f)
 
 
@@ -151,7 +144,7 @@ def generate_config(
 
 
 def extract_input_paths(config_path: str, config_dir: Optional[str] = None) -> list[str]:
-    """Extract 'input' paths from each spec in an rfd3 JSON/YAML config.
+    """Extract 'input' paths from each spec in an rfd3 JSON config.
 
     Paths are resolved relative to the config file directory (or config_dir if given).
     Returns unique paths in order of first occurrence.
@@ -216,7 +209,7 @@ def main() -> int:
         "stage",
         help="Rewrite input paths in an existing config to use basenames",
     )
-    stage_parser.add_argument("config", help="Path to JSON/YAML config file")
+    stage_parser.add_argument("config", help="Path to JSON config file")
     stage_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
     # --- parse-inputs subcommand ---
@@ -224,7 +217,7 @@ def main() -> int:
         "parse-inputs",
         help="Print resolved input file path(s) from config (one per line)",
     )
-    parse_parser.add_argument("config", help="Path to JSON/YAML config file")
+    parse_parser.add_argument("config", help="Path to JSON config file")
     parse_parser.add_argument(
         "--config-dir",
         default=None,
