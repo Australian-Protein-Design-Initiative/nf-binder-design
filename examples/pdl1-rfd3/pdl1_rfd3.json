@@ -1,0 +1,12 @@
+{
+    "pdl1": {
+        "dialect": 2,
+        "infer_ori_strategy": "hotspots",
+        "input": "input/PDL1.pdb",
+        "contig": "50-120,/0,A18-132",
+        "select_hotspots": {
+            "A56": "ALL"
+        },
+        "is_non_loopy": true
+    }
+}

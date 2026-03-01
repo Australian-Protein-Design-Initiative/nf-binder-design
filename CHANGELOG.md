@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
+- New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry`.
 
 ### Changed
 - Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
