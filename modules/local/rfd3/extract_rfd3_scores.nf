@@ -1,5 +1,5 @@
 process EXTRACT_RFD3_BACKBONE_SCORES {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
     tuple path(json_file), val(uid)
@@ -18,7 +18,7 @@ process EXTRACT_RFD3_BACKBONE_SCORES {
 }
 
 process EXTRACT_RF3_SCORES {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
     tuple path(confidence_json), val(uid)

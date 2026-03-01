@@ -165,6 +165,9 @@ Below is a summary of the most important parameters for `--method rfd3`.
 - **`--rfd3_extra_args`**  
   Additional CLI arguments passed through to the RFDiffusion3 CLI (e.g. extra sampler overrides).
 
+- **`--rfd3_filters`**  
+  Semicolon-separated list of filters applied to RFD3 backbone structures **immediately after** RFDiffusion3, before MPNN. Uses the same filter system as the RFdiffusion v1 workflow (e.g. `bin/filter_designs.py` and `bin/filters.d/`). Example: `--rfd3_filters "rg<25"` to keep only binders with a radius of gyration (Rg) below 25 Å.
+
 #### ProteinMPNN Parameters
 
 ProteinMPNN is run on each backbone produced by RFD3. The workflow supports both **modern `mpnn_` options** and a set of **backwards-compatible `pmpnn_` options**:

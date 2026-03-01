@@ -12,8 +12,11 @@ process ROSETTAFOLD3 {
     path 'output/*/*_summary_confidences.json', emit: confidence_json
     tuple val(meta), path('output/*/*_model.cif'), emit: refolded_cif
 
-    // TODO: support (and encourage) batching for lower process startup costs, inputs='folder/of/cifs'
     // TODO: support MSA input for target chain(s) to improve prediction quality
+    //       - this is important, since in my limited testing RosettaFold3 isn't performing very well
+    //         on target protein prediction without an MSA (de novo binders seem to be predicted much better)
+    //
+    // TODO: support (and encourage) batching for lower process startup costs, inputs='folder/of/cifs'
     // TODO: add params.rf3_early_stopping_plddt_threshold=0.5 as default for filtering low-confidence predictions
     // TODO: support JSON config mode with template_selection to template target chain(s)
     // TODO: support n_recycles, diffusion_batch_size, num_steps, seed, and consider if we can use a faster

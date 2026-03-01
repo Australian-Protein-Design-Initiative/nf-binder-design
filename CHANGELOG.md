@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `--method boltz_pulldown` for Boltz Pulldown (previously `boltz_pulldown.nf`)
 - Modules reorganised into `modules/local/` with workflow-specific subdirectories (`rfd/`, `bindcraft/`, `boltzgen/`, `common/`).
 - Extracted common Boltz-2 refolding and scoring logic into `BOLTZ_REFOLD_SCORING` subworkflow (`subworkflows/local/boltz_refold_scoring.nf`).
+- `filter_designs.py` + `filters.d/rg.py` now support Rg calculation for mmCIF inputs (including `.cif.gz`) via a `gemmi` fallback path.
 
 ### Fixed
 - `rmsd4all.py`: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.
@@ -28,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - `rmsd4all.py`: remove `--max-ca-for-tm-score` and `--pair-timeout` options.
-
 
 ## [0.1.5] - 2026-01-28
 

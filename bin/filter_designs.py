@@ -4,6 +4,7 @@
 # dependencies = [
 #     "pandas",
 #     "mdanalysis",
+#     "gemmi",
 # ]
 # ///
 # NOTE: If running via `uv run`, the dependencies for the filters.d/ plugins must also be here.

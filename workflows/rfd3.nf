@@ -28,6 +28,8 @@ params.rfd3_gamma_0 = 0.2
 params.rfd3_allow_loopy = false
 params.rfd3_extra_args = ''
 
+params.rfd3_filters = false
+
 // RosettaFold3 params
 //params.rf3_ckpt_path = '/weights/rf3_foundry_01_24_latest_remapped.ckpt'
 params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
@@ -61,6 +63,7 @@ include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
 include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
 include { EXTRACT_RFD3_BACKBONE_SCORES; EXTRACT_RF3_SCORES } from '../modules/local/rfd3/extract_rfd3_scores'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
+include { FILTER_DESIGNS as RFD3_FILTER_DESIGNS } from '../modules/local/rfd3/filter_designs'
 include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
 
 workflow RFD3 {
@@ -96,6 +99,7 @@ workflow RFD3 {
             --rfd3_gamma_0        inference_sampler.gamma_0 [default: ${params.rfd3_gamma_0}]
             --rfd3_allow_loopy   Allow loopy designs (disable is_non_loopy) [default: ${params.rfd3_allow_loopy}]
             --rfd3_extra_args     Additional CLI arguments for rfd3 [default: ${params.rfd3_extra_args}]
+            --rfd3_filters        Semicolon-separated filters for RFD3 backbones (binder = chain B), e.g. "rg<25" [default: disabled]
 
         MPNN options (new names / legacy names):
             --mpnn_model_type / (n/a)                  Model type [default: ${params.mpnn_model_type}]
@@ -182,8 +186,20 @@ workflow RFD3 {
     // Build MPNN CLI args from resolved params
     def mpnn_args = buildMpnnArgs(params)
 
-    // Run MPNN inverse folding on each backbone structure
-    ch_backbones = RFDIFFUSION3.out.cifs.flatten()
+    ch_rfd3_cifs = RFDIFFUSION3.out.cifs.flatten()
+
+    if (params.rfd3_filters) {
+        RFD3_FILTER_DESIGNS(
+            ch_rfd3_cifs,
+            params.rfd3_filters,
+            'B',
+            'filter',
+        )
+        ch_backbones = RFD3_FILTER_DESIGNS.out.accepted
+    }
+    else {
+        ch_backbones = ch_rfd3_cifs
+    }
 
     MPNN(
         ch_backbones,

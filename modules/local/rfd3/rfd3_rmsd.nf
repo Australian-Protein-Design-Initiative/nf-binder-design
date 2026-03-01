@@ -1,7 +1,7 @@
 // RF3/RFD3 output is fixed: chain A = target, chain B = binder
 process RFD3_RMSD {
     tag "${meta.id}"
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
     tuple val(meta), path(design_cif), path(refolded_cif)
