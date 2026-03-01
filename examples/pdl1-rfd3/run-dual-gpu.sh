@@ -14,7 +14,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --input_pdb 'input/*.pdb' \
   --rfd3_config pdl1_rfd3.json \
   --outdir results \
-  --rfd3_n_designs=16 \
+  --rfd3_n_designs=4 \
   --gpu_devices=0,1 \
   -profile local \
   -resume \
