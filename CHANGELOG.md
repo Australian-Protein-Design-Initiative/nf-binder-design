@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry`.
 
+### Fixed
+- `rmsd4all.py`: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.
+- `rmsd4all.py`: add `--max-structural-iterations` (default 100). Biotite's refinement loop uses `max_iterations=inf` by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.
+- `rmsd4all.py`: fix use of `array_length` (method) as if it were an attribute; use `len()` for atom counts.
+
 ### Changed
 - Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
   - `--method rfd` for RFdiffusion binder design (previously `main.nf`)
@@ -21,11 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Modules reorganised into `modules/local/` with workflow-specific subdirectories (`rfd/`, `bindcraft/`, `boltzgen/`, `common/`).
 - Extracted common Boltz-2 refolding and scoring logic into `BOLTZ_REFOLD_SCORING` subworkflow (`subworkflows/local/boltz_refold_scoring.nf`).
 - `filter_designs.py` + `filters.d/rg.py` now support Rg calculation for mmCIF inputs (including `.cif.gz`) via a `gemmi` fallback path.
-
-### Fixed
-- `rmsd4all.py`: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.
-- `rmsd4all.py`: add `--max-structural-iterations` (default 100). Biotite's refinement loop uses `max_iterations=inf` by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.
-- `rmsd4all.py`: fix use of `array_length` (method) as if it were an attribute; use `len()` for atom counts.
 
 ### Removed
 - `rmsd4all.py`: remove `--max-ca-for-tm-score` and `--pair-timeout` options.

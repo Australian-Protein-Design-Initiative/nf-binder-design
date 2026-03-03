@@ -34,10 +34,14 @@ def calculate_asphericity(all_atoms: mda.AtomGroup) -> float:
     relative_positions = positions - center_of_mass
     rg_tensor = np.dot((mass * relative_positions).T, relative_positions) / total_mass
     
-    eigenvalues = np.sort(np.linalg.eigvalsh(rg_tensor))
-    return ((eigenvalues[2] - eigenvalues[1]) ** 2 + 
-            (eigenvalues[1] - eigenvalues[0]) ** 2 + 
-            (eigenvalues[0] - eigenvalues[2]) ** 2) / (2 * (sum(eigenvalues)) ** 2)
+    try:
+        eigenvalues = np.sort(np.linalg.eigvalsh(rg_tensor))
+        sum_eigenvalues = float(np.sum(eigenvalues)) if hasattr(np.sum(eigenvalues), '__float__') else np.sum(eigenvalues).item()
+        return ((eigenvalues[2] - eigenvalues[1]) ** 2 + 
+                (eigenvalues[1] - eigenvalues[0]) ** 2 + 
+                (eigenvalues[0] - eigenvalues[2]) ** 2) / (2 * sum_eigenvalues) ** 2
+    except np.linalg.LinAlgError:
+        return float('nan')
 
 def calculate_stokes_radius(all_atoms: mda.AtomGroup) -> float:
     return (5 / 3) * all_atoms.radius_of_gyration()

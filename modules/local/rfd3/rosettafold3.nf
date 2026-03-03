@@ -68,7 +68,7 @@ process ROSETTAFOLD3 {
         (cd "\$outdir" && python ${projectDir}/bin/ipsae.py \\
             --format rf3 \\
             --update-summary "\$(basename "\$summary_conf")" \\
-            --binder-chain A --target-chain B \\
+            --binder-chain B --target-chain A \\
             "\$(basename "\$full_conf")" "\$(basename "\$cif")" 10 10)
     fi
 

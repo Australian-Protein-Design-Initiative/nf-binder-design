@@ -2,19 +2,22 @@ process COMBINE_RFD3_SCORES {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     publishDir path: "${params.outdir}/rfd3", pattern: 'combined_scores.tsv', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd3", pattern: 'binders.fasta', mode: 'copy'
 
     input:
-    tuple path(rf3_scores), 
-          path(rfd3_scores), 
-          path(rmsd_target_aligned_binder_tsv, stageAs: 'rmsd_target_aligned_binder.tsv'), 
-          path(rmsd_complex_tsv, stageAs: 'rmsd_complex.tsv'), 
-          path(rmsd_binder_aligned_binder_tsv, stageAs: 'rmsd_binder_aligned_binder.tsv'), 
-          path(rmsd_target_aligned_target_tsv, stageAs: 'rmsd_target_aligned_target.tsv'), 
-          path(boltz_scores_complex, stageAs: 'boltz_scores_complex.tsv'), 
-          path(boltz_scores_monomer, stageAs: 'boltz_scores_monomer.tsv')
+    tuple path(rf3_scores),
+          path(rfd3_scores),
+          path(rmsd_target_aligned_binder_tsv, stageAs: 'rmsd_target_aligned_binder.tsv'),
+          path(rmsd_complex_tsv, stageAs: 'rmsd_complex.tsv'),
+          path(rmsd_binder_aligned_binder_tsv, stageAs: 'rmsd_binder_aligned_binder.tsv'),
+          path(rmsd_target_aligned_target_tsv, stageAs: 'rmsd_target_aligned_target.tsv'),
+          path(boltz_scores_complex, stageAs: 'boltz_scores_complex.tsv'),
+          path(boltz_scores_monomer, stageAs: 'boltz_scores_monomer.tsv'),
+          path(mpnn_cifs, stageAs: 'cifs/*')
 
     output:
     path 'combined_scores.tsv', emit: combined_scores
+    path 'binders.fasta', emit: binders_fasta
 
     script:
     """
@@ -26,6 +29,25 @@ process COMBINE_RFD3_SCORES {
       --sort-by pair_pae_min \\
       --first-column id,filename,pair_pae_min,ranking_score,iptm,plddt \\
       -o combined_scores.tsv
+
+    python ${projectDir}/bin/rfd3/fa_to_sequences_tsv.py cifs/ --chain B -o sequences.tsv
+
+    if [[ -s sequences.tsv && \$(wc -l < sequences.tsv) -gt 1 ]]; then
+      python ${projectDir}/bin/merge_scores.py \\
+        combined_scores.tsv sequences.tsv \\
+        --keys filename,filename \\
+        --first-column id,filename,sequence,length,chain,pair_pae_min,ranking_score,iptm,plddt \\
+        -o with_sequence.tsv
+      mv with_sequence.tsv combined_scores.tsv
+      python3 -c "
+import pandas as pd
+df = pd.read_csv('combined_scores.tsv', sep='\t')
+if 'filename_x' in df.columns:
+    df['filename'] = df['filename_x']
+    df.drop(columns=[c for c in ['filename_x','filename_y'] if c in df.columns], inplace=True)
+    df.to_csv('combined_scores.tsv', sep='\t', index=False)
+"
+    fi
 
     if [[ -s ${rmsd_target_aligned_binder_tsv} && -s ${rmsd_complex_tsv} && -s ${rmsd_binder_aligned_binder_tsv} && -s ${rmsd_target_aligned_target_tsv} ]]; then
       csvtk -t cut -b -f structure1,rmsd_all ${rmsd_target_aligned_binder_tsv} > tmp_rmsd_target_aligned_binder.tsv
@@ -78,9 +100,15 @@ process COMBINE_RFD3_SCORES {
         combined_scores.tsv tmp_boltz_monomer.tsv \\
         --keys filename,id \\
         --column-prefix boltz_monomer_ \\
-        --drop-columns 'boltz_monomer_target,boltz_monomer_binder,boltz_monomer_state,boltz_monomer_ptm,boltz_monomer_iptm,boltz_monomer_ligand_iptm,boltz_monomer_protein_iptm,boltz_monomer_has_clash' \\
+        --drop-columns 'boltz_monomer_target,boltz_monomer_binder,boltz_monomer_state,boltz_monomer_ptm,boltz_monomer_ligand_iptm,boltz_monomer_protein_iptm,boltz_monomer_has_clash' \\
         -o step5.tsv
       mv step5.tsv combined_scores.tsv
+    fi
+
+    if [[ -s combined_scores.tsv ]] && grep -q 'sequence' combined_scores.tsv; then
+      python ${projectDir}/bin/rfd3/tsv_to_binders_fasta.py combined_scores.tsv -o binders.fasta
+    else
+      touch binders.fasta
     fi
     """
 }

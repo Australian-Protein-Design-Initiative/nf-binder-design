@@ -83,9 +83,10 @@ def extract_rf3(json_path: Path) -> dict[str, Any]:
         "filename": f"{stem}.cif",
     }
 
+    # RF3/RFD3 output: chain A = target (index 0), chain B = binder (index 1)
     chain_ptm = data.get("chain_ptm") or []
-    row["ptm_binder"] = chain_ptm[0] if len(chain_ptm) > 0 else None
-    row["ptm_target"] = chain_ptm[1] if len(chain_ptm) > 1 else None
+    row["ptm_target"] = chain_ptm[0] if len(chain_ptm) > 0 else None
+    row["ptm_binder"] = chain_ptm[1] if len(chain_ptm) > 1 else None
 
     for src_key, out_key in [
         ("chain_pair_pae_min", "pair_pae_min"),

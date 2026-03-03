@@ -38,7 +38,7 @@ params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
 // MPNN params - new (mpnn_*)
 params.mpnn_model_type = 'protein_mpnn'
 params.mpnn_legacy_weights = true
-params.mpnn_designed_chains = 'A'
+params.mpnn_designed_chains = 'B'
 params.mpnn_batch_size = false
 params.mpnn_temperature = 0.1
 params.mpnn_structure_noise = 0
@@ -348,15 +348,17 @@ workflow RFD3 {
     ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
         .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1)
 
+    ch_mpnn_cifs = MPNN.out.cifs.flatten()
+        .collect()
+        .ifEmpty(Channel.value([file("${projectDir}/assets/dummy_files/empty.cif")]))
+
     ch_combine_input = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
         .combine(ch_rmsd_tuple)
         .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
         .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
-        .map { it ->
-            def f = it.flatten()
-            tuple(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7])
-        }
+        .combine(ch_mpnn_cifs)
+        .map { it -> tuple(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8]) }
     COMBINE_RFD3_SCORES(ch_combine_input)
 
     emit:
@@ -365,6 +367,7 @@ workflow RFD3 {
     mpnn_fastas = MPNN.out.fastas
     rf3_results = ROSETTAFOLD3.out.results
     combined_scores = COMBINE_RFD3_SCORES.out.combined_scores
+    binders_fasta = COMBINE_RFD3_SCORES.out.binders_fasta
     rfd3_rmsd_target_aligned_binder = ch_rmsd_target_aligned_binder
     rfd3_rmsd_complex = ch_rmsd_complex
     rfd3_rmsd_binder_aligned_binder = ch_rmsd_binder_aligned_binder
