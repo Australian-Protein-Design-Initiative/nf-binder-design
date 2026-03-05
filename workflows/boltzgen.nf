@@ -110,14 +110,23 @@ workflow BOLTZGEN {
     validateDesignName(design_name)
 
     // Validate config_yaml exists
-    ch_config_yaml = Channel.fromPath(params.config_yaml).first()
-
-    // Parse config.yaml to extract input files
     def config_file = file(params.config_yaml)
     def config_dir = config_file.parent
+
+    ch_config_yaml = Channel.fromPath(params.config_yaml).first()
+
+    // Parse config to collect all files that need staging (entity paths + scaffold inner files)
     def parse_cmd = ["python3", "${projectDir}/bin/boltzgen/parse_boltzgen_config.py", config_file.toString(), "--config-dir", config_dir.toString()]
-    def parse_output = parse_cmd.execute().text.trim()
-    def input_file_paths = parse_output.split('\n').findAll { it.trim() }
+    def parse_proc = parse_cmd.execute()
+    def parse_stdout = new StringBuilder()
+    def parse_stderr = new StringBuilder()
+    parse_proc.consumeProcessOutput(parse_stdout, parse_stderr)
+    parse_proc.waitFor()
+    def parse_output = parse_stdout.toString().trim()
+    if (parse_proc.exitValue() != 0) {
+        error "parse_boltzgen_config.py failed (exit ${parse_proc.exitValue()}):\n${parse_stderr.toString().trim()}"
+    }
+    def input_file_paths = parse_output.split('\n').findAll { it.trim() }.unique()
 
     // Create channel of input files
     if (input_file_paths.isEmpty()) {
