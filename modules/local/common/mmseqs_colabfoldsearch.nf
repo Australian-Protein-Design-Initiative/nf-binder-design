@@ -1,31 +1,55 @@
 // based on: https://github.com/nf-core/proteinfold/blob/master/modules/local/mmseqs_colabfoldsearch.nf
+// When use_remote_server is true, queries the ColabFold MMseqs2 API (bin/colabfold_remote_msa.py)
+// instead of local colabfold_search. DB inputs are ignored in that case.
 
 process MMSEQS_COLABFOLDSEARCH {
     tag "$meta.id"
 
     container "quay.io/nf-core/proteinfold_colabfold:1.1.1"
+    publishDir path: { "${params.outdir}/${workflow_publish_dir ?: 'mmseqs2'}" }, pattern: 'result/**', mode: 'copy'
 
     input:
     tuple val(meta), path(fasta)
-    path colabfold_envdb
-    path uniref30
+    val(use_remote_server)
+    path colabfold_envdb, stageAs: 'colabfold_envdb/*'
+    path uniref30, stageAs: 'uniref30/*'
+    val workflow_publish_dir
 
     output:
     tuple val(meta), path("**.a3m"), emit: a3m
 
     script:
     def args = task.ext.args ?: ''
-    """
-    mkdir -p db
-    ln -r -s $uniref30/uniref30_* ./db
-    ln -r -s $colabfold_envdb/colabfold_envdb* ./db
+    if (use_remote_server) {
+        """
+        mkdir -p result
+        python ${projectDir}/bin/colabfold_remote_msa.py \\
+            --fasta ${fasta} \\
+            -o result/
+        """
+    } else {
+        """
+        mkdir -p db
+        ln -r -s $uniref30/uniref30_* ./db
+        ln -r -s $colabfold_envdb/colabfold_envdb* ./db
 
-    /localcolabfold/colabfold-conda/bin/colabfold_search \\
-        $args \\
-        --threads $task.cpus ${fasta} \\
-        ./db \\
-        "result/"
-    """
+        /localcolabfold/colabfold-conda/bin/colabfold_search \\
+            $args \\
+            --threads $task.cpus ${fasta} \\
+            ./db \\
+            "result/"
+
+        # Rename primary A3M to match input FASTA basename so multiple targets
+        # produce uniquely named alignments (e.g. PDL1_A.fasta -> PDL1_A.a3m).
+        base=\$(basename "${fasta}")
+        base="\${base%.*}"
+        shopt -s nullglob
+        a3m_files=(result/*.a3m)
+        if [[ \${#a3m_files[@]} -eq 1 ]]; then
+            mv "\${a3m_files[0]}" "result/\${base}.a3m"
+        fi
+        """
+    }
     /*
     usage: colabfold_search [-h] [--prefilter-mode {0,1,2}] [-s S] [--db1 DB1] [--db2 DB2] [--db3 DB3] [--db4 DB4] [--use-env {0,1}] [--use-env-pairing {0,1}]
                         [--use-templates {0,1}] [--filter {0,1}] [--mmseqs MMSEQS] [--expand-eval EXPAND_EVAL] [--align-eval ALIGN_EVAL] [--diff DIFF]

@@ -24,6 +24,7 @@ workflow BOLTZ_REFOLD_SCORING_RFD3 {
     refold_max                 // Integer or false: max designs to refold
     refold_create_target_msa   // Boolean: create target MSA
     refold_use_msa_server      // Boolean: use MSA server
+    refold_alignment           // Path or false: external A3M file; bypasses MMseqs2 when set
     refold_target_fasta        // Path or false: target FASTA file
     refold_target_templates    // Path or false: target templates directory
     colabfold_envdb            // Path or false: ColabFold env database
@@ -37,8 +38,13 @@ workflow BOLTZ_REFOLD_SCORING_RFD3 {
         ? ch_cifs_with_meta.take(refold_max)
         : ch_cifs_with_meta
 
-    // Optionally create target MSAs
-    if (refold_create_target_msa && !refold_use_msa_server) {
+    // Target MSA: external file, or create via MMseqs2/server, or none
+    if (refold_alignment) {
+        ch_target_msas = ch_filtered_for_refold.map { meta, pdb ->
+            [meta, file(refold_alignment)]
+        }
+    }
+    else if (refold_create_target_msa && !refold_use_msa_server) {
         if (refold_target_fasta) {
             // Use the refold_target_fasta file directly for MSA creation
             ch_target_fastas = ch_filtered_for_refold.map { meta, pdb ->
@@ -46,8 +52,10 @@ workflow BOLTZ_REFOLD_SCORING_RFD3 {
             }
             ch_target_msas = MMSEQS_COLABFOLDSEARCH(
                 ch_target_fastas,
+                false,
                 colabfold_envdb,
                 uniref30,
+                'boltz_refold/mmseqs2',
             )
         }
         else {
@@ -61,8 +69,10 @@ workflow BOLTZ_REFOLD_SCORING_RFD3 {
                 }
             ch_target_msas = MMSEQS_COLABFOLDSEARCH(
                 ch_target_fastas,
+                false,
                 colabfold_envdb,
                 uniref30,
+                'boltz_refold/mmseqs2',
             )
         }
     }
@@ -78,11 +88,12 @@ workflow BOLTZ_REFOLD_SCORING_RFD3 {
     }
 
     // Run Boltz complex refolding with RMSD analysis
+    def use_target_msa = refold_create_target_msa || refold_alignment
     BOLTZ_COMPARE_COMPLEX(
         ch_filtered_for_refold,
         binder_chain,
         target_chain,
-        refold_create_target_msa,
+        use_target_msa,
         refold_use_msa_server,
         ch_target_msas.map { meta, target_msa -> target_msa },
         file("${projectDir}/assets/dummy_files/empty_binder_msa"),

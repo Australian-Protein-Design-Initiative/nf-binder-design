@@ -216,20 +216,43 @@ Common options:
 - **`--rf3_diffusion_batch_size`**  
   Batch size for the diffusion step in RF3. **Default:** `5` (matches `rf3` CLI default).
 
-#### Refolding Parameters
+#### RF3 MSA and template options
 
-The workflow supports an optional secondary refolding step (e.g. using Boltz-2) to validate the ROSETTAFOLD3 predicted structures, optionally using a non-truncated target sequence, with an optional target MSA and/or target template structure.
+RosettaFold3 structure prediction can use a target-chain MSA and/or structural templates to improve prediction quality (see [RF3 inference documentation](https://github.com/RosettaCommons/foundry/blob/production/models/rf3/README.md)).
 
-- **`--refold_with`**  
-  Tool to use for refolding (e.g. `boltz`). **Default:** disabled.
+- **`--rf3_create_target_msa`**  
+  When `true`, create a target-chain MSA for RF3 via local ColabFold/MMseqs2 or an external MSA server. **Default:** `false`.
 
-- **`--refold_max`**  
-  Maximum number of top scoring ROSETTAFOLD3 designs to pass to the refolding step.
+- **`--rf3_alignment`**  
+  Path to an external A3M-format MSA file for the target chain. When set, this file is used as the RF3 target MSA and no MMseqs2/ColabFold search is run for RF3. `--rf3_create_target_msa` and `--rf3_alignment` are mutually exclusive.
 
-- **`--refold_filter_sort`**  
-  The metric used to sort the ROSETTAFOLD3 outputs before prioritizing them for refolding via `--refold_max`.  
+- **`--rf3_use_msa_server`**  
+  When `true` and `--rf3_create_target_msa` is set (and `--rf3_alignment` is not), the workflow queries the ColabFold MMseqs2 API (https://api.colabfold.com) via `bin/colabfold_remote_msa.py` to obtain target MSAs instead of running local ColabFold/MMseqs2. No local `--colabfold_envdb` or `--uniref30` are required in this case. **Default:** `false`.
+
+- **`--rf3_target_fasta`**  
+  Optional path to a target FASTA file used when building the RF3 target MSA (only when `--rf3_create_target_msa` is set and `--rf3_alignment` is not). If unset, the target sequence is derived from the initial target structure (chain A).
+
+The target structure passed as **`--input_pdb`** is always used as the single RF3 template (one template per chain; RF3 does not accept multiple templates per chain). Before use, the workflow prepares this template so it matches what RFDiffusion3 sees: if the input is mmCIF it is converted to PDB (gemmi); the structure is trimmed to the same contig ranges as RFD3 (see **`--contigs`** or the config’s `contig` field) via `bin/trim_to_contigs.py` (supports both v1 and v3 contig syntax); then all chain IDs in the trimmed structure are renamed to **A** (gemmi `convert --rename-chain`), since RFD3 always outputs the target as chain A regardless of input chain IDs.
+
+When `--rf3_create_target_msa` is `true`, `--rf3_alignment` is not set, and `--rf3_use_msa_server` is `false`, you must provide **`--colabfold_envdb`** and **`--uniref30`** (same as for the optional Boltz full refold step).
+
+#### Full refolding parameters (Boltz-2)
+
+The workflow supports an optional **full refolding** step (e.g. using Boltz-2) to validate the ROSETTAFOLD3 predicted structures, optionally using a non-truncated target sequence, with an optional target MSA and/or target template structure.
+
+- **`--full_refold_with`**  
+  Tool to use for full refolding (e.g. `boltz`). **Default:** disabled.
+
+- **`--full_refold_max`**  
+  Maximum number of top scoring ROSETTAFOLD3 designs to pass to the full refolding step.
+
+- **`--full_refold_filter_sort`**  
+  The metric used to sort the ROSETTAFOLD3 outputs before prioritizing them for full refolding via `--full_refold_max`.  
   Use a `-` prefix to sort in descending order (e.g. `-plddt`).  
   **Default:** `pair_pae_min` (ascending).
+
+- **`--full_refold_alignment`**  
+  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step.
 
 #### RMSD (design vs refold)
 

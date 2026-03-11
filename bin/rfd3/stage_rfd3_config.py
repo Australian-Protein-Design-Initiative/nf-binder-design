@@ -4,13 +4,14 @@
 # ///
 
 """
-Helper script for RFDiffusion3 config handling in Nextflow.
+Helper script for RFD3 (RFDiffusion3) config handling in Nextflow.
 
-Two modes:
-  stage  - Rewrite input paths in an existing JSON config so they point
-           to Nextflow-staged files (basename only).
-  generate - Create a new JSON config from CLI flags, translating
-             RFDiffusion v1-style contigs/hotspots to v3 format.
+Modes:
+  stage      - Rewrite input paths in an existing JSON config so they point
+               to Nextflow-staged files (basename only).
+  generate   - Create a new RFD3 JSON config from CLI flags, translating
+               RFDiffusion v1-style contigs/hotspots to v3 format.
+  parse-inputs - Print resolved input file path(s) from config (one per line).
 """
 
 import argparse

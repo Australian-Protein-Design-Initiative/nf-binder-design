@@ -169,7 +169,7 @@ workflow BOLTZ_PULLDOWN {
     ch_binders_fasta = ch_binders_meta.merge(ch_binders_fasta_paths)
 
     if (params.create_target_msa && !params.use_msa_server) {
-        ch_target_msas = MMSEQS_COLABFOLDSEARCH(ch_targets_fasta, params.colabfold_envdb, params.uniref30)
+        ch_target_msas = MMSEQS_COLABFOLDSEARCH(ch_targets_fasta, false, params.colabfold_envdb, params.uniref30, 'boltz_pulldown/mmseqs2')
     }
     else if (params.create_target_msa && params.use_msa_server) {
         ch_target_msas = ch_targets_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")] }
@@ -180,7 +180,7 @@ workflow BOLTZ_PULLDOWN {
     }
 
     if (params.create_binder_msa && !params.use_msa_server) {
-        ch_binder_msas = MMSEQS_COLABFOLDSEARCH(ch_binders_fasta, params.colabfold_envdb, params.uniref30)
+        ch_binder_msas = MMSEQS_COLABFOLDSEARCH(ch_binders_fasta, false, params.colabfold_envdb, params.uniref30, 'boltz_pulldown/mmseqs2')
     }
     else if (params.create_binder_msa && params.use_msa_server) {
         ch_binder_msas = ch_binders_fasta.map { [it[0], file("${projectDir}/assets/dummy_files/boltz_will_make_binder_msa")] }

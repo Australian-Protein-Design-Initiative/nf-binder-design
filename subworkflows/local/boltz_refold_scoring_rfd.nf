@@ -72,8 +72,10 @@ workflow BOLTZ_REFOLD_SCORING {
                 }
                 ch_target_msas = MMSEQS_COLABFOLDSEARCH(
                     ch_target_fastas,
+                    false,
                     colabfold_envdb,
                     uniref30,
+                    'boltz_refold/mmseqs2',
                 )
             }
             else {
@@ -87,8 +89,10 @@ workflow BOLTZ_REFOLD_SCORING {
                     }
                 ch_target_msas = MMSEQS_COLABFOLDSEARCH(
                     ch_target_fastas,
+                    false,
                     colabfold_envdb,
                     uniref30,
+                    'boltz_refold/mmseqs2',
                 )
             }
         }

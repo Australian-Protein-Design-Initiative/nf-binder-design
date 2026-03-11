@@ -5,7 +5,7 @@ process ROSETTAFOLD3 {
     publishDir path: "${params.outdir}/rfd3/rosettafold3/output", pattern: 'output/*', mode: 'copy', saveAs: { it.replaceFirst('output/', '') }
 
     input:
-    tuple val(meta), path(structure_cif)
+    tuple val(meta), path(structure_cif), path(target_msa), path(target_templates), path(rf3_input_json)
     val(uid)
 
     output:
@@ -14,17 +14,6 @@ process ROSETTAFOLD3 {
     tuple val(meta), path('output/*/*_model.cif'), emit: refolded_cif
     path 'rfd3_*_rf3_*.tsv', emit: scores
     tuple val(meta), path('rfd3_*_rf3_*.tsv'), emit: scores_with_meta
-
-    // TODO: support MSA input for target chain(s) to improve prediction quality
-    //       - this is important, since in my limited testing RosettaFold3 isn't performing very well
-    //         on target protein prediction without an MSA (de novo binders seem to be predicted much better)
-    //
-    // TODO: support (and encourage) batching for lower process startup costs, inputs='folder/of/cifs'
-    // TODO: add params.rf3_early_stopping_plddt_threshold=0.5 as default for filtering low-confidence predictions
-    //       (this happens by default when no MSA is provided)
-    // TODO: support JSON config mode with template_selection to template target chain(s)
-    // TODO: support n_recycles, diffusion_batch_size, num_steps, seed, and consider if we can use a faster
-    //       default num_steps=50 as a good compromise between speed and quality
 
     script:
     """
@@ -48,16 +37,16 @@ process ROSETTAFOLD3 {
 
     mkdir -p output
 
-    rf3 fold \
-        inputs=${structure_cif} \
-        out_dir=output \
-        ckpt_path=${params.rf3_ckpt_path} \
-        num_steps=${params.rf3_num_steps} \
-        n_recycles=${params.rf3_n_recycles} \
-        diffusion_batch_size=${params.rf3_diffusion_batch_size} \
-        early_stopping_plddt_threshold=${params.rf3_early_stopping_plddt_threshold} \
-        annotate_b_factor_with_plddt=true \
-        one_model_per_file=true \
+    rf3 fold \\
+        inputs=${rf3_input_json} \\
+        out_dir=output \\
+        ckpt_path=${params.rf3_ckpt_path} \\
+        num_steps=${params.rf3_num_steps} \\
+        n_recycles=${params.rf3_n_recycles} \\
+        diffusion_batch_size=${params.rf3_diffusion_batch_size} \\
+        early_stopping_plddt_threshold=${params.rf3_early_stopping_plddt_threshold} \\
+        annotate_b_factor_with_plddt=true \\
+        one_model_per_file=true \\
         ${task.ext.args ?: ''}
 
     full_conf=\$(find output -maxdepth 2 -name '*_confidences.json' ! -name '*summary*' -print | head -1)

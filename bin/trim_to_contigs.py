@@ -43,34 +43,40 @@ class ContigSelect(PDB.Select):
 def parse_contigs(contig_string: str) -> list[tuple[str, int, int]]:
     """
     Parses an RFdiffusion-style contig string into a list of residue ranges.
-    e.g. '[10-20 A1-50/A60-100 B1-100]' -> [('A', 1, 50), ('A', 60, 100), ('B', 1, 100)]
+
+    Supports:
+    - v1 style: '[A18-132/0 65-120]' (space-separated, brackets, /0 attached)
+    - v3 style: 'A18-132,/0,65-120' (comma-separated, /0 as separate element)
+
+    Binder-length-only segments (e.g. 65-120 with no chain ID) are ignored.
+    Returns e.g. [('A', 18, 132)] for trimming the target chain.
     """
     contig_string = contig_string.strip()
     if contig_string.startswith("[") and contig_string.endswith("]"):
         contig_string = contig_string[1:-1]
 
-    parts = contig_string.split()
+    # Normalise to tokens: split on comma and space so v3 "A18-132,/0,65-120" and v1 "A18-132/0 65-120" both work
+    parts = re.split(r"[,\s]+", contig_string)
 
     residue_ranges = []
-    # Regex to capture chainID (letters) and start/end residue numbers from strings like 'F2-23' or 'F84-175'
-    regex = re.compile(r"([A-Za-z]+)(-?\d+)-(-?\d+)")
-
+    regex = re.compile(r"^([A-Za-z]+)(-?\d+)-(-?\d+)$")
+    # Also match segment that has / in it (v1): "A18-132/0" -> take "A18-132"
     for part in parts:
-        # Ignore parts that are just numbers (e.g., binder length specifications)
-        if part.replace("-", "").isdigit():
+        part = part.strip()
+        if not part or part in ("/0", "0"):
             continue
-
-        sub_parts = part.split("/")
-        for sub_part in sub_parts:
-            # Also ignore the '/0' terminator
-            if sub_part == "0":
-                continue
-            match = regex.match(sub_part)
-            if match:
-                chain_id = match.group(1)
-                start = int(match.group(2))
-                end = int(match.group(3))
-                residue_ranges.append((chain_id, start, end))
+        # v1 may have "A18-132/0" as one token after space split; split on / and take first
+        if "/" in part:
+            part = part.split("/")[0]
+        if not part:
+            continue
+        match = regex.match(part)
+        if match:
+            chain_id = match.group(1)
+            start = int(match.group(2))
+            end = int(match.group(3))
+            residue_ranges.append((chain_id, start, end))
+        # num-num only (e.g. 65-120) is binder length, no chain in input structure -> skip
 
     return residue_ranges
 

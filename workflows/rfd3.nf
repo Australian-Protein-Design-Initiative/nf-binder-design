@@ -35,6 +35,12 @@ params.rfd3_filters = false
 //params.rf3_ckpt_path = '/weights/rf3_foundry_01_24_latest_remapped.ckpt'
 params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
 
+// RosettaFold3 MSA/template params
+params.rf3_create_target_msa = false
+params.rf3_use_msa_server = false
+params.rf3_target_fasta = false
+params.rf3_alignment = false  // external A3M file; bypasses MMseqs2 when set
+
 // MPNN params - new (mpnn_*)
 params.mpnn_model_type = 'protein_mpnn'
 params.mpnn_legacy_weights = true
@@ -58,14 +64,15 @@ params.rf3_num_steps = 50                        // default for rf3 cli is 200, 
 params.rf3_n_recycles = 10                       // default for rf3 cli is 10
 params.rf3_diffusion_batch_size = 5              // default for rf3 cli is 5
 
-// Boltz refolding params
-params.refold_with = '' // comma-separated list of methods, e.g., 'boltz'
-params.refold_max = false
-params.refold_filter_sort = 'pair_pae_min'
-params.refold_use_msa_server = false
-params.refold_create_target_msa = false
-params.refold_target_templates = false
-params.refold_target_fasta = false
+// Boltz full refolding params
+params.full_refold_with = '' // comma-separated list of methods, e.g., 'boltz'
+params.full_refold_max = false
+params.full_refold_filter_sort = 'pair_pae_min'
+params.full_refold_use_msa_server = false
+params.full_refold_create_target_msa = false
+params.full_refold_target_templates = false
+params.full_refold_target_fasta = false
+params.full_refold_alignment = false  // external A3M file; bypasses MMseqs2 when set
 params.uniref30 = false
 params.colabfold_envdb = false
 params.output_rmsd_aligned = false
@@ -78,6 +85,10 @@ include { UNIQUE_ID } from '../modules/local/common/unique_id'
 include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
 include { GENERATE_RFD3_CONFIG } from '../modules/local/rfd3/generate_rfd3_config'
 include { MPNN } from '../modules/local/rfd3/mpnn'
+include { PDB_TO_FASTA } from '../modules/local/common/pdb_to_fasta'
+include { MMSEQS_COLABFOLDSEARCH } from '../modules/local/common/mmseqs_colabfoldsearch'
+include { GENERATE_RF3_INPUT_JSON } from '../modules/local/rfd3/generate_rf3_input'
+include { PREPARE_RF3_TEMPLATE } from '../modules/local/rfd3/prepare_rf3_template'
 include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
 include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
@@ -95,6 +106,26 @@ workflow RFD3 {
 
     if (params.rfd3_config && params.rfd3_is_non_loopy != null) {
         throw new Exception('--rfd3_is_non_loopy cannot be used with --rfd3_config. Put "is_non_loopy": true or "is_non_loopy": false in your JSON config file instead.')
+    }
+
+    if (params.rf3_create_target_msa && params.rf3_alignment) {
+        throw new Exception('--rf3_create_target_msa and --rf3_alignment are mutually exclusive. Use one or the other.')
+    }
+    if (params.rf3_create_target_msa && !params.rf3_alignment && !params.rf3_use_msa_server && (!params.colabfold_envdb || !params.uniref30)) {
+        throw new Exception('--rf3_create_target_msa with local MSA (no --rf3_alignment) requires --colabfold_envdb and --uniref30.')
+    }
+    if (params.rf3_use_msa_server && (!params.rf3_create_target_msa || params.rf3_alignment)) {
+        throw new Exception('--rf3_use_msa_server only has an effect when --rf3_create_target_msa is true and --rf3_alignment is not set.')
+    }
+
+    if (params.full_refold_create_target_msa && params.full_refold_alignment) {
+        throw new Exception('--full_refold_create_target_msa and --full_refold_alignment are mutually exclusive. Use one or the other.')
+    }
+    if (params.full_refold_create_target_msa && !params.full_refold_alignment && !params.full_refold_use_msa_server && (!params.colabfold_envdb || !params.uniref30)) {
+        throw new Exception('--full_refold_create_target_msa with local MSA (no --full_refold_alignment) requires --colabfold_envdb and --uniref30.')
+    }
+    if (params.full_refold_use_msa_server && !params.full_refold_create_target_msa && !params.full_refold_alignment) {
+        throw new Exception('--full_refold_use_msa_server only has an effect when either --full_refold_create_target_msa is true or --full_refold_alignment is set.')
     }
 
     // Show help message
@@ -139,11 +170,18 @@ workflow RFD3 {
             --mpnn_omit / --pmpnn_omit_aas             Omit residue types (1-letter eg "CX") [default: ${params.mpnn_omit}]
             --mpnn_checkpoint_path / --pmpnn_weights   Custom weights path [default: ${params.mpnn_checkpoint_path}]
 
-        Refolding options:
-            --refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.refold_with}]
-            --refold_max          Maximum designs to refold [default: ${params.refold_max}]
-            --refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.refold_filter_sort}]
-            --refold_create_target_msa  Create target MSA for refolding structure prediction [default: ${params.refold_create_target_msa}]
+        RF3 MSA/template options:
+            --rf3_create_target_msa   Create target MSA for RF3 (once per target; runs MMseqs2) [default: ${params.rf3_create_target_msa}]
+            --rf3_alignment            External A3M file for target; bypasses MMseqs2 when set [default: ${params.rf3_alignment}]
+            --rf3_use_msa_server       Use external MSA server for RF3 when creating MSA (skip local MMseqs) [default: ${params.rf3_use_msa_server}]
+            --rf3_target_fasta         Target FASTA file for RF3 MSA creation [default: ${params.rf3_target_fasta}]
+
+        Full refolding options (Boltz-2):
+            --full_refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.full_refold_with}]
+            --full_refold_max          Maximum designs to refold [default: ${params.full_refold_max}]
+            --full_refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.full_refold_filter_sort}]
+            --full_refold_create_target_msa  Create target MSA for refolding (runs MMseqs2) [default: ${params.full_refold_create_target_msa}]
+            --full_refold_alignment    External A3M file for refold target; bypasses MMseqs2 when set [default: ${params.full_refold_alignment}]
 
         Other options:
             --require_gpu         Fail tasks without a GPU [default: ${params.require_gpu}]
@@ -153,10 +191,11 @@ workflow RFD3 {
         )
         exit(1)
     }
-    def refold_methods = params.refold_with ? params.refold_with.toString().split(',').collect{it.trim()} : []
-    println("Refold methods: ${refold_methods}")
+    def refold_methods = params.full_refold_with ? params.full_refold_with.toString().split(',').collect{it.trim()} : []
+    // println("Full refold methods: ${refold_methods}")
 
     def ch_input_pdb
+    def target_pdb_path
     if (params.rfd3_config) {
         def config_file = file(params.rfd3_config)
         def config_dir = config_file.parent.toString()
@@ -166,14 +205,16 @@ workflow RFD3 {
         if (input_paths.isEmpty()) {
             throw new Exception("No 'input' path found in --rfd3_config ${params.rfd3_config}")
         }
-        ch_input_pdb = Channel.fromPath(input_paths[0]).first()
+        target_pdb_path = file(input_paths[0].trim())
+        ch_input_pdb = Channel.fromPath(target_pdb_path).first()
     } else {
+        target_pdb_path = file(params.input_pdb)
         ch_input_pdb = Channel.fromPath(params.input_pdb).first()
     }
 
     // Generate unique ID for this run
     UNIQUE_ID()
-    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }
+    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
     ch_design_name = ch_unique_id.map { uid -> "${params.design_name}_${uid}" }
 
     // Calculate number of batches
@@ -255,10 +296,58 @@ workflow RFD3 {
         mpnn_args,
     )
 
-    ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.name], c) }
+    ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.baseName], c) }
 
-    // Run RosettaFold3 structure prediction on each MPNN-designed structure (run unique id as value channel)
-    ROSETTAFOLD3(ch_mpnn_with_meta, ch_unique_id)
+    // Target MSA: once per target (single target supported). External a3m file, or build once early, or omit.
+    def ch_single_rf3_msa
+    if (params.rf3_alignment) {
+        ch_single_rf3_msa = Channel.fromPath(params.rf3_alignment).first()
+    } else if (params.rf3_create_target_msa) {
+        def ch_target_fasta_with_meta
+        if (params.rf3_target_fasta) {
+            def target_fasta_file = file(params.rf3_target_fasta)
+            ch_target_fasta_with_meta = Channel.of(tuple([id: 'target'], target_fasta_file))
+        } else {
+            def ch_target_pdb_for_msa = Channel.fromPath(target_pdb_path).first()
+            PDB_TO_FASTA(ch_target_pdb_for_msa, 'A')
+            ch_target_fasta_with_meta = PDB_TO_FASTA.out.map { f -> tuple([id: 'target'], f) }
+        }
+        def rf3_msa_db = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.colabfold_envdb
+        def rf3_msa_uniref = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.uniref30
+        MMSEQS_COLABFOLDSEARCH(ch_target_fasta_with_meta, params.rf3_use_msa_server, rf3_msa_db, rf3_msa_uniref, 'rfd3/mmseqs2')
+        ch_single_rf3_msa = MMSEQS_COLABFOLDSEARCH.out.a3m.map { m, a3m ->
+            def files = (a3m instanceof List) ? a3m : [a3m]
+            def primary = files.find { it.toString().contains('result') } ?: files[0]
+            primary
+        }
+    } else {
+        ch_single_rf3_msa = Channel.of(file("${projectDir}/assets/dummy_files/empty_target_msa"))
+    }
+
+    // Prepare RF3 template: resolve contigs (from value or config file), then CIF->PDB, trim to contigs, rename chains to A.
+    def ch_prepare_input
+    if (params.rfd3_config) {
+        ch_prepare_input = Channel.of(file(target_pdb_path)).first()
+            .combine(Channel.fromPath(params.rfd3_config).first())
+            .map { s, cfg -> tuple(s, cfg, '') }
+    } else {
+        ch_prepare_input = Channel.of(file(target_pdb_path)).first()
+            .combine(Channel.of(file("${projectDir}/assets/dummy_files/empty_templates")))
+            .combine(Channel.of(normaliseContigToV3(params.contigs)))
+    }
+    PREPARE_RF3_TEMPLATE(ch_prepare_input)
+
+    // Build RF3 input tuples: (meta, structure_cif, target_msa, template_structure)
+    // Broadcast the single RF3 MSA and single prepared template to all designs.
+    def ch_rf3_msa_val = ch_single_rf3_msa.first()
+    def ch_rf3_template_val = PREPARE_RF3_TEMPLATE.out.pdb.first()
+    def ch_rf3_input = ch_mpnn_with_meta
+        .combine(ch_rf3_msa_val)
+        .combine(ch_rf3_template_val)
+        .map { meta, cif, msa, template -> tuple(meta, cif, msa, template) }
+
+    GENERATE_RF3_INPUT_JSON(ch_rf3_input)
+    ROSETTAFOLD3(GENERATE_RF3_INPUT_JSON.out.with_json, ch_unique_id)
 
     ch_rmsd_input = ch_mpnn_with_meta.join(ROSETTAFOLD3.out.refolded_cif)
     RFD3_RMSD(ch_rmsd_input)
@@ -280,7 +369,7 @@ workflow RFD3 {
                 return [meta, cif, scoreMap]
             }
             .toSortedList { a, b ->
-                def sort_key = params.refold_filter_sort ?: 'pair_pae_min'
+                def sort_key = params.full_refold_filter_sort ?: 'pair_pae_min'
                 def descending = false
                 if (sort_key.startsWith('-')) {
                     descending = true
@@ -295,8 +384,8 @@ workflow RFD3 {
                 return descending ? valB <=> valA : valA <=> valB
             }
             .flatMap { list ->
-                if (params.refold_max) {
-                    return list.take(params.refold_max as int)
+                if (params.full_refold_max) {
+                    return list.take(params.full_refold_max as int)
                 }
                 return list
             }
@@ -306,11 +395,12 @@ workflow RFD3 {
             ch_boltz_input,
             'B', // binder_chain
             'A', // target_chain
-            params.refold_max,
-            params.refold_create_target_msa,
-            params.refold_use_msa_server,
-            params.refold_target_fasta,
-            params.refold_target_templates,
+            params.full_refold_max,
+            params.full_refold_create_target_msa,
+            params.full_refold_use_msa_server,
+            params.full_refold_alignment,
+            params.full_refold_target_fasta,
+            params.full_refold_target_templates,
             params.colabfold_envdb,
             params.uniref30,
             params.outdir

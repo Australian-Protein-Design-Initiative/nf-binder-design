@@ -108,6 +108,7 @@ process BOLTZ_COMPARE_COMPLEX {
         --preprocessing-threads ${task.cpus} \\
         --num_workers ${task.cpus} \\
         --output_format pdb \\
+        ${use_msa_server_flag} \\
         ${yaml_file}
 
     # Run RMSD calculations
