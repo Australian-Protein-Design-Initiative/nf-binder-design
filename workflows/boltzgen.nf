@@ -37,7 +37,7 @@ include { BOLTZGEN_MERGE } from '../modules/local/boltzgen/boltzgen_merge'
 include { BOLTZGEN_ANALYSIS } from '../modules/local/boltzgen/boltzgen_analysis'
 include { BOLTZGEN_FILTERING } from '../modules/local/boltzgen/boltzgen_filtering'
 
-include { detectParams; buildFilteringArgs } from '../modules/local/boltzgen/boltzgen_utils'
+include { PARSE_BOLTZGEN_CONFIG; detectParams; buildFilteringArgs } from '../modules/local/boltzgen/boltzgen_utils'
 
 // Function to validate design_name does not end with a number
 def validateDesignName(design_name) {
@@ -114,30 +114,19 @@ workflow BOLTZGEN {
     def config_dir = config_file.parent
 
     ch_config_yaml = Channel.fromPath(params.config_yaml).first()
+    ch_config_dir = Channel.value(config_dir.toString())
 
     // Parse config to collect all files that need staging (entity paths + scaffold inner files)
-    def parse_cmd = ["python3", "${projectDir}/bin/boltzgen/parse_boltzgen_config.py", config_file.toString(), "--config-dir", config_dir.toString()]
-    def parse_proc = parse_cmd.execute()
-    def parse_stdout = new StringBuilder()
-    def parse_stderr = new StringBuilder()
-    parse_proc.consumeProcessOutput(parse_stdout, parse_stderr)
-    parse_proc.waitFor()
-    def parse_output = parse_stdout.toString().trim()
-    if (parse_proc.exitValue() != 0) {
-        error "parse_boltzgen_config.py failed (exit ${parse_proc.exitValue()}):\n${parse_stderr.toString().trim()}"
-    }
-    def input_file_paths = parse_output.split('\n').findAll { it.trim() }.unique()
+    // Runs as a process so PyYAML is available via a container
+    PARSE_BOLTZGEN_CONFIG(ch_config_yaml, ch_config_dir)
 
-    // Create channel of input files
-    if (input_file_paths.isEmpty()) {
-        ch_input_files = Channel.value([])
-    } else {
-        ch_input_files = Channel.from(input_file_paths)
-            .map { file_path -> file(file_path.trim()) }
-            .collect()
-            .map { files -> files }
-            .first()
-    }
+    // stdout is a single string with one absolute path per line - split, deduplicate, resolve
+    ch_input_files = PARSE_BOLTZGEN_CONFIG.out
+        .map { stdout_text ->
+            def paths = stdout_text.trim().split('\n').findAll { it.trim() }.unique()
+            if (paths.isEmpty()) return []
+            return paths.collect { p -> file(p.trim()) }
+        }
 
     // Generate batch start indices - create separate channels to avoid double consumption
     def batch_indices = (0..params.num_designs - 1).findAll { it % params.batch_size == 0 }

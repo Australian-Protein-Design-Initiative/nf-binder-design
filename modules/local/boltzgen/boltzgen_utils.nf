@@ -1,5 +1,30 @@
 // Utility functions for BoltzGen workflows
 
+process PARSE_BOLTZGEN_CONFIG {
+    tag "parse_boltzgen_config"
+
+    input:
+    path config_yaml
+    // config_dir is a path outside the `work` directory - while not ideal, 
+    // this process is always intended to be executed locally or on a shared 
+    // filesystem. We do this in a process{} rather than a bare Groovy 
+    // cmd.execute() since we need pyyaml as a dependency to run 
+    // parse_boltzgen_config.py, and cannot rely on this being available 
+    // via the system (non-containerized) Python installation.
+    // This script needs to capture the real (non-`work/`) paths of 
+    // input files relative to the real path of config_yaml,
+    // so we cannot remain sandboxed within the `work` directory for this step.
+    val  config_dir
+
+    output:
+    stdout
+
+    script:
+    """
+    python3 ${projectDir}/bin/boltzgen/parse_boltzgen_config.py ${config_yaml} --config-dir ${config_dir}
+    """
+}
+
 def detectParams(params) {
     // If config_yaml and protocol are already set, return them
     def config_yaml = params.config_yaml
