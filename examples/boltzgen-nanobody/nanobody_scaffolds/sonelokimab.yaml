@@ -1,0 +1,41 @@
+path: sonelokimab.pdb
+include: 
+  - chain: 
+      id: B
+design:
+  - chain:
+      id: B
+      res_index: 26..30,50..55,97..111
+
+structure_groups:
+  - group:
+      id: B
+      visibility: 2
+  - group:
+      id: B
+      visibility: 0
+      res_index: 1,2,26..30,50..55,97..111
+
+exclude: 
+    - chain:
+        id: B
+        res_index: 26..28,50..53,97..100 # take out 3
+
+design_insertions:
+  - insertion:
+      id: B
+      res_index: 26 # The res_index'th residue will be a designed one (starting to count from 1)
+      num_residues: 1..5
+  - insertion:
+      id: B
+      res_index: 50 # The res_index'th residue will be a designed one (starting to count from 1)
+      num_residues: 1..5
+  - insertion:
+      id: B
+      res_index: 97 # The res_index'th residue will be a designed one (starting to count from 1)
+      num_residues: 1..12
+
+# reindex the residue index which is used in the positional encoding
+reset_res_index:
+  - chain:
+      id: B

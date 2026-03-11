@@ -1,0 +1,21 @@
+entities:
+  - file:
+      path: ./input/PDL1.renum.pdb
+       
+      include:
+        - chain:
+            id: A
+
+      binding_types:
+        - chain:
+            id: A
+            binding: 56
+
+  - file:
+      path: 
+      - ./nanobody_scaffolds/7eow.yaml
+      - ./nanobody_scaffolds/7xl0.yaml
+      - ./nanobody_scaffolds/gontivimab.yaml
+      - ./nanobody_scaffolds/isecarosmab.yaml
+      - ./nanobody_scaffolds/sonelokimab.yaml
+      - ./nanobody_scaffolds/3eak.yaml
