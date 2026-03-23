@@ -48,6 +48,8 @@ Extracts 'contig' information from protein structures in RFdiffusion syntax - us
 
 Merges scoring tables from multiple sources. Uses a list of potential key columns to join on; for path-like columns (`.pdb` or `.cif`) builds the merge key from the basename. Drops duplicate-named columns from the right before each merge so the result has no `_x`/`_y` suffixes (left's copy is kept).
 
+Optional `--merge-key-replace-basename REGEX REPL` (repeatable) runs `re.sub` on the basename of path-like keys before `--strip-suffix`, on every input table. Example: `--merge-key-replace-basename '_rf3_config\.cif$' '.cif'` aligns score `filename` values with RMSD `structure1` names when one side uses a refold config suffix (see `COMBINE_RFD3_SCORES`).
+
 ### pdb_to_fasta.py
 
 Extracts the FASTA sequence of chains in a PDB files.

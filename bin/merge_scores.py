@@ -85,8 +85,38 @@ def _match_columns(columns: List[str], patterns: List[str]) -> List[str]:
     return matched
 
 
+def _compile_basename_subs(
+    subs: Optional[List[Tuple[str, str]]],
+) -> List[Tuple[re.Pattern, str]]:
+    """Compile (regex, repl) pairs for merge-key basename normalisation."""
+    out: List[Tuple[re.Pattern, str]] = []
+    for pattern, repl in subs or []:
+        try:
+            out.append((re.compile(pattern), repl))
+        except re.error as e:
+            raise ValueError(
+                f"Invalid --merge-key-replace-basename regex {pattern!r}: {e}"
+            ) from e
+    return out
+
+
+def _path_to_merge_key(
+    x: str,
+    strip_suffix: str,
+    basename_subs: List[Tuple[re.Pattern, str]],
+) -> str:
+    """Basename, optional regex substitutions, then strip_suffix."""
+    base = os.path.basename(x)
+    for cre, repl in basename_subs:
+        base = cre.sub(repl, base)
+    return re.sub(strip_suffix, "", base)
+
+
 def _prepare_df_for_merge(
-    df: pd.DataFrame, potential_keys: List[str], strip_suffix: str
+    df: pd.DataFrame,
+    potential_keys: List[str],
+    strip_suffix: str,
+    basename_subs: List[Tuple[re.Pattern, str]],
 ) -> Tuple[pd.DataFrame, str]:
     """Finds a key in the dataframe and creates a `_merge_key` column for merging.
     Returns (dataframe, key_column_name) so callers can drop the key from right-hand
@@ -108,7 +138,7 @@ def _prepare_df_for_merge(
                 # Handle non-string values gracefully (e.g., NaN)
                 df["_merge_key"] = df[key].apply(
                     lambda x: (
-                        re.sub(strip_suffix, "", os.path.basename(x))
+                        _path_to_merge_key(x, strip_suffix, basename_subs)
                         if isinstance(x, str)
                         else x
                     )
@@ -136,6 +166,7 @@ def merge_scores(
     keep_columns: Optional[str] = None,
     drop_columns: Optional[str] = None,
     verbose: bool = False,
+    merge_key_replace_basename: Optional[List[Tuple[str, str]]] = None,
 ) -> pd.DataFrame:
     """
     Merges multiple TSV score files into a single DataFrame.
@@ -188,9 +219,10 @@ def merge_scores(
         logger.warning("No valid dataframes to merge after reading files.")
         return pd.DataFrame()
 
+    basename_subs = _compile_basename_subs(merge_key_replace_basename)
     logger.info(f"Preparing dataframes for merge using keys: {potential_keys}")
     prepared_with_keys = [
-        _prepare_df_for_merge(df.copy(), potential_keys, strip_suffix)
+        _prepare_df_for_merge(df.copy(), potential_keys, strip_suffix, basename_subs)
         for df in dataframes
     ]
     prepared_dfs = [p[0] for p in prepared_with_keys]
@@ -408,6 +440,20 @@ def parse_args():
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
+    parser.add_argument(
+        "--merge-key-replace-basename",
+        nargs=2,
+        metavar=("REGEX", "REPL"),
+        action="append",
+        default=None,
+        help=(
+            "When building _merge_key from a path-like column (.pdb/.cif), apply "
+            "re.sub(REGEX, REPL) to the basename before --strip-suffix. "
+            "May be repeated; substitutions run in order on every input table. "
+            "Example: align score filenames with structure columns: "
+            "--merge-key-replace-basename '_rf3_config\\\\.cif$' '.cif'"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -424,5 +470,6 @@ if __name__ == "__main__":
         args.keep_columns,
         args.drop_columns,
         args.verbose,
+        args.merge_key_replace_basename,
     )
     logger.info("Completed successfully")

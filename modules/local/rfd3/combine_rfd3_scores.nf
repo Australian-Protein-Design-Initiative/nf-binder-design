@@ -49,6 +49,7 @@ process COMBINE_RFD3_SCORES {
         combined_scores.tsv tmp_rmsd_target_aligned_binder.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
+        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
         --column-prefix refold_rmsd_target_aligned_binder_ \\
         --drop-columns 'refold_rmsd_target_aligned_binder_structure.*' \\
         -o step1.tsv
@@ -58,6 +59,7 @@ process COMBINE_RFD3_SCORES {
         step1.tsv tmp_rmsd_complex.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
+        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
         --column-prefix refold_rmsd_complex_ \\
         --drop-columns 'refold_rmsd_complex_structure.*' \\
         -o step2.tsv
@@ -67,6 +69,7 @@ process COMBINE_RFD3_SCORES {
         step2.tsv tmp_rmsd_binder_aligned_binder.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
+        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
         --column-prefix refold_rmsd_binder_aligned_binder_ \\
         --drop-columns 'refold_rmsd_binder_aligned_binder_structure.*' \\
         -o step3.tsv
@@ -76,6 +79,7 @@ process COMBINE_RFD3_SCORES {
         step3.tsv tmp_rmsd_target_aligned_target.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
+        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
         --column-prefix refold_rmsd_target_aligned_target_ \\
         --drop-columns 'refold_rmsd_target_aligned_target_structure.*' \\
         -o combined_scores.tsv
