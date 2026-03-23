@@ -64,9 +64,7 @@ process RFDIFFUSION3 {
 
     for j in output/*.json; do
       [[ -f "\$j" ]] || continue
-      batch=\$(basename "\$j" .json | sed -n 's/.*batch\\([0-9]*\\).*/\1/p; s/.*_b\\([0-9]*\\)_.*/\1/p' | head -1)
-      [[ -z "\$batch" ]] && batch=0
-      python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rfdiffusion3 "\$j" -o rfd3_${uid}_batch\${batch}_backbone.tsv
+      python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rfdiffusion3 "\$j" -o rfd3_${uid}_batch${design_startnum}_backbone.tsv
     done
     """
 }

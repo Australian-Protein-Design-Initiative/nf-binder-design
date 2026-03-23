@@ -16,16 +16,16 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd3_n_designs=4 \
   --rfd3_filters="rg<=20" \
   --rfd3_is_non_loopy=false \
-  --rf3_use_msa_server=true \
-  --rf3_create_target_msa=true \
+  --rf3_use_msa_server \
+  --rf3_create_target_msa \
   --full_refold_with 'boltz' \
   --full_refold_filter_sort='pair_pae_min' \
   --full_refold_max=2 \
-  --full_refold_create_target_msa=true \
-  --full_refold_use_msa_server=true \
+  --full_refold_create_target_msa \
+  --full_refold_use_msa_server \
   --full_refold_target_fasta='input/full/3BIK_B.fasta' \
   --full_refold_target_templates='input/full/' \
-  --output_rmsd_aligned=true \
+  --output_rmsd_aligned \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

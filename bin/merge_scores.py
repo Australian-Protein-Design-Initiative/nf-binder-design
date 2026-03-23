@@ -12,7 +12,7 @@ import sys
 import pandas as pd
 import logging
 import re
-from typing import List, Optional, TextIO, Union
+from typing import List, Optional, TextIO, Tuple, Union
 from functools import reduce
 
 # Set up logging to stderr
@@ -87,22 +87,23 @@ def _match_columns(columns: List[str], patterns: List[str]) -> List[str]:
 
 def _prepare_df_for_merge(
     df: pd.DataFrame, potential_keys: List[str], strip_suffix: str
-) -> pd.DataFrame:
-    """Finds a key in the dataframe and creates a `_merge_key` column for merging."""
+) -> Tuple[pd.DataFrame, str]:
+    """Finds a key in the dataframe and creates a `_merge_key` column for merging.
+    Returns (dataframe, key_column_name) so callers can drop the key from right-hand
+    dfs to avoid duplicate key columns (e.g. backbone_id_x, backbone_id_y)."""
     for key in potential_keys:
         if key in df.columns:
-            # Check if the column seems to contain PDB file paths by looking for '.pdb' suffix
             col_series = df[key].dropna()
-            is_pdb_col = False
-            if (
-                pd.api.types.is_string_dtype(col_series)
-                and col_series.str.endswith(".pdb").any()
-            ):
-                is_pdb_col = True
+            is_path_col = False
+            if pd.api.types.is_string_dtype(col_series):
+                if col_series.str.endswith(".pdb").any():
+                    is_path_col = True
+                elif col_series.str.endswith(".cif").any():
+                    is_path_col = True
 
-            if is_pdb_col:
+            if is_path_col:
                 logger.info(
-                    f"Found PDB column '{key}'. Creating merge key from basenames."
+                    f"Found path column '{key}'. Creating merge key from basenames."
                 )
                 # Handle non-string values gracefully (e.g., NaN)
                 df["_merge_key"] = df[key].apply(
@@ -116,7 +117,7 @@ def _prepare_df_for_merge(
                 logger.info(f"Found key column '{key}'. Using it as the merge key.")
                 df["_merge_key"] = df[key]
 
-            return df
+            return df, key
 
     raise ValueError(
         f"No potential merge key ({potential_keys}) found in one of the dataframes. "
@@ -188,10 +189,26 @@ def merge_scores(
         return pd.DataFrame()
 
     logger.info(f"Preparing dataframes for merge using keys: {potential_keys}")
-    prepared_dfs = [
+    prepared_with_keys = [
         _prepare_df_for_merge(df.copy(), potential_keys, strip_suffix)
         for df in dataframes
     ]
+    prepared_dfs = [p[0] for p in prepared_with_keys]
+    key_columns_used = [p[1] for p in prepared_with_keys]
+
+    # Drop from right-hand dfs any column that exists in the current left so merge
+    # does not produce key_x, key_y (keep left's copy of shared columns).
+    for i in range(1, len(prepared_dfs)):
+        left_cols = set(prepared_dfs[0].columns)
+        for j in range(1, i):
+            left_cols.update(prepared_dfs[j].columns)
+        right_df = prepared_dfs[i]
+        cols_to_drop = [
+            c for c in right_df.columns
+            if c in left_cols and c != "_merge_key"
+        ]
+        if cols_to_drop:
+            prepared_dfs[i] = right_df.drop(columns=cols_to_drop, errors="ignore")
 
     # Apply column prefix to second and subsequent dataframes if specified
     if column_prefix:

@@ -30,6 +30,7 @@ RFD3_METRICS_RENAME = {
     "n_clashing.interresidue_clashes_w_backbone": "n_clashing_w_backbone",
 }
 BACKBONE_SUFFIX_RE = re.compile(r"\.cif_b\d+_d\d+$")
+RF3_STEM_SUFFIX_RE = re.compile(r"_rf3_config$")
 
 
 def _first_off_diagonal_non_null(matrix: list[list[Any]]) -> Optional[float]:
@@ -75,7 +76,10 @@ def extract_rf3(json_path: Path) -> dict[str, Any]:
     else:
         stem = json_path.stem
 
-    backbone_id = BACKBONE_SUFFIX_RE.sub("", stem)
+    # Normalise backbone_id so it matches RFD3 output (json stem) for merging.
+    # Strip _rf3_config first, then .cif_b0_d0, so we get e.g. pdl1_Uu5sjeX_b0_pdl1_0_model_0.
+    backbone_id = RF3_STEM_SUFFIX_RE.sub("", stem)
+    backbone_id = BACKBONE_SUFFIX_RE.sub("", backbone_id)
 
     row: dict[str, Any] = {
         "id": stem,

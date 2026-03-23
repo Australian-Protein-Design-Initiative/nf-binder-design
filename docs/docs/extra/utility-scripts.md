@@ -46,7 +46,7 @@ Extracts 'contig' information from protein structures in RFdiffusion syntax - us
 
 ### merge_scores.py
 
-Merges scoring tables from multiple sources.
+Merges scoring tables from multiple sources. Uses a list of potential key columns to join on; for path-like columns (`.pdb` or `.cif`) builds the merge key from the basename. Drops duplicate-named columns from the right before each merge so the result has no `_x`/`_y` suffixes (left's copy is kept).
 
 ### pdb_to_fasta.py
 

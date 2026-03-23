@@ -448,7 +448,7 @@ workflow RFD3 {
         .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
         .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
         .combine(ch_mpnn_cifs)
-        .map { it -> tuple(it[0], it[1], it[2], it[3], it[4], it[5], it[6], it[7], it[8]) }
+        .map { it -> tuple(*it[0..7], it.drop(8)) }
     COMBINE_RFD3_SCORES(ch_combine_input)
 
     emit:

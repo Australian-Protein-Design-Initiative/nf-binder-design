@@ -11,12 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry`.
 
-### Fixed
-- `rmsd4all.py`: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.
-- `rmsd4all.py`: add `--max-structural-iterations` (default 100). Biotite's refinement loop uses `max_iterations=inf` by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.
-- `rmsd4all.py`: fix use of `array_length` (method) as if it were an attribute; use `len()` for atom counts.
-
 ### Changed
+- `merge_scores.py`: drop from the right any column that exists in the current left before each merge so the result has no `_x`/`_y` suffixes; treat `.cif` as path-like (use basename for merge key) in addition to `.pdb`.
+- `trim_to_contigs.py`: `parse_contigs()` now supports RFD3 v3 contig format (comma-separated, `/0` as separate element, e.g. `A18-132,/0,65-120`) in addition to v1 style.
 - Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
   - `--method rfd` for RFdiffusion binder design (previously `main.nf`)
   - `--method rfd_partial` for partial diffusion (previously `partial.nf`)
@@ -28,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `filter_designs.py` + `filters.d/rg.py` now support Rg calculation for mmCIF inputs (including `.cif.gz`) via a `gemmi` fallback path.
 
 ### Removed
+- `bin/rfd3/normalise_combined_tsv.py` (replaced by csvtk + `merge_scores.py` in the RFD3 combine step).
 - `rmsd4all.py`: remove `--max-ca-for-tm-score` and `--pair-timeout` options.
 
 ## [0.1.5] - 2026-01-28
