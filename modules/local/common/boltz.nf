@@ -48,13 +48,25 @@ process BOLTZ {
     #     ACCELERATOR=cpu
     # fi
 
+    BOLTZ_PREDICT_LOG=.boltz_predict_console.log
+    rm -f "\$BOLTZ_PREDICT_LOG"
+    set +e
     boltz predict \
         ${args} \
         ${use_msa_server_flag} \
         --preprocessing-threads ${task.cpus} \
         --num_workers ${task.cpus} \
         --output_format pdb \
-        ${yaml_file}
+        ${yaml_file} 2>&1 | tee "\$BOLTZ_PREDICT_LOG"
+    boltz_rc=\${PIPESTATUS[0]}
+    set -e
+    if grep -qF 'ran out of memory, skipping batch' "\$BOLTZ_PREDICT_LOG"; then
+        echo 'BOLTZ: Boltz logged GPU OOM (batch skipped); failing.' >&2
+        exit 1
+    fi
+    if [[ "\$boltz_rc" -ne 0 ]]; then
+        exit "\$boltz_rc"
+    fi
 
     ${projectDir}/bin/ipsae.py \\
         --update-summary boltz_results_*/predictions/*/confidence_*_model_0.json \\

@@ -59,12 +59,24 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
         --binder_msa empty \\
         --output_yaml '${yaml_file}'
 
-    # Step 2: Run Boltz prediction for monomer
+    # Step 2: Run Boltz prediction; fail if log shows GPU OOM batch skip (boltz may still exit 0)
+    BOLTZ_PREDICT_LOG=.boltz_predict_console.log
+    rm -f "\$BOLTZ_PREDICT_LOG"
+    set +e
     boltz predict \\
         --preprocessing-threads ${task.cpus} \\
         --num_workers ${task.cpus} \\
         --output_format pdb \\
-        ${yaml_file}
+        ${yaml_file} 2>&1 | tee "\$BOLTZ_PREDICT_LOG"
+    boltz_rc=\${PIPESTATUS[0]}
+    set -e
+    if grep -qF 'ran out of memory, skipping batch' "\$BOLTZ_PREDICT_LOG"; then
+        echo 'BOLTZ_COMPARE_BINDER_MONOMER: Boltz logged GPU OOM (batch skipped); failing.' >&2
+        exit 1
+    fi
+    if [[ "\$boltz_rc" -ne 0 ]]; then
+        exit "\$boltz_rc"
+    fi
 
     # Step 3: Run RMSD calculations
     # Create directories for rmsd4all
