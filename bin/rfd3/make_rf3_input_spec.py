@@ -82,14 +82,16 @@ def generate_rf3_input(
     template_selection: Optional[str] = None,
     basename_paths: bool = False,
 ) -> dict:
-    """Generate RF3 input JSON: name + components with seq/msa_path/chain_id and optional single template path (one per chain)."""
-    target_seq = get_chain_sequence_from_cif(structure_cif, target_chain, pdb_to_fasta_script)
+    """Generate RF3 input JSON: name + components with seq/msa_path/chain_id and optional single template path.
+
+    Without a template: [target (seq, optional msa_path), binder (seq)].
+
+    With a template: target coordinates come from the template file only — RF3 rejects duplicate
+    chain_id across components, so we must not add a separate seq component for the target chain.
+    The binder sequence component plus template path; target MSA (if any) is set via top-level
+    ``msa_paths`` (merged into chain_info in RF3), mapped to target_chain — never on the binder.
+    """
     binder_seq = get_chain_sequence_from_cif(structure_cif, binder_chain, pdb_to_fasta_script)
-    target_comp: dict = {"seq": target_seq, "chain_id": target_chain}
-    if target_msa_path is not None and target_msa_path.exists():
-        target_comp["msa_path"] = (
-            target_msa_path.name if basename_paths else str(target_msa_path.resolve())
-        )
     binder_comp: dict = {"seq": binder_seq, "chain_id": binder_chain}
     components: list[dict] = []
 
@@ -98,16 +100,23 @@ def generate_rf3_input(
             return p.name
         return str(p.resolve())
 
-    has_template = template_structure is not None and template_structure.exists()
-    if not has_template:
-        components.append(target_comp)
-    if has_template and target_msa_path is not None and target_msa_path.exists():
-        binder_comp["msa_path"] = (
+    def msa_path_str() -> str:
+        assert target_msa_path is not None
+        return (
             target_msa_path.name if basename_paths else str(target_msa_path.resolve())
         )
-    components.append(binder_comp)
+
+    has_template = template_structure is not None and template_structure.exists()
     if has_template:
+        components.append(binder_comp)
         components.append({"path": make_path(template_structure)})
+    else:
+        target_seq = get_chain_sequence_from_cif(structure_cif, target_chain, pdb_to_fasta_script)
+        target_comp: dict = {"seq": target_seq, "chain_id": target_chain}
+        if target_msa_path is not None and target_msa_path.exists():
+            target_comp["msa_path"] = msa_path_str()
+        components.append(target_comp)
+        components.append(binder_comp)
 
     config: dict = {
         "name": name,
@@ -115,6 +124,8 @@ def generate_rf3_input(
     }
     if has_template and template_selection:
         config["template_selection"] = [template_selection]
+    if has_template and target_msa_path is not None and target_msa_path.exists():
+        config["msa_paths"] = {target_chain: msa_path_str()}
 
     return config
 

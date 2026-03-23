@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry`.
 
+### Fixed
+- Boltz: `BOLTZ`, `BOLTZ_COMPARE_COMPLEX`, and `BOLTZ_COMPARE_BINDER_MONOMER` tee `boltz predict` to `.boltz_predict_console.log` and exit 1 if the log contains `ran out of memory, skipping batch` (Boltz may otherwise exit 0 and leave outputs missing).
+
 ### Changed
 - `merge_scores.py`: drop from the right any column that exists in the current left before each merge so the result has no `_x`/`_y` suffixes; treat `.cif` as path-like (use basename for merge key) in addition to `.pdb`.
 - `trim_to_contigs.py`: `parse_contigs()` now supports RFD3 v3 contig format (comma-separated, `/0` as separate element, e.g. `A18-132,/0,65-120`) in addition to v1 style.
