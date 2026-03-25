@@ -427,10 +427,10 @@ workflow RFD3 {
         .combine(ch_rmsd_binder_aligned_binder)
         .combine(ch_rmsd_target_aligned_target)
         .ifEmpty(Channel.of(tuple(
-            file("${projectDir}/assets/dummy_files/empty"),
-            file("${projectDir}/assets/dummy_files/empty"),
-            file("${projectDir}/assets/dummy_files/empty"),
-            file("${projectDir}/assets/dummy_files/empty"),
+            file("${projectDir}/assets/dummy_files/combine_placeholder_rmsd_target_aligned_binder"),
+            file("${projectDir}/assets/dummy_files/combine_placeholder_rmsd_complex"),
+            file("${projectDir}/assets/dummy_files/combine_placeholder_rmsd_binder_aligned_binder"),
+            file("${projectDir}/assets/dummy_files/combine_placeholder_rmsd_target_aligned_target"),
         )))
 
     ch_rf3_scores_merged = ROSETTAFOLD3.out.scores
@@ -445,8 +445,8 @@ workflow RFD3 {
     ch_combine_input = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
         .combine(ch_rmsd_tuple)
-        .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
-        .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/empty")))
+        .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_complex")))
+        .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer")))
         .combine(ch_mpnn_cifs)
         .map { it -> tuple(*it[0..7], it.drop(8)) }
     COMBINE_RFD3_SCORES(ch_combine_input)
