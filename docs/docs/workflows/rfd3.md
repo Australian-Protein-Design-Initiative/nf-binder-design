@@ -278,7 +278,7 @@ By default outputs are written under `results/rfd3/` (or the directory specified
   Per-design TSVs are also published in the same directory.
 
 - **`combined_scores.tsv`**  
-  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. The RMSD values (initial design vs refold) are also included as `refold_rmsd_*` columns.
+  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. The RMSD values (MPNN design vs RosettaFold3 refold) are also included as `rf3_rmsd_*` columns. When Boltz refolding is enabled (`refold_methods` includes `boltz`), Boltz confidence metrics appear as `boltz_complex_*` and `boltz_monomer_*`, and the same Boltz RMSD metrics as the `rfd` workflow’s `combined_scores.tsv` are merged from `boltz_refold/rmsd/`: `boltz_target_aligned_binder_rmsd_pruned`, `boltz_target_aligned_binder_rmsd_all` (design vs Boltz complex), and `boltz_monomer_vs_complex_rmsd_pruned`, `boltz_monomer_vs_complex_rmsd_all` (binder monomer vs complex). `rmsd_complex_vs_rf3.tsv` and `rmsd_monomer_vs_rf3.tsv` are not merged into this table.
 
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 

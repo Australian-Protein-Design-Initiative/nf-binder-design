@@ -55,7 +55,7 @@ process BOLTZ_COMPARE_COMPLEX {
         binder_msa_flag = '--target_msa empty'
     }
 
-    // Determine target sequence source - swap target/binder roles so output has binder=A, target=B
+    // Target sequence for YAML "binder" slot (Boltz output chain B); see create_boltz_yaml.py protein ids A/B
     def target_source_args = ''
     if (refold_target_fasta.name != 'empty') {
         target_source_args = "--binder_from_fasta '${refold_target_fasta}' --binder_chains '${target_chain}'"
@@ -88,9 +88,7 @@ process BOLTZ_COMPARE_COMPLEX {
     # Prevent Python from using ~/.local/lib/ packages mounted inside the container
     export PYTHONNOUSERSITE=1
 
-    # Create Boltz YAML from PDB
-    # Swapped: extract binder (chain ${binder_chain}) as target, target (chain ${target_chain}) as binder
-    # This results in output structure with binder=chain A, target=chain B
+    # Create Boltz YAML from PDB: binder sequence goes to YAML target slot (Boltz chain A), target sequence to YAML binder slot (Boltz chain B)
     /usr/bin/python3 ${projectDir}/bin/create_boltz_yaml.py \\
         --target_id '${binder_id}' \\
         --binder_id '${target_id}' \\
@@ -132,30 +130,36 @@ process BOLTZ_COMPARE_COMPLEX {
     ln -s "\$(readlink -f ${pdb})" "fixed/\$(basename ${pdb})"
     ln -s "\$(readlink -f boltz_results_${meta.id}/predictions/${meta.id}/${meta.id}_model_0.pdb)" "mobile/\$(basename boltz_results_${meta.id}/predictions/${meta.id}/${meta.id}_model_0.pdb)"
 
-    # Run target-aligned binder RMSD: superimpose on target (B), score binder (A)
+    # Boltz complex PDB chain IDs are always A,B from create_boltz_yaml.py: YAML "target" slot is
+    # chain A (here: input binder sequence), YAML "binder" slot is chain B (input target sequence).
+    # Input design structure keeps original chain IDs (${target_chain}=target, ${binder_chain}=binder).
+    # Mobile must use A=binder and B=target, not the input chain letters.
+    # Target-aligned binder RMSD: superimpose on target, score binder
     /usr/bin/python3 ${projectDir}/bin/rmsd4all.py \\
         --tm-score \\
         --superimpose-chains ${target_chain} \\
-        --mobile-superimpose-chains ${target_chain} \\
+        --mobile-superimpose-chains B \\
         --score-chains ${binder_chain} \\
-        --mobile-score-chains ${binder_chain} \\
+        --mobile-score-chains A \\
         ${output_transformed_flag_target} \\
         fixed/ mobile/ > rmsd_target_aligned_binder_${meta.id}.tsv
 
-    # Run complex RMSD: superimpose and score both chains (A,B)
+    # Complex RMSD: Boltz mobile is A=binder, B=target. Fixed side keeps input chain IDs; when those
+    # match Boltz (e.g. rfd AF2ig A=binder B=target), order aligns. Otherwise sequence-based alignment
+    # still pairs homologous chains; target-aligned row above is the robust pose metric.
     /usr/bin/python3 ${projectDir}/bin/rmsd4all.py \\
         --tm-score \\
         --superimpose-chains ${binder_chain},${target_chain} \\
-        --mobile-superimpose-chains ${binder_chain},${target_chain} \\
+        --mobile-superimpose-chains A,B \\
         --score-chains ${binder_chain},${target_chain} \\
-        --mobile-score-chains ${binder_chain},${target_chain} \\
+        --mobile-score-chains A,B \\
         ${output_transformed_flag_complex} \\
         fixed/ mobile/ > rmsd_complex_${meta.id}.tsv
 
     /usr/bin/python3 ${projectDir}/bin/ipsae.py \\
         --update-summary "boltz_results_${meta.id}/predictions/${meta.id}/confidence_${meta.id}_model_0.json" \\
-        --binder-chain ${binder_chain} \\
-        --target-chain ${target_chain} \\
+        --binder-chain A \\
+        --target-chain B \\
         --format boltz \\
         boltz_results_${meta.id}/predictions/${meta.id}/pae*.npz \\
         boltz_results_${meta.id}/predictions/${meta.id}/*.pdb \\

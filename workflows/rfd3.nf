@@ -354,6 +354,8 @@ workflow RFD3 {
 
     ch_boltz_complex = Channel.empty()
     ch_boltz_monomer = Channel.empty()
+    ch_boltz_rmsd_target_aligned_binder = Channel.empty()
+    ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
 
     if (refold_methods.contains('boltz')) {
         ch_boltz_input = ROSETTAFOLD3.out.refolded_cif
@@ -407,6 +409,8 @@ workflow RFD3 {
         )
         ch_boltz_complex = BOLTZ_REFOLD_SCORING_RFD3.out.boltz_scores_complex
         ch_boltz_monomer = BOLTZ_REFOLD_SCORING_RFD3.out.boltz_scores_monomer
+        ch_boltz_rmsd_target_aligned_binder = BOLTZ_REFOLD_SCORING_RFD3.out.rmsd_target_aligned_binder
+        ch_boltz_rmsd_monomer_vs_complex = BOLTZ_REFOLD_SCORING_RFD3.out.rmsd_monomer_vs_complex
     }
 
     ch_rmsd_target_aligned_binder = RFD3_RMSD.out.rmsd_target_aligned_binder
@@ -447,8 +451,10 @@ workflow RFD3 {
         .combine(ch_rmsd_tuple)
         .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_complex")))
         .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer")))
+        .combine(ch_boltz_rmsd_target_aligned_binder.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_target_aligned_binder")))
+        .combine(ch_boltz_rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_monomer_vs_complex")))
         .combine(ch_mpnn_cifs)
-        .map { it -> tuple(*it[0..7], it.drop(8)) }
+        .map { it -> tuple(*it[0..9], it.drop(10)) }
     COMBINE_RFD3_SCORES(ch_combine_input)
 
     emit:

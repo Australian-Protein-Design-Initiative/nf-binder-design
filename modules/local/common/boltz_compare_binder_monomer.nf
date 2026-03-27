@@ -95,16 +95,17 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
     ln -s "\$(readlink -f ${af2ig_pdb})" "fixed/\$(basename ${af2ig_pdb})"
     ln -s "\$(readlink -f \$MONOMER_PDB)" "mobile/\$(basename \$MONOMER_PDB)"
 
+    # Monomer Boltz output uses chain A (create_boltz_yaml binder-only mode). AF2IG/RFD3 binder is ${binder_chain}.
     /usr/bin/python3 ${projectDir}/bin/rmsd4all.py \\
         --tm-score \\
         --superimpose-chains ${binder_chain} \\
-        --mobile-superimpose-chains ${binder_chain} \\
+        --mobile-superimpose-chains A \\
         --score-chains ${binder_chain} \\
-        --mobile-score-chains ${binder_chain} \\
+        --mobile-score-chains A \\
         ${output_transformed_flag} \\
         fixed/ mobile/ > rmsd_monomer_vs_af2ig_${meta.id}.tsv
 
-    # Run RMSD: monomer vs Boltz complex binder (chain A)
+    # Run RMSD: monomer vs Boltz complex binder (Boltz complex always labels binder chain A; see boltz_compare_complex.nf)
     # Create fresh directories for this comparison
     rm -rf fixed/ mobile/
     mkdir -p fixed/
@@ -115,10 +116,10 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
 
     /usr/bin/python3 ${projectDir}/bin/rmsd4all.py \\
         --tm-score \\
-        --superimpose-chains ${binder_chain} \\
-        --mobile-superimpose-chains ${binder_chain} \\
-        --score-chains ${binder_chain} \\
-        --mobile-score-chains ${binder_chain} \\
+        --superimpose-chains A \\
+        --mobile-superimpose-chains A \\
+        --score-chains A \\
+        --mobile-score-chains A \\
         ${output_transformed_flag_complex} \\
         fixed/ mobile/ > rmsd_monomer_vs_complex_${meta.id}.tsv
 
