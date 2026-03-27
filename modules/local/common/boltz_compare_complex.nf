@@ -36,6 +36,7 @@ process BOLTZ_COMPARE_COMPLEX {
 
     def output_transformed_flag_target = params.output_rmsd_aligned ? "--output-transformed aligned_rmsd_target_aligned_binder/" : ''
     def output_transformed_flag_complex = params.output_rmsd_aligned ? "--output-transformed aligned_rmsd_complex/" : ''
+    def args = task.ext.args ?: ''
 
     // Determine MSA flags - swap these because we're swapping target/binder roles
     def target_msa_flag = '--binder_msa empty'
@@ -103,6 +104,7 @@ process BOLTZ_COMPARE_COMPLEX {
 
     # Run Boltz prediction
     boltz predict \\
+        ${args} \\
         --preprocessing-threads ${task.cpus} \\
         --num_workers ${task.cpus} \\
         --output_format pdb \\
