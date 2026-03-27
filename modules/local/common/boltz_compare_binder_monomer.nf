@@ -25,6 +25,7 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
 
     def output_transformed_flag = params.output_rmsd_aligned ? "--output-transformed aligned_rmsd_monomer_vs_af2ig/" : ''
     def output_transformed_flag_complex = params.output_rmsd_aligned ? "--output-transformed aligned_rmsd_monomer_vs_complex/" : ''
+    def args = task.ext.args ?: ''
 
     """
     set -euo pipefail
@@ -64,6 +65,7 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
     rm -f "\$BOLTZ_PREDICT_LOG"
     set +e
     boltz predict \\
+        ${args} \\
         --preprocessing-threads ${task.cpus} \\
         --num_workers ${task.cpus} \\
         --output_format pdb \\
