@@ -5,7 +5,7 @@ process GENERATE_RF3_INPUT_JSON {
     tuple val(meta), path(structure_cif), path(target_msa), path(target_templates)
 
     output:
-    tuple val(meta), path(structure_cif), path(target_msa), path(target_templates), path('rf3_config.json'), emit: with_json
+    tuple val(meta), path(structure_cif), path(target_msa), path(target_templates), path('rf3.json'), emit: with_json
 
     script:
     def use_msa = (target_msa.name != 'empty_target_msa' && target_msa.name != 'boltz_will_make_target_msa') ? 'true' : 'false'
@@ -22,6 +22,6 @@ process GENERATE_RF3_INPUT_JSON {
         --template-structure ${target_templates} \\
         --template-selection A \\
         --basename-paths \\
-        -o rf3_config.json
+        -o rf3.json
     """
 }
