@@ -53,12 +53,62 @@ def convertOmitAas(String omitStr) {
 }
 
 /**
+ * First chain ID from resolved designed_chains (e.g. "A,B" -> "A").
+ */
+def mpnnDesignedChainsFirst(String resolvedDesignedChains) {
+    def s = resolvedDesignedChains?.toString()?.trim()
+    if (!s) {
+        return 'B'
+    }
+    return s.split(',')[0].trim()
+}
+
+/**
+ * RFD3 target/binder chain letters (polymer order: first polymer A, second B, …).
+ * Two-polymer contigs only. With explicit --mpnn_designed_chains, passes first letter as --binder.
+ */
+List<String> resolveRfd3TargetBinderChains(projectDir, params) {
+    // ProcessBuilder needs java.lang.String elements, not GString (avoids arraycopy type mismatch).
+    def cmdList = new ArrayList<String>()
+    cmdList.add('python3')
+    cmdList.add("${projectDir}/bin/rfd3/stage_rfd3_config.py".toString())
+    cmdList.add('infer-rfd3-chain-pair')
+    if (params.rfd3_config) {
+        cmdList.add('--rfd3-config')
+        cmdList.add(file(params.rfd3_config).toString())
+    } else if (params.contigs?.toString()?.trim()) {
+        cmdList.add('--contig')
+        cmdList.add(params.contigs.toString().trim())
+    } else {
+        throw new Exception('Cannot infer RFD3 target/binder chains without --rfd3_config or --contigs')
+    }
+    def mpnnRaw = params.mpnn_designed_chains?.toString()?.trim()
+    if (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto')) {
+        cmdList.add('--binder')
+        cmdList.add(mpnnDesignedChainsFirst(mpnnRaw).toString())
+    }
+    def pb = new ProcessBuilder(cmdList)
+    pb.redirectErrorStream(true)
+    def proc = pb.start()
+    proc.waitFor()
+    def out = proc.inputStream.text.trim()
+    if (proc.exitValue() != 0) {
+        throw new Exception("stage_rfd3_config.py infer-rfd3-chain-pair failed: ${out}")
+    }
+    def line = out ? out.split(/\r?\n/)[0].trim() : ''
+    if (!line || !line.contains(',')) {
+        throw new Exception("stage_rfd3_config.py infer-rfd3-chain-pair produced invalid output: ${line}")
+    }
+    def parts = line.split(',', 2)
+    return [parts[0].trim().toString(), parts[1].trim().toString()]
+}
+
+/**
  * Build the MPNN CLI argument string from resolved params.
  */
-def buildMpnnArgs(params) {
+def buildMpnnArgs(params, String resolvedDesignedChains) {
     def model_type = resolveParam(null, params.mpnn_model_type)
     def legacy_weights = resolveParam(null, params.mpnn_legacy_weights)
-    def designed_chains = resolveParam(null, params.mpnn_designed_chains)
     def batch_size = resolveParam(params.pmpnn_seqs_per_struct, params.mpnn_batch_size)
     def temperature = resolveParam(params.pmpnn_temperature, params.mpnn_temperature)
     def structure_noise = resolveParam(params.pmpnn_augment_eps, params.mpnn_structure_noise)
@@ -70,7 +120,7 @@ def buildMpnnArgs(params) {
     def args = []
     args << "--model_type ${model_type}"
     args << "--is_legacy_weights ${legacy_weights ? 'True' : 'False'}"
-    args << "--designed_chains ${designed_chains}"
+    args << "--designed_chains ${resolvedDesignedChains}"
     args << "--batch_size ${batch_size}"
     args << "--temperature ${temperature}"
     args << "--structure_noise ${structure_noise}"

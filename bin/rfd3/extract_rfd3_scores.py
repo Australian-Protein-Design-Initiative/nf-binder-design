@@ -66,7 +66,41 @@ def extract_rfdiffusion3(json_path: Path) -> dict[str, Any]:
     return row
 
 
-def extract_rf3(json_path: Path) -> dict[str, Any]:
+def _chain_ptm_indices_for_target_binder(
+    data: dict[str, Any],
+    chain_ptm: list,
+    target_chain: Optional[str],
+    binder_chain: Optional[str],
+) -> tuple[Optional[int], Optional[int]]:
+    """Map target/binder chain IDs to chain_ptm indices (two-chain models)."""
+    if not target_chain or not binder_chain or len(chain_ptm) < 2:
+        return None, None
+    tc = target_chain.strip()
+    bc = binder_chain.strip()
+    cids = data.get("chain_ids")
+    if isinstance(cids, list) and len(cids) == len(chain_ptm):
+
+        def find_idx(ch: str) -> Optional[int]:
+            for i, x in enumerate(cids):
+                if str(x).strip() == ch:
+                    return i
+            return None
+
+        it, ib = find_idx(tc), find_idx(bc)
+        if it is not None and ib is not None:
+            return it, ib
+    order = sorted([tc, bc])
+    try:
+        return order.index(tc), order.index(bc)
+    except ValueError:
+        return None, None
+
+
+def extract_rf3(
+    json_path: Path,
+    target_chain: Optional[str] = None,
+    binder_chain: Optional[str] = None,
+) -> dict[str, Any]:
     with open(json_path) as f:
         data = json.load(f)
 
@@ -87,10 +121,14 @@ def extract_rf3(json_path: Path) -> dict[str, Any]:
         "filename": f"{stem}.cif",
     }
 
-    # RF3/RFD3 output: chain A = target (index 0), chain B = binder (index 1)
     chain_ptm = data.get("chain_ptm") or []
-    row["ptm_target"] = chain_ptm[0] if len(chain_ptm) > 0 else None
-    row["ptm_binder"] = chain_ptm[1] if len(chain_ptm) > 1 else None
+    it, ib = _chain_ptm_indices_for_target_binder(data, chain_ptm, target_chain, binder_chain)
+    if it is not None and ib is not None:
+        row["ptm_target"] = chain_ptm[it] if it < len(chain_ptm) else None
+        row["ptm_binder"] = chain_ptm[ib] if ib < len(chain_ptm) else None
+    else:
+        row["ptm_target"] = chain_ptm[0] if len(chain_ptm) > 0 else None
+        row["ptm_binder"] = chain_ptm[1] if len(chain_ptm) > 1 else None
 
     for src_key, out_key in [
         ("chain_pair_pae_min", "pair_pae_min"),
@@ -128,7 +166,7 @@ def cmd_rfdiffusion3(args: argparse.Namespace) -> int:
 
 
 def cmd_rf3(args: argparse.Namespace) -> int:
-    row = extract_rf3(args.json)
+    row = extract_rf3(args.json, args.target_chain, args.binder_chain)
     df = pd.DataFrame([row])
     out = args.output
     if out == "-":
@@ -150,11 +188,23 @@ def main() -> int:
 
     rf3_parser = subparsers.add_parser("rf3", help="Extract from RosettaFold3 summary_confidences JSON")
     rf3_parser.add_argument("json", type=Path, help="Path to *_summary_confidences.json")
+    rf3_parser.add_argument(
+        "--target-chain",
+        default=None,
+        help="Target chain ID in RF3 output (maps ptm_target when set with --binder-chain)",
+    )
+    rf3_parser.add_argument(
+        "--binder-chain",
+        default=None,
+        help="Binder chain ID in RF3 output (maps ptm_binder when set with --target-chain)",
+    )
     rf3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")
     rf3_parser.set_defaults(func=cmd_rf3)
 
     rosettafold3_parser = subparsers.add_parser("rosettafold3", help="Extract from RosettaFold3 summary_confidences JSON")
     rosettafold3_parser.add_argument("json", type=Path, help="Path to *_summary_confidences.json")
+    rosettafold3_parser.add_argument("--target-chain", default=None, help="Target chain ID in RF3 output")
+    rosettafold3_parser.add_argument("--binder-chain", default=None, help="Binder chain ID in RF3 output")
     rosettafold3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")
     rosettafold3_parser.set_defaults(func=cmd_rf3)
 

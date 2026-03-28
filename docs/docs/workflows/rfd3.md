@@ -118,6 +118,17 @@ Key behaviour in params mode:
   - The workflow automatically normalises v1-style strings to v3 format before building the config.  
   - **RFDiffusion3 v3-style contigs are recommended** for new projects.
 
+#### Chain IDs in RFD3 output vs input PDB
+
+RFD3 assigns chain letters **A**, **B**, … in **contig polymer order** (polymers separated by `/0` in v3), not by copying chain IDs from your input PDB/CIF.
+
+- Contig `C18-132,/0,50-120`: the first chain (chain C in the input PDB) is the target (template) and the second is the _de novo_ binder length range to generate. In this case, the RFD3 output will have **A** = target, **B** = binder.
+- Contig `50-120,/0,C18-132`: the first chain is the binder and the second is the target - in this case, the RFD3 output will have **A** = binder, **B** = target.
+
+The workflow default **`--mpnn_designed_chains='auto'`** infers which output chain is the binder (only the case where you are generating a single binder chain is supported). If you set **`--mpnn_designed_chains`** explicitly (e.g. `A` or `B`, or `A,B`) be sure you are choosing chain IDs that match the expected RFD3 output chain IDs. Use `task.ext.args` to pass any additional arguments to MPNN.
+
+After MPNN, RosettaFold3 input JSON uses the same **target** and **binder** chain IDs as RFDiffusion3 (first polymer **A**, second **B**, etc.): the trimmed template is renamed to the target letter, and the binder component uses the binder letter. Optional Boltz full refold, design-vs-refold RMSD, IPSAE, and `combined_scores.tsv` sequence extraction all use that same pair so chain IDs stay consistent end to end. **Two polymers** in the contig are required for this automatic pairing (see `bin/rfd3/stage_rfd3_config.py infer-rfd3-chain-pair`).
+
 - **Hotspots (`--hotspot_res`)**  
   - Accepts a comma-separated list of residue IDs, e.g. `--hotspot_res "A56,A115,A123"`.  
   - The internal config generator converts these to `select_hotspots` entries with `"ALL"` atoms for each residue (all atoms of each residue are targeted).  
@@ -165,7 +176,7 @@ Below is a summary of the most important parameters for `--method rfd3`.
   Additional CLI arguments passed through to the RFDiffusion3 CLI (e.g. extra sampler overrides). eg, `--rfd3_extra_args "low_memory_mode=True"`.
 
 - **`--rfd3_filters`**  
-  Semicolon-separated list of filters applied to RFD3 backbone structures **immediately after** RFDiffusion3, before MPNN. Uses the same filter system as the RFdiffusion v1 workflow (e.g. `bin/filter_designs.py` and `bin/filters.d/`). Example: `--rfd3_filters "rg<25"` to keep only binders with a radius of gyration (Rg) below 25 Å.
+  Semicolon-separated list of filters applied to RFD3 backbone structures **immediately after** RFDiffusion3, before MPNN. Uses the same filter system as the RFdiffusion v1 workflow (e.g. `bin/filter_designs.py` and `bin/filters.d/`). The binder chain for filtering is the same chain MPNN redesigns (see **`--mpnn_designed_chains`** / contig order above). Example: `--rfd3_filters "rg<25"` to keep only binders with a radius of gyration (Rg) below 25 Å.
 
 #### ProteinMPNN Parameters
 
@@ -182,7 +193,7 @@ Common options:
   Whether to use the legacy ProteinMPNN weights format. **Default:** `true`.
 
 - **`--mpnn_designed_chains`**  
-  Chain IDs to redesign. **Default:** `A`.
+  Chain IDs passed to ProteinMPNN as `--designed_chains`. **`auto`** (default): infer the binder chain from the contig (exactly one polymer of length-only segments, e.g. `50-120`). Otherwise use explicit chain ID(s), e.g. `B` or `A,B`. See [Chain IDs in RFD3 output vs input PDB](#chain-ids-in-rfd3-output-vs-input-pdb).
 
 - **`--mpnn_batch_size`** (or the legacy **`--pmpnn_seqs_per_struct`**)  
   Number of sequences to sample per backbone. **Default:** 1 sequence per backbone (via `--pmpnn_seqs_per_struct=1` when `--mpnn_batch_size` is not set).
@@ -232,7 +243,7 @@ RosettaFold3 structure prediction can use a target-chain MSA and/or structural t
 - **`--rf3_target_fasta`**  
   Optional path to a target FASTA file used when building the RF3 target MSA (only when `--rf3_create_target_msa` is set and `--rf3_alignment` is not). If unset, the target sequence is derived from the initial target structure (chain A).
 
-The target structure passed as **`--input_pdb`** is always used as the single RF3 template (one template per chain; RF3 does not accept multiple templates per chain). Before use, the workflow prepares this template so it matches what RFDiffusion3 sees: if the input is mmCIF it is converted to PDB (gemmi); the structure is trimmed to the same contig ranges as RFD3 (see **`--contigs`** or the config’s `contig` field) via `bin/trim_to_contigs.py` (supports both v1 and v3 contig syntax); then all chain IDs in the trimmed structure are renamed to **A** (gemmi `convert --rename-chain`), since RFD3 always outputs the target as chain A regardless of input chain IDs.
+The target structure passed as **`--input_pdb`** is always used as the single RF3 template (one template per chain; RF3 does not accept multiple templates per chain). Before use, the workflow prepares this template so it matches what RFDiffusion3 sees: if the input is mmCIF it is converted to PDB (gemmi); the structure is trimmed to the same contig ranges as RFD3 (see **`--contigs`** or the config’s `contig` field) via `bin/trim_to_contigs.py` (supports both v1 and v3 contig syntax); then all chain IDs in the trimmed structure are renamed to the **target** chain letter inferred from contig polymer order (e.g. **A** when the target is the first polymer, **B** when the target is the second), matching the chain ID of the target in RFD3/MPNN design CIFs.
 
 When `--rf3_create_target_msa` is `true`, `--rf3_alignment` is not set, and `--rf3_use_msa_server` is `false`, you must provide **`--colabfold_envdb`** and **`--uniref30`** (same as for the optional Boltz full refold step).
 

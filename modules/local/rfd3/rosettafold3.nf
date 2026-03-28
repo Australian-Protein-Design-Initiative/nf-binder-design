@@ -7,6 +7,8 @@ process ROSETTAFOLD3 {
     input:
     tuple val(meta), path(structure_cif), path(target_msa), path(target_templates), path(rf3_input_json)
     val(uid)
+    val(target_chain)
+    val(binder_chain)
 
     output:
     path 'output/*', emit: results
@@ -57,14 +59,16 @@ process ROSETTAFOLD3 {
         (cd "\$outdir" && python ${projectDir}/bin/ipsae.py \\
             --format rf3 \\
             --update-summary "\$(basename "\$summary_conf")" \\
-            --binder-chain B --target-chain A \\
+            --binder-chain ${binder_chain} --target-chain ${target_chain} \\
             "\$(basename "\$full_conf")" "\$(basename "\$cif")" 10 10)
     fi
 
     if [[ -n "\$summary_conf" ]]; then
         suffix=\$(basename "\$summary_conf" _summary_confidences.json | sed -n 's/.*\\(cif_b[0-9]*_d[0-9]*\\)/\\1/p')
         [[ -z "\$suffix" ]] && suffix=rf3
-        python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rosettafold3 "\$summary_conf" -o rfd3_${uid}_batch0_rf3_\${suffix}.tsv
+        python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rosettafold3 "\$summary_conf" \\
+            --target-chain ${target_chain} --binder-chain ${binder_chain} \\
+            -o rfd3_${uid}_batch0_rf3_\${suffix}.tsv
     fi
     """
 }

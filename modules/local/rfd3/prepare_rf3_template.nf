@@ -2,12 +2,12 @@
 // Resolve contigs from contigs_string (params mode) or from contigs_or_config file (config mode: JSON or plain).
 // 0) Convert CIF to PDB if needed (gemmi)
 // 1) Trim to contigs so the template matches what RFDiffusion3 sees (trim_to_contigs.py; supports RFD3 v3 contig syntax)
-// 2) Rename all chains to A (gemmi convert --rename-chain) so chain IDs match RFD3 output (target = A)
+// 2) Rename all chains to target_chain (gemmi) so the template chain_id matches RFD3 output for the target polymer
 process PREPARE_RF3_TEMPLATE {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
-    tuple path(structure), path(contigs_or_config), val(contigs_string)
+    tuple path(structure), path(contigs_or_config), val(contigs_string), val(target_chain)
 
     output:
     path('template_rf3.pdb'), emit: pdb
@@ -42,12 +42,12 @@ process PREPARE_RF3_TEMPLATE {
         cp "\${work}" trimmed.pdb
     fi
 
-    # Step 2: Rename all chains to A (RFD3 always outputs target as chain A)
+    # Step 2: Rename all chains to target_chain (matches RFD3 target polymer letter from contig order)
     chains=\$(gemmi residues -c -s -s -s trimmed.pdb 2>/dev/null | tail -n +2 | awk '{print \$1}' | sort -u || true)
     rename_args=""
     for ch in \$chains; do
-        if [[ "\$ch" != "A" ]]; then
-            rename_args="\${rename_args} --rename-chain=\${ch}:A"
+        if [[ "\$ch" != "${target_chain}" ]]; then
+            rename_args="\${rename_args} --rename-chain=\${ch}:${target_chain}"
         fi
     done
     if [[ -n "\${rename_args}" ]]; then

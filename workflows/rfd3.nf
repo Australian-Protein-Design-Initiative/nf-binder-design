@@ -44,7 +44,7 @@ params.rf3_alignment = false  // external A3M file; bypasses MMseqs2 when set
 // MPNN params - new (mpnn_*)
 params.mpnn_model_type = 'protein_mpnn'
 params.mpnn_legacy_weights = true
-params.mpnn_designed_chains = 'B'
+params.mpnn_designed_chains = 'auto'
 params.mpnn_batch_size = false
 params.mpnn_temperature = 0.1
 params.mpnn_structure_noise = 0
@@ -93,7 +93,12 @@ include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
 include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
 include { FILTER_DESIGNS as RFD3_FILTER_DESIGNS } from '../modules/local/rfd3/filter_designs'
-include { buildMpnnArgs; normaliseContigToV3 } from '../modules/local/rfd3/rfd3_utils'
+include {
+    buildMpnnArgs;
+    normaliseContigToV3;
+    mpnnDesignedChainsFirst;
+    resolveRfd3TargetBinderChains;
+} from '../modules/local/rfd3/rfd3_utils'
 include { BOLTZ_REFOLD_SCORING_RFD3 } from '../subworkflows/local/boltz_refold_scoring_rfd3'
 
 workflow RFD3 {
@@ -158,12 +163,12 @@ workflow RFD3 {
             --rfd3_gamma_0        inference_sampler.gamma_0 [default: ${params.rfd3_gamma_0}]
             --rfd3_is_non_loopy  Set "is_non_loopy" in config: true/false to add, unset to omit (params mode only) [default: omit]
             --rfd3_extra_args     Additional CLI arguments for rfd3 [default: ${params.rfd3_extra_args}]
-            --rfd3_filters        Semicolon-separated filters for RFD3 backbones (binder = chain B), e.g. "rg<25" [default: disabled]
+            --rfd3_filters        Semicolon-separated filters for RFD3 backbones (binder chain follows contig order; use --mpnn_designed_chains if needed), e.g. "rg<25" [default: disabled]
 
         MPNN options (new names / legacy names):
             --mpnn_model_type / (n/a)                  Model type [default: ${params.mpnn_model_type}]
             --mpnn_legacy_weights / (n/a)              Use legacy weights [default: ${params.mpnn_legacy_weights}]
-            --mpnn_designed_chains / (n/a)             Chains to redesign [default: ${params.mpnn_designed_chains}]
+            --mpnn_designed_chains / (n/a)             Chains for MPNN --designed_chains, or 'auto' (infer binder polymer from contig) [default: ${params.mpnn_designed_chains}]
             --mpnn_batch_size / --pmpnn_seqs_per_struct  Sequences per structure [default: ${params.pmpnn_seqs_per_struct}]
             --mpnn_temperature / --pmpnn_temperature   Sampling temperature [default: ${params.mpnn_temperature}]
             --mpnn_structure_noise / --pmpnn_augment_eps  Structure noise [default: ${params.mpnn_structure_noise}]
@@ -221,6 +226,14 @@ workflow RFD3 {
     def n_batches = Math.ceil(params.rfd3_n_designs / params.rfd3_batch_size).toInteger()
     if (n_batches < 1) { n_batches = 1 }
 
+    def rf3ChainPair = resolveRfd3TargetBinderChains(projectDir, params)
+    def rfd3TargetChain = rf3ChainPair[0]
+    def rfd3BinderChain = rf3ChainPair[1]
+    def mpnnRaw = params.mpnn_designed_chains?.toString()?.trim()
+    def effectiveMpnnDesignedChains = (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto')) ? mpnnRaw : rfd3BinderChain
+    def mpnnBinderChainFirst = mpnnDesignedChainsFirst(effectiveMpnnDesignedChains)
+    def mpnn_args = buildMpnnArgs(params, effectiveMpnnDesignedChains)
+
     if (params.rfd3_config) {
         // Config mode: user provides their own JSON/YAML config
         ch_config = Channel.fromPath(params.rfd3_config).first()
@@ -273,16 +286,13 @@ workflow RFD3 {
         )
     }
 
-    // Build MPNN CLI args from resolved params
-    def mpnn_args = buildMpnnArgs(params)
-
     ch_rfd3_cifs = RFDIFFUSION3.out.cifs.flatten()
 
     if (params.rfd3_filters) {
         RFD3_FILTER_DESIGNS(
             ch_rfd3_cifs,
             params.rfd3_filters,
-            'B',
+            rfd3BinderChain,
             'filter',
         )
         ch_backbones = RFD3_FILTER_DESIGNS.out.accepted
@@ -324,16 +334,20 @@ workflow RFD3 {
         ch_single_rf3_msa = Channel.of(file("${projectDir}/assets/dummy_files/empty_target_msa"))
     }
 
-    // Prepare RF3 template: resolve contigs (from value or config file), then CIF->PDB, trim to contigs, rename chains to A.
+    // Prepare RF3 template: trim to contigs, rename all template chains to rfd3TargetChain (RFD3 polymer order).
+    def ch_rf3_target_chain_val = Channel.value(rfd3TargetChain)
     def ch_prepare_input
     if (params.rfd3_config) {
         ch_prepare_input = Channel.of(file(target_pdb_path)).first()
             .combine(Channel.fromPath(params.rfd3_config).first())
-            .map { s, cfg -> tuple(s, cfg, '') }
+            .combine(ch_rf3_target_chain_val)
+            .map { s, cfg, tc -> tuple(s, cfg, '', tc) }
     } else {
         ch_prepare_input = Channel.of(file(target_pdb_path)).first()
             .combine(Channel.of(file("${projectDir}/assets/dummy_files/empty_templates")))
             .combine(Channel.of(normaliseContigToV3(params.contigs)))
+            .combine(ch_rf3_target_chain_val)
+            .map { s, empty, contig, tc -> tuple(s, empty, contig, tc) }
     }
     PREPARE_RF3_TEMPLATE(ch_prepare_input)
 
@@ -344,12 +358,22 @@ workflow RFD3 {
     def ch_rf3_input = ch_mpnn_with_meta
         .combine(ch_rf3_msa_val)
         .combine(ch_rf3_template_val)
-        .map { meta, cif, msa, template -> tuple(meta, cif, msa, template) }
+        .combine(Channel.value(rfd3TargetChain))
+        .combine(Channel.value(rfd3BinderChain))
+        .map { meta, cif, msa, template, tc, bc -> tuple(meta, cif, msa, template, tc, bc) }
 
     GENERATE_RF3_INPUT_JSON(ch_rf3_input)
-    ROSETTAFOLD3(GENERATE_RF3_INPUT_JSON.out.with_json, ch_unique_id)
+    ROSETTAFOLD3(
+        GENERATE_RF3_INPUT_JSON.out.with_json,
+        ch_unique_id,
+        Channel.value(rfd3TargetChain),
+        Channel.value(rfd3BinderChain),
+    )
 
-    ch_rmsd_input = ch_mpnn_with_meta.join(ROSETTAFOLD3.out.refolded_cif)
+    ch_rmsd_input = ch_mpnn_with_meta
+        .join(ROSETTAFOLD3.out.refolded_cif)
+        .combine(Channel.value(rfd3TargetChain))
+        .combine(Channel.value(rfd3BinderChain))
     RFD3_RMSD(ch_rmsd_input)
 
     ch_boltz_complex = Channel.empty()
@@ -395,8 +419,8 @@ workflow RFD3 {
 
         BOLTZ_REFOLD_SCORING_RFD3(
             ch_boltz_input,
-            'B', // binder_chain
-            'A', // target_chain
+            rfd3BinderChain,
+            rfd3TargetChain,
             params.full_refold_max,
             params.full_refold_create_target_msa,
             params.full_refold_use_msa_server,
@@ -442,9 +466,13 @@ workflow RFD3 {
     ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
         .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1)
 
+    // collect() yields a List; combine() flattens Lists into the parent tuple, which broke
+    // tuple(*it[0..9], it[11], it[10]) (binder chain vs MPNN paths swapped). Wrap as [list]
+    // so one combine element stays a List for path(mpnn_cifs, stageAs: 'cifs/*').
     ch_mpnn_cifs = MPNN.out.cifs.flatten()
+        .ifEmpty(Channel.of(file("${projectDir}/assets/dummy_files/empty.cif")))
         .collect()
-        .ifEmpty(Channel.value([file("${projectDir}/assets/dummy_files/empty.cif")]))
+        .map { cifs -> [cifs as List] }
 
     ch_combine_input = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
@@ -454,7 +482,8 @@ workflow RFD3 {
         .combine(ch_boltz_rmsd_target_aligned_binder.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_target_aligned_binder")))
         .combine(ch_boltz_rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_monomer_vs_complex")))
         .combine(ch_mpnn_cifs)
-        .map { it -> tuple(*it[0..9], it.drop(10)) }
+        .combine(Channel.value(rfd3BinderChain))
+        .map { it -> tuple(*it[0..9], it[11], it[10]) }
     COMBINE_RFD3_SCORES(ch_combine_input)
 
     emit:

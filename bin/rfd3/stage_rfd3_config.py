@@ -12,6 +12,10 @@ Modes:
   generate   - Create a new RFD3 JSON config from CLI flags, translating
                RFDiffusion v1-style contigs/hotspots to v3 format.
   parse-inputs - Print resolved input file path(s) from config (one per line).
+  infer-binder-chain - Print MPNN binder chain letter (A, B, ...) from contig
+               (v3 polymers split on /0; exactly one length-only binder polymer).
+  infer-rfd3-chain-pair - Print target,binder chain letters for RFD3/MPNN/RF3
+               (two-polymer contigs; optional --binder when MPNN chains are explicit).
 """
 
 import argparse
@@ -21,7 +25,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
@@ -84,6 +88,139 @@ def convert_v1_contigs_to_v3(contigs: str) -> str:
             v3_parts.append(part)
 
     return ",".join(v3_parts)
+
+
+_BINDER_SEG = re.compile(r"^\d+-\d+$")
+_TARGET_SEG = re.compile(r"^([A-Za-z]+)(-?\d+)-(-?\d+)$")
+
+
+def normalise_contig_for_binder_infer(contig: str) -> str:
+    """v3 pass-through when comma-separated; otherwise run v1→v3."""
+    s = contig.strip()
+    if not s:
+        return ""
+    if "," in s and " " not in s:
+        return s
+    return convert_v1_contigs_to_v3(s)
+
+
+def split_polymers_v3(v3_contig: str) -> List[List[str]]:
+    tokens = [t.strip() for t in v3_contig.strip().split(",") if t.strip()]
+    polymers: List[List[str]] = []
+    current: List[str] = []
+    for t in tokens:
+        if t == "/0":
+            polymers.append(current)
+            current = []
+        else:
+            current.append(t)
+    polymers.append(current)
+    return polymers
+
+
+def _strip_slash_suffix(part: str) -> str:
+    if "/" in part:
+        return part.split("/")[0].strip()
+    return part.strip()
+
+
+def is_binder_polymer(segments: List[str]) -> bool:
+    if not segments:
+        return False
+    for seg in segments:
+        seg = _strip_slash_suffix(seg)
+        if not seg:
+            return False
+        if _TARGET_SEG.match(seg):
+            return False
+        if not _BINDER_SEG.match(seg):
+            return False
+    return True
+
+
+def infer_binder_chain_from_contig(contig: str) -> str:
+    """Single binder polymer (length-only segments); return chr(A + polymer_index)."""
+    v3 = normalise_contig_for_binder_infer(contig)
+    if not v3:
+        raise ValueError("Empty contig after normalisation")
+
+    polymers = [p for p in split_polymers_v3(v3) if p]
+    binder_indices = [i for i, p in enumerate(polymers) if is_binder_polymer(p)]
+    if len(binder_indices) != 1:
+        raise ValueError(
+            f"Expected exactly one binder polymer (length-only segments); "
+            f"found {len(binder_indices)} in contig {contig!r} (v3={v3!r})"
+        )
+    return chr(ord("A") + binder_indices[0])
+
+
+def resolve_rfd3_target_binder_chain_letters(
+    contig: str, explicit_binder: Optional[str] = None
+) -> Tuple[str, str]:
+    """Target and binder chain IDs as RFD3 assigns (first polymer A, second B, …).
+
+    Requires exactly two polymers. Binder index from inference unless ``explicit_binder``
+    gives the first MPNN designed chain letter (A or B for two polymers).
+    """
+    v3 = normalise_contig_for_binder_infer(contig)
+    if not v3:
+        raise ValueError("Empty contig after normalisation")
+
+    polymers = [p for p in split_polymers_v3(v3) if p]
+    if len(polymers) != 2:
+        raise ValueError(
+            f"Expected exactly two contig polymers for RFD3 target/binder chain IDs; "
+            f"got {len(polymers)} in contig {contig!r} (v3={v3!r})"
+        )
+
+    if explicit_binder:
+        binder = explicit_binder.strip().split(",")[0].strip().upper()
+        if len(binder) != 1 or binder not in "AB":
+            raise ValueError(
+                f"For a two-polymer contig, --binder must be A or B; got {explicit_binder!r}"
+            )
+        bi = ord(binder) - ord("A")
+    else:
+        binder = infer_binder_chain_from_contig(contig)
+        bi = ord(binder) - ord("A")
+
+    ti = 1 - bi
+    target = chr(ord("A") + ti)
+    return target, binder
+
+
+def contig_from_rfd3_config_path(config_path: str) -> str:
+    """Read contig from first spec: JSON/YAML object, else whole file as contig string."""
+    path = Path(config_path)
+    text = path.read_text()
+    suf = path.suffix.lower()
+    if suf == ".json":
+        data = json.loads(text)
+        if not isinstance(data, dict) or not data:
+            raise ValueError(f"RFD3 config must be a non-empty JSON object: {path}")
+        spec = next(iter(data.values()))
+        if not isinstance(spec, dict):
+            raise ValueError(f"First config entry must be an object: {path}")
+        c = spec.get("contig", "")
+        if not isinstance(c, str):
+            raise ValueError(f"contig must be a string in {path}")
+        return c.strip()
+    if suf in (".yaml", ".yml"):
+        try:
+            import yaml  # type: ignore[import-untyped]
+        except ImportError as e:
+            raise ValueError("YAML config requires PyYAML (pip install pyyaml)") from e
+        data = yaml.safe_load(text)
+        if not isinstance(data, dict) or not data:
+            raise ValueError(f"RFD3 config must be a non-empty mapping: {path}")
+        spec = next(iter(data.values()))
+        if not isinstance(spec, dict):
+            raise ValueError(f"First config entry must be a mapping: {path}")
+        c = spec.get("contig", "")
+        if not isinstance(c, str):
+            raise ValueError(f"contig must be a string in {path}")
+        return c.strip()
+    return " ".join(text.split()).strip()
 
 
 def parse_v1_hotspots(hotspot_str: str) -> dict:
@@ -185,6 +322,43 @@ def cmd_stage(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_infer_binder_chain(args: argparse.Namespace) -> int:
+    try:
+        if args.rfd3_config is not None:
+            p = Path(args.rfd3_config)
+            if not p.is_file():
+                log.error("Config not found: %s", p)
+                return 1
+            contig = contig_from_rfd3_config_path(str(p))
+        else:
+            contig = args.contig or ""
+        chain = infer_binder_chain_from_contig(contig)
+    except (ValueError, OSError, json.JSONDecodeError) as e:
+        log.error("%s", e)
+        return 1
+    print(chain)
+    return 0
+
+
+def cmd_infer_rfd3_chain_pair(args: argparse.Namespace) -> int:
+    try:
+        if args.rfd3_config is not None:
+            p = Path(args.rfd3_config)
+            if not p.is_file():
+                log.error("Config not found: %s", p)
+                return 1
+            contig = contig_from_rfd3_config_path(str(p))
+        else:
+            contig = args.contig or ""
+        exp = args.binder.strip() if args.binder else None
+        target, binder = resolve_rfd3_target_binder_chain_letters(contig, exp)
+    except (ValueError, OSError, json.JSONDecodeError) as e:
+        log.error("%s", e)
+        return 1
+    print(f"{target},{binder}")
+    return 0
+
+
 def cmd_generate(args: argparse.Namespace) -> int:
     is_non_loopy: Optional[bool] = None
     if args.is_non_loopy and args.allow_loopy:
@@ -259,12 +433,47 @@ def main() -> int:
     )
     gen_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
+    infer_parser = subparsers.add_parser(
+        "infer-binder-chain",
+        help="Print binder chain letter for MPNN --designed_chains from contig or config",
+    )
+    infer_g = infer_parser.add_mutually_exclusive_group(required=True)
+    infer_g.add_argument("--contig", help="RFD3 or v1-style contig string")
+    infer_g.add_argument(
+        "--rfd3-config",
+        type=str,
+        dest="rfd3_config",
+        help="RFD3 JSON/YAML config path (first entry contig)",
+    )
+
+    pair_parser = subparsers.add_parser(
+        "infer-rfd3-chain-pair",
+        help="Print target,binder chain letters (RFD3 polymer order; two polymers only)",
+    )
+    pair_g = pair_parser.add_mutually_exclusive_group(required=True)
+    pair_g.add_argument("--contig", help="RFD3 or v1-style contig string")
+    pair_g.add_argument(
+        "--rfd3-config",
+        type=str,
+        dest="rfd3_config",
+        help="RFD3 JSON/YAML config path (first entry contig)",
+    )
+    pair_parser.add_argument(
+        "--binder",
+        default=None,
+        help="First MPNN designed chain when not using auto (must be A or B)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "stage":
         return cmd_stage(args)
     if args.command == "parse-inputs":
         return cmd_parse_inputs(args)
+    if args.command == "infer-binder-chain":
+        return cmd_infer_binder_chain(args)
+    if args.command == "infer-rfd3-chain-pair":
+        return cmd_infer_rfd3_chain_pair(args)
     if args.command == "generate":
         return cmd_generate(args)
 

@@ -15,6 +15,7 @@ process COMBINE_RFD3_SCORES {
           path(boltz_scores_monomer, stageAs: 'boltz_scores_monomer.tsv'),
           path(boltz_rmsd_target_aligned_binder, stageAs: 'boltz_rmsd_target_aligned_binder.tsv'),
           path(boltz_rmsd_monomer_vs_complex, stageAs: 'boltz_rmsd_monomer_vs_complex.tsv'),
+          val(binder_seq_chain),
           path(mpnn_cifs, stageAs: 'cifs/*')
 
     output:
@@ -32,9 +33,10 @@ process COMBINE_RFD3_SCORES {
       --first-column id,filename,pair_pae_min,ranking_score,iptm,plddt \\
       -o combined_scores.tsv
 
-    python ${projectDir}/bin/rfd3/fa_to_sequences_tsv.py cifs/ --chain B -o sequences.tsv
+    python ${projectDir}/bin/rfd3/fa_to_sequences_tsv.py cifs/ --chain "${binder_seq_chain}" -o sequences.tsv
 
-    if [[ -s sequences.tsv && \$(wc -l < sequences.tsv) -gt 1 ]]; then
+    seq_rows=\$(awk 'NR>1 {n++} END {print n+0}' sequences.tsv 2>/dev/null || echo 0)
+    if [[ -s sequences.tsv && "\${seq_rows}" -ge 1 ]]; then
       csvtk replace -t -f filename -p '\\.cif\$' -r '_rf3_config.cif' sequences.tsv -o sequences_for_merge.tsv
       mv sequences_for_merge.tsv sequences.tsv
       python ${projectDir}/bin/merge_scores.py \\

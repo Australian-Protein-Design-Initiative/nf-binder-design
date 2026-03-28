@@ -81,6 +81,7 @@ def generate_rf3_input(
     template_structure: Optional[Path] = None,
     template_selection: Optional[str] = None,
     basename_paths: bool = False,
+    binder_sequence_chain: Optional[str] = None,
 ) -> dict:
     """Generate RF3 input JSON: name + components with seq/msa_path/chain_id and optional single template path.
 
@@ -90,8 +91,13 @@ def generate_rf3_input(
     chain_id across components, so we must not add a separate seq component for the target chain.
     The binder sequence component plus template path; target MSA (if any) is set via top-level
     ``msa_paths`` (merged into chain_info in RF3), mapped to target_chain — never on the binder.
+
+    ``binder_sequence_chain``: chain in the MPNN/RFD3 CIF where the binder sequence is read
+    (defaults to ``binder_chain``). JSON ``chain_id`` values use ``target_chain`` and ``binder_chain``
+    so RosettaFold3 matches RFDiffusion3 polymer order (template trimmed/renamed to ``target_chain``).
     """
-    binder_seq = get_chain_sequence_from_cif(structure_cif, binder_chain, pdb_to_fasta_script)
+    seq_chain = binder_sequence_chain if binder_sequence_chain else binder_chain
+    binder_seq = get_chain_sequence_from_cif(structure_cif, seq_chain, pdb_to_fasta_script)
     binder_comp: dict = {"seq": binder_seq, "chain_id": binder_chain}
     components: list[dict] = []
 
@@ -155,7 +161,16 @@ def main() -> int:
     )
     json_parser.add_argument("--structure-cif", required=True, help="Structure CIF (target + binder)")
     json_parser.add_argument("--target-chain", default="A", help="Target chain ID")
-    json_parser.add_argument("--binder-chain", default="B", help="Binder chain ID")
+    json_parser.add_argument(
+        "--binder-chain",
+        default="B",
+        help="chain_id for binder in RF3 JSON (match RFD3 output binder polymer)",
+    )
+    json_parser.add_argument(
+        "--binder-sequence-chain",
+        default=None,
+        help="Chain in CIF for binder sequence (default: --binder-chain); use MPNN designed chain",
+    )
     json_parser.add_argument("--pdb-to-fasta", required=True, help="Path to pdb_to_fasta.py")
     json_parser.add_argument("--name", default="rf3_input", help="Name field in the JSON")
     json_parser.add_argument("--target-msa", default=None, help="Path to target chain MSA (.a3m); optional")
@@ -189,6 +204,7 @@ def main() -> int:
             template_structure=Path(args.template_structure) if args.template_structure else None,
             template_selection=args.template_selection,
             basename_paths=args.basename_paths,
+            binder_sequence_chain=args.binder_sequence_chain,
         )
         with open(args.output, "w") as f:
             # RF3 expects a list of config objects; wrap single config in a list.

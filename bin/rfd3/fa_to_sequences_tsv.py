@@ -11,6 +11,7 @@ The filename column matches the CIF filename, which is the 'filename' key in com
 
 import argparse
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -26,6 +27,9 @@ AA3TO1: dict[str, str] = {
 }
 
 
+_ATOM_SITE_LOOP = re.compile(r"loop_\s*\r?\n\s*_atom_site\.", re.MULTILINE)
+
+
 def read_cif_chain_sequence(path: Path, chain_id: str) -> str | None:
     """Extract amino acid sequence for a chain from an MPNN CIF file via atom_site records."""
     try:
@@ -34,14 +38,14 @@ def read_cif_chain_sequence(path: Path, chain_id: str) -> str | None:
         log.warning("Cannot read %s: %s", path, e)
         return None
 
-    loop_start = content.find('loop_\n_atom_site')
-    if loop_start == -1:
+    m = _ATOM_SITE_LOOP.search(content)
+    if not m:
         log.warning("No _atom_site loop in %s", path)
         return None
 
-    atom_section = content[loop_start:]
+    atom_section = content[m.start():]
     col_names: list[str] = []
-    for line in atom_section.split('\n'):
+    for line in atom_section.splitlines():
         stripped = line.strip()
         if stripped.startswith('_atom_site.'):
             col_names.append(stripped[len('_atom_site.'):])
@@ -56,16 +60,33 @@ def read_cif_chain_sequence(path: Path, chain_id: str) -> str | None:
         log.warning("Missing column in %s: %s", path, e)
         return None
 
+    idx_auth = col_names.index('auth_asym_id') if 'auth_asym_id' in col_names else None
+    want = chain_id.strip()
+    max_idx = max(idx_chain, idx_res, idx_seq)
+    if idx_auth is not None:
+        max_idx = max(max_idx, idx_auth)
+
     seen: set[tuple[str, str]] = set()
     residues: list[str] = []
-    data_start = atom_section.find('\nATOM')
-    for line in atom_section[data_start:].split('\n'):
+    data_start = None
+    for i, line in enumerate(atom_section.splitlines()):
+        if line.startswith('ATOM'):
+            data_start = i
+            break
+    if data_start is None:
+        log.warning("No ATOM rows in %s", path)
+        return None
+
+    for line in atom_section.splitlines()[data_start:]:
         if not line.startswith('ATOM'):
             continue
         parts = line.split()
-        if len(parts) <= max(idx_chain, idx_res, idx_seq):
+        if len(parts) <= max_idx:
             continue
-        if parts[idx_chain] != chain_id:
+        on_chain = parts[idx_chain] == want
+        if not on_chain and idx_auth is not None:
+            on_chain = parts[idx_auth] == want
+        if not on_chain:
             continue
         key = (parts[idx_chain], parts[idx_seq])
         if key in seen:
@@ -74,7 +95,7 @@ def read_cif_chain_sequence(path: Path, chain_id: str) -> str | None:
         residues.append(AA3TO1.get(parts[idx_res], 'X'))
 
     if not residues:
-        log.warning("Chain %s not found in %s", chain_id, path)
+        log.warning("Chain %s not found in %s (tried label_asym_id and auth_asym_id)", want, path)
         return None
     return ''.join(residues)
 
