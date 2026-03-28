@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.7"
 # ///
 
 """
@@ -21,7 +21,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Set
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
@@ -144,7 +144,7 @@ def generate_config(
     return config
 
 
-def extract_input_paths(config_path: str, config_dir: Optional[str] = None) -> list[str]:
+def extract_input_paths(config_path: str, config_dir: Optional[str] = None) -> List[str]:
     """Extract 'input' paths from each spec in an rfd3 JSON config.
 
     Paths are resolved relative to the config file directory (or config_dir if given).
@@ -160,8 +160,8 @@ def extract_input_paths(config_path: str, config_dir: Optional[str] = None) -> l
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
     config = load_config(config_path)
-    seen: set[str] = set()
-    result: list[str] = []
+    seen: Set[str] = set()
+    result: List[str] = []
     for key, spec in config.items():
         if isinstance(spec, dict) and "input" in spec:
             raw = spec["input"]
