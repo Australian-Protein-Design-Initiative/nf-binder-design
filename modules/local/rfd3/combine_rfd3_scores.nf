@@ -37,7 +37,7 @@ process COMBINE_RFD3_SCORES {
 
     seq_rows=\$(awk 'NR>1 {n++} END {print n+0}' sequences.tsv 2>/dev/null || echo 0)
     if [[ -s sequences.tsv && "\${seq_rows}" -ge 1 ]]; then
-      csvtk replace -t -f filename -p '\\.cif\$' -r '_rf3_config.cif' sequences.tsv -o sequences_for_merge.tsv
+      csvtk replace -t -f filename -p '\\.cif\$' -r '_rf3.cif' sequences.tsv -o sequences_for_merge.tsv
       mv sequences_for_merge.tsv sequences.tsv
       python ${projectDir}/bin/merge_scores.py \\
         combined_scores.tsv sequences.tsv \\
@@ -53,7 +53,7 @@ process COMBINE_RFD3_SCORES {
         combined_scores.tsv tmp_rmsd_target_aligned_binder.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
+        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
         --column-prefix rf3_rmsd_target_aligned_binder_ \\
         --drop-columns 'rf3_rmsd_target_aligned_binder_structure.*' \\
         -o step1.tsv
@@ -63,7 +63,7 @@ process COMBINE_RFD3_SCORES {
         step1.tsv tmp_rmsd_complex.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
+        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
         --column-prefix rf3_rmsd_complex_ \\
         --drop-columns 'rf3_rmsd_complex_structure.*' \\
         -o step2.tsv
@@ -73,7 +73,7 @@ process COMBINE_RFD3_SCORES {
         step2.tsv tmp_rmsd_binder_aligned_binder.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
+        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
         --column-prefix rf3_rmsd_binder_aligned_binder_ \\
         --drop-columns 'rf3_rmsd_binder_aligned_binder_structure.*' \\
         -o step3.tsv
@@ -83,7 +83,7 @@ process COMBINE_RFD3_SCORES {
         step3.tsv tmp_rmsd_target_aligned_target.tsv \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3_config\\.cif\$' '.cif' \\
+        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
         --column-prefix rf3_rmsd_target_aligned_target_ \\
         --drop-columns 'rf3_rmsd_target_aligned_target_structure.*' \\
         -o combined_scores.tsv
@@ -93,7 +93,7 @@ process COMBINE_RFD3_SCORES {
         || [[ -s ${boltz_rmsd_target_aligned_binder} ]] || [[ -s ${boltz_rmsd_monomer_vs_complex} ]]; then
       csvtk mutate -t -f filename -n merge_id -p '^(.+)\$' combined_scores.tsv \\
         | csvtk replace -t -f merge_id -p '^.*/' -r '' \\
-        | csvtk replace -t -f merge_id -p '_rf3_config\\.cif' -r '' \\
+        | csvtk replace -t -f merge_id -p '_rf3\\.cif' -r '' \\
         -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
@@ -124,7 +124,7 @@ process COMBINE_RFD3_SCORES {
       python ${projectDir}/bin/merge_scores.py \\
         combined_scores.tsv tmp_boltz_rmsd_target_aligned_binder.tsv \\
         --keys merge_id,structure1 \\
-        --strip-suffix '_rf3_config_model\\.cif\$' \\
+        --strip-suffix '_rf3_model\\.cif\$' \\
         --column-prefix boltz_target_aligned_binder_ \\
         --drop-columns 'boltz_target_aligned_binder_structure.*' \\
         -o step_boltz_rmsd_tab.tsv

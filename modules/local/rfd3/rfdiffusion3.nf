@@ -62,10 +62,8 @@ process RFDIFFUSION3 {
         ${extra_args_str} \
         ${task.ext.args ?: ''}
 
-    for j in output/*.json; do
-      [[ -f "\$j" ]] || continue
-      python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rfdiffusion3 "\$j" -o rfd3_${uid}_batch${design_startnum}_backbone.tsv
-    done
+    backbone_out="rfd3_${uid}_batch${design_startnum}_backbone.tsv"
+    python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rfdiffusion3 output/*.json -o "\$backbone_out"
     """
 }
 

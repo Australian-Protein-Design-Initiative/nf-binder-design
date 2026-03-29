@@ -63,6 +63,7 @@ params.rf3_early_stopping_plddt_threshold = 0.5  // exits early if mean pLDDT < 
 params.rf3_num_steps = 50                        // default for rf3 cli is 200, however 50 is faster with no difference in quality
 params.rf3_n_recycles = 10                       // default for rf3 cli is 10
 params.rf3_diffusion_batch_size = 5              // default for rf3 cli is 5
+params.rf3_batch_size = 1                        // MPNN designs per rf3 fold task (distinct from --rfd3_batch_size for diffusion)
 
 // Boltz full refolding params
 params.full_refold_with = '' // comma-separated list of methods, e.g., 'boltz'
@@ -123,6 +124,11 @@ workflow RFD3 {
         throw new Exception('--rf3_use_msa_server only has an effect when --rf3_create_target_msa is true and --rf3_alignment is not set.')
     }
 
+    def rf3_batch_int = params.rf3_batch_size as int
+    if (rf3_batch_int < 1) {
+        throw new Exception('--rf3_batch_size must be >= 1')
+    }
+
     if (params.full_refold_create_target_msa && params.full_refold_alignment) {
         throw new Exception('--full_refold_create_target_msa and --full_refold_alignment are mutually exclusive. Use one or the other.')
     }
@@ -158,7 +164,8 @@ workflow RFD3 {
             --outdir              Output directory [default: ${params.outdir}]
             --design_name         Name of the design [default: ${params.design_name}]
             --rfd3_n_designs      Total number of designs [default: ${params.rfd3_n_designs}]
-            --rfd3_batch_size     Designs per batch (diffusion_batch_size) [default: ${params.rfd3_batch_size}]
+            --rfd3_batch_size     Designs per RFDiffusion3 batch (diffusion_batch_size) [default: ${params.rfd3_batch_size}]
+            --rf3_batch_size      MPNN designs per RosettaFold3 rf3 fold task [default: ${params.rf3_batch_size}]
             --rfd3_step_scale     inference_sampler.step_scale [default: ${params.rfd3_step_scale}]
             --rfd3_gamma_0        inference_sampler.gamma_0 [default: ${params.rfd3_gamma_0}]
             --rfd3_is_non_loopy  Set "is_non_loopy" in config: true/false to add, unset to omit (params mode only) [default: omit]
@@ -231,7 +238,7 @@ workflow RFD3 {
     def rfd3BinderChain = rf3ChainPair[1]
     def mpnnRaw = params.mpnn_designed_chains?.toString()?.trim()
     def effectiveMpnnDesignedChains = (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto')) ? mpnnRaw : rfd3BinderChain
-    def mpnnBinderChainFirst = mpnnDesignedChainsFirst(effectiveMpnnDesignedChains)
+    def mpnnBinderSeqChain = mpnnDesignedChainsFirst(effectiveMpnnDesignedChains)
     def mpnn_args = buildMpnnArgs(params, effectiveMpnnDesignedChains)
 
     if (params.rfd3_config) {
@@ -360,18 +367,32 @@ workflow RFD3 {
         .combine(ch_rf3_template_val)
         .combine(Channel.value(rfd3TargetChain))
         .combine(Channel.value(rfd3BinderChain))
-        .map { meta, cif, msa, template, tc, bc -> tuple(meta, cif, msa, template, tc, bc) }
+        .combine(Channel.value(mpnnBinderSeqChain))
+        .map { meta, cif, msa, template, tc, bc, bseq -> tuple(meta, cif, msa, template, tc, bc, bseq) }
 
-    GENERATE_RF3_INPUT_JSON(ch_rf3_input)
+    def ch_rf3_batched = ch_rf3_input.collate(rf3_batch_int, true).map { batch ->
+        def metas = batch.collect { it[0] }
+        def cifs = batch.collect { it[1] }
+        def row0 = batch[0]
+        tuple(metas, cifs, row0[2], row0[3], row0[4], row0[5], row0[6])
+    }
+
+    GENERATE_RF3_INPUT_JSON(ch_rf3_batched)
     ROSETTAFOLD3(
         GENERATE_RF3_INPUT_JSON.out.with_json,
-        ch_unique_id,
         Channel.value(rfd3TargetChain),
         Channel.value(rfd3BinderChain),
     )
 
+    ch_rf3_per_design = ROSETTAFOLD3.out.per_design_bundle.flatMap { metas, pddir ->
+        def ml = metas instanceof List ? metas : [metas]
+        ml.collect { m -> tuple(m, file("${pddir}/${m.id}/model.cif"), file("${pddir}/${m.id}/scores.tsv")) }
+    }
+    ch_rf3_refolded_cif = ch_rf3_per_design.map { m, mod, sc -> tuple(m, mod) }
+    ch_rf3_scores_with_meta = ch_rf3_per_design.map { m, mod, sc -> tuple(m, sc) }
+
     ch_rmsd_input = ch_mpnn_with_meta
-        .join(ROSETTAFOLD3.out.refolded_cif)
+        .join(ch_rf3_refolded_cif)
         .combine(Channel.value(rfd3TargetChain))
         .combine(Channel.value(rfd3BinderChain))
     RFD3_RMSD(ch_rmsd_input)
@@ -382,8 +403,8 @@ workflow RFD3 {
     ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
 
     if (refold_methods.contains('boltz')) {
-        ch_boltz_input = ROSETTAFOLD3.out.refolded_cif
-            .join(ROSETTAFOLD3.out.scores_with_meta)
+        ch_boltz_input = ch_rf3_refolded_cif
+            .join(ch_rf3_scores_with_meta)
             .map { meta, cif, score_tsv ->
                 def lines = score_tsv.readLines()
                 def header = lines[0].split('\t')
@@ -462,9 +483,9 @@ workflow RFD3 {
         )))
 
     ch_rf3_scores_merged = ROSETTAFOLD3.out.scores
-        .collectFile(name: 'rf3_scores.tsv', keepHeader: true, skip: 1)
+        .collectFile(name: 'rf3_scores.tsv', keepHeader: true, skip: 1, sort: false)
     ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
-        .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1)
+        .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1, sort: false)
 
     // collect() yields a List; combine() flattens Lists into the parent tuple, which broke
     // tuple(*it[0..9], it[11], it[10]) (binder chain vs MPNN paths swapped). Wrap as [list]

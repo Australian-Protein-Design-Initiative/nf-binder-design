@@ -11,6 +11,8 @@ Modes:
           (_msa_paths_by_chain_id). Legacy; prefer json for new use.
   json  - Generate RF3 input JSON with name and components (seq, optional
           msa_path, chain_id) for rf3 fold inputs=<path>.
+  json-batch  - One JSON list for multiple CIFs (shared template/MSA): pass
+          --structure-cifs and --names in the same order (length must match).
 """
 
 import argparse
@@ -179,6 +181,40 @@ def main() -> int:
     json_parser.add_argument("--basename-paths", action="store_true", help="Store msa_path and template paths as basenames/relative paths for Nextflow staging")
     json_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
+    batch_parser = subparsers.add_parser(
+        "json-batch",
+        help="Generate RF3 inputs JSON list from multiple structure CIFs (shared options)",
+    )
+    batch_parser.add_argument(
+        "--structure-cifs",
+        nargs="+",
+        required=True,
+        help="Structure CIF paths (space-separated; shell may expand globs before Python)",
+    )
+    batch_parser.add_argument(
+        "--names",
+        nargs="+",
+        required=True,
+        help="RF3 'name' field per CIF, same order and count as --structure-cifs",
+    )
+    batch_parser.add_argument("--target-chain", default="A", help="Target chain ID")
+    batch_parser.add_argument(
+        "--binder-chain",
+        default="B",
+        help="chain_id for binder in RF3 JSON",
+    )
+    batch_parser.add_argument(
+        "--binder-sequence-chain",
+        default=None,
+        help="Chain in each CIF for binder sequence (default: --binder-chain)",
+    )
+    batch_parser.add_argument("--pdb-to-fasta", required=True, help="Path to pdb_to_fasta.py")
+    batch_parser.add_argument("--target-msa", default=None, help="Shared target MSA (.a3m); optional")
+    batch_parser.add_argument("--template-structure", default=None, help="Shared RF3 template path")
+    batch_parser.add_argument("--template-selection", default=None, help="e.g. target chain letter for template")
+    batch_parser.add_argument("--basename-paths", action="store_true", help="Basenames for staged paths")
+    batch_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
+
     args = parser.parse_args()
 
     if args.command == "cif":
@@ -210,6 +246,41 @@ def main() -> int:
             # RF3 expects a list of config objects; wrap single config in a list.
             json.dump([config], f, indent=2)
         log.info("Wrote RF3 input JSON list to %s", args.output)
+        return 0
+
+    if args.command == "json-batch":
+        cifs = [Path(p) for p in args.structure_cifs]
+        names = list(args.names)
+        if len(cifs) != len(names):
+            log.error("--structure-cifs (%d) and --names (%d) must have the same length", len(cifs), len(names))
+            return 1
+        for p in cifs:
+            if not p.exists():
+                log.error("Structure CIF not found: %s", p)
+                return 1
+        tm = Path(args.target_msa) if args.target_msa else None
+        tpl = Path(args.template_structure) if args.template_structure else None
+        configs: list[dict] = []
+        for cif_path, name in zip(cifs, names):
+            configs.append(
+                generate_rf3_input(
+                    structure_cif=cif_path,
+                    target_chain=args.target_chain,
+                    binder_chain=args.binder_chain,
+                    pdb_to_fasta_script=Path(args.pdb_to_fasta),
+                    name=name,
+                    target_msa_path=tm,
+                    template_structure=tpl,
+                    template_selection=args.template_selection,
+                    basename_paths=args.basename_paths,
+                    binder_sequence_chain=args.binder_sequence_chain,
+                )
+            )
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w") as f:
+            json.dump(configs, f, indent=2)
+        log.info("Wrote RF3 batch input JSON (%d examples) to %s", len(configs), out_path)
         return 0
 
     return 1

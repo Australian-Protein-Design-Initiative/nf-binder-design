@@ -451,7 +451,7 @@ def parse_args():
             "re.sub(REGEX, REPL) to the basename before --strip-suffix. "
             "May be repeated; substitutions run in order on every input table. "
             "Example: align score filenames with structure columns: "
-            "--merge-key-replace-basename '_rf3_config\\\\.cif$' '.cif'"
+            "--merge-key-replace-basename '_rf3\\\\.cif$' '.cif'"
         ),
     )
     return parser.parse_args()

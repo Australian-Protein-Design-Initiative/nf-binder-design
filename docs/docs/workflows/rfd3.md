@@ -161,7 +161,7 @@ Below is a summary of the most important parameters for `--method rfd3`.
   Total number of RFDiffusion3 backbones to generate.
 
 - **`--rfd3_batch_size`**  
-  Number of designs per RFD3 batch (`diffusion_batch_size`). Default is `1`. Increasing this will make jobs individual jobs longer but more efficient, and can speed up the workflow overall, since less time is spent on model initialization (once per batch).
+  Number of designs per **RFDiffusion3** batch (`diffusion_batch_size`). Default is `1`. Larger batches make each diffusion task longer but amortise model setup, which can speed up the overall run.
 
 - **`--rfd3_step_scale`**  
   Sets `inference_sampler.step_scale`. Default is `3`, following the Foundry recommendation for improved PPI designability (rather than rfd3 default of 1.5).
@@ -225,7 +225,10 @@ Common options:
   Number of recycles in the RF3 structure module. **Default:** `10` (matches `rf3` CLI default).
 
 - **`--rf3_diffusion_batch_size`**  
-  Batch size for the diffusion step in RF3. **Default:** `5` (matches `rf3` CLI default).
+  Batch size for the diffusion step inside each RF3 prediction. **Default:** `5` (matches `rf3` CLI default).
+
+- **`--rf3_batch_size`**  
+  Number of structures folded together in one `rf3 fold` invocation (multiple inputs in a single JSON config). Default is `1` (one design per GPU task). Values greater than `1` are generally more efficient since they reduce how often the RF3 model is loaded - individual tasks/jobs will take longer but the overall walltime will be shorter with larger batches. Site configs may scale `ROSETTAFOLD3` time limits with `--rf3_batch_size`.
 
 #### RF3 MSA and template options
 

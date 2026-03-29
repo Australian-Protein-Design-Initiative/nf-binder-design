@@ -29,8 +29,8 @@ RFD3_METRICS_RENAME = {
     "n_clashing.interresidue_clashes_w_sidechain": "n_clashing_w_sidechain",
     "n_clashing.interresidue_clashes_w_backbone": "n_clashing_w_backbone",
 }
-BACKBONE_SUFFIX_RE = re.compile(r"\.cif_b\d+_d\d+$")
-RF3_STEM_SUFFIX_RE = re.compile(r"_rf3_config$")
+# RFD3 CIF names use ".cif_b0_d0"; RF3 summary stems often use "_cif_b0_d0" after an infix (e.g. _rf3_).
+BACKBONE_SUFFIX_RE = re.compile(r"(?:\.|_)cif_b\d+_d\d+$")
 
 
 def _first_off_diagonal_non_null(matrix: list[list[Any]]) -> Optional[float]:
@@ -110,9 +110,9 @@ def extract_rf3(
     else:
         stem = json_path.stem
 
-    # Normalise backbone_id so it matches RFD3 output (json stem) for merging.
-    # Strip _rf3_config first, then .cif_b0_d0, so we get e.g. pdl1_Uu5sjeX_b0_pdl1_0_model_0.
-    backbone_id = RF3_STEM_SUFFIX_RE.sub("", stem)
+    # Match RFD3 metrics JSON stem (no .cif_b*_d*): strip outer RF3 summary suffix, then diffusion replica.
+    backbone_id = BACKBONE_SUFFIX_RE.sub("", stem)
+    backbone_id = re.sub(r"_rf3$", "", backbone_id)
     backbone_id = BACKBONE_SUFFIX_RE.sub("", backbone_id)
 
     row: dict[str, Any] = {
@@ -153,41 +153,52 @@ def extract_rf3(
     return row
 
 
-def cmd_rfdiffusion3(args: argparse.Namespace) -> int:
-    row = extract_rfdiffusion3(args.json)
-    df = pd.DataFrame([row])
-    out = args.output
-    if out == "-":
+def _write_rows(rows: list[dict[str, Any]], output: str) -> int:
+    if not rows:
+        log.warning("No rows extracted")
+        if output != "-":
+            Path(output).touch()
+        return 0
+    df = pd.DataFrame(rows)
+    if output == "-":
         df.to_csv(sys.stdout, sep="\t", index=False, lineterminator="\n")
     else:
-        df.to_csv(out, sep="\t", index=False, lineterminator="\n")
-        log.info("Wrote %s", out)
+        df.to_csv(output, sep="\t", index=False, lineterminator="\n")
+        log.info("Wrote %s", output)
     return 0
+
+
+def cmd_rfdiffusion3(args: argparse.Namespace) -> int:
+    rows: list[dict[str, Any]] = []
+    for jp in args.json:
+        try:
+            rows.append(extract_rfdiffusion3(jp))
+        except Exception as e:
+            log.warning("Skipping %s: %s", jp, e)
+    return _write_rows(rows, args.output)
 
 
 def cmd_rf3(args: argparse.Namespace) -> int:
-    row = extract_rf3(args.json, args.target_chain, args.binder_chain)
-    df = pd.DataFrame([row])
-    out = args.output
-    if out == "-":
-        df.to_csv(sys.stdout, sep="\t", index=False, lineterminator="\n")
-    else:
-        df.to_csv(out, sep="\t", index=False, lineterminator="\n")
-        log.info("Wrote %s", out)
-    return 0
+    rows: list[dict[str, Any]] = []
+    for jp in args.json:
+        try:
+            rows.append(extract_rf3(jp, args.target_chain, args.binder_chain))
+        except Exception as e:
+            log.warning("Skipping %s: %s", jp, e)
+    return _write_rows(rows, args.output)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Extract RFD3/RF3 metrics from JSON to TSV")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    rfd3_parser = subparsers.add_parser("rfdiffusion3", help="Extract from RFDiffusion3 output JSON")
-    rfd3_parser.add_argument("json", type=Path, help="Path to RFD3 output JSON")
+    rfd3_parser = subparsers.add_parser("rfdiffusion3", help="Extract from RFDiffusion3 output JSON(s)")
+    rfd3_parser.add_argument("json", type=Path, nargs="+", help="Path(s) to RFD3 output JSON(s)")
     rfd3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")
     rfd3_parser.set_defaults(func=cmd_rfdiffusion3)
 
-    rf3_parser = subparsers.add_parser("rf3", help="Extract from RosettaFold3 summary_confidences JSON")
-    rf3_parser.add_argument("json", type=Path, help="Path to *_summary_confidences.json")
+    rf3_parser = subparsers.add_parser("rf3", help="Extract from RosettaFold3 summary_confidences JSON(s)")
+    rf3_parser.add_argument("json", type=Path, nargs="+", help="Path(s) to *_summary_confidences.json")
     rf3_parser.add_argument(
         "--target-chain",
         default=None,
@@ -201,8 +212,8 @@ def main() -> int:
     rf3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")
     rf3_parser.set_defaults(func=cmd_rf3)
 
-    rosettafold3_parser = subparsers.add_parser("rosettafold3", help="Extract from RosettaFold3 summary_confidences JSON")
-    rosettafold3_parser.add_argument("json", type=Path, help="Path to *_summary_confidences.json")
+    rosettafold3_parser = subparsers.add_parser("rosettafold3", help="Extract from RosettaFold3 summary_confidences JSON(s)")
+    rosettafold3_parser.add_argument("json", type=Path, nargs="+", help="Path(s) to *_summary_confidences.json")
     rosettafold3_parser.add_argument("--target-chain", default=None, help="Target chain ID in RF3 output")
     rosettafold3_parser.add_argument("--binder-chain", default=None, help="Binder chain ID in RF3 output")
     rosettafold3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")

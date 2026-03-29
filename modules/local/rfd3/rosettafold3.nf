@@ -5,17 +5,15 @@ process ROSETTAFOLD3 {
     publishDir path: "${params.outdir}/rfd3/rosettafold3/output", pattern: 'output/*', mode: 'copy', saveAs: { it.replaceFirst('output/', '') }
 
     input:
-    tuple val(meta), path(structure_cif), path(target_msa), path(target_templates), path(rf3_input_json)
-    val(uid)
+    tuple val(metas), path(structure_cifs), path(target_msa), path(target_templates), path(rf3_input_json)
     val(target_chain)
     val(binder_chain)
 
     output:
     path 'output/*', emit: results
     path 'output/*/*_summary_confidences.json', emit: confidence_json
-    tuple val(meta), path('output/*/*_model.cif'), emit: refolded_cif
-    path 'rfd3_*_rf3_*.tsv', emit: scores
-    tuple val(meta), path('rfd3_*_rf3_*.tsv'), emit: scores_with_meta
+    tuple val(metas), path('per_design'), emit: per_design_bundle
+    path 'rf3_batch_scores.tsv', emit: scores
 
     script:
     """
@@ -30,7 +28,6 @@ process ROSETTAFOLD3 {
         nvidia-smi
     fi
 
-    # Find least-used GPU and set CUDA_VISIBLE_DEVICES
     if [[ -n "${params.gpu_devices}" ]]; then
         free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
         export CUDA_VISIBLE_DEVICES="\$free_gpu"
@@ -51,25 +48,14 @@ process ROSETTAFOLD3 {
         one_model_per_file=true \\
         ${task.ext.args ?: ''}
 
-    full_conf=\$(find output -maxdepth 2 -name '*_confidences.json' ! -name '*summary*' -print | head -1)
-    summary_conf=\$(find output -maxdepth 2 -name '*_summary_confidences.json' -print | head -1)
-    cif=\$(find output -maxdepth 2 -name '*_model.cif' -print | head -1)
-    if [[ -n "\$full_conf" && -n "\$summary_conf" && -n "\$cif" ]]; then
-        outdir=\$(dirname "\$cif")
-        (cd "\$outdir" && python ${projectDir}/bin/ipsae.py \\
-            --format rf3 \\
-            --update-summary "\$(basename "\$summary_conf")" \\
-            --binder-chain ${binder_chain} --target-chain ${target_chain} \\
-            "\$(basename "\$full_conf")" "\$(basename "\$cif")" 10 10)
-    fi
-
-    if [[ -n "\$summary_conf" ]]; then
-        suffix=\$(basename "\$summary_conf" _summary_confidences.json | sed -n 's/.*\\(cif_b[0-9]*_d[0-9]*\\)/\\1/p')
-        [[ -z "\$suffix" ]] && suffix=rf3
-        python ${projectDir}/bin/rfd3/extract_rfd3_scores.py rosettafold3 "\$summary_conf" \\
-            --target-chain ${target_chain} --binder-chain ${binder_chain} \\
-            -o rfd3_${uid}_batch0_rf3_\${suffix}.tsv
-    fi
+    python ${projectDir}/bin/rfd3/postprocess_rf3_batch_outputs.py \\
+        --rf3-input-json ${rf3_input_json} \\
+        --rf3-output-dir output \\
+        --target-chain ${target_chain} \\
+        --binder-chain ${binder_chain} \\
+        --project-dir ${projectDir} \\
+        --work-cwd . \\
+        --batch-scores-out rf3_batch_scores.tsv
     """
 }
 
@@ -109,7 +95,7 @@ trainer/loss/losses: confidence_loss, diffusion_loss, distogram_loss
 trainer/metrics: structure_prediction
 
 
-== Config ==
+== Configuration ==
 Override anything in the config (foo.bar=value)
 
 ckpt_path: rf3_foundry_01_24_latest.ckpt
