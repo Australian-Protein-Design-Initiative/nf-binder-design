@@ -16,6 +16,8 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd3_n_designs=4 \
   --rfd3_filters="rg<=20" \
   --rfd3_is_non_loopy=false \
+  --mpnn_preset 'soluble' \
+  --mpnn_weights_noise '030' \
   --rf3_use_msa_server \
   --rf3_create_target_msa \
   --full_refold_with 'boltz' \

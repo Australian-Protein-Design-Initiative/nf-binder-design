@@ -104,15 +104,144 @@ List<String> resolveRfd3TargetBinderChains(projectDir, params) {
 }
 
 /**
+ * True if the user set a non-default workflow param (not null, not Groovy false, not string "false").
+ */
+boolean mpnnWorkflowParamSet(def v) {
+    if (v == null || v == false) {
+        return false
+    }
+    def s = v.toString().trim()
+    return s && !s.equalsIgnoreCase('false')
+}
+
+/**
+ * Rewrite params.mpnn_weights_noise to canonical string tokens (005, 010, 020, 030) after Nextflow/CLI coercion.
+ * Call at workflow entry before validation so logs and params.json dumps match tier names.
+ */
+def canonicalizeMpnnWeightsNoiseParam(params) {
+    if (!mpnnWorkflowParamSet(params.mpnn_weights_noise)) {
+        return
+    }
+    def n = normalizeMpnnWeightsNoiseToken(params.mpnn_weights_noise)
+    if (n != null) {
+        params.mpnn_weights_noise = n
+    }
+}
+
+/**
+ * Normalise --mpnn_weights_noise: accept 005/010/020/030 strings and integer 5/10/20/30 after CLI coercion.
+ */
+String normalizeMpnnWeightsNoiseToken(def v) {
+    if (!mpnnWorkflowParamSet(v)) {
+        return null
+    }
+    def s = v.toString().trim()
+    def allowed = ['005', '010', '020', '030'] as Set
+    if (allowed.contains(s)) {
+        return s
+    }
+    if (s ==~ /^\d+$/) {
+        def i = s.toInteger()
+        if (i in [5, 10, 20, 30]) {
+            return String.format('%03d', i)
+        }
+    }
+    return null
+}
+
+/**
+ * Validate --mpnn_preset and --mpnn_weights_noise before the workflow runs.
+ */
+def validateRfd3MpnnPresetParams(params) {
+    def allowedPresets = ['vanilla', 'soluble', 'hyper'] as Set
+
+    if (mpnnWorkflowParamSet(params.mpnn_preset)) {
+        def p = params.mpnn_preset.toString().trim().toLowerCase()
+        if (!allowedPresets.contains(p)) {
+            throw new Exception("--mpnn_preset must be one of vanilla, soluble, hyper (got '${params.mpnn_preset}')")
+        }
+    }
+
+    if (mpnnWorkflowParamSet(params.mpnn_weights_noise)) {
+        def n = normalizeMpnnWeightsNoiseToken(params.mpnn_weights_noise)
+        if (n == null) {
+            throw new Exception("--mpnn_weights_noise must be one of 005, 010, 020, 030 (got '${params.mpnn_weights_noise}')")
+        }
+    }
+
+    if (mpnnWorkflowParamSet(params.mpnn_preset)
+            && params.mpnn_preset.toString().trim().equalsIgnoreCase('hyper')
+            && mpnnWorkflowParamSet(params.mpnn_weights_noise)
+            && normalizeMpnnWeightsNoiseToken(params.mpnn_weights_noise) == '005') {
+        throw new Exception('--mpnn_weights_noise 005 is not valid with --mpnn_preset hyper (no v48_005 hyper checkpoint; use 010, 020, 030, or set --mpnn_checkpoint_path to a custom file)')
+    }
+}
+
+/**
+ * Resolve MPNN checkpoint path and model settings. Explicit checkpoint wins; otherwise preset + weights_noise.
+ * Vanilla/soluble filenames use _002.pt for CLI noise 005 (0.05 Å training noise).
+ */
+Map resolveMpnnCheckpoint(params) {
+    def explicit = resolveParam(params.pmpnn_weights, params.mpnn_checkpoint_path)
+    def userModelType = resolveParam(null, params.mpnn_model_type)
+    def userLegacy = resolveParam(null, params.mpnn_legacy_weights)
+
+    if (explicit != null && explicit != false && explicit.toString().trim()) {
+        return [
+            checkpoint_path: explicit.toString().trim(),
+            model_type    : userModelType,
+            legacy_weights: userLegacy,
+        ]
+    }
+
+    def presetSet = mpnnWorkflowParamSet(params.mpnn_preset)
+    def noiseSet = mpnnWorkflowParamSet(params.mpnn_weights_noise)
+    def noise = noiseSet ? normalizeMpnnWeightsNoiseToken(params.mpnn_weights_noise) : '020'
+
+    String relPath
+    if (!presetSet && !noiseSet) {
+        relPath = 'proteinmpnn_v_48_020.pt'
+    } else if (!presetSet && noiseSet) {
+        def fileNoise = noise == '005' ? '002' : noise
+        relPath = "proteinmpnn_v_48_${fileNoise}.pt"
+    } else {
+        def preset = params.mpnn_preset.toString().trim().toLowerCase()
+        switch (preset) {
+            case 'vanilla':
+                def fileNoise = noise == '005' ? '002' : noise
+                relPath = "proteinmpnn_v_48_${fileNoise}.pt"
+                break
+            case 'soluble':
+                def fileNoiseS = noise == '005' ? '002' : noise
+                relPath = "solublempnn_v_48_${fileNoiseS}.pt"
+                break
+            case 'hyper':
+                relPath = "v48_${noise}_epoch300_hyper.pt"
+                break
+            default:
+                throw new Exception("invalid mpnn_preset: ${preset}")
+        }
+    }
+
+    return [
+        checkpoint_path: "/models/foundry/${relPath}",
+        model_type    : 'protein_mpnn',
+        legacy_weights: true,
+    ]
+}
+
+/**
  * Build the MPNN CLI argument string from resolved params.
  */
 def buildMpnnArgs(params, String resolvedDesignedChains) {
-    def model_type = resolveParam(null, params.mpnn_model_type)
-    def legacy_weights = resolveParam(null, params.mpnn_legacy_weights)
+    def resolved = resolveMpnnCheckpoint(params)
+    def model_type = resolved.model_type
+    def legacy_weights = resolved.legacy_weights
+    def checkpoint_path = resolved.checkpoint_path
+
     def batch_size = resolveParam(params.pmpnn_seqs_per_struct, params.mpnn_batch_size)
     def temperature = resolveParam(params.pmpnn_temperature, params.mpnn_temperature)
     def structure_noise = resolveParam(params.pmpnn_augment_eps, params.mpnn_structure_noise)
-    def checkpoint_path = resolveParam(params.pmpnn_weights, params.mpnn_checkpoint_path)
 
     // Resolve omit: new mpnn_omit can be either 1-letter (auto-converted) or already 3-letter JSON list
     def omit_raw = resolveParam(params.pmpnn_omit_aas, params.mpnn_omit)
@@ -140,7 +269,7 @@ def buildMpnnArgs(params, String resolvedDesignedChains) {
         }
     }
 
-    args << "--checkpoint_path ${checkpoint_path ?: '/weights/proteinmpnn_v_48_020.pt'}"
+    args << "--checkpoint_path ${checkpoint_path}"
 
     return args.join(' ')
 }

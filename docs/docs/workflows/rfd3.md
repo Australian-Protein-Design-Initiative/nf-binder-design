@@ -202,13 +202,28 @@ Common options:
   Sampling temperature for ProteinMPNN. **Default:** `0.1`.
 
 - **`--mpnn_structure_noise`** (or the legacy **`--pmpnn_augment_eps`**)  
-  Amount of structural noise used for augmentation. **Default:** `0` (no structure noise).
+  Passed to Foundry MPNN as `--structure_noise`: Gaussian noise (standard deviation in Å) **added to input coordinates at inference**. This is independent of which checkpoint you load. **Default:** `0` (no coordinate noise).
 
 - **`--mpnn_omit`** (or the legacy **`--pmpnn_omit_aas`**)  
   Residues to omit from the sequence design; 1-letter codes (e.g. `CX`) are automatically mapped to appropriate 3-letter lists for MPNN. **Default:** `CX` (omit cysteine and unknown).
 
 - **`--mpnn_checkpoint_path`** (or the legacy **`--pmpnn_weights`**)  
-  Path to custom ProteinMPNN weights; falls back to the default container weights if not set. **Default:** use the built-in ProteinMPNN checkpoint in the container.
+  Path to a custom checkpoint. When set, **`--mpnn_preset`** and **`--mpnn_weights_noise`** are ignored, and **`--mpnn_model_type`** / **`--mpnn_legacy_weights`** are used as you specify. **Default:** `false` (see preset/noise below).
+
+- **`--mpnn_preset`**  
+  Selects the weight family when **`--mpnn_checkpoint_path`** is not set: **`vanilla`** (ProteinMPNN), **`soluble`** (SolubleMPNN), or **`hyper`** (HyperMPNN). All use Foundry’s `protein_mpnn` architecture with legacy weights. **`false`** (default): same default checkpoint as before (`proteinmpnn_v_48_020.pt` under `/models/foundry/` in the `rc-foundry` weights container).
+
+- **`--mpnn_weights_noise`**  
+  Selects the **training-time coordinate noise** tier used to train that checkpoint (filename suffix in the bundled weights). Allowed values: **`005`**, **`010`**, **`020`**, **`030`**, corresponding to **0.05 Å**, **0.1 Å**, **0.2 Å**, and **0.3 Å**. **`false`** (default) means **`020`**.
+
+  **Quoting:** use a string—JSON in **`-params-file`** (`"mpnn_weights_noise": "005"`) or a quoted CLI value (`--mpnn_weights_noise '005'`). Bare `005` on the CLI may become integer `5`; the workflow normalises valid tiers to `005`/`010`/… anyway. Vanilla/soluble **`005`** loads `*_002.pt`; hyper has no **`005`** tier (table below).
+
+| `--mpnn_weights_noise` | Training noise (Å) | Vanilla / soluble filename suffix | Hyper filename (epoch 300) |
+|------------------------|--------------------|-----------------------------------|----------------------------|
+| `005` | 0.05 | `_002.pt` | (invalid; use custom path or other tiers) |
+| `010` | 0.1 | `_010.pt` | `v48_010_epoch300_hyper.pt` |
+| `020` | 0.2 | `_020.pt` | `v48_020_epoch300_hyper.pt` |
+| `030` | 0.3 | `_030.pt` | `v48_030_epoch300_hyper.pt` |
 
 #### RosettaFold3 Parameters
 

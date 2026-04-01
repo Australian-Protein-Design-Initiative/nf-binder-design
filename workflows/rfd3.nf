@@ -50,6 +50,8 @@ params.mpnn_temperature = 0.1
 params.mpnn_structure_noise = 0
 params.mpnn_omit = 'CX'
 params.mpnn_checkpoint_path = false
+params.mpnn_preset = false
+params.mpnn_weights_noise = false
 
 // Legacy MPNN params (pmpnn_*) - for backward compatibility with rfd workflow
 params.pmpnn_seqs_per_struct = 1  // mpnn_batch_size
@@ -96,9 +98,11 @@ include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
 include { FILTER_DESIGNS as RFD3_FILTER_DESIGNS } from '../modules/local/rfd3/filter_designs'
 include {
     buildMpnnArgs;
+    canonicalizeMpnnWeightsNoiseParam;
     normaliseContigToV3;
     mpnnDesignedChainsFirst;
     resolveRfd3TargetBinderChains;
+    validateRfd3MpnnPresetParams;
 } from '../modules/local/rfd3/rfd3_utils'
 include { BOLTZ_REFOLD_SCORING_RFD3 } from '../subworkflows/local/boltz_refold_scoring_rfd3'
 
@@ -123,6 +127,9 @@ workflow RFD3 {
     if (params.rf3_use_msa_server && (!params.rf3_create_target_msa || params.rf3_alignment)) {
         throw new Exception('--rf3_use_msa_server only has an effect when --rf3_create_target_msa is true and --rf3_alignment is not set.')
     }
+
+    canonicalizeMpnnWeightsNoiseParam(params)
+    validateRfd3MpnnPresetParams(params)
 
     def rf3_batch_int = params.rf3_batch_size as int
     if (rf3_batch_int < 1) {
@@ -178,9 +185,11 @@ workflow RFD3 {
             --mpnn_designed_chains / (n/a)             Chains for MPNN --designed_chains, or 'auto' (infer binder polymer from contig) [default: ${params.mpnn_designed_chains}]
             --mpnn_batch_size / --pmpnn_seqs_per_struct  Sequences per structure [default: ${params.pmpnn_seqs_per_struct}]
             --mpnn_temperature / --pmpnn_temperature   Sampling temperature [default: ${params.mpnn_temperature}]
-            --mpnn_structure_noise / --pmpnn_augment_eps  Structure noise [default: ${params.mpnn_structure_noise}]
+            --mpnn_structure_noise / --pmpnn_augment_eps  Inference-time Gaussian noise on input coordinates (Å); not the training-noise weight tier [default: ${params.mpnn_structure_noise}]
             --mpnn_omit / --pmpnn_omit_aas             Omit residue types (1-letter eg "CX") [default: ${params.mpnn_omit}]
-            --mpnn_checkpoint_path / --pmpnn_weights   Custom weights path [default: ${params.mpnn_checkpoint_path}]
+            --mpnn_checkpoint_path / --pmpnn_weights   Custom weights path; when set, overrides --mpnn_preset / --mpnn_weights_noise [default: ${params.mpnn_checkpoint_path}]
+            --mpnn_preset                              Weight family: vanilla, soluble, hyper, or false for default (ProteinMPNN v48_020) [default: ${params.mpnn_preset}]
+            --mpnn_weights_noise                       Training-noise tier string: prefer '005','010','020','030' (see docs); use -params-file JSON strings or quoted CLI values to avoid coercion to integers [default: ${params.mpnn_weights_noise}]
 
         RF3 MSA/template options:
             --rf3_create_target_msa   Create target MSA for RF3 (once per target; runs MMseqs2) [default: ${params.rf3_create_target_msa}]

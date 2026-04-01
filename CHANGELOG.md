@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
+- BoltzGen: support for list-valued `entities[].file.path` and multiple entities so all referenced files are staged as Nextflow `path()` inputs. Referenced config YAMLs (`.yaml`/`.yml` in `entities[].file.path`, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.
+
+### Changed
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry`.
 
 ### Fixed
+- Boltz refold RMSD and ipSAE: `BOLTZ_COMPARE_COMPLEX` and `BOLTZ_COMPARE_BINDER_MONOMER` now use Boltz complex chain **A** = binder and **B** = target (from `create_boltz_yaml.py` IDs), while the input design keeps `${binder_chain}` / `${target_chain}`. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated `rmsd_target_aligned_binder` / ruined aligned PDBs; `ipsae.py` now receives `--binder-chain A --target-chain B` for Boltz outputs.
 - Boltz: `BOLTZ`, `BOLTZ_COMPARE_COMPLEX`, and `BOLTZ_COMPARE_BINDER_MONOMER` tee `boltz predict` to `.boltz_predict_console.log` and exit 1 if the log contains `ran out of memory, skipping batch` (Boltz may otherwise exit 0 and leave outputs missing).
 
 ### Changed
@@ -25,11 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `--method boltz_pulldown` for Boltz Pulldown (previously `boltz_pulldown.nf`)
 - Modules reorganised into `modules/local/` with workflow-specific subdirectories (`rfd/`, `bindcraft/`, `boltzgen/`, `common/`).
 - Extracted common Boltz-2 refolding and scoring logic into `BOLTZ_REFOLD_SCORING` subworkflow (`subworkflows/local/boltz_refold_scoring.nf`).
-- `filter_designs.py` + `filters.d/rg.py` now support Rg calculation for mmCIF inputs (including `.cif.gz`) via a `gemmi` fallback path.
+
+### Fixed
+- `rmsd4all.py`: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.
+- `rmsd4all.py`: add `--max-structural-iterations` (default 100). Biotite's refinement loop uses `max_iterations=inf` by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.
+- `rmsd4all.py`: fix use of `array_length` (method) as if it were an attribute; use `len()` for atom counts.
 
 ### Removed
-- `bin/rfd3/normalise_combined_tsv.py` (replaced by csvtk + `merge_scores.py` in the RFD3 combine step).
 - `rmsd4all.py`: remove `--max-ca-for-tm-score` and `--pair-timeout` options.
+
 
 ## [0.1.5] - 2026-01-28
 
