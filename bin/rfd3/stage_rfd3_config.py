@@ -8,7 +8,8 @@ Helper script for RFD3 (RFDiffusion3) config handling in Nextflow.
 
 Modes:
   stage      - Rewrite input paths in an existing JSON config so they point
-               to Nextflow-staged files (basename only).
+               to Nextflow-staged files (basename only). Optionally subsample
+               select_hotspots per invocation.
   generate   - Create a new RFD3 JSON config from CLI flags, translating
                RFDiffusion v1-style contigs/hotspots to v3 format.
   parse-inputs - Print resolved input file path(s) from config (one per line).
@@ -21,7 +22,9 @@ Modes:
 import argparse
 import json
 import logging
+import math
 import os
+import random
 import re
 import sys
 from pathlib import Path
@@ -42,7 +45,36 @@ def save_config(config: dict, path: str) -> None:
     log.info("Wrote config to %s", path)
 
 
-def stage_config(config_path: str, output_path: str) -> None:
+def subsample_select_hotspots(
+    select_hotspots: dict, hotspot_subsample: float, spec_key: str
+) -> None:
+    """In-place: replace select_hotspots with a random subset of keys (mutates spec)."""
+    if not isinstance(select_hotspots, dict) or not select_hotspots:
+        return
+    keys = [k for k in select_hotspots if k]
+    if not keys:
+        return
+    n_total = len(keys)
+    n_keep = max(1, math.ceil(n_total * hotspot_subsample))
+    if n_keep >= n_total:
+        return
+    random.seed()
+    chosen = random.sample(keys, n_keep)
+    new_map = {k: select_hotspots[k] for k in chosen}
+    select_hotspots.clear()
+    select_hotspots.update(new_map)
+    log.info(
+        "Subsampled select_hotspots for %s: kept %d/%d keys: %s",
+        spec_key,
+        n_keep,
+        n_total,
+        ",".join(sorted(chosen)),
+    )
+
+
+def stage_config(
+    config_path: str, output_path: str, hotspot_subsample: float = 1.0,
+) -> None:
     """Rewrite 'input' paths in each spec to use basename only."""
     config = load_config(config_path)
 
@@ -52,6 +84,12 @@ def stage_config(config_path: str, output_path: str) -> None:
             spec["input"] = os.path.basename(original)
             if original != spec["input"]:
                 log.info("Rewrote input path: %s -> %s", original, spec["input"])
+            if (
+                hotspot_subsample < 1.0
+                and "select_hotspots" in spec
+                and isinstance(spec.get("select_hotspots"), dict)
+            ):
+                subsample_select_hotspots(spec["select_hotspots"], hotspot_subsample, key)
 
     save_config(config, output_path)
 
@@ -318,7 +356,11 @@ def cmd_parse_inputs(args: argparse.Namespace) -> int:
 
 
 def cmd_stage(args: argparse.Namespace) -> int:
-    stage_config(args.config, args.output)
+    frac = args.hotspot_subsample
+    if not (0.0 <= frac <= 1.0):
+        log.error("--hotspot-subsample must be between 0.0 and 1.0")
+        return 1
+    stage_config(args.config, args.output, hotspot_subsample=frac)
     return 0
 
 
@@ -393,6 +435,16 @@ def main() -> int:
     )
     stage_parser.add_argument("config", help="Path to JSON config file")
     stage_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
+    stage_parser.add_argument(
+        "--hotspot-subsample",
+        type=float,
+        default=1.0,
+        metavar="FRACTION",
+        help=(
+            "Fraction of select_hotspots keys to keep per spec (0.0-1.0); "
+            "uses ceil(N*fraction), at least 1. Default 1.0 (no subsampling)."
+        ),
+    )
 
     # --- parse-inputs subcommand ---
     parse_parser = subparsers.add_parser(

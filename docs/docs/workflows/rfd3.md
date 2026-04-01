@@ -40,20 +40,14 @@ Example `params.json`:
 {
   "contigs": "A17-131,/0,50-120",
   "hotspot_res": "A56,A115,A123",
+  "rfd3_hotspot_subsample": 0.66,
   "rfd3_n_designs": 10
 }
 ```
 
-Parameter names typically mirror the equivalent options in the underlying tools, prefixed with `rfd3_` for RFdiffusion3 and `mpnn_` for ProteinMPNN.
+You can use `"hotspot_subsample": 0.66` instead of `rfd3_hotspot_subsample` (for commandline compatibility with the BindCraft workflow). Omit both or set `rfd3_hotspot_subsample` to `1.0` to use every listed hotspot in each batch.
 
-### Key Inputs and Modes
-
-The RFDiffusion3 workflow supports **two ways** of specifying the model configuration:
-
-1. **Config mode (JSON/YAML file)** – recommended for advanced use  
-2. **Params mode (command-line options)** – mostly compatible with the RFdiffusion v1 (`rfd`) workflow
-
-#### 1. Config Mode (`--rfd3_config`)
+### Config Mode (`--rfd3_config`)
 
 In this mode you provide a full RFDiffusion3 input file (JSON or YAML) that follows the Foundry documentation  
 [`RFdiffusion3 — Protein binder design examples`](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
@@ -135,6 +129,11 @@ After MPNN, RosettaFold3 input JSON uses the same **target** and **binder** chai
   - In many cases it is preferable to target **specific atoms** (e.g. `CG,OH` for a tyrosine). To do this with RFD3, you should instead use a full JSON/YAML config with an explicit `select_hotspots` dictionary, as described in the official RFD3 documentation:  
     [`RFdiffusion3 — Protein binder design examples`](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
 
+- **Hotspot subsampling (`--rfd3_hotspot_subsample`, alias `--hotspot_subsample`)**  
+  - Optional fraction in `[0.0, 1.0]` (default `1.0`: use all hotspots). **`--rfd3_hotspot_subsample`**. the number of hotspots kept is `max(1, ceil(N × fraction))`, chosen with `random.sample` **once per RFDiffusion3 batch** (each parallel Nextflow task gets a different subset).  
+  - **Params mode:** subsamples the residues from `--hotspot_res` after the full list is written to `select_hotspots` in the generated config.  
+  - **Config mode:** subsamples keys of each spec’s `select_hotspots` object (entries without `select_hotspots` are unchanged).
+
 ### Key Parameters
 
 Below is a summary of the most important parameters for `--method rfd3`.
@@ -156,6 +155,9 @@ Below is a summary of the most important parameters for `--method rfd3`.
 - **`--hotspot_res`** (params mode)  
   Hotspot residues as a comma-separated list, e.g. `--hotspot_res "A56,A115,A123"`.  
   This is converted to residue-level `select_hotspots` with `"ALL"` atoms per residue. For atom-level hotspot control, use a JSON/YAML config with `select_hotspots`.
+
+- **`--rfd3_hotspot_subsample`**  
+  Fraction of hotspot residues (or `select_hotspots` keys) to keep per RFDiffusion3 batch; default `1.0` (no subsampling). Matches BindCraft behaviour (`ceil(N × fraction)`, at least one hotspot). Ignored when there are no hotspots in that batch’s config. Aliased to **`--hotspot_subsample`**  
 
 - **`--rfd3_n_designs`**  
   Total number of RFDiffusion3 backbones to generate.

@@ -23,6 +23,9 @@ params.hotspot_res = false
 params.rfd3_config = false
 params.rfd3_n_designs = 1
 params.rfd3_batch_size = 1
+params.rfd3_hotspot_subsample = 1.0
+// BindCraft-compatible alias; when unset (null), --rfd3_hotspot_subsample is used
+params.hotspot_subsample = null
 params.rfd3_step_scale = 3
 params.rfd3_gamma_0 = 0.2
 params.rfd3_is_non_loopy = null  // null = omit from config; true/false = add to config (params mode only; with --rfd3_config set in JSON)
@@ -131,6 +134,19 @@ workflow RFD3 {
     canonicalizeMpnnWeightsNoiseParam(params)
     validateRfd3MpnnPresetParams(params)
 
+    def hotspot_sub_frac = (params.hotspot_subsample != null)
+        ? (params.hotspot_subsample as Double)
+        : (params.rfd3_hotspot_subsample as Double)
+    if (hotspot_sub_frac < 0.0 || hotspot_sub_frac > 1.0) {
+        throw new Exception('--rfd3_hotspot_subsample / --hotspot_subsample must be between 0.0 and 1.0')
+    }
+    if (hotspot_sub_frac < 1.0 && !params.rfd3_config && (!params.hotspot_res || params.hotspot_res == false)) {
+        log.warn('Hotspot subsampling < 1.0 has no effect in params mode without --hotspot_res')
+    }
+    if (hotspot_sub_frac < 1.0 && params.rfd3_config) {
+        log.warn('Hotspot subsampling < 1.0 only affects design entries in the config that define select_hotspots')
+    }
+
     def rf3_batch_int = params.rf3_batch_size as int
     if (rf3_batch_int < 1) {
         throw new Exception('--rf3_batch_size must be >= 1')
@@ -175,6 +191,7 @@ workflow RFD3 {
             --rf3_batch_size      MPNN designs per RosettaFold3 rf3 fold task [default: ${params.rf3_batch_size}]
             --rfd3_step_scale     inference_sampler.step_scale [default: ${params.rfd3_step_scale}]
             --rfd3_gamma_0        inference_sampler.gamma_0 [default: ${params.rfd3_gamma_0}]
+            --rfd3_hotspot_subsample  Fraction of hotspot residues to keep per RFDiffusion3 batch (ceil(N*fraction), min 1), aliased to --hotspot_subsample [default: ${params.rfd3_hotspot_subsample}]
             --rfd3_is_non_loopy  Set "is_non_loopy" in config: true/false to add, unset to omit (params mode only) [default: omit]
             --rfd3_extra_args     Additional CLI arguments for rfd3 [default: ${params.rfd3_extra_args}]
             --rfd3_filters        Semicolon-separated filters for RFD3 backbones (binder chain follows contig order; use --mpnn_designed_chains if needed), e.g. "rg<25" [default: disabled]
@@ -266,6 +283,7 @@ workflow RFD3 {
             params.rfd3_step_scale,
             params.rfd3_gamma_0,
             params.rfd3_extra_args,
+            hotspot_sub_frac,
         )
     }
     else {
@@ -299,6 +317,7 @@ workflow RFD3 {
             params.rfd3_step_scale,
             params.rfd3_gamma_0,
             params.rfd3_extra_args,
+            hotspot_sub_frac,
         )
     }
 

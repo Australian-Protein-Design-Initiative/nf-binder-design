@@ -12,10 +12,11 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --input_pdb 'input/PDL1.pdb' \
   --outdir results \
   --contigs "[A18-132/0 50-120]" \
-  --hotspot_res "A56" \
+  --hotspot_res "A54,A56,A115,A123,A125" \
   --rfd3_n_designs=4 \
   --rfd3_filters="rg<=20" \
   --rfd3_is_non_loopy=false \
+  --rfd3_hotspot_subsample=0.4 \
   --mpnn_preset 'soluble' \
   --mpnn_weights_noise '030' \
   --rf3_use_msa_server \

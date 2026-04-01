@@ -15,6 +15,7 @@ process RFDIFFUSION3 {
     val step_scale
     val gamma_0
     val extra_args
+    val hotspot_subsample
 
     output:
     path 'output/*.cif.gz', emit: cifs
@@ -48,7 +49,7 @@ process RFDIFFUSION3 {
     fi
 
     # Rewrite input paths in config to use staged basenames (copy to avoid modifying staged symlink)
-    ${projectDir}/bin/rfd3/stage_rfd3_config.py stage ${config_json} -o ${design_name}.json
+    ${projectDir}/bin/rfd3/stage_rfd3_config.py stage ${config_json} -o ${design_name}.json --hotspot-subsample ${hotspot_subsample}
 
     # Run RFDiffusion3
     rfd3 design \
