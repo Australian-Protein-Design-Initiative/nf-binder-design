@@ -21,7 +21,7 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
@@ -57,6 +57,13 @@ def inject_msa_into_cif(structure_cif: Path, target_msa_path: Optional[Path], ta
     log.info("Wrote RF3 input CIF to %s", out_path)
 
 
+def parse_template_selection_arg(raw: Optional[str]) -> Optional[List[str]]:
+    """Split comma-separated RF3 AtomSelection tokens (commas inside a token are not supported)."""
+    if raw is None or not str(raw).strip():
+        return None
+    return [s.strip() for s in str(raw).split(",") if s.strip()]
+
+
 def get_chain_sequence_from_cif(structure_cif: Path, chain: str, pdb_to_fasta_script: Path) -> str:
     """Run pdb_to_fasta.py and return the single sequence for the given chain."""
     result = subprocess.run(
@@ -81,11 +88,13 @@ def generate_rf3_input(
     name: str = "rf3_config",
     target_msa_path: Optional[Path] = None,
     template_structure: Optional[Path] = None,
-    template_selection: Optional[str] = None,
+    template_selection: Optional[Sequence[str]] = None,
     basename_paths: bool = False,
     binder_sequence_chain: Optional[str] = None,
 ) -> dict:
     """Generate RF3 input JSON: name + components with seq/msa_path/chain_id and optional single template path.
+
+    ``template_selection``: list of RF3 AtomSelection tokens (e.g. ``["A"]`` or ``["A/*/1-50", "A/*/80-120"]``).
 
     Without a template: [target (seq, optional msa_path), binder (seq)].
 
@@ -131,7 +140,7 @@ def generate_rf3_input(
         "components": components,
     }
     if has_template and template_selection:
-        config["template_selection"] = [template_selection]
+        config["template_selection"] = list(template_selection)
     if has_template and target_msa_path is not None and target_msa_path.exists():
         config["msa_paths"] = {target_chain: msa_path_str()}
 
@@ -177,7 +186,11 @@ def main() -> int:
     json_parser.add_argument("--name", default="rf3_input", help="Name field in the JSON")
     json_parser.add_argument("--target-msa", default=None, help="Path to target chain MSA (.a3m); optional")
     json_parser.add_argument("--template-structure", default=None, help="Single PDB/CIF to use as RF3 template (e.g. target structure; one per chain)")
-    json_parser.add_argument("--template-selection", default=None, help="Optional RF3 template_selection for template chain (e.g. 'A')")
+    json_parser.add_argument(
+        "--template-selection",
+        default=None,
+        help="RF3 template_selection: comma-separated AtomSelection tokens (e.g. 'A' or 'A/*/1-50,A/*/80-120')",
+    )
     json_parser.add_argument("--basename-paths", action="store_true", help="Store msa_path and template paths as basenames/relative paths for Nextflow staging")
     json_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
@@ -211,7 +224,11 @@ def main() -> int:
     batch_parser.add_argument("--pdb-to-fasta", required=True, help="Path to pdb_to_fasta.py")
     batch_parser.add_argument("--target-msa", default=None, help="Shared target MSA (.a3m); optional")
     batch_parser.add_argument("--template-structure", default=None, help="Shared RF3 template path")
-    batch_parser.add_argument("--template-selection", default=None, help="e.g. target chain letter for template")
+    batch_parser.add_argument(
+        "--template-selection",
+        default=None,
+        help="Comma-separated RF3 template_selection AtomSelection tokens",
+    )
     batch_parser.add_argument("--basename-paths", action="store_true", help="Basenames for staged paths")
     batch_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
@@ -230,6 +247,7 @@ def main() -> int:
         return 0
 
     if args.command == "json":
+        tsel = parse_template_selection_arg(args.template_selection)
         config = generate_rf3_input(
             structure_cif=Path(args.structure_cif),
             target_chain=args.target_chain,
@@ -238,7 +256,7 @@ def main() -> int:
             name=args.name,
             target_msa_path=Path(args.target_msa) if args.target_msa else None,
             template_structure=Path(args.template_structure) if args.template_structure else None,
-            template_selection=args.template_selection,
+            template_selection=tsel,
             basename_paths=args.basename_paths,
             binder_sequence_chain=args.binder_sequence_chain,
         )
@@ -260,6 +278,7 @@ def main() -> int:
                 return 1
         tm = Path(args.target_msa) if args.target_msa else None
         tpl = Path(args.template_structure) if args.template_structure else None
+        tsel = parse_template_selection_arg(args.template_selection)
         configs: list[dict] = []
         for cif_path, name in zip(cifs, names):
             configs.append(
@@ -271,7 +290,7 @@ def main() -> int:
                     name=name,
                     target_msa_path=tm,
                     template_structure=tpl,
-                    template_selection=args.template_selection,
+                    template_selection=tsel,
                     basename_paths=args.basename_paths,
                     binder_sequence_chain=args.binder_sequence_chain,
                 )

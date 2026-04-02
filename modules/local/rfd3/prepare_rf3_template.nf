@@ -57,3 +57,51 @@ process PREPARE_RF3_TEMPLATE {
     fi
     """
 }
+
+// Chain rename only for a user-supplied RF3 template (no contig trim, preserve PDB vs CIF).
+process RENAME_RF3_TEMPLATE_CHAINS {
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+
+    input:
+    tuple path(structure), val(target_chain)
+
+    output:
+    path('template_rf3.*'), emit: structure
+    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'template_rf3.*', mode: 'copy'
+
+    script:
+    def name = structure.name
+    def ext = (name.endsWith('.cif') || name.endsWith('.cif.gz')) ? 'cif' : 'pdb'
+    def tc = target_chain.toString()
+    """
+    set -euo pipefail
+
+    # Renaming every chain to the target letter merges multiple polymers into one chain_id and
+    # breaks RF3 (duplicate res_id / ambiguous bonds). Single chain: rename if needed. Multiple:
+    # keep only the chain that already matches the RFD3 target chain (gemmi MMDB select //CHAIN/).
+    readarray -t chain_arr < <(gemmi residues -c -s -s -s '${structure}' 2>/dev/null | tail -n +2 | awk '{print \$1}' | sort -u)
+    n=\${#chain_arr[@]}
+    if [[ "\${n}" -eq 0 ]]; then
+        echo "RENAME_RF3_TEMPLATE_CHAINS: no polymer chains found in '${structure}'" >&2
+        exit 1
+    fi
+    if [[ "\${n}" -eq 1 ]]; then
+        single="\${chain_arr[0]}"
+        if [[ "\${single}" == "${tc}" ]]; then
+            cp '${structure}' template_rf3.${ext}
+        else
+            gemmi convert --rename-chain="\${single}:${tc}" '${structure}' template_rf3.${ext}
+        fi
+    else
+        has_tc=0
+        for c in "\${chain_arr[@]}"; do
+            if [[ "\${c}" == "${tc}" ]]; then has_tc=1; break; fi
+        done
+        if [[ "\${has_tc}" -eq 0 ]]; then
+            echo "RENAME_RF3_TEMPLATE_CHAINS: multi-chain template [\${chain_arr[*]}] has no chain ${tc}. Put the RF3 target on chain ${tc}, or use a single-chain structure." >&2
+            exit 1
+        fi
+        gemmi convert --select '//${tc}/' '${structure}' template_rf3.${ext}
+    fi
+    """
+}

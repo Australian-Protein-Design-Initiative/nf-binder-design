@@ -2,7 +2,7 @@ process GENERATE_RF3_INPUT_JSON {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
-    tuple val(metas), path(structure_cifs, stageAs: 'cifs/*'), path(target_msa), path(target_templates), val(target_chain), val(binder_chain), val(binder_sequence_chain)
+    tuple val(metas), path(structure_cifs, stageAs: 'cifs/*'), path(target_msa), path(target_templates), val(target_chain), val(binder_chain), val(binder_sequence_chain), val(template_selection)
 
     output:
     tuple val(metas), path(structure_cifs), path(target_msa), path(target_templates), path('rf3.json'), emit: with_json
@@ -14,6 +14,7 @@ process GENERATE_RF3_INPUT_JSON {
     def target_msa_arg = use_msa == 'true' ? "--target-msa ${target_msa}" : ''
     def structArgs = cifList.collect { "'" + it.toString().replace("'", "'\\''") + "'" }.join(' ')
     def nameArgs = metaList.collect { "'" + "${it.id}_rf3".replace("'", "'\\''") + "'" }.join(' ')
+    def tsEsc = template_selection.toString().replace("'", "'\\''")
     """
     set -euo pipefail
     python ${projectDir}/bin/rfd3/make_rf3_input_spec.py json-batch \\
@@ -25,7 +26,7 @@ process GENERATE_RF3_INPUT_JSON {
         --pdb-to-fasta ${projectDir}/bin/pdb_to_fasta.py \\
         ${target_msa_arg} \\
         --template-structure ${target_templates} \\
-        --template-selection ${target_chain} \\
+        --template-selection '${tsEsc}' \\
         --basename-paths \\
         -o rf3.json
     """

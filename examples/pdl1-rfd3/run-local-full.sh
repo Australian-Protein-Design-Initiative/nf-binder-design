@@ -19,6 +19,8 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd3_hotspot_subsample=0.4 \
   --mpnn_preset 'soluble' \
   --mpnn_weights_noise '030' \
+  --rf3_target_template='input/full/3BIK.pdb' \
+  --rf3_template_selection='A/*/18-26,A/*/42-53,A/*/132-137,A/*/184-190,A/*/226-229' \
   --rf3_use_msa_server \
   --rf3_create_target_msa \
   --full_refold_with 'boltz' \

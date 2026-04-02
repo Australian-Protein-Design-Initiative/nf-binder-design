@@ -43,6 +43,8 @@ params.rf3_create_target_msa = false
 params.rf3_use_msa_server = false
 params.rf3_target_fasta = false
 params.rf3_alignment = false  // external A3M file; bypasses MMseqs2 when set
+params.rf3_target_template = false
+params.rf3_template_selection = false
 
 // MPNN params - new (mpnn_*)
 params.mpnn_model_type = 'protein_mpnn'
@@ -94,7 +96,7 @@ include { MPNN } from '../modules/local/rfd3/mpnn'
 include { PDB_TO_FASTA } from '../modules/local/common/pdb_to_fasta'
 include { MMSEQS_COLABFOLDSEARCH } from '../modules/local/common/mmseqs_colabfoldsearch'
 include { GENERATE_RF3_INPUT_JSON } from '../modules/local/rfd3/generate_rf3_input'
-include { PREPARE_RF3_TEMPLATE } from '../modules/local/rfd3/prepare_rf3_template'
+include { PREPARE_RF3_TEMPLATE; RENAME_RF3_TEMPLATE_CHAINS } from '../modules/local/rfd3/prepare_rf3_template'
 include { ROSETTAFOLD3 } from '../modules/local/rfd3/rosettafold3'
 include { RFD3_RMSD } from '../modules/local/rfd3/rfd3_rmsd'
 include { COMBINE_RFD3_SCORES } from '../modules/local/rfd3/combine_rfd3_scores'
@@ -129,6 +131,9 @@ workflow RFD3 {
     }
     if (params.rf3_use_msa_server && (!params.rf3_create_target_msa || params.rf3_alignment)) {
         throw new Exception('--rf3_use_msa_server only has an effect when --rf3_create_target_msa is true and --rf3_alignment is not set.')
+    }
+    if (params.rf3_target_template && params.rf3_target_fasta) {
+        throw new Exception('--rf3_target_template and --rf3_target_fasta are mutually exclusive. The target sequence comes from the template file when --rf3_target_template is set.')
     }
 
     canonicalizeMpnnWeightsNoiseParam(params)
@@ -213,6 +218,8 @@ workflow RFD3 {
             --rf3_alignment            External A3M file for target; bypasses MMseqs2 when set [default: ${params.rf3_alignment}]
             --rf3_use_msa_server       Use external MSA server for RF3 when creating MSA (skip local MMseqs) [default: ${params.rf3_use_msa_server}]
             --rf3_target_fasta         Target FASTA file for RF3 MSA creation [default: ${params.rf3_target_fasta}]
+            --rf3_target_template      Alternative template PDB/CIF for RF3 (not trimmed to contigs; mutually exclusive with --rf3_target_fasta) [default: uses --input_pdb / config input]
+            --rf3_template_selection   RF3 template_selection (AtomSelection syntax, comma-separated); which regions are templated vs re-predicted [default: whole target chain]
 
         Full refolding options (Boltz-2):
             --full_refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.full_refold_with}]
@@ -266,6 +273,7 @@ workflow RFD3 {
     def effectiveMpnnDesignedChains = (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto')) ? mpnnRaw : rfd3BinderChain
     def mpnnBinderSeqChain = mpnnDesignedChainsFirst(effectiveMpnnDesignedChains)
     def mpnn_args = buildMpnnArgs(params, effectiveMpnnDesignedChains)
+    def rf3TemplateSelection = params.rf3_template_selection ? params.rf3_template_selection.toString() : rfd3TargetChain
 
     if (params.rfd3_config) {
         // Config mode: user provides their own JSON/YAML config
@@ -353,8 +361,11 @@ workflow RFD3 {
             def target_fasta_file = file(params.rf3_target_fasta)
             ch_target_fasta_with_meta = Channel.of(tuple([id: 'target'], target_fasta_file))
         } else {
-            def ch_target_pdb_for_msa = Channel.fromPath(target_pdb_path).first()
-            PDB_TO_FASTA(ch_target_pdb_for_msa, 'A')
+            def ch_structure_for_msa = params.rf3_target_template
+                ? Channel.fromPath(params.rf3_target_template).first()
+                : Channel.fromPath(target_pdb_path).first()
+            def msa_extract_chain = params.rf3_target_template ? rfd3TargetChain : 'A'
+            PDB_TO_FASTA(ch_structure_for_msa, msa_extract_chain)
             ch_target_fasta_with_meta = PDB_TO_FASTA.out.map { f -> tuple([id: 'target'], f) }
         }
         def rf3_msa_db = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.colabfold_envdb
@@ -369,40 +380,50 @@ workflow RFD3 {
         ch_single_rf3_msa = Channel.of(file("${projectDir}/assets/dummy_files/empty_target_msa"))
     }
 
-    // Prepare RF3 template: trim to contigs, rename all template chains to rfd3TargetChain (RFD3 polymer order).
+    // Prepare RF3 template: custom path (rename chains only) or default (trim to contigs + rename).
     def ch_rf3_target_chain_val = Channel.value(rfd3TargetChain)
-    def ch_prepare_input
-    if (params.rfd3_config) {
-        ch_prepare_input = Channel.of(file(target_pdb_path)).first()
-            .combine(Channel.fromPath(params.rfd3_config).first())
-            .combine(ch_rf3_target_chain_val)
-            .map { s, cfg, tc -> tuple(s, cfg, '', tc) }
+    def ch_rf3_template_val
+    if (params.rf3_target_template) {
+        RENAME_RF3_TEMPLATE_CHAINS(
+            Channel.fromPath(params.rf3_target_template).first()
+                .combine(ch_rf3_target_chain_val)
+                .map { s, tc -> tuple(s, tc) }
+        )
+        ch_rf3_template_val = RENAME_RF3_TEMPLATE_CHAINS.out.structure.first()
     } else {
-        ch_prepare_input = Channel.of(file(target_pdb_path)).first()
-            .combine(Channel.of(file("${projectDir}/assets/dummy_files/empty_templates")))
-            .combine(Channel.of(normaliseContigToV3(params.contigs)))
-            .combine(ch_rf3_target_chain_val)
-            .map { s, empty, contig, tc -> tuple(s, empty, contig, tc) }
+        def ch_prepare_input
+        if (params.rfd3_config) {
+            ch_prepare_input = Channel.of(file(target_pdb_path)).first()
+                .combine(Channel.fromPath(params.rfd3_config).first())
+                .combine(ch_rf3_target_chain_val)
+                .map { s, cfg, tc -> tuple(s, cfg, '', tc) }
+        } else {
+            ch_prepare_input = Channel.of(file(target_pdb_path)).first()
+                .combine(Channel.of(file("${projectDir}/assets/dummy_files/empty_templates")))
+                .combine(Channel.of(normaliseContigToV3(params.contigs)))
+                .combine(ch_rf3_target_chain_val)
+                .map { s, empty, contig, tc -> tuple(s, empty, contig, tc) }
+        }
+        PREPARE_RF3_TEMPLATE(ch_prepare_input)
+        ch_rf3_template_val = PREPARE_RF3_TEMPLATE.out.pdb.first()
     }
-    PREPARE_RF3_TEMPLATE(ch_prepare_input)
 
-    // Build RF3 input tuples: (meta, structure_cif, target_msa, template_structure)
-    // Broadcast the single RF3 MSA and single prepared template to all designs.
+    // Build RF3 input tuples: (meta, structure_cif, target_msa, template_structure, target_chain, binder_chain, binder_seq_chain, template_selection)
     def ch_rf3_msa_val = ch_single_rf3_msa.first()
-    def ch_rf3_template_val = PREPARE_RF3_TEMPLATE.out.pdb.first()
     def ch_rf3_input = ch_mpnn_with_meta
         .combine(ch_rf3_msa_val)
         .combine(ch_rf3_template_val)
         .combine(Channel.value(rfd3TargetChain))
         .combine(Channel.value(rfd3BinderChain))
         .combine(Channel.value(mpnnBinderSeqChain))
-        .map { meta, cif, msa, template, tc, bc, bseq -> tuple(meta, cif, msa, template, tc, bc, bseq) }
+        .combine(Channel.value(rf3TemplateSelection))
+        .map { meta, cif, msa, template, tc, bc, bseq, tsel -> tuple(meta, cif, msa, template, tc, bc, bseq, tsel) }
 
     def ch_rf3_batched = ch_rf3_input.collate(rf3_batch_int, true).map { batch ->
         def metas = batch.collect { it[0] }
         def cifs = batch.collect { it[1] }
         def row0 = batch[0]
-        tuple(metas, cifs, row0[2], row0[3], row0[4], row0[5], row0[6])
+        tuple(metas, cifs, row0[2], row0[3], row0[4], row0[5], row0[6], row0[7])
     }
 
     GENERATE_RF3_INPUT_JSON(ch_rf3_batched)
