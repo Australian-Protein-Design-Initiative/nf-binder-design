@@ -219,7 +219,7 @@ workflow RFD3 {
             --rf3_use_msa_server       Use external MSA server for RF3 when creating MSA (skip local MMseqs) [default: ${params.rf3_use_msa_server}]
             --rf3_target_fasta         Target FASTA file for RF3 MSA creation [default: ${params.rf3_target_fasta}]
             --rf3_target_template      Alternative template PDB/CIF for RF3 (not trimmed to contigs; mutually exclusive with --rf3_target_fasta) [default: uses --input_pdb / config input]
-            --rf3_template_selection   RF3 template_selection (AtomSelection syntax, comma-separated); which regions are templated vs re-predicted [default: whole target chain]
+            --rf3_template_selection   RF3 template_selection (comma-separated AtomSelection tokens). With --rf3_target_template use chain IDs as in that file; the workflow maps them to rfd3TargetChain for RF3. Omit for whole target chain (auto-mapped). Default without --rf3_target_template: whole target chain (rfd3TargetChain).
 
         Full refolding options (Boltz-2):
             --full_refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.full_refold_with}]
@@ -274,6 +274,8 @@ workflow RFD3 {
     def mpnnBinderSeqChain = mpnnDesignedChainsFirst(effectiveMpnnDesignedChains)
     def mpnn_args = buildMpnnArgs(params, effectiveMpnnDesignedChains)
     def rf3TemplateSelection = params.rf3_template_selection ? params.rf3_template_selection.toString() : rfd3TargetChain
+    def rf3UserTemplateSelectionRaw = params.rf3_template_selection ? params.rf3_template_selection.toString() : ''
+    def rf3UserTselB64 = java.util.Base64.getEncoder().encodeToString(rf3UserTemplateSelectionRaw.getBytes('UTF-8'))
 
     if (params.rfd3_config) {
         // Config mode: user provides their own JSON/YAML config
@@ -354,13 +356,18 @@ workflow RFD3 {
     // Prepare RF3 template before MSA so --rf3_target_template MSA uses the same structure as RF3 (single chain, target chain ID).
     def ch_rf3_target_chain_val = Channel.value(rfd3TargetChain)
     def ch_rf3_template_val
+    def ch_rf3_template_selection_for_json
     if (params.rf3_target_template) {
         RENAME_RF3_TEMPLATE_CHAINS(
             Channel.fromPath(params.rf3_target_template).first()
                 .combine(ch_rf3_target_chain_val)
-                .map { s, tc -> tuple(s, tc) }
+                .combine(Channel.value(rf3UserTselB64))
+                .map { s, tc, b64 -> tuple(s, tc, b64) }
         )
         ch_rf3_template_val = RENAME_RF3_TEMPLATE_CHAINS.out.structure.first()
+        ch_rf3_template_selection_for_json = RENAME_RF3_TEMPLATE_CHAINS.out.selection_mapped
+            .map { p -> p.text.trim() }
+            .first()
     } else {
         def ch_prepare_input
         if (params.rfd3_config) {
@@ -377,6 +384,7 @@ workflow RFD3 {
         }
         PREPARE_RF3_TEMPLATE(ch_prepare_input)
         ch_rf3_template_val = PREPARE_RF3_TEMPLATE.out.pdb.first()
+        ch_rf3_template_selection_for_json = Channel.value(rf3TemplateSelection)
     }
 
     // Target MSA: once per target (single target supported). External a3m file, or build once early, or omit.
@@ -417,7 +425,7 @@ workflow RFD3 {
         .combine(Channel.value(rfd3TargetChain))
         .combine(Channel.value(rfd3BinderChain))
         .combine(Channel.value(mpnnBinderSeqChain))
-        .combine(Channel.value(rf3TemplateSelection))
+        .combine(ch_rf3_template_selection_for_json)
         .map { meta, cif, msa, template, tc, bc, bseq, tsel -> tuple(meta, cif, msa, template, tc, bc, bseq, tsel) }
 
     def ch_rf3_batched = ch_rf3_input.collate(rf3_batch_int, true).map { batch ->
