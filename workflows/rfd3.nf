@@ -351,36 +351,7 @@ workflow RFD3 {
 
     ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.baseName], c) }
 
-    // Target MSA: once per target (single target supported). External a3m file, or build once early, or omit.
-    def ch_single_rf3_msa
-    if (params.rf3_alignment) {
-        ch_single_rf3_msa = Channel.fromPath(params.rf3_alignment).first()
-    } else if (params.rf3_create_target_msa) {
-        def ch_target_fasta_with_meta
-        if (params.rf3_target_fasta) {
-            def target_fasta_file = file(params.rf3_target_fasta)
-            ch_target_fasta_with_meta = Channel.of(tuple([id: 'target'], target_fasta_file))
-        } else {
-            def ch_structure_for_msa = params.rf3_target_template
-                ? Channel.fromPath(params.rf3_target_template).first()
-                : Channel.fromPath(target_pdb_path).first()
-            def msa_extract_chain = params.rf3_target_template ? rfd3TargetChain : 'A'
-            PDB_TO_FASTA(ch_structure_for_msa, msa_extract_chain)
-            ch_target_fasta_with_meta = PDB_TO_FASTA.out.map { f -> tuple([id: 'target'], f) }
-        }
-        def rf3_msa_db = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.colabfold_envdb
-        def rf3_msa_uniref = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.uniref30
-        MMSEQS_COLABFOLDSEARCH(ch_target_fasta_with_meta, params.rf3_use_msa_server, rf3_msa_db, rf3_msa_uniref, 'rfd3/mmseqs2')
-        ch_single_rf3_msa = MMSEQS_COLABFOLDSEARCH.out.a3m.map { m, a3m ->
-            def files = (a3m instanceof List) ? a3m : [a3m]
-            def primary = files.find { it.toString().contains('result') } ?: files[0]
-            primary
-        }
-    } else {
-        ch_single_rf3_msa = Channel.of(file("${projectDir}/assets/dummy_files/empty_target_msa"))
-    }
-
-    // Prepare RF3 template: custom path (rename chains only) or default (trim to contigs + rename).
+    // Prepare RF3 template before MSA so --rf3_target_template MSA uses the same structure as RF3 (single chain, target chain ID).
     def ch_rf3_target_chain_val = Channel.value(rfd3TargetChain)
     def ch_rf3_template_val
     if (params.rf3_target_template) {
@@ -406,6 +377,36 @@ workflow RFD3 {
         }
         PREPARE_RF3_TEMPLATE(ch_prepare_input)
         ch_rf3_template_val = PREPARE_RF3_TEMPLATE.out.pdb.first()
+    }
+
+    // Target MSA: once per target (single target supported). External a3m file, or build once early, or omit.
+    def ch_single_rf3_msa
+    if (params.rf3_alignment) {
+        ch_single_rf3_msa = Channel.fromPath(params.rf3_alignment).first()
+    } else if (params.rf3_create_target_msa) {
+        def ch_target_fasta_with_meta
+        if (params.rf3_target_fasta) {
+            def target_fasta_file = file(params.rf3_target_fasta)
+            ch_target_fasta_with_meta = Channel.of(tuple([id: 'target'], target_fasta_file))
+        } else {
+            if (params.rf3_target_template) {
+                PDB_TO_FASTA(ch_rf3_template_val, rfd3TargetChain)
+            } else {
+                def ch_target_pdb_for_msa = Channel.fromPath(target_pdb_path).first()
+                PDB_TO_FASTA(ch_target_pdb_for_msa, 'A')
+            }
+            ch_target_fasta_with_meta = PDB_TO_FASTA.out.map { f -> tuple([id: 'target'], f) }
+        }
+        def rf3_msa_db = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.colabfold_envdb
+        def rf3_msa_uniref = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.uniref30
+        MMSEQS_COLABFOLDSEARCH(ch_target_fasta_with_meta, params.rf3_use_msa_server, rf3_msa_db, rf3_msa_uniref, 'rfd3/mmseqs2')
+        ch_single_rf3_msa = MMSEQS_COLABFOLDSEARCH.out.a3m.map { m, a3m ->
+            def files = (a3m instanceof List) ? a3m : [a3m]
+            def primary = files.find { it.toString().contains('result') } ?: files[0]
+            primary
+        }
+    } else {
+        ch_single_rf3_msa = Channel.of(file("${projectDir}/assets/dummy_files/empty_target_msa"))
     }
 
     // Build RF3 input tuples: (meta, structure_cif, target_msa, template_structure, target_chain, binder_chain, binder_seq_chain, template_selection)
