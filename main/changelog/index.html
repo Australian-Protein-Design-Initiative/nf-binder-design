@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/main/changelog/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Release history - nf-binder-design</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../styles.green.css" rel="stylesheet" />
+        <link href="../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Release history";
+        var mkdocs_page_input_path = "changelog.md";
+        var mkdocs_page_url = "/nf-binder-design/main/changelog/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> nf-binder-design
+        </a>
+        <div class="version">
+          {'provider': 'mike', 'default': 'latest', 'alias': True}
+        </div><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Release history</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#unreleased">[Unreleased]</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#removed">Removed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#015-2026-01-28">[0.1.5] - 2026-01-28</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added_1">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#014-2025-08-12">[0.1.4] - 2025-08-12</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#013-2025-07-11">[0.1.3] - 2025-07-11</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#012-2025-06-19">[0.1.2] - 2025-06-19</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_4">Changed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#011-2025-04-04">[0.1.1] - 2025-04-04</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_5">Changed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#01-2025-03-24">[0.1] - 2025-03-24</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Release history</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/changelog.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="changelog">Changelog</h1>
+<p>All notable changes to this project will be documented in this file.</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
+and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
+<h2 id="unreleased">[Unreleased]</h2>
+<h3 id="added">Added</h3>
+<ul>
+<li>New <code>nci_gadi.config</code> configuration profile for NCI Gadi HPC cluster.</li>
+<li>BoltzGen: support for list-valued <code>entities[].file.path</code> and multiple entities so all referenced files are staged as Nextflow <code>path()</code> inputs. Referenced config YAMLs (<code>.yaml</code>/<code>.yml</code> in <code>entities[].file.path</code>, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.</li>
+<li>Versioned documentation using <a href="https://github.com/jimporter/mike">mike</a>; docs are now deployed for <code>main</code> (alias: <code>latest</code>), <code>develop</code> (alias: <code>dev</code>), and version tags.</li>
+</ul>
+<h3 id="changed">Changed</h3>
+<ul>
+<li>Major project restructure shifting individual workflows into <code>workflows/</code>, each launched via a single <code>main.nf</code> entry point with the <code>--method</code> flag.</li>
+<li><code>--method rfd</code> for RFdiffusion binder design (previously <code>main.nf</code>)</li>
+<li><code>--method rfd_partial</code> for partial diffusion (previously <code>partial.nf</code>)</li>
+<li><code>--method bindcraft</code> for BindCraft (previously <code>bindcraft.nf</code>)</li>
+<li><code>--method boltzgen</code> for BoltzGen (previously <code>boltzgen.nf</code>)</li>
+<li><code>--method boltz_pulldown</code> for Boltz Pulldown (previously <code>boltz_pulldown.nf</code>)</li>
+<li>Modules reorganised into <code>modules/local/</code> with workflow-specific subdirectories (<code>rfd/</code>, <code>bindcraft/</code>, <code>boltzgen/</code>, <code>common/</code>).</li>
+<li>Extracted common Boltz-2 refolding and scoring logic into <code>BOLTZ_REFOLD_SCORING</code> subworkflow (<code>subworkflows/local/boltz_refold_scoring.nf</code>).</li>
+</ul>
+<h3 id="fixed">Fixed</h3>
+<ul>
+<li><code>rmsd4all.py</code>: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.</li>
+<li><code>rmsd4all.py</code>: add <code>--max-structural-iterations</code> (default 100). Biotite's refinement loop uses <code>max_iterations=inf</code> by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.</li>
+<li><code>rmsd4all.py</code>: fix use of <code>array_length</code> (method) as if it were an attribute; use <code>len()</code> for atom counts.</li>
+</ul>
+<h3 id="removed">Removed</h3>
+<ul>
+<li><code>rmsd4all.py</code>: remove <code>--max-ca-for-tm-score</code> and <code>--pair-timeout</code> options.</li>
+</ul>
+<h2 id="015-2026-01-28">[0.1.5] - 2026-01-28</h2>
+<h3 id="added_1">Added</h3>
+<ul>
+<li>New BoltzGen pipeline.</li>
+<li>Refold binder designs with Boltz, with post-AF2ig filtering and 
+  RMSD analysis of predicted complex and binder monomer.</li>
+<li>Added DOI (Zenodo) badge to <code>README.md</code>, added <code>CITATION.cff</code>.</li>
+<li>Some parameter validation for <code>bindcraft.nf</code>.</li>
+<li>Write <code>params.json</code> to output directory.</li>
+</ul>
+<h3 id="changed_1">Changed</h3>
+<ul>
+<li>Move 'filtering' result folder to 'rfdiffison/filtered'</li>
+<li>Don't output redundant .tsv files to the results directory.</li>
+<li>Changed default <code>--pmpnn_relax_cycles</code> from 0 to 3</li>
+<li>Made default queue size 1, for single local GPU mode.</li>
+<li>Added <code>m3-bdi.config</code>, site specific for M3/MASSIVE HPC cluster.</li>
+<li>Use the <code>nf-binder-design-utils</code> container instead of <code>mdanalysis</code>.</li>
+<li>Update config and docs to use -profile for site-specifc configurations</li>
+</ul>
+<h3 id="fixed_1">Fixed</h3>
+<ul>
+<li>Fixed Quarto rendering permissions issues (copy Qmd to work folder).</li>
+</ul>
+<h2 id="014-2025-08-12">[0.1.4] - 2025-08-12</h2>
+<h3 id="added_2">Added</h3>
+<ul>
+<li>BindCraft end-to-end workflow with basic HTML report</li>
+<li>GPU allocation heuristics for local multi-GPU workstations.</li>
+<li>HyperMPNN weights download script (<code>models/download_hypermpnn_weights.sh</code>).</li>
+<li>New runnable examples in <code>examples/</code>.</li>
+</ul>
+<h3 id="changed_2">Changed</h3>
+<ul>
+<li>RFDiffusion <code>--hotspot_res</code> no longer requires brackets in <code>main.nf</code>.</li>
+<li>Minor tweaks to site-specific configs for <code>m3</code> and <code>mlerp</code>.</li>
+</ul>
+<h2 id="013-2025-07-11">[0.1.3] - 2025-07-11</h2>
+<h3 id="added_3">Added</h3>
+<ul>
+<li>A plugin system for filtering designs based on calculated metrics.</li>
+<li><code>--rfd_filters</code> parameter to apply filters to RFDiffusion backbones (e.g., <code>--rfd_filters "rg&lt;25"</code>).</li>
+<li>Initial filter plugin for radius of gyration (<code>rg</code>).</li>
+<li>Integration of BindCraft-derived scoring of designs, as <code>extra_scores.tsv</code>. This adds metrics including:</li>
+<li>Interface score, shape complementarity, dG, and dSASA.</li>
+<li>Secondary structure percentages (helix, sheet, loop) for the binder and interface.</li>
+<li>Unrelaxed and relaxed clash scores.</li>
+<li>Hotspot and target RMSD.</li>
+<li>Sequence-based metrics like extinction coefficient.</li>
+<li><code>--pmpnn_omit_aas</code> flag to exclude certain amino acids from designs (default 'CX').</li>
+<li><code>--rfd_compress_trajectories</code> flag to gzip RFDiffusion traj/*.pdb files (default <code>true</code>).</li>
+</ul>
+<h3 id="changed_3">Changed</h3>
+<ul>
+<li>Filtering results are now saved to a subdirectory named after the pipeline step (in <code>filtering/rfdiffusion/</code>).</li>
+<li>The score merging script (<code>merge_scores.py</code>) was improved to be more robust and handle an arbitrary number of score files.</li>
+<li>Use more lightweight container for <code>get_contigs.nf</code> and <code>renumber_residues.nf</code> modules.</li>
+</ul>
+<h3 id="fixed_2">Fixed</h3>
+<ul>
+<li>The <code>gpu_device</code> parameter is now correctly passed to the partial diffusion process, allowing proper GPU selection.</li>
+</ul>
+<h2 id="012-2025-06-19">[0.1.2] - 2025-06-19</h2>
+<h3 id="added_4">Added</h3>
+<ul>
+<li>Added the <code>boltz_pulldown.nf</code> protocol.</li>
+<li>Allow gpu device to be selected.</li>
+<li>Support relaxation in ProteinMPNN (<code>pmpnn_relax_cycles</code> can now be non-zero)</li>
+</ul>
+<h3 id="changed_4">Changed</h3>
+<ul>
+<li>Change <code>dl_binder_design</code> output filenaming (include "_mpnn{n}" suffix)</li>
+<li>Change RFDiffusion config handling when unspecified</li>
+<li>Docs: Add APPTAINER_TMPDIR and NXF_APPTAINER_CACHEDIR advice to M3-specific docs</li>
+</ul>
+<h3 id="fixed_3">Fixed</h3>
+<ul>
+<li>Fix <code>get_contigs</code> for multi-chain targets.</li>
+<li>Fix failure that occurred when using <code>--rfd_batch_size</code> &gt; 1.</li>
+</ul>
+<h2 id="011-2025-04-04">[0.1.1] - 2025-04-04</h2>
+<h3 id="changed_5">Changed</h3>
+<ul>
+<li>Update to use containers from Github package registry</li>
+</ul>
+<h2 id="01-2025-03-24">[0.1] - 2025-03-24</h2>
+<h3 id="added_5">Added</h3>
+<ul>
+<li>Initial version with RFDiffusion-&gt;ProteinMPNN-&gt;af2_initial_guess binder
+  design and partial diffusion pipelines.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../extra/m3-hpc-examples/" class="btn btn-neutral float-left" title="M3 HPC Examples"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../extra/m3-hpc-examples/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+      <script src="../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
