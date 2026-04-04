@@ -49,10 +49,6 @@ extra_css:
 
 extra:
   manifest: manifest.webmanifest
-  version:
-    provider: mike
-    default: latest
-    alias: true
 
 site_url: https://australian-protein-design-initiative.github.io/nf-binder-design
 repo_url: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
