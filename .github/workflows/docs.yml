@@ -3,27 +3,51 @@ on:
   push:
     branches:
       - main
+      - develop
+    tags:
+      - 'v*'
+
 permissions:
   contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Configure Git Credentials
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+
       - uses: actions/setup-python@v5
         with:
           python-version: 3.x
+
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV
+
       - uses: actions/cache@v4
         with:
           key: mkdocs-material-${{ env.cache_id }}
           path: ~/.cache
           restore-keys: |
             mkdocs-material-
-      - run: pip install mkdocs
-      #- run: pip install mkdocs-material mkdocs-macros-plugin
-      - run: cd docs && mkdocs gh-deploy --force
+
+      - run: pip install mkdocs-material mike
+
+      - name: Deploy docs
+        run: |
+          git fetch origin gh-pages --depth=1 || true
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            mike deploy --config-file docs/mkdocs.yml --push --update-aliases "${VERSION}"
+          elif [[ "${GITHUB_REF}" == refs/heads/main ]]; then
+            mike deploy --config-file docs/mkdocs.yml --push --update-aliases main latest
+            mike set-default --config-file docs/mkdocs.yml --push latest
+          elif [[ "${GITHUB_REF}" == refs/heads/develop ]]; then
+            mike deploy --config-file docs/mkdocs.yml --push --update-aliases develop dev
+          fi

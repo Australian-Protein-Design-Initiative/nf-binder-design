@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
 - BoltzGen: support for list-valued `entities[].file.path` and multiple entities so all referenced files are staged as Nextflow `path()` inputs. Referenced config YAMLs (`.yaml`/`.yml` in `entities[].file.path`, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.
+- Versioned documentation using [mike](https://github.com/jimporter/mike); docs are now deployed for `main` (alias: `latest`), `develop` (alias: `dev`), and version tags.
 
 ### Changed
 - Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
