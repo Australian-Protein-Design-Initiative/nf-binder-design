@@ -4,6 +4,7 @@ on:
     branches:
       - main
       - develop
+      - rfd3
     tags:
       - 'v*'
 
@@ -42,12 +43,21 @@ jobs:
         run: |
           git fetch origin gh-pages --depth=1 || true
 
+          DOCS_BRANCHES=("develop" "rfd3")
+          
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
             mike deploy --config-file docs/mkdocs.yml --push --update-aliases "${VERSION}"
           elif [[ "${GITHUB_REF}" == refs/heads/main ]]; then
             mike deploy --config-file docs/mkdocs.yml --push --update-aliases main latest
             mike set-default --config-file docs/mkdocs.yml --push latest
-          elif [[ "${GITHUB_REF}" == refs/heads/develop ]]; then
-            mike deploy --config-file docs/mkdocs.yml --push --update-aliases develop dev
+          elif [[ "${GITHUB_REF}" == refs/heads/* ]]; then
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            for b in "${DOCS_BRANCHES[@]}"; do
+              if [[ "${BRANCH}" == "${b}" ]]; then
+                mike deploy --config-file docs/mkdocs.yml --push --update-aliases "${BRANCH}"
+                break
+              fi
+            done
           fi
+
