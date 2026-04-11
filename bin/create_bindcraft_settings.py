@@ -8,12 +8,9 @@ import os
 import random
 import sys
 
-# TODO: If we have a --contigs arg in the same format as used for RFDiffusion (main.nf),
-#       extract the target chain and binder lengths from that and trim the PDB to tne contigs
-
 
 def main():
-    # Set up logging to stderr
+    
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     parser = argparse.ArgumentParser(
@@ -69,42 +66,57 @@ def main():
     except ValueError:
         sys.exit("Error: --binder_length_range must be two dash-separated integers.")
 
-    # Validate hotspot_subsample
+    
     if not (0.0 <= args.hotspot_subsample <= 1.0):
         sys.exit("Error: --hotspot_subsample must be between 0.0 and 1.0.")
 
-    # Process hotspot residues - subsample if needed
+    
+    # UPDATED SECTION START
+    
     if args.hotspot_res and args.hotspot_res != "false":
-        hotspot_residues = args.hotspot_res
-        if args.hotspot_subsample < 1.0:
-            # Parse comma-separated hotspot residues
-            hotspot_list = [
-                res.strip() for res in args.hotspot_res.split(",") if res.strip()
-            ]
+        hotspot_list = [
+            res.strip() for res in args.hotspot_res.split(",") if res.strip()
+        ]
 
-            if hotspot_list:
-                # Calculate number of hotspots to keep (round up to at least 1)
-                n_total = len(hotspot_list)
-                n_keep = max(1, math.ceil(n_total * args.hotspot_subsample))
+        
+        if not hotspot_list:
+            sys.exit(
+                "Error: Hotspot residues are empty. Provide values like A123,B456."
+            )
 
-                # Randomly subsample hotspots
-                random.seed()  # Use system time for randomness
-                subsampled_hotspots = random.sample(hotspot_list, n_keep)
-                hotspot_residues = ",".join(subsampled_hotspots)
-
-                logging.info(
-                    f"Subsampled {n_keep}/{n_total} hotspot residues: {hotspot_residues}"
+       
+        for res in hotspot_list:
+            if len(res) < 2 or not res[0].isalpha() or not res[1:].isdigit():
+                sys.exit(
+                    f"Error: Invalid hotspot residue '{res}'. "
+                    "Expected format like A123 (chain + residue number)."
                 )
+
+        hotspot_residues = args.hotspot_res
+
+        # Subsample logic
+        if args.hotspot_subsample < 1.0:
+            n_total = len(hotspot_list)
+            n_keep = max(1, math.ceil(n_total * args.hotspot_subsample))
+
+            random.seed()
+            subsampled_hotspots = random.sample(hotspot_list, n_keep)
+            hotspot_residues = ",".join(subsampled_hotspots)
+
+            logging.info(
+                f"Subsampled {n_keep}/{n_total} hotspot residues: {hotspot_residues}"
+            )
     else:
         hotspot_residues = ""
+    
+    # UPDATED SECTION END
+    
 
-    # Convert relative input_pdb to absolute path, as BindCraft may be run in a different working directory
-    # within a container.
     settings = {
         "design_path": args.output_dir,
         "binder_name": args.design_name,
         "starting_pdb": args.input_pdb,
-        "chains": args.target_chains,  # comma-separated list of chains
+        "chains": args.target_chains,
         "target_hotspot_residues": hotspot_residues,
         "lengths": [min_len, max_len],
         "number_of_final_designs": args.n_designs,
