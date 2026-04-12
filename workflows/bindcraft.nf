@@ -35,8 +35,13 @@ params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2
 
 // Function to validate hotspot_res parameter format
 def validateHotspotRes(hotspot_res) {
-    if (hotspot_res == null) {
-        return true  // No validation needed if parameter is not provided
+    // Omitted --hotspot_res leaves the default false; Nextflow does not use null here
+    if (hotspot_res == null || hotspot_res == false) {
+        return true
+    }
+
+    if (!(hotspot_res instanceof CharSequence)) {
+        error "Invalid hotspot_res type: expected a string or omitted/false for no hotspots."
     }
 
     // Check for empty or whitespace-only string
@@ -177,7 +182,7 @@ workflow BINDCRAFT {
             --outdir                  Output directory [default: ${params.outdir}]
             --design_name             Name of the design, used for output file prefixes [default: ${params.design_name}]
             --target_chains           Target chain(s) for binder design, "A" or "A,B" (mutually exclusive with --contigs) [default: ${params.target_chains}]
-            --hotspot_res             Hotspot residues, eg "A473,A995,A411,A421" - you must include the chain ID in every hotspot
+            --hotspot_res             Optional. Hotspot residues, eg "A473,A995,A411,A421" (chain ID per residue). Omit for no hotspots.
             --contigs                 Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]" (mutually exclusive with --target_chains, automatically extracts target chains)
             --binder_length_range     Dash-separated min and max length for binders [default: ${params.binder_length_range}]
             --hotspot_subsample       Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
