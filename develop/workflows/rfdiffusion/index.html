@@ -268,10 +268,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <h3 id="parallel-tasks-on-an-hpc-cluster">Parallel tasks on an HPC Cluster</h3>
 <p>Here's a more complex 'kitchen sink' example using <code>-profile slurm,m3</code> for the M3 HPC cluster:</p>
 <pre><code class="language-bash">#!/bin/bash
-# Path to your git clone of this repo
-WF_PATH=&quot;/path/to/nf-binder-design&quot;
 
-mkdir -p results/logs
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Ensure tmp directory has enough space
