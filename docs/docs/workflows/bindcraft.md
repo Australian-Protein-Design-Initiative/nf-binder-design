@@ -31,6 +31,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 ## Example Usage
 
 ```bash
+#!/bin/bash
+
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \

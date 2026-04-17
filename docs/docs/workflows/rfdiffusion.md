@@ -117,10 +117,7 @@ Here's a more complex 'kitchen sink' example using `-profile slurm,m3` for the M
 
 ```bash
 #!/bin/bash
-# Path to your git clone of this repo
-WF_PATH="/path/to/nf-binder-design"
 
-mkdir -p results/logs
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Ensure tmp directory has enough space
