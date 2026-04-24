@@ -68,7 +68,8 @@ process RFDIFFUSION_PARTIAL {
         inference.design_startnum=${design_startnum} \
         inference.schedule_directory_path=\$(pwd)/schedules \
         ${rfd_model_path_arg} \
-        ${params.rfd_extra_args}
+        ${params.rfd_extra_args} \
+        ${(task.ext?.args) ? ' ' + task.ext.args : ''}
 
     # inference.model_directory_path=models
 
