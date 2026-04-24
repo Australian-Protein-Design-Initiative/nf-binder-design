@@ -34,6 +34,7 @@ Full documentation: https://australian-protein-design-initiative.github.io/nf-bi
   - [Partial diffusion on binder designs](#partial-diffusion-on-binder-designs)
   - [Binder design with BindCraft](#binder-design-with-bindcraft)
   - [Binder design with BoltzGen](#binder-design-with-boltzgen)
+  - [Running the tests](#running-the-tests)
   - [License](#license)
 
 
@@ -237,6 +238,36 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 ```
 
 See the [boltzgen workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltzgen/) for more details on configuration files and options.
+
+## Running the tests
+
+The pipeline ships with a small [nf-test](https://www.nf-test.com/) suite under `tests/` for
+process- and workflow-level unit tests.
+
+Install nf-test (one-off):
+
+```bash
+curl -fsSL https://code.askimed.com/install/nf-test | bash
+# move the resulting `nf-test` binary onto your PATH, eg:
+mv nf-test $HOME/.local/bin/
+```
+
+Run all tests from the repository root:
+
+```bash
+nf-test test
+```
+
+Run a single test file, or filter by tag:
+
+```bash
+nf-test test tests/modules/local/common/unique_id.nf.test
+nf-test test --tag unique_id
+```
+
+See the [testing documentation](docs/docs/testing.md) and the upstream
+[nf-test docs](https://www.nf-test.com/docs/getting-started/) for more detail
+on writing and running tests.
 
 ## License
 

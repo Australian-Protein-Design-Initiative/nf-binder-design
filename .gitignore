@@ -13,3 +13,6 @@ __marimo__
 .jupyter_cache
 
 tmp
+
+.nf-test
+.nf-test.log

@@ -1,0 +1,35 @@
+nextflow_process {
+
+    name "Test Process UNIQUE_ID"
+    script "modules/local/common/unique_id.nf"
+    process "UNIQUE_ID"
+
+    tag "unique_id"
+    tag "common"
+
+    test("Should generate a 7-character base58 unique_id.txt") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+            }
+            process {
+                """
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            with(process.out.id_file) {
+                assert size() == 1
+
+                def id = path(get(0)).text.trim()
+                assert id.length() == 7
+                assert id ==~ /[1-9A-HJ-NP-Za-km-z]{7}/
+            }
+        }
+    }
+}
