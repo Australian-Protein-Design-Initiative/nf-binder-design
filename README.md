@@ -258,11 +258,13 @@ Run all tests from the repository root:
 nf-test test
 ```
 
-Run a single test file, or filter by tag:
+Run a single test file, or filter by tag (CPU-only vs GPU, etc.):
 
 ```bash
 nf-test test tests/modules/local/common/unique_id.nf.test
 nf-test test --tag unique_id
+# RFdiffusion process tests (GPU, Apptainer, ~1–2 min)
+nf-test test --tag rfd
 ```
 
 See the [testing documentation](docs/docs/testing.md) and the upstream

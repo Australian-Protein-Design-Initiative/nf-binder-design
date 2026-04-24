@@ -1,0 +1,165 @@
+// Shared helpers for RFDIFFUSION process tests (explicit class name avoids nf-test delegate lookup issues).
+class RfdiffusionNfTestUtils {
+
+    // Normalise process channel values: Nextflow may emit one path, a list of paths,
+    // or a list wrapping an inner list (multi-file globs). Produces a single flat list to iterate.
+    static List flatProcessOutputs(Object obj) {
+        if (obj == null) {
+            return [] as List
+        }
+        def top = (obj instanceof List) ? (obj as List) : [obj]
+        def o = [] as List
+        top.each { e ->
+            if (e instanceof List) {
+                (e as List).each { o << it }
+            } else {
+                o << e
+            }
+        }
+        return o
+    }
+
+    // Count distinct residue serial numbers on a chain from ATOM/HETATM lines (fixed-column PDB).
+    static int countResiduesOnChain(String pdb, String ch) {
+        def s = new HashSet()
+        for (def line in pdb.readLines()) {
+            if (line.length() < 27) {
+                continue
+            }
+            if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) {
+                continue
+            }
+            if (line[21] == ch) {
+                s << line[22..25].trim()
+            }
+        }
+        return s.size()
+    }
+
+    // True if the PDB text contains at least one ATOM or HETATM record on the given chain ID.
+    static boolean chainHasAnyAtom(String pdb, String ch) {
+        return pdb.readLines().any { l ->
+            l.length() > 22 && (l.startsWith('ATOM') || l.startsWith('HETATM')) && l[21] == ch
+        }
+    }
+}
+
+nextflow_process {
+
+    name "Test Process RFDIFFUSION"
+    script "modules/local/rfd/rfdiffusion.nf"
+    process "RFDIFFUSION"
+
+    tag "rfd"
+    tag "rfdiffusion"
+    tag "gpu"
+
+    // Target: tests/data/rfd/glp1_peptide.pdb (chain P); 10–10 residue de novo; hotspots P28,P31
+    // RFD ppi: designed segment is a 10-residue block, typically chain A; target renumbered to B
+    // (assertions match that layout; full pipeline example: examples/glp1-rfd-mini/)
+
+    test("RFDiffusion: batch 1, configs and 10-mer on chain A") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                design_name = 'rfdtest'
+                rfd_noise_scale = 0.0
+                rfd_extra_args = ''
+                rfd_compress_trajectories = false
+                require_gpu = true
+                gpu_devices = ''
+            }
+            process {
+                """
+                input[0] = false
+                input[1] = file("\${projectDir}/tests/data/rfd/glp1_peptide.pdb")
+                input[2] = false
+                input[3] = "[P7-36/0 10-10]"
+                input[4] = "[P28,P31]"
+                input[5] = 1
+                input[6] = 0
+                input[7] = "b1t01"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.trace.tasks().size() == 1
+
+            def pdbPaths = RfdiffusionNfTestUtils.flatProcessOutputs(process.out.pdbs)
+            assert pdbPaths.size() == 1
+            def txt = path(pdbPaths[0].toString()).text
+            assert txt.length() > 1000
+            assert RfdiffusionNfTestUtils.countResiduesOnChain(txt, 'A') == 10
+            assert RfdiffusionNfTestUtils.chainHasAnyAtom(txt, 'B')
+
+            def traj = RfdiffusionNfTestUtils.flatProcessOutputs(process.out.trajs)
+            assert !traj.isEmpty()
+            traj.each { p -> assert path(p.toString()).text.length() > 100 }
+
+            def yfs = RfdiffusionNfTestUtils.flatProcessOutputs(process.out.configs)
+            def mainCfg = yfs.find { p -> p.toString().endsWith("config.yaml") }
+            def overCfg = yfs.find { p -> p.toString().endsWith("overrides.yaml") }
+            assert mainCfg != null
+            assert overCfg != null
+
+            def ctext = path(mainCfg.toString()).text
+            assert ctext.contains("glp1_peptide.pdb")
+            assert ctext.contains("ckpt_override_path: null")
+            assert ctext.contains("output_prefix: outputs/rfdtest_b1t01")
+            assert ctext.contains("contigmap:") && ctext.contains("P7-36/0 10-10")
+            assert ctext.contains("ppi:") && ctext.contains("P28") && ctext.contains("P31")
+
+            def otext = path(overCfg.toString()).text
+            assert otext.contains("contigmap.contigs=") && otext.contains("P7-36/0 10-10")
+            assert otext.contains("inference.num_designs=1")
+            assert otext.contains("inference.design_startnum=0")
+            assert otext.contains("ppi.hotspot_res=[P28,P31]")
+        }
+    }
+
+    test("RFDiffusion: batch 2 outputs two PDBs") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                design_name = 'rfdtest'
+                rfd_noise_scale = 0.0
+                rfd_extra_args = ''
+                rfd_compress_trajectories = false
+                require_gpu = true
+                gpu_devices = ''
+            }
+            process {
+                """
+                input[0] = false
+                input[1] = file("\${projectDir}/tests/data/rfd/glp1_peptide.pdb")
+                input[2] = false
+                input[3] = "[P7-36/0 10-10]"
+                input[4] = "[P28,P31]"
+                input[5] = 2
+                input[6] = 0
+                input[7] = "b2t01"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def pds = RfdiffusionNfTestUtils.flatProcessOutputs(process.out.pdbs)
+            assert pds.size() == 2
+            pds.each { one ->
+                def t = path(one.toString()).text
+                assert t.length() > 1000
+                assert RfdiffusionNfTestUtils.countResiduesOnChain(t, 'A') == 10
+                assert RfdiffusionNfTestUtils.chainHasAnyAtom(t, 'B')
+            }
+            def yfs2 = RfdiffusionNfTestUtils.flatProcessOutputs(process.out.configs)
+            def over = yfs2.find { p -> p.toString().endsWith("overrides.yaml") }
+            assert over != null
+            assert path(over.toString()).text.contains("inference.num_designs=2")
+        }
+    }
+}
