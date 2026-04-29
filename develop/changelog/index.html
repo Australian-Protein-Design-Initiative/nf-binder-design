@@ -72,6 +72,10 @@
                   <li class="toctree-l1"><a class="reference internal" href="../extra/m3-hpc-examples/">M3 HPC Examples</a>
                   </li>
               </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../testing/">Testing</a>
+                </li>
+              </ul>
               <ul class="current">
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Release history</a>
     <ul class="current">
@@ -172,6 +176,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h3 id="added">Added</h3>
 <ul>
 <li>New <code>nci_gadi.config</code> configuration profile for NCI Gadi HPC cluster.</li>
+<li>Initial <a href="https://www.nf-test.com/">nf-test</a> test scaffold (<code>nf-test.config</code>, <code>tests/</code>) with a process test for <code>UNIQUE_ID</code> and <code>RFDIFFUSION</code>; documented in <code>docs/docs/testing.md</code>.</li>
 <li>BoltzGen: support for list-valued <code>entities[].file.path</code> and multiple entities so all referenced files are staged as Nextflow <code>path()</code> inputs. Referenced config YAMLs (<code>.yaml</code>/<code>.yml</code> in <code>entities[].file.path</code>, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.</li>
 <li>Versioned documentation using <a href="https://github.com/jimporter/mike">mike</a>; docs are now deployed for <code>main</code> (alias: <code>latest</code>), <code>develop</code> (alias: <code>dev</code>), and version tags.</li>
 </ul>
@@ -189,6 +194,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h3 id="fixed">Fixed</h3>
 <ul>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): omitting <code>--hotspot_res</code> no longer fails in <code>validateHotspotRes</code> with <code>Unknown method invocation 'trim' on Boolean type</code>.</li>
+<li>BindCraft (<code>workflows/bindcraft.nf</code>): allow explicit <code>--hotspot_res=""</code> to pass through as a no-hotspot BindCraft setting, and normalise empty hotspot list entries before writing settings.</li>
 <li><code>rmsd4all.py</code>: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.</li>
 <li><code>rmsd4all.py</code>: add <code>--max-structural-iterations</code> (default 100). Biotite's refinement loop uses <code>max_iterations=inf</code> by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.</li>
 <li><code>rmsd4all.py</code>: fix use of <code>array_length</code> (method) as if it were an attribute; use <code>len()</code> for atom counts.</li>
@@ -292,7 +298,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../extra/m3-hpc-examples/" class="btn btn-neutral float-left" title="M3 HPC Examples"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../testing/" class="btn btn-neutral float-left" title="Testing"><span class="icon icon-circle-arrow-left"></span> Previous</a>
     </div>
 
   <hr/>
@@ -319,7 +325,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
         </span>
     
     
-      <span><a href="../extra/m3-hpc-examples/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../testing/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
   </span>
