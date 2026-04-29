@@ -34,27 +34,31 @@ params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
 
 // Function to validate hotspot_res parameter format
-def validateHotspotRes(hotspot_res) {
-    // Omitted --hotspot_res leaves the default false; Nextflow does not use null here
-    if (hotspot_res == null || hotspot_res == false) {
-        return true
+def parseHotspotResidues(hotspot_res) {
+    // Omitted --hotspot_res leaves the default false; --hotspot_res "" is parsed as true.
+    if (hotspot_res == null || hotspot_res == false || hotspot_res == true) {
+        return false
     }
 
     if (!(hotspot_res instanceof CharSequence)) {
-        error "Invalid hotspot_res type: expected a string or omitted/false for no hotspots."
+        error "Invalid hotspot_res type: expected a string or omitted/false/empty for no hotspots."
     }
 
-    // Check for empty or whitespace-only string
-    if (hotspot_res.trim().isEmpty()) {
-        error "Invalid hotspot_res format: '${hotspot_res}'. Hotspot residues cannot be empty or whitespace only."
+    // Empty string means no hotspots
+    if (hotspot_res == "") {
+        return false
     }
 
     // Split by comma and trim whitespace
-    def residues = hotspot_res.split(',').collect { it.trim() }
+    def residues = hotspot_res.split(',').collect { it.trim() }.findAll { !it.isEmpty() }
 
-    // Check for empty elements (e.g., "A12," or ",A12" or "A12,,B15")
-    if (residues.any { it.isEmpty() }) {
-        error "Invalid hotspot_res format: '${hotspot_res}'. Hotspots must be specified like: 'A12,A15,A99' (comma separated {chainID}{resnum}, no empty elements)."
+    def normalised_hotspot_res = residues.join(',')
+    if (normalised_hotspot_res != hotspot_res) {
+        log.warn "Normalised --hotspot_res from '${hotspot_res}' to '${normalised_hotspot_res}'"
+    }
+
+    if (residues.isEmpty()) {
+        return false
     }
 
     // Check each residue follows the format {chainID}{resnum}
@@ -66,7 +70,7 @@ def validateHotspotRes(hotspot_res) {
         }
     }
 
-    return residues
+    return normalised_hotspot_res
 }
 
 // Function to validate binder_length_range parameter format
@@ -182,7 +186,7 @@ workflow BINDCRAFT {
             --outdir                  Output directory [default: ${params.outdir}]
             --design_name             Name of the design, used for output file prefixes [default: ${params.design_name}]
             --target_chains           Target chain(s) for binder design, "A" or "A,B" (mutually exclusive with --contigs) [default: ${params.target_chains}]
-            --hotspot_res             Optional. Hotspot residues, eg "A473,A995,A411,A421" (chain ID per residue). Omit for no hotspots.
+            --hotspot_res             Optional. Hotspot residues, eg "A473,A995,A411,A421" (chain ID per residue). Omit or pass "" for no hotspots.
             --contigs                 Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]" (mutually exclusive with --target_chains, automatically extracts target chains)
             --binder_length_range     Dash-separated min and max length for binders [default: ${params.binder_length_range}]
             --hotspot_subsample       Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
@@ -206,7 +210,7 @@ workflow BINDCRAFT {
     }
 
     // Validate parameters
-    def hotspot_residues = validateHotspotRes(params.hotspot_res)
+    def hotspot_res = parseHotspotResidues(params.hotspot_res)
     validateBinderLengthRange(params.binder_length_range)
 
     // Handle mutual exclusivity of contigs and target_chains
@@ -234,9 +238,9 @@ workflow BINDCRAFT {
     }
 
     // Check chain consistency if both parameters are valid
-    if (hotspot_residues != true && target_chains != true) {
-        validateChainConsistency(hotspot_residues, target_chains)
-    }
+    if (hotspot_res != false && target_chains != true) {
+        validateChainConsistency(hotspot_res.split(','), target_chains)
+}
 
     ch_input_pdb = Channel.fromPath(params.input_pdb).first()
     def design_indices = 0..(params.bindcraft_n_traj - 1)
@@ -257,7 +261,7 @@ workflow BINDCRAFT {
     BINDCRAFT_CREATE_SETTINGS(
         ch_batch_info,
         ch_input_pdb,
-        params.hotspot_res,
+        hotspot_res,
         target_chains,
         params.binder_length_range,
         params.design_name,
