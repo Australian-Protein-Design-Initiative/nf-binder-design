@@ -32,6 +32,10 @@ process BOLTZ_COMPARE_COMPLEX {
     def target_id = "${design_id}_target"
     def binder_id = "${design_id}_binder"
     def yaml_file = "${design_id}.yml"
+    // Stage the fixed structure under a design-id-aware basename so the rmsd4all `structure1`
+    // column is unique per-design (RFD3 stages every per-design RF3 output as `model.cif`,
+    // which collapses all rows to the same key and breaks downstream merges by structure1).
+    def fixed_pdb_name = "${design_id}.${pdb.extension}"
 
     def use_msa_server_flag = use_msa_server ? '--use_msa_server' : ''
     def templates_flag = templates ? "--templates '${templates}'" : ''
@@ -129,7 +133,7 @@ process BOLTZ_COMPARE_COMPLEX {
     mkdir -p mobile/
 
     # Symlink PDBs into directories
-    ln -s "\$(readlink -f ${pdb})" "fixed/\$(basename ${pdb})"
+    ln -s "\$(readlink -f ${pdb})" "fixed/${fixed_pdb_name}"
     ln -s "\$(readlink -f boltz_results_${meta.id}/predictions/${meta.id}/${meta.id}_model_0.pdb)" "mobile/\$(basename boltz_results_${meta.id}/predictions/${meta.id}/${meta.id}_model_0.pdb)"
 
     # Boltz complex PDB chain IDs are always A,B from create_boltz_yaml.py: YAML "target" slot is

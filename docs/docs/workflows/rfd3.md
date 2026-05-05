@@ -6,10 +6,7 @@ See also: [Official RFDiffusion3 documentation](https://rosettacommons.github.io
 
 ### Overview
 
-The RFdiffusion3 workflow currently includes:
-
-- **`--method rfd3`**: Complete protein binder design pipeline  
-  (RFDiffusion3 → ProteinMPNN → RosettaFold3 structure prediction).
+The RFdiffusion3 workflow is activated by using: **`--method rfd3`**
 
 > Partial diffusion refinement (as in `--method rfd_partial`) is **not yet implemented** for RFDiffusion3. This may be added in a future version.
 
@@ -317,13 +314,15 @@ By default outputs are written under `results/rfd3/` (or the directory specified
 - **`combined_scores.tsv`**  
   A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. The RMSD values (MPNN design vs RosettaFold3 refold) are also included as `rf3_rmsd_*` columns. When Boltz refolding is enabled (`refold_methods` includes `boltz`), Boltz confidence metrics appear as `boltz_complex_*` and `boltz_monomer_*`, and the same Boltz RMSD metrics as the `rfd` workflow’s `combined_scores.tsv` are merged from `boltz_refold/rmsd/`: `boltz_target_aligned_binder_rmsd_pruned`, `boltz_target_aligned_binder_rmsd_all` (design vs Boltz complex), and `boltz_monomer_vs_complex_rmsd_pruned`, `boltz_monomer_vs_complex_rmsd_all` (binder monomer vs complex). `rmsd_complex_vs_rf3.tsv` and `rmsd_monomer_vs_rf3.tsv` are not merged into this table.
 
+  > **Note:** If using a `--rf3_target_template` that is a different length to the `--input_pdb` target used by RFD3, the `rf3_rmsd_complex_rmsd_all` and `rf3_rmsd_target_aligned_target_rmsd_all` cannot be computed and will be empty in `combined_scores.tsv`.
+
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 
 ### Examples
 
 For complete, runnable examples using RFDiffusion3, see:
 
-- `examples/pdl1-rfd3/` – protein binder design with `rfd3`, both cli params and JSON config examples
+- [`examples/pdl1-rfd3/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/pdl1-rfd3) – protein binder design with `rfd3`, both cli params and JSON config examples
 
 For context on the original RFdiffusion v1 workflows (and how RFD3 compares conceptually), see `docs/docs/workflows/rfdiffusion.md`.
 

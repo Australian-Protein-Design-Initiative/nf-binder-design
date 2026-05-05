@@ -124,7 +124,7 @@ process COMBINE_RFD3_SCORES {
       python ${projectDir}/bin/merge_scores.py \\
         combined_scores.tsv tmp_boltz_rmsd_target_aligned_binder.tsv \\
         --keys merge_id,structure1 \\
-        --strip-suffix '_rf3_model\\.cif\$' \\
+        --strip-suffix '(\\.pdb|\\.cif)\$' \\
         --column-prefix boltz_target_aligned_binder_ \\
         --drop-columns 'boltz_target_aligned_binder_structure.*' \\
         -o step_boltz_rmsd_tab.tsv
