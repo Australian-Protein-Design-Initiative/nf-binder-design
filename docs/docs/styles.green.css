@@ -100,3 +100,11 @@
 .rst-footer-buttons a:hover {
     color: #388E3C;
 }
+
+blockquote {
+    padding: 10px 20px;
+    margin: 0 0 20px;
+    font-size: 17.5px;
+    border-left: 5px solid #eee; /* visible left bar */
+    color: #777;
+}

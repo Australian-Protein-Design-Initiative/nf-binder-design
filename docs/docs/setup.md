@@ -81,7 +81,7 @@ Model weights / parameters are currently packaged inside the containers - this m
 
 Configuration profiles for specific HPC clusters and cloud platforms are provided in `conf/platforms/` (`~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/`).
 
-You can use these profiles by adding the `-profile <profile>` flag to activate one or more configuration profiles (eg `-profile slurm,m3`).
+You can use these profiles by adding the `-profile <profile>` flag to activate one or more configuration profiles (eg `-profile slurm,m3`). Extra documentation specific to the M3 HPC cluster is available in the [M3 HPC examples](extra/m3-hpc-examples.md).
 
 ### Local Workstation / single compute node
 
@@ -127,7 +127,3 @@ export TMPDIR=/scratch2/myproject/tmp
 export NXF_TEMP=$TMPDIR
 mkdir -p $TMPDIR
 ```
-
-## Next Steps
-
-See the [Usage](usage.md) page for examples and detailed workflow documentation.

@@ -246,7 +246,9 @@ Filters are Python scripts in `bin/filters.d/`. Currently available:
 
 - **rg** (radius of gyration) - in `bin/filters.d/rg.py`
 
-![Rg theoretical curves](../Rg_theoretical_curves.png)
+![Rg theoretical curves](../images/Rg_theoretical_curves.png)
+
+For typical small protein binder designs up to ~120 residues, `--rfd_filters="rg<=20"` is typically a good radius of gyration to filter out (non-globular) long extended helices.
 
 ### Creating Custom Filters
 

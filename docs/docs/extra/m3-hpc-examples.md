@@ -1,6 +1,6 @@
 # M3 HPC cluster examples
 
-Here are some examples for specific workflows on the [M3 HPC cluster](https://docs.erc.monash.edu/Compute/HPC/M3/).
+Here are some examples for specific workflows on the Monash [M3 HPC cluster](https://docs.erc.monash.edu/Compute/HPC/M3/).
 
 These can be adapted for other HPC clusters the use SLURM.
 
