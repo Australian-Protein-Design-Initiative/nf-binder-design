@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-06
+
 ### Added
 - New `nci_gadi.config` configuration profile for NCI Gadi HPC cluster.
 - Initial [nf-test](https://www.nf-test.com/) test scaffold (`nf-test.config`, `tests/`) with a process test for `UNIQUE_ID` and `RFDIFFUSION`; documented in `docs/docs/testing.md`.
@@ -32,7 +34,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - `rmsd4all.py`: remove `--max-ca-for-tm-score` and `--pair-timeout` options.
-
 
 ## [0.1.5] - 2026-01-28
 

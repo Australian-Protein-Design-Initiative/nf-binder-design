@@ -25,7 +25,7 @@ nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
 You can also pull a specific version like: 
 
 ```bash
-nextflow pull -r 0.1.5 Australian-Protein-Design-Initiative/nf-binder-design
+nextflow pull -r 0.2.0 Australian-Protein-Design-Initiative/nf-binder-design
 ```
 
 ## RFdiffusion Workflows
