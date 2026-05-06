@@ -383,7 +383,8 @@ as well as size/shape scores (<code>rg</code>, <code>dmax</code>, <code>aspheric
 <ul>
 <li><strong>rg</strong> (radius of gyration) - in <code>bin/filters.d/rg.py</code></li>
 </ul>
-<p><img alt="Rg theoretical curves" src="../Rg_theoretical_curves.png" /></p>
+<p><img alt="Rg theoretical curves" src="../../images/Rg_theoretical_curves.png" /></p>
+<p>For typical small protein binder designs up to ~120 residues, <code>--rfd_filters="rg&lt;=20"</code> is typically a good radius of gyration to filter out (non-globular) long extended helices.</p>
 <h3 id="creating-custom-filters">Creating Custom Filters</h3>
 <p>Create a new <code>.py</code> file in <code>bin/filters.d/</code> implementing two functions:</p>
 <h4 id="1-register_metrics-liststr">1. <code>register_metrics() -&gt; list[str]</code></h4>

@@ -77,8 +77,6 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a>
-    </li>
     </ul>
                 </li>
               </ul>
@@ -188,7 +186,7 @@ You'll typically need <a href="https://apptainer.org/">Apptainer</a> installed -
 <p>Model weights / parameters are currently packaged inside the containers - this makes the containers large, but simplifies the workflow setup. In the future we will very likely provide more compact alternative containers without weights.</p>
 <h2 id="platform-specific-configuration">Platform-Specific Configuration</h2>
 <p>Configuration profiles for specific HPC clusters and cloud platforms are provided in <code>conf/platforms/</code> (<code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/</code>).</p>
-<p>You can use these profiles by adding the <code>-profile &lt;profile&gt;</code> flag to activate one or more configuration profiles (eg <code>-profile slurm,m3</code>).</p>
+<p>You can use these profiles by adding the <code>-profile &lt;profile&gt;</code> flag to activate one or more configuration profiles (eg <code>-profile slurm,m3</code>). Extra documentation specific to the M3 HPC cluster is available in the <a href="../extra/m3-hpc-examples/">M3 HPC examples</a>.</p>
 <h3 id="local-workstation-single-compute-node">Local Workstation / single compute node</h3>
 <p>For local execution of a single compute node, use the <code>-profile local</code> flag when running workflows. See <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/pdl1-rfd/nextflow.dual-gpu.config"><code>examples/pdl1-rfd/nextflow.dual-gpu.config</code></a> for a config example using dual-GPUs.</p>
 <h3 id="hpc-clusters-with-slurm">HPC Clusters with SLURM</h3>
@@ -218,8 +216,6 @@ export NXF_APPTAINER_CACHEDIR=${APPTAINER_CACHEDIR}
 export NXF_TEMP=$TMPDIR
 mkdir -p $TMPDIR
 </code></pre>
-<h2 id="next-steps">Next Steps</h2>
-<p>See the <a href="usage.md">Usage</a> page for examples and detailed workflow documentation.</p>
               
             </div>
           </div><footer>
