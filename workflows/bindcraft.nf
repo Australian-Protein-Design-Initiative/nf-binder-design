@@ -10,11 +10,6 @@ Usage via main.nf:
 
 */
 
-include { TRIM_TO_CONTIGS } from '../modules/local/common/trim_to_contigs'
-include { BINDCRAFT_CREATE_SETTINGS } from '../modules/local/bindcraft/bindcraft_create_settings'
-include { BINDCRAFT as BINDCRAFT_PROCESS } from '../modules/local/bindcraft/bindcraft'
-include { BINDCRAFT_REPORTING } from '../modules/local/bindcraft/bindcraft_reporting'
-
 params.outdir = 'results'
 params.bindcraft_advanced_settings_preset = 'default_4stage_multimer'
 params.bindcraft_filters_preset = 'default_filters'
@@ -32,6 +27,11 @@ params.bindcraft_compress_pdb = true
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
+
+include { TRIM_TO_CONTIGS } from '../modules/local/common/trim_to_contigs'
+include { BINDCRAFT_CREATE_SETTINGS } from '../modules/local/bindcraft/bindcraft_create_settings'
+include { BINDCRAFT as BINDCRAFT_PROCESS } from '../modules/local/bindcraft/bindcraft'
+include { BINDCRAFT_REPORTING } from '../modules/local/bindcraft/bindcraft_reporting'
 
 // Function to validate hotspot_res parameter format
 def parseHotspotResidues(hotspot_res) {
