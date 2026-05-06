@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - BindCraft (`workflows/bindcraft.nf`): omitting `--hotspot_res` no longer fails in `validateHotspotRes` with `Unknown method invocation 'trim' on Boolean type`.
 - BindCraft (`workflows/bindcraft.nf`): allow explicit `--hotspot_res=""` to pass through as a no-hotspot BindCraft setting, and normalise empty hotspot list entries before writing settings.
+- Declare `bindcraft_batch_size` default in `nextflow.config` so Nextflow does not warn when parsing `modules/local/bindcraft/bindcraft.nf` (unrelated to `-profile m3`).
 - `rmsd4all.py`: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.
 - `rmsd4all.py`: add `--max-structural-iterations` (default 100). Biotite's refinement loop uses `max_iterations=inf` by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.
 - `rmsd4all.py`: fix use of `array_length` (method) as if it were an attribute; use `len()` for atom counts.
