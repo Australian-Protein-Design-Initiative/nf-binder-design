@@ -198,6 +198,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <ul>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): omitting <code>--hotspot_res</code> no longer fails in <code>validateHotspotRes</code> with <code>Unknown method invocation 'trim' on Boolean type</code>.</li>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): allow explicit <code>--hotspot_res=""</code> to pass through as a no-hotspot BindCraft setting, and normalise empty hotspot list entries before writing settings.</li>
+<li>Declare <code>bindcraft_batch_size</code> default in <code>nextflow.config</code> so Nextflow does not warn when parsing <code>modules/local/bindcraft/bindcraft.nf</code> (unrelated to <code>-profile m3</code>).</li>
 <li><code>rmsd4all.py</code>: cap worker processes to the number of pairs so single-pair comparisons (e.g. RFD3_RMSD with one design vs one refold) no longer spawn a large Pool and appear to hang; sequential path is used for one pair with progress logged.</li>
 <li><code>rmsd4all.py</code>: add <code>--max-structural-iterations</code> (default 100). Biotite's refinement loop uses <code>max_iterations=inf</code> by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.</li>
 <li><code>rmsd4all.py</code>: fix use of <code>array_length</code> (method) as if it were an attribute; use <code>len()</code> for atom counts.</li>
