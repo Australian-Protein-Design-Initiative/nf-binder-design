@@ -97,6 +97,10 @@
                   </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
                 </li>
               </ul>
@@ -145,7 +149,9 @@
   --method bindcraft --help
 </code></pre>
 <h2 id="example-usage">Example Usage</h2>
-<pre><code class="language-bash">DATESTAMP=$(date +%Y%m%d_%H%M%S)
+<pre><code class="language-bash">#!/bin/bash
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method bindcraft \

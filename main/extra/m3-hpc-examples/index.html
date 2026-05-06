@@ -85,6 +85,10 @@
                   </li>
               </ul>
               <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
                 <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
                 </li>
               </ul>
@@ -114,7 +118,7 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="m3-hpc-cluster-examples">M3 HPC cluster examples</h1>
-<p>Here are some examples for specific workflows on the <a href="https://docs.erc.monash.edu/Compute/HPC/M3/">M3 HPC cluster</a>.</p>
+<p>Here are some examples for specific workflows on the Monash <a href="https://docs.erc.monash.edu/Compute/HPC/M3/">M3 HPC cluster</a>.</p>
 <p>These can be adapted for other HPC clusters the use SLURM.</p>
 <h2 id="setup">Setup</h2>
 <p>Load the Nextflow module:</p>
@@ -127,7 +131,7 @@ nextflow info
 </code></pre>
 <p>(this creates a local cache of the workflow in <code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/</code>)</p>
 <p>You can also pull a specific version like: </p>
-<pre><code class="language-bash">nextflow pull -r 0.1.5 Australian-Protein-Design-Initiative/nf-binder-design
+<pre><code class="language-bash">nextflow pull -r 0.2.0 Australian-Protein-Design-Initiative/nf-binder-design
 </code></pre>
 <h2 id="rfdiffusion-workflows">RFdiffusion Workflows</h2>
 <p>Create an SBATCH script named <code>run.sh</code> like:</p>
@@ -220,7 +224,7 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../utility-scripts/" class="btn btn-neutral float-left" title="Utility Scripts"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../changelog/" class="btn btn-neutral float-right" title="Release history">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../testing/" class="btn btn-neutral float-right" title="Testing">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -250,7 +254,7 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
       <span><a href="../utility-scripts/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../changelog/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../../testing/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
