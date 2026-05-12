@@ -15,6 +15,7 @@ nav:
 
 plugins:
   - search
+  - mike
 #  - macros
 
 # theme:
