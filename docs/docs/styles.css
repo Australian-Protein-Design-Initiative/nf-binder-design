@@ -100,3 +100,10 @@
 .rst-footer-buttons a:hover {
     color: #388E3C;
 }
+
+/* Allow table cells to wrap (avoids horizontal scroll) */
+.rst-content table.docutils td {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}

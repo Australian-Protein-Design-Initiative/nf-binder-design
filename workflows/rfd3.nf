@@ -85,6 +85,18 @@ params.uniref30 = false
 params.colabfold_envdb = false
 params.output_rmsd_aligned = false
 
+// FoldSeek params
+params.do_foldseek = false
+params.foldseek_search_max = false  // max designs for FoldSeek (defaults to full_refold_max)
+params.foldseek_database = 'CATH50'
+params.foldseek_databases_path = false
+params.foldseek_use_webserver = false
+params.foldseek_mode = '3diaa'
+params.foldseek_maxaccept = 1
+params.foldseek_gzip_output = false
+params.foldseek_include_html_output = false
+params.foldseek_cath_names_path = false
+
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(boltz predict|rfd3 design|rf3 fold)'
@@ -110,6 +122,8 @@ include {
     validateRfd3MpnnPresetParams;
 } from '../modules/local/rfd3/rfd3_utils'
 include { BOLTZ_REFOLD_SCORING_RFD3 } from '../subworkflows/local/boltz_refold_scoring_rfd3'
+include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
+include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 
 workflow RFD3 {
 
@@ -227,6 +241,20 @@ workflow RFD3 {
             --full_refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.full_refold_filter_sort}]
             --full_refold_create_target_msa  Create target MSA for refolding (runs MMseqs2) [default: ${params.full_refold_create_target_msa}]
             --full_refold_alignment    External A3M file for refold target; bypasses MMseqs2 when set [default: ${params.full_refold_alignment}]
+
+        FoldSeek structural search (optional, enabled with --do_foldseek):
+            --do_foldseek                 Enable FoldSeek search on the same designs selected for full refolding
+            --foldseek_search_max         Maximum designs to search with FoldSeek [default: same as --full_refold_max]
+            --foldseek_database           Database to search [default: CATH50]
+                                          (CATH50, PDB, Alphafold/UniProt50, etc.)
+            --foldseek_databases_path     Path to local databases directory (auto-downloaded if unset)
+            --foldseek_use_webserver      Use FoldSeek web API instead of local search [default: false]
+            --foldseek_mode               Search mode [default: 3diaa]
+            --foldseek_maxaccept          Max accepted alignments per query [default: 1]
+            --foldseek_gzip_output        Gzip TSV output [default: false]
+            --foldseek_include_html_output  Include HTML report [default: false]
+            --foldseek_cath_names_path    Path to local cath-names.txt (auto-downloaded if unset)
+                                          CATH annotation is automatic when database name starts with "CATH"
 
         Other options:
             --require_gpu         Fail tasks without a GPU [default: ${params.require_gpu}]
@@ -516,6 +544,61 @@ workflow RFD3 {
         ch_boltz_rmsd_monomer_vs_complex = BOLTZ_REFOLD_SCORING_RFD3.out.rmsd_monomer_vs_complex
     }
 
+    // FoldSeek structural search (optional) — uses same selection as full refold
+    if (params.do_foldseek) {
+        // Reuse the same sorted/selected designs that go to full refold
+        def foldseek_max = (params.foldseek_search_max ?: params.full_refold_max) as int
+
+        ch_foldseek_input = ch_rf3_refolded_cif
+            .join(ch_rf3_scores_with_meta)
+            .map { meta, cif, score_tsv ->
+                def lines = score_tsv.readLines()
+                def header = lines[0].split('\t')
+                def values = lines[1].split('\t')
+                def scoreMap = [:]
+                for (int i = 0; i < header.size(); i++) {
+                    scoreMap[header[i]] = values[i]
+                }
+                return [meta, cif, scoreMap]
+            }
+            .toSortedList { a, b ->
+                def sort_key = params.full_refold_filter_sort ?: 'pair_pae_min'
+                def descending = false
+                if (sort_key.startsWith('-')) {
+                    descending = true
+                    sort_key = sort_key.substring(1)
+                }
+                def valA = a[2][sort_key]
+                def valB = b[2][sort_key]
+
+                valA = valA && valA != 'None' && valA != '' ? valA.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
+                valB = valB && valB != 'None' && valB != '' ? valB.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
+
+                return descending ? valB <=> valA : valA <=> valB
+            }
+            .flatMap { list ->
+                if (foldseek_max) {
+                    return list.take(foldseek_max)
+                }
+                return list
+            }
+            .map { meta, cif, _ ->
+                // RF3 outputs all named model.cif — create uniquely named copy
+                // to avoid staging collision in FoldSeek (uses text copy for small CIF files)
+                def unique = file("${meta.id}_design.cif")
+                unique.text = cif.text
+                unique
+            }
+
+        // Extract design (shorter/binder) chain from complexes
+        FOLDSEEK_PREPARE_QUERIES(ch_foldseek_input)
+
+        ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
+        ch_foldseek_meta = Channel.of([id: 'rfd3_foldseek'])
+
+        FOLDSEEK_SEARCH(ch_foldseek_pdbs, ch_foldseek_meta)
+    }
+
     ch_rmsd_target_aligned_binder = RFD3_RMSD.out.rmsd_target_aligned_binder
         .map { meta, tsv -> tsv }
         .collectFile(name: 'rmsd_target_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
@@ -576,4 +659,7 @@ workflow RFD3 {
     rfd3_rmsd_complex = ch_rmsd_complex
     rfd3_rmsd_binder_aligned_binder = ch_rmsd_binder_aligned_binder
     rfd3_rmsd_target_aligned_target = ch_rmsd_target_aligned_target
+    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

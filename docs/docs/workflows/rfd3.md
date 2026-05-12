@@ -318,6 +318,57 @@ By default outputs are written under `results/rfd3/` (or the directory specified
 
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 
+## FoldSeek Structural Search (Optional)
+
+After RosettaFold3 predictions, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the top designs to identify structurally similar proteins and annotate designs with known structural folds.
+
+The binder chain is automatically extracted from each RF3 complex — only the binder is searched, not the full target–binder complex.
+
+### Enabling FoldSeek
+
+Add `--do_foldseek` to your RFD3 command:
+
+```bash
+nextflow run main.nf --method rfd3 \
+  --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
+  --do_foldseek
+```
+
+### Design Selection for FoldSeek
+
+FoldSeek operates on the **same set of designs** that would be selected for Boltz-2 full refolding. Designs are sorted by `--full_refold_filter_sort` (default: `pair_pae_min`) and the top N are selected based on `--foldseek_search_max`:
+
+- **`--foldseek_search_max`**: maximum designs to search with FoldSeek. Defaults to `--full_refold_max` if not set.
+- **If neither `--foldseek_search_max` nor `--full_refold_max` is set**: all RF3 designs are searched.
+
+```bash
+# FoldSeek searches top 50 designs (same as full refold selection)
+nextflow run main.nf --method rfd3 \
+  --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
+  --full_refold_max 100 \
+  --do_foldseek
+
+# Or search a larger set than is refolded
+nextflow run main.nf --method rfd3 \
+  --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
+  --full_refold_max 50 \
+  --foldseek_search_max 200 \
+  --do_foldseek
+```
+
+### FoldSeek Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--do_foldseek` | `false` | Enable FoldSeek search on selected RF3 designs |
+| `--foldseek_search_max` | *(uses `--full_refold_max`)* | Maximum designs to search with FoldSeek |
+
+All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
+
+### FoldSeek Output
+
+Results are published to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
+
 ### Examples
 
 For complete, runnable examples using RFDiffusion3, see:

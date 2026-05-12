@@ -30,6 +30,9 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --full_refold_use_msa_server \
   --full_refold_target_fasta='input/full/3BIK_B.fasta' \
   --full_refold_target_templates='input/full/' \
+  --do_foldseek \
+  --foldseek_database=CATH50 \
+  --foldseek_databases_path="$(pwd)/../databases/foldseek" \
   --output_rmsd_aligned \
   -profile local \
   -resume \
