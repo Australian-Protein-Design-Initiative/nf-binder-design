@@ -101,6 +101,31 @@
     color: #388E3C;
 }
 
+/*
+ * MkDocs theme_extra.css sets .rst-content .section .docutils to display:block +
+ * overflow:auto; RTD uses .wy-table-responsive with overflow-x:auto. Restore
+ * wrapping instead of nested scroll areas.
+ */
+.rst-content .wy-table-responsive {
+    overflow-x: visible;
+    overflow-y: visible;
+    max-width: 100%;
+}
+
+.rst-content .section table.docutils {
+    display: table;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+}
+
+.rst-content table.docutils th,
+.rst-content table.docutils td {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
 blockquote {
     padding: 10px 20px;
     margin: 0 0 20px;
