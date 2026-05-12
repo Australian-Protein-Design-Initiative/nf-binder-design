@@ -88,11 +88,24 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#re-running-filtering">Re-running Filtering</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#enabling-foldseek">Enabling FoldSeek</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#foldseek-flags">FoldSeek Flags</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
     </li>
     </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
@@ -170,33 +183,109 @@ The key advantage of this workflow is improved parallelization across multiple G
   --config_yaml config/my_design.yaml
 </code></pre>
 <h3 id="key-parameters">Key Parameters</h3>
-<ul>
-<li><code>--config_yaml</code>: <strong>(Required)</strong> Path to the BoltzGen YAML configuration file.</li>
-<li><code>--outdir</code>: Output directory for results (default: <code>results</code>).</li>
-<li><code>--design_name</code>: Name of the design, used for output file prefixes. Defaults to the basename of the config file.</li>
-<li><code>--protocol</code>: Protocol type. Options:<ul>
-<li><code>protein-anything</code> (default)</li>
-<li><code>peptide-anything</code></li>
-<li><code>protein-small_molecule</code></li>
-<li><code>nanobody-anything</code></li>
-</ul>
-</li>
-<li><code>--num_designs</code>: Total number of designs to generate (default: 100).</li>
-<li><code>--inverse_fold_num_sequences</code>: Number of sequences to generate per backbone during the inverse folding step (default: 1).</li>
-<li><code>--batch_size</code>: Number of designs to process per batch (default: 10).</li>
-<li><code>--budget</code>: Final number of designs to keep after diversity optimization and filtering (default: 10).</li>
-<li><code>--devices</code>: Number of GPU devices to use (default: 1).</li>
-<li><code>--num_workers</code>: Number of DataLoader workers.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--config_yaml</code></td>
+<td><em>(required)</em></td>
+<td>Path to the BoltzGen YAML configuration file</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td><code>results</code></td>
+<td>Output directory for results</td>
+</tr>
+<tr>
+<td><code>--design_name</code></td>
+<td>config basename</td>
+<td>Name of the design, used for output file prefixes</td>
+</tr>
+<tr>
+<td><code>--protocol</code></td>
+<td><code>protein-anything</code></td>
+<td>Protocol type: <code>protein-anything</code>, <code>peptide-anything</code>, <code>protein-small_molecule</code>, or <code>nanobody-anything</code></td>
+</tr>
+<tr>
+<td><code>--num_designs</code></td>
+<td><code>100</code></td>
+<td>Total number of designs to generate</td>
+</tr>
+<tr>
+<td><code>--inverse_fold_num_sequences</code></td>
+<td><code>1</code></td>
+<td>Number of sequences to generate per backbone during inverse folding</td>
+</tr>
+<tr>
+<td><code>--batch_size</code></td>
+<td><code>10</code></td>
+<td>Number of designs to process per batch</td>
+</tr>
+<tr>
+<td><code>--budget</code></td>
+<td><code>10</code></td>
+<td>Final number of designs to keep after diversity optimization and filtering</td>
+</tr>
+<tr>
+<td><code>--devices</code></td>
+<td><code>1</code></td>
+<td>Number of GPU devices to use</td>
+</tr>
+<tr>
+<td><code>--num_workers</code></td>
+<td></td>
+<td>Number of DataLoader workers</td>
+</tr>
+</tbody>
+</table>
 <h4 id="filtering-parameters">Filtering Parameters</h4>
-<ul>
-<li><code>--alpha</code>: Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only.</li>
-<li><code>--filter_biased</code>: Remove amino-acid composition outliers (default: true, use <code>--filter_biased false</code> to disable).</li>
-<li><code>--metrics_override</code>: Per-metric inverse-importance weights for ranking. Format: <code>metric_name=weight</code> (e.g., <code>'plip_hbonds_refolded=4' 'delta_sasa_refolded=2'</code>).</li>
-<li><code>--additional_filters</code>: Extra hard filters. Format: <code>feature&gt;threshold</code> or <code>feature&lt;threshold</code> (e.g., <code>'design_ALA&gt;0.3' 'design_GLY&lt;0.2'</code>).</li>
-<li><code>--size_buckets</code>: Constraint for maximum designs in size ranges. Format: <code>min-max:count</code> (e.g., <code>'10-20:5' '20-30:10'</code>).</li>
-<li><code>--refolding_rmsd_threshold</code>: Threshold used for RMSD-based filters (lower is better).</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--alpha</code></td>
+<td></td>
+<td>Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only</td>
+</tr>
+<tr>
+<td><code>--filter_biased</code></td>
+<td><code>true</code></td>
+<td>Remove amino-acid composition outliers (use <code>--filter_biased false</code> to disable)</td>
+</tr>
+<tr>
+<td><code>--metrics_override</code></td>
+<td></td>
+<td>Per-metric inverse-importance weights for ranking. Format: <code>metric_name=weight</code> (e.g., <code>'plip_hbonds_refolded=4' 'delta_sasa_refolded=2'</code>)</td>
+</tr>
+<tr>
+<td><code>--additional_filters</code></td>
+<td></td>
+<td>Extra hard filters. Format: <code>feature&gt;threshold</code> or <code>feature&lt;threshold</code> (e.g., <code>'design_ALA&gt;0.3' 'design_GLY&lt;0.2'</code>)</td>
+</tr>
+<tr>
+<td><code>--size_buckets</code></td>
+<td></td>
+<td>Constraint for maximum designs in size ranges. Format: <code>min-max:count</code> (e.g., <code>'10-20:5' '20-30:10'</code>)</td>
+</tr>
+<tr>
+<td><code>--refolding_rmsd_threshold</code></td>
+<td></td>
+<td>Threshold used for RMSD-based filters (lower is better)</td>
+</tr>
+</tbody>
+</table>
 <h2 id="key-outputs">Key Outputs</h2>
 <p>The <code>results</code> directory (or specified <code>--outdir</code>) will contain:</p>
 <ul>
@@ -212,6 +301,34 @@ The key advantage of this workflow is improved parallelization across multiple G
 </code></pre>
 <p>The <code>--config_yaml</code> and <code>--protocol</code> are auto-detected from <code>params.json</code> if not specified. All filtering parameters from the main workflow are available.</p>
 <p>Results are saved to <code>results/boltzgen/filtered/final_ranked_designs/</code>.</p>
+<h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
+<p>After filtering, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the final designs. The design (shorter/binder) chain is automatically extracted from each complex mmCIF — only the binder is searched, not the full target–binder complex.</p>
+<p>FoldSeek summary results are output to <code>{outdir}/foldseek/{database_name}/</code>. See <a href="../../subworkflows/foldseek/#output-format">FoldSeek output format</a> for details.</p>
+<h3 id="enabling-foldseek">Enabling FoldSeek</h3>
+<p>Add <code>--do_foldseek</code> to your boltzgen command:</p>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method boltzgen \
+  --config_yaml config/my_design.yaml \
+  --do_foldseek
+</code></pre>
+<h3 id="foldseek-flags">FoldSeek Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--do_foldseek</code></td>
+<td><code>false</code></td>
+<td>Enable FoldSeek search on final designs</td>
+</tr>
+</tbody>
+</table>
+<p>All common <code>--foldseek_*</code> flags (database, search mode, output options, CATH annotation) are documented in the <a href="../../subworkflows/foldseek/#command-line-options">FoldSeek subworkflow docs</a>.</p>
 <h2 id="examples">Examples</h2>
 <p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples for BoltzGen workflows:</p>
 <ul>

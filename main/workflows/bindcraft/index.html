@@ -80,6 +80,14 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#output-structure">Output Structure</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#enabling-foldseek">Enabling FoldSeek</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#foldseek-flags">FoldSeek Flags</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
     </li>
     </ul>
@@ -87,6 +95,11 @@
                   <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
@@ -172,28 +185,82 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </code></pre>
 <p>For running on SLURM, you can use the <code>-profile slurm</code> flag instead of <code>-profile local</code>, with <code>--slurm_account=xxYY</code> and the appropriate <code>-c</code> site-specific configuration file (refer to and adapt from the <a href="../rfdiffusion/#parallel-tasks-on-an-hpc-cluster">rfdiffusion example</a>).</p>
 <h2 id="key-parameters">Key Parameters</h2>
-<ul>
-<li><code>--input_pdb</code>: Target protein structure</li>
-<li><code>--target_chains</code>: Target chain IDs (comma-separated)</li>
-<li><code>--hotspot_res</code>: Hotspot residues (comma-separated)</li>
-<li><code>--hotspot_subsample</code>: Random proportion of hotspot residues per design (explores hotspot selection)</li>
-<li><code>--binder_length_range</code>: Range of binder lengths to design</li>
-<li><code>--bindcraft_n_traj</code>: Number of trajectories to run</li>
-<li><code>--bindcraft_batch_size</code>: Number of trajectories per batch</li>
-<li><code>--gpu_devices</code>: Specify multiple GPUs, e.g., <code>--gpu_devices=0,1</code> - use only for <code>-profile local</code></li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--input_pdb</code></td>
+<td>Target protein structure</td>
+</tr>
+<tr>
+<td><code>--target_chains</code></td>
+<td>Target chain IDs (comma-separated)</td>
+</tr>
+<tr>
+<td><code>--hotspot_res</code></td>
+<td>Hotspot residues (comma-separated)</td>
+</tr>
+<tr>
+<td><code>--hotspot_subsample</code></td>
+<td>Random proportion of hotspot residues per design (explores hotspot selection)</td>
+</tr>
+<tr>
+<td><code>--binder_length_range</code></td>
+<td>Range of binder lengths to design</td>
+</tr>
+<tr>
+<td><code>--bindcraft_n_traj</code></td>
+<td>Number of trajectories to run</td>
+</tr>
+<tr>
+<td><code>--bindcraft_batch_size</code></td>
+<td>Number of trajectories per batch</td>
+</tr>
+<tr>
+<td><code>--gpu_devices</code></td>
+<td>Specify multiple GPUs, e.g., <code>--gpu_devices=0,1</code> — use only for <code>-profile local</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="bindcraft-presets">BindCraft Presets</h2>
 <h3 id="advanced-settings-presets">Advanced Settings Presets</h3>
-<ul>
-<li><code>--bindcraft_advanced_settings_preset</code>: Use a preset from <a href="https://github.com/martinpacesa/BindCraft/tree/main/settings_advanced">settings_advanced</a> (without .json extension)</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--bindcraft_advanced_settings_preset</code></td>
+<td>Use a preset from <a href="https://github.com/martinpacesa/BindCraft/tree/main/settings_advanced">settings_advanced</a> (without .json extension)</td>
+</tr>
+</tbody>
+</table>
 <blockquote>
 <p>Keep in mind, the experimental success rate of the advanced presets may not have been as rigorously validated as the <code>default4stage_multimer</code> preset. <em>Caveat emptor.</em></p>
 </blockquote>
 <h3 id="filter-presets">Filter Presets</h3>
-<ul>
-<li><code>--bindcraft_filters_preset</code>: Use filter settings presets from <a href="https://github.com/martinpacesa/BindCraft/tree/main/settings_filters">settings_filters</a> (without .json extension). In most cases, it's probably best to stick with the default.</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--bindcraft_filters_preset</code></td>
+<td>Use filter settings presets from <a href="https://github.com/martinpacesa/BindCraft/tree/main/settings_filters">settings_filters</a> (without .json extension). In most cases, it's probably best to stick with the default.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="output-structure">Output Structure</h2>
 <p>Results are saved to <code>--outdir</code> in the <code>bindcraft/</code> subdirectory:</p>
 <pre><code>── bindcraft
@@ -230,6 +297,33 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     ├── trace_20250725_084959.txt
 </code></pre>
 <p>A summary report is generated as <code>bindcraft_report.html</code>.</p>
+<h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
+<p>After BindCraft completes, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex — only the binder is searched, not the full target–binder complex.</p>
+<p>FoldSeek summary results are output to <code>{outdir}/foldseek/{database_name}/</code>. See <a href="../../subworkflows/foldseek/#output-format">FoldSeek output format</a> for details.</p>
+<h3 id="enabling-foldseek">Enabling FoldSeek</h3>
+<p>Add <code>--do_foldseek</code> to your bindcraft command:</p>
+<pre><code class="language-bash">nextflow run main.nf --method bindcraft \
+  --input_pdb target.pdb --target_chains A \
+  --do_foldseek
+</code></pre>
+<h3 id="foldseek-flags">FoldSeek Flags</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--do_foldseek</code></td>
+<td><code>false</code></td>
+<td>Enable FoldSeek search on accepted designs</td>
+</tr>
+</tbody>
+</table>
+<p>All common <code>--foldseek_*</code> flags (database, search mode, output options, CATH annotation) are documented in the <a href="../../subworkflows/foldseek/#command-line-options">FoldSeek subworkflow docs</a>.</p>
 <h2 id="examples">Examples</h2>
 <p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples for BindCraft workflows:</p>
 <ul>

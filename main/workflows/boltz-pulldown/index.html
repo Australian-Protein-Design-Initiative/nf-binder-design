@@ -85,6 +85,11 @@
     </ul>
                   </li>
               </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
@@ -136,10 +141,27 @@
 </code></pre>
 <h2 id="multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</h2>
 <p>By default, <strong>no MSAs are used</strong>. To enable:</p>
-<ul>
-<li><code>--create_target_msa=true</code>: Generate MSAs for targets</li>
-<li><code>--create_binder_msa=true</code>: Generate MSAs for binders</li>
-</ul>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--create_target_msa</code></td>
+<td><code>false</code></td>
+<td>Generate MSAs for targets</td>
+</tr>
+<tr>
+<td><code>--create_binder_msa</code></td>
+<td><code>false</code></td>
+<td>Generate MSAs for binders</td>
+</tr>
+</tbody>
+</table>
 <blockquote>
 <p>⚠️ For <em>de novo</em> designed binders, use <code>--create_target_msa=true</code> to improve <em>target</em> prediction accuracy, but skip generating <em>binder</em> MSAs (<code>--create_binder_msa=false</code>, the default) as these are less informative since no homologs exist.</p>
 </blockquote>
@@ -180,7 +202,7 @@
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../boltzgen/" class="btn btn-neutral float-left" title="BoltzGen"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../extra/utility-scripts/" class="btn btn-neutral float-right" title="Utility Scripts">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../subworkflows/foldseek/" class="btn btn-neutral float-right" title="FoldSeek">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -210,7 +232,7 @@
       <span><a href="../boltzgen/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../extra/utility-scripts/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../../subworkflows/foldseek/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

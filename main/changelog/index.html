@@ -65,6 +65,11 @@
                   <li class="toctree-l1"><a class="reference internal" href="../workflows/boltz-pulldown/">Boltz Pulldown</a>
                   </li>
               </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../extra/utility-scripts/">Utility Scripts</a>
@@ -80,10 +85,14 @@
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Release history</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#unreleased">[Unreleased]</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#020-2026-05-06">[0.2.0] - 2026-05-06</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_1">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
     </li>
@@ -95,7 +104,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#015-2026-01-28">[0.1.5] - 2026-01-28</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_1">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
     </li>
@@ -105,7 +114,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#014-2025-08-12">[0.1.4] - 2025-08-12</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
     </li>
@@ -113,7 +122,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#013-2025-07-11">[0.1.3] - 2025-07-11</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
     </li>
@@ -123,7 +132,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#012-2025-06-19">[0.1.2] - 2025-06-19</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_4">Changed</a>
     </li>
@@ -139,7 +148,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#01-2025-03-24">[0.1] - 2025-03-24</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_6">Added</a>
     </li>
         </ul>
     </li>
@@ -175,8 +184,12 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]</h2>
-<h2 id="020-2026-05-06">[0.2.0] - 2026-05-06</h2>
 <h3 id="added">Added</h3>
+<ul>
+<li>FoldSeek structural search (<code>--do_foldseek</code>) for the <code>rfd</code>, <code>bindcraft</code>, <code>boltzgen</code>, and <code>rfd3</code> workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.</li>
+</ul>
+<h2 id="020-2026-05-06">[0.2.0] - 2026-05-06</h2>
+<h3 id="added_1">Added</h3>
 <ul>
 <li>New <code>nci_gadi.config</code> configuration profile for NCI Gadi HPC cluster.</li>
 <li>Initial <a href="https://www.nf-test.com/">nf-test</a> test scaffold (<code>nf-test.config</code>, <code>tests/</code>) with a process test for <code>UNIQUE_ID</code> and <code>RFDIFFUSION</code>; documented in <code>docs/docs/testing.md</code>.</li>
@@ -208,7 +221,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>rmsd4all.py</code>: remove <code>--max-ca-for-tm-score</code> and <code>--pair-timeout</code> options.</li>
 </ul>
 <h2 id="015-2026-01-28">[0.1.5] - 2026-01-28</h2>
-<h3 id="added_1">Added</h3>
+<h3 id="added_2">Added</h3>
 <ul>
 <li>New BoltzGen pipeline.</li>
 <li>Refold binder designs with Boltz, with post-AF2ig filtering and 
@@ -232,7 +245,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed Quarto rendering permissions issues (copy Qmd to work folder).</li>
 </ul>
 <h2 id="014-2025-08-12">[0.1.4] - 2025-08-12</h2>
-<h3 id="added_2">Added</h3>
+<h3 id="added_3">Added</h3>
 <ul>
 <li>BindCraft end-to-end workflow with basic HTML report</li>
 <li>GPU allocation heuristics for local multi-GPU workstations.</li>
@@ -245,7 +258,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Minor tweaks to site-specific configs for <code>m3</code> and <code>mlerp</code>.</li>
 </ul>
 <h2 id="013-2025-07-11">[0.1.3] - 2025-07-11</h2>
-<h3 id="added_3">Added</h3>
+<h3 id="added_4">Added</h3>
 <ul>
 <li>A plugin system for filtering designs based on calculated metrics.</li>
 <li><code>--rfd_filters</code> parameter to apply filters to RFDiffusion backbones (e.g., <code>--rfd_filters "rg&lt;25"</code>).</li>
@@ -270,7 +283,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>The <code>gpu_device</code> parameter is now correctly passed to the partial diffusion process, allowing proper GPU selection.</li>
 </ul>
 <h2 id="012-2025-06-19">[0.1.2] - 2025-06-19</h2>
-<h3 id="added_4">Added</h3>
+<h3 id="added_5">Added</h3>
 <ul>
 <li>Added the <code>boltz_pulldown.nf</code> protocol.</li>
 <li>Allow gpu device to be selected.</li>
@@ -293,7 +306,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Update to use containers from Github package registry</li>
 </ul>
 <h2 id="01-2025-03-24">[0.1] - 2025-03-24</h2>
-<h3 id="added_5">Added</h3>
+<h3 id="added_6">Added</h3>
 <ul>
 <li>Initial version with RFDiffusion-&gt;ProteinMPNN-&gt;af2_initial_guess binder
   design and partial diffusion pipelines.</li>
