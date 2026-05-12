@@ -48,6 +48,17 @@ params.colabfold_envdb = false
 
 params.output_rmsd_aligned = false
 
+params.do_foldseek = false
+params.foldseek_af2ig_filters = false
+params.foldseek_database = 'CATH50'
+params.foldseek_databases_path = false
+params.foldseek_use_webserver = false
+params.foldseek_mode = '3diaa'
+params.foldseek_maxaccept = 1
+params.foldseek_gzip_output = false
+params.foldseek_include_html_output = false
+params.foldseek_cath_names_path = false
+
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
@@ -64,6 +75,9 @@ include { AF2IG_SCORE_FILTER } from '../modules/local/rfd/af2ig_score_filter'
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 
 include { BOLTZ_REFOLD_SCORING } from '../subworkflows/local/boltz_refold_scoring'
+
+include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
+include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 
 workflow RFD {
 
@@ -114,7 +128,31 @@ workflow RFD {
                 --uniref30            UniRef30 database path for MSA creation [default: ${params.uniref30}]
                 --colabfold_envdb     ColabFold environment database path for MSA creation [default: ${params.colabfold_envdb}]
                 --output_rmsd_aligned Output aligned PDB files from RMSD calculations [default: ${params.output_rmsd_aligned}]
-                    
+
+            FoldSeek (optional, enabled with --do_foldseek):
+                --do_foldseek                 Enable FoldSeek structural similarity search on AF2IG designs
+                --foldseek_af2ig_filters      Semicolon-separated filters to select AF2IG designs for FoldSeek
+                                              [default: uses --refold_af2ig_filters if set, otherwise disabled]
+                --foldseek_database           Database to search [default: CATH50]
+                                              Local search (default):
+                                                - CATH50 (default) — CATH domain DB, combined AF2+PDB at 50% seq.id.
+                                                - PDB              — Protein Data Bank
+                                                - Alphafold/UniProt50 — AF2 clustered at 50% seq.id.
+                                                - ESMAtlas30       — ESM metagenomic atlas at 30% seq.id.
+                                                - BFMD             — Big Fantastic Multimer Database
+                                                - BFVD             — Big Fantastic Virus Database
+                                              Remote search (--foldseek_use_webserver true):
+                                                - pdb100, afdb50, afdb-swissprot, afdb-proteome,
+                                                  cath50, bfmd, BFVD, mgnify_esm30
+                --foldseek_databases_path     Path to local databases directory (auto-downloaded if unset)
+                --foldseek_use_webserver      Use FoldSeek web API instead of local search [default: false]
+                --foldseek_mode               Search mode [default: 3diaa]
+                --foldseek_maxaccept          Max accepted alignments per query [default: 1]
+                --foldseek_gzip_output        Gzip TSV output [default: false]
+                --foldseek_include_html_output  Include HTML report [default: false]
+                --foldseek_cath_names_path    Path to local cath-names.txt (auto-downloaded if unset)
+                                              CATH annotation is automatic when database name starts with "CATH"
+
                 --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
                 --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
                 --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
@@ -244,6 +282,37 @@ workflow RFD {
         params.outdir,
     )
 
+    // FoldSeek structural search on AF2IG-filtered designs (optional)
+    if (params.do_foldseek) {
+        // Determine filters: use foldseek-specific filters, or fall back to refold filters
+        def foldseek_filters = params.foldseek_af2ig_filters ?: params.refold_af2ig_filters
+
+        if (foldseek_filters) {
+
+            AF2IG_SCORE_FILTER(
+                AF2_INITIAL_GUESS.out.pdbs_with_scores.map { pdbs, scores -> scores },
+                AF2_INITIAL_GUESS.out.pdbs_with_scores.map { pdbs, scores -> pdbs },
+                foldseek_filters,
+            )
+            ch_foldseek_pdbs_in = AF2IG_SCORE_FILTER.out.accepted.flatten()
+        } else {
+            ch_foldseek_pdbs_in = AF2_INITIAL_GUESS.out.pdbs
+        }
+
+        // Extract design (shorter/binder) chain from complexes
+        FOLDSEEK_PREPARE_QUERIES(ch_foldseek_pdbs_in)
+
+        ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
+        ch_foldseek_meta = Channel.of([id: 'rfd_foldseek'])
+
+        FOLDSEEK_SEARCH(ch_foldseek_pdbs, ch_foldseek_meta)
+
+        FOLDSEEK_SEARCH.out.tsv.subscribe { f -> }
+    }
+
     emit:
     scores = BOLTZ_REFOLD_SCORING.out.scores
+    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

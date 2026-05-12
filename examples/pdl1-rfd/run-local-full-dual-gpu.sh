@@ -31,7 +31,9 @@ PIPELINE_DIR=../../
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 nextflow run ${PIPELINE_DIR}/main.nf \
+  -c nextflow.dual-gpu.config \
   --method rfd \
+  --gpu_devices=0,1 \
   --input_pdb 'input/*.pdb' \
   --outdir results \
   --contigs "[A18-132/0 65-120]" \
@@ -48,10 +50,8 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --refold_target_fasta='input/full/3BIK_B.fasta' \
   --refold_target_templates='input/full/' \
   --output_rmsd_aligned=true \
-  --do_foldseek \
-  --foldseek_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
-  --foldseek_database=CATH50 \
-  --foldseek_databases_path "$(pwd)/../databases/foldseek" \
+  # --do_foldseek \
+  # --foldseek_af2ig_filters="pae_interaction<=15" \
   -profile local \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \

@@ -28,10 +28,22 @@ params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
 
+params.do_foldseek = false
+params.foldseek_database = 'CATH50'
+params.foldseek_databases_path = false
+params.foldseek_use_webserver = false
+params.foldseek_mode = '3diaa'
+params.foldseek_maxaccept = 1
+params.foldseek_gzip_output = false
+params.foldseek_include_html_output = false
+params.foldseek_cath_names_path = false
+
 include { TRIM_TO_CONTIGS } from '../modules/local/common/trim_to_contigs'
 include { BINDCRAFT_CREATE_SETTINGS } from '../modules/local/bindcraft/bindcraft_create_settings'
 include { BINDCRAFT as BINDCRAFT_PROCESS } from '../modules/local/bindcraft/bindcraft'
 include { BINDCRAFT_REPORTING } from '../modules/local/bindcraft/bindcraft_reporting'
+include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
+include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 
 // Function to validate hotspot_res parameter format
 def parseHotspotResidues(hotspot_res) {
@@ -205,6 +217,28 @@ workflow BINDCRAFT {
             --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
             --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
 
+        FoldSeek (optional, enabled with --do_foldseek):
+            --do_foldseek                 Enable FoldSeek structural similarity search on accepted designs
+            --foldseek_database           Database to search [default: CATH50]
+                                           Local search (default):
+                                             - CATH50 (default) — CATH domain DB, combined AF2+PDB at 50% seq.id.
+                                             - PDB              — Protein Data Bank
+                                             - Alphafold/UniProt50 — AF2 clustered at 50% seq.id.
+                                             - ESMAtlas30       — ESM metagenomic atlas at 30% seq.id.
+                                             - BFMD             — Big Fantastic Multimer Database
+                                             - BFVD             — Big Fantastic Virus Database
+                                           Remote search (--foldseek_use_webserver true):
+                                             - pdb100, afdb50, afdb-swissprot, afdb-proteome,
+                                               cath50, bfmd, BFVD, mgnify_esm30
+            --foldseek_databases_path     Path to local databases directory (auto-downloaded if unset)
+            --foldseek_use_webserver      Use FoldSeek web API instead of local search [default: false]
+            --foldseek_mode               Search mode [default: 3diaa]
+            --foldseek_maxaccept          Max accepted alignments per query [default: 1]
+            --foldseek_gzip_output        Gzip TSV output [default: false]
+            --foldseek_include_html_output  Include HTML report [default: false]
+            --foldseek_cath_names_path    Path to local cath-names.txt (auto-downloaded if unset)
+                                          CATH annotation is automatic when database name starts with "CATH"
+
         """.stripIndent()
         exit 1
     }
@@ -359,6 +393,22 @@ workflow BINDCRAFT {
         ch_trajectory_stats_merged
     )
 
+    // Phase: FoldSeek structural search on accepted designs (optional)
+    if (params.do_foldseek) {
+        // Accepted PDBs are full complexes — extract design (shorter/binder) chains
+        FOLDSEEK_PREPARE_QUERIES(BINDCRAFT_PROCESS.out.accepted_pdbs)
+
+        ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
+        ch_foldseek_meta = Channel.of([id: 'bindcraft_foldseek'])
+
+        FOLDSEEK_SEARCH(ch_foldseek_pdbs, ch_foldseek_meta)
+
+        FOLDSEEK_SEARCH.out.tsv.subscribe { f -> }
+    }
+
     emit:
     final_stats = ch_final_stats_merged
+    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

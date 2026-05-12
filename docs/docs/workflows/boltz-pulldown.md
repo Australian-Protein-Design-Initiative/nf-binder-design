@@ -19,8 +19,10 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 By default, **no MSAs are used**. To enable:
 
-- `--create_target_msa=true`: Generate MSAs for targets
-- `--create_binder_msa=true`: Generate MSAs for binders
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--create_target_msa` | `false` | Generate MSAs for targets |
+| `--create_binder_msa` | `false` | Generate MSAs for binders |
 
 > ⚠️ For _de novo_ designed binders, use `--create_target_msa=true` to improve _target_ prediction accuracy, but skip generating _binder_ MSAs (`--create_binder_msa=false`, the default) as these are less informative since no homologs exist.
 

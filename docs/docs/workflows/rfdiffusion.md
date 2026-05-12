@@ -162,25 +162,29 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 ### Key Parameters
 
-- `--input_pdb`: Target protein structure
-- `--contigs`: Contig definition for RFdiffusion
-- `--hotspot_res`: Hotspot residues (comma-separated)
-- `--rfd_n_designs`: Number of designs to generate
-- `--rfd_filters`: Filter expression (e.g., `"rg<20"`)
-- `--rfd_model_path`: Path to a custom RFdiffusion model (in this case the `Complex_beta_ckpt.pt` model inside the container)
-- `--rfd_extra_args`: Pass these extra arguments to RFdiffusion - in this example we apply a radius of gyration potential
-- `--pmpnn_seqs_per_struct=2`: Generate 2 sequences per backbone design with ProteinMPNN
-- `--pmpnn_relax_cycles=5`: Run 5 FastRelax cycles for ProteinMPNN
-- `--pmpnn_weights`: Use custom ProteinMPNN weights (in this case the HyperMPNN weights inside the container)
-- `--af2ig_recycle=3`: Run 3 recycles for AF2 initial guess
+| Flag | Description |
+|------|-------------|
+| `--input_pdb` | Target protein structure |
+| `--contigs` | Contig definition for RFdiffusion |
+| `--hotspot_res` | Hotspot residues (comma-separated) |
+| `--rfd_n_designs` | Number of designs to generate |
+| `--rfd_filters` | Filter expression (e.g., `"rg<20"`) |
+| `--rfd_model_path` | Path to a custom RFdiffusion model |
+| `--rfd_extra_args` | Extra arguments passed to RFdiffusion (e.g. guiding potentials) |
+| `--pmpnn_seqs_per_struct` | Number of sequences per backbone design with ProteinMPNN |
+| `--pmpnn_relax_cycles` | Number of FastRelax cycles for ProteinMPNN |
+| `--pmpnn_weights` | Custom ProteinMPNN weights |
+| `--af2ig_recycle` | Number of recycles for AF2 initial guess |
 
 When `--refold_af2ig_filters` is set, designs that pass these score thresholds are refolded using Boltz-2 (both the complex and unbound binder monomer):
 
-  - `--refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80"`: Filter AF2 initial guess designs by PAE interaction <= 10 and binder pLDDT >= 80
-  - `--refold_max=100`: Refold a maximum of 100 designs
-  - `--refold_use_msa_server=true`: Use the public ColabFold MMSeqs2 server to generate the MSA for the target sequence
-  - `--refold_target_fasta='input/full/target.fasta'`: Refold (re-predict) using this target sequence
-  - `--refold_target_templates='input/full/'`: Use the full length target template PDBs in this directory to improve target predictions
+| Flag | Description |
+|------|-------------|
+| `--refold_af2ig_filters` | Filter AF2IG designs before refolding (e.g., `"pae_interaction<=10;plddt_binder>=80"`) |
+| `--refold_max` | Maximum number of designs to refold (e.g., `100`) |
+| `--refold_use_msa_server` | Use the public ColabFold MMSeqs2 server for MSA generation |
+| `--refold_target_fasta` | Target FASTA for re-prediction (use full-length sequence) |
+| `--refold_target_templates` | Directory of full-length target template PDBs |
 
 We use `-profile slurm,m3` to use pre-defined configuration files specific to the M3 HPC cluster.  You could also use the `-c` flag to point to a custom configuration file.
 
@@ -194,6 +198,49 @@ Other site-specific `-profile` options are provided in `conf/platforms/`:
 - `nci_gadi` - NCI Gadi HPC (PBS Pro)
 
 These can be adapted to other HPC clusters - pull requests are welcome !
+
+## FoldSeek Structural Search (Optional)
+
+After AF2 initial guess scoring, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the designs. The binder chain is automatically extracted from each AF2IG complex — only the binder is searched, not the full target–binder complex.
+
+FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
+
+### Enabling FoldSeek
+
+Add `--do_foldseek` to your RFD command:
+
+```bash
+nextflow run main.nf --method rfd \
+  --input_pdb target.pdb --contigs "[A1-100/0 70-100]" \
+  --do_foldseek
+```
+
+### Design Selection for FoldSeek
+
+FoldSeek operates on a subset of AF2IG designs, controlled by `--foldseek_af2ig_filters`:
+
+- **If `--foldseek_af2ig_filters` is set**: only designs passing these filters are searched
+- **If `--foldseek_af2ig_filters` is unset (default)**: falls back to `--refold_af2ig_filters` if set
+- **If neither is set**: all AF2IG designs are searched
+
+This means if you are already using `--refold_af2ig_filters` for Boltz-2 refolding, FoldSeek will automatically search the same subset of designs. You can override this with explicit `--foldseek_af2ig_filters` to search a different (e.g., broader) subset.
+
+```bash
+# FoldSeek uses the same filters as refold (automatic fallback)
+nextflow run main.nf --method rfd \
+  --input_pdb target.pdb --contigs "[A1-100/0 70-100]" \
+  --refold_af2ig_filters "pae_interaction<=10;plddt_binder>=80" \
+  --do_foldseek
+
+# Or specify separate, broader filters to send more designs to FoldSeek
+nextflow run main.nf --method rfd \
+  --input_pdb target.pdb --contigs "[A1-100/0 70-100]" \
+  --refold_af2ig_filters "pae_interaction<=10;plddt_binder>=80" \
+  --foldseek_af2ig_filters "pae_interaction<=15" \
+  --do_foldseek
+```
+
+All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
 
 ## Partial Diffusion on Binder Designs (--method rfd_partial)
 

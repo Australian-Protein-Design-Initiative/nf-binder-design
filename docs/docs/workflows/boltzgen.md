@@ -50,29 +50,29 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 ### Key Parameters
 
-- `--config_yaml`: **(Required)** Path to the BoltzGen YAML configuration file.
-- `--outdir`: Output directory for results (default: `results`).
-- `--design_name`: Name of the design, used for output file prefixes. Defaults to the basename of the config file.
-- `--protocol`: Protocol type. Options:
-    - `protein-anything` (default)
-    - `peptide-anything`
-    - `protein-small_molecule`
-    - `nanobody-anything`
-- `--num_designs`: Total number of designs to generate (default: 100).
-- `--inverse_fold_num_sequences`: Number of sequences to generate per backbone during the inverse folding step (default: 1).
-- `--batch_size`: Number of designs to process per batch (default: 10).
-- `--budget`: Final number of designs to keep after diversity optimization and filtering (default: 10).
-- `--devices`: Number of GPU devices to use (default: 1).
-- `--num_workers`: Number of DataLoader workers.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--config_yaml` | *(required)* | Path to the BoltzGen YAML configuration file |
+| `--outdir` | `results` | Output directory for results |
+| `--design_name` | config basename | Name of the design, used for output file prefixes |
+| `--protocol` | `protein-anything` | Protocol type: `protein-anything`, `peptide-anything`, `protein-small_molecule`, or `nanobody-anything` |
+| `--num_designs` | `100` | Total number of designs to generate |
+| `--inverse_fold_num_sequences` | `1` | Number of sequences to generate per backbone during inverse folding |
+| `--batch_size` | `10` | Number of designs to process per batch |
+| `--budget` | `10` | Final number of designs to keep after diversity optimization and filtering |
+| `--devices` | `1` | Number of GPU devices to use |
+| `--num_workers` | | Number of DataLoader workers |
 
 #### Filtering Parameters
 
-- `--alpha`: Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only.
-- `--filter_biased`: Remove amino-acid composition outliers (default: true, use `--filter_biased false` to disable).
-- `--metrics_override`: Per-metric inverse-importance weights for ranking. Format: `metric_name=weight` (e.g., `'plip_hbonds_refolded=4' 'delta_sasa_refolded=2'`).
-- `--additional_filters`: Extra hard filters. Format: `feature>threshold` or `feature<threshold` (e.g., `'design_ALA>0.3' 'design_GLY<0.2'`).
-- `--size_buckets`: Constraint for maximum designs in size ranges. Format: `min-max:count` (e.g., `'10-20:5' '20-30:10'`).
-- `--refolding_rmsd_threshold`: Threshold used for RMSD-based filters (lower is better).
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--alpha` | | Trade-off for sequence diversity selection: 0.0=quality-only, 1.0=diversity-only |
+| `--filter_biased` | `true` | Remove amino-acid composition outliers (use `--filter_biased false` to disable) |
+| `--metrics_override` | | Per-metric inverse-importance weights for ranking. Format: `metric_name=weight` (e.g., `'plip_hbonds_refolded=4' 'delta_sasa_refolded=2'`) |
+| `--additional_filters` | | Extra hard filters. Format: `feature>threshold` or `feature<threshold` (e.g., `'design_ALA>0.3' 'design_GLY<0.2'`) |
+| `--size_buckets` | | Constraint for maximum designs in size ranges. Format: `min-max:count` (e.g., `'10-20:5' '20-30:10'`) |
+| `--refolding_rmsd_threshold` | | Threshold used for RMSD-based filters (lower is better) |
 
 ## Key Outputs
 
@@ -96,6 +96,31 @@ nextflow run boltzgen_filter.nf --run results/boltzgen/merged --budget 20 --alph
 The `--config_yaml` and `--protocol` are auto-detected from `params.json` if not specified. All filtering parameters from the main workflow are available.
 
 Results are saved to `results/boltzgen/filtered/final_ranked_designs/`.
+
+## FoldSeek Structural Search (Optional)
+
+After filtering, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the final designs. The design (shorter/binder) chain is automatically extracted from each complex mmCIF — only the binder is searched, not the full target–binder complex.
+
+FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
+
+### Enabling FoldSeek
+
+Add `--do_foldseek` to your boltzgen command:
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method boltzgen \
+  --config_yaml config/my_design.yaml \
+  --do_foldseek
+```
+
+### FoldSeek Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--do_foldseek` | `false` | Enable FoldSeek search on final designs |
+
+All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
 
 ## Examples
 

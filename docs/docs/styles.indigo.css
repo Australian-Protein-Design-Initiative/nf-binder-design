@@ -100,3 +100,23 @@
 .rst-footer-buttons a:hover {
     color: #8E24AA;
 }
+
+.rst-content .wy-table-responsive {
+    overflow-x: visible;
+    overflow-y: visible;
+    max-width: 100%;
+}
+
+.rst-content .section table.docutils {
+    display: table;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+}
+
+.rst-content table.docutils th,
+.rst-content table.docutils td {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}

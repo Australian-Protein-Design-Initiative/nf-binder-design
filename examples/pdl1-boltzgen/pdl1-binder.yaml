@@ -1,0 +1,16 @@
+entities:
+  - protein:
+      id: B
+      sequence: 65..120
+
+  - file:
+      path: input/PDL1.renum.pdb
+
+      include:
+        - chain:
+            id: A
+
+      binding_types:
+        - chain:
+            id: A
+            binding: 39

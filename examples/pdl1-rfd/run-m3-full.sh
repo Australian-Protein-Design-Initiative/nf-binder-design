@@ -26,12 +26,14 @@
 # If --foldseek_af2ig_filters is not set, it falls back to --refold_af2ig_filters:
 #  --foldseek_af2ig_filters="pae_interaction<=15"   # override with broader filters if desired
 
-PIPELINE_DIR=../../
+PIPELINE_DIR=../../software/nf-binder-design
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/main.nf \
-  --method rfd \
+DEFAULT_SLURM_ACCOUNT=$(sacctmgr --parsable2 show user -s ${USER} | tail -1 | cut -f 2 -d \|)
+
+nextflow run ${PIPELINE_DIR}/main.nf  \
+  --slurm_account ${DEFAULT_SLURM_ACCOUNT} \
   --input_pdb 'input/*.pdb' \
   --outdir results \
   --contigs "[A18-132/0 65-120]" \
@@ -48,11 +50,9 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --refold_target_fasta='input/full/3BIK_B.fasta' \
   --refold_target_templates='input/full/' \
   --output_rmsd_aligned=true \
-  --do_foldseek \
-  --foldseek_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
-  --foldseek_database=CATH50 \
-  --foldseek_databases_path "$(pwd)/../databases/foldseek" \
-  -profile local \
+  # --do_foldseek \
+  # --foldseek_af2ig_filters="pae_interaction<=15" \
+  -profile slurm,m3 \
   -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
   -with-trace results/logs/trace_${DATESTAMP}.txt

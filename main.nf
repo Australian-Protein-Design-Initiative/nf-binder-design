@@ -25,6 +25,8 @@ if (params.method == "rfd") {
     include { BOLTZGEN } from './workflows/boltzgen'
 } else if (params.method == "boltz_pulldown") {
     include { BOLTZ_PULLDOWN } from './workflows/boltz_pulldown'
+} else if (params.method == "foldseek") {
+    include { FOLDSEEK } from './workflows/foldseek'
 }
 
 def paramsToMap(params) {
@@ -65,6 +67,7 @@ workflow {
             bindcraft       BindCraft binder design
             boltzgen        BoltzGen binder design
             boltz_pulldown  Boltz pulldown predictions
+            foldseek        FoldSeek structural similarity search
 
         Example:
             nextflow run main.nf --method rfd --input_pdb target.pdb --rfd_n_designs 10
@@ -87,9 +90,11 @@ workflow {
         BOLTZGEN()
     } else if (params.method == "boltz_pulldown") {
         BOLTZ_PULLDOWN()
+    } else if (params.method == "foldseek") {
+        FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, bindcraft, boltzgen, boltz_pulldown")
+        log.info("Available methods: rfd, rfd_partial, bindcraft, boltzgen, boltz_pulldown, foldseek")
         exit(1)
     }
 

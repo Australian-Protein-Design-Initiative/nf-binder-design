@@ -27,6 +27,8 @@ params.metrics_override = []
 params.additional_filters = []
 params.size_buckets = []
 params.refolding_rmsd_threshold = false
+params.do_foldseek = false
+params.foldseek_cath_names_path = false
 
 include { BOLTZGEN_DESIGN } from '../modules/local/boltzgen/boltzgen_design'
 include { BOLTZGEN_INVERSE_FOLDING } from '../modules/local/boltzgen/boltzgen_inverse_folding'
@@ -38,6 +40,8 @@ include { BOLTZGEN_ANALYSIS } from '../modules/local/boltzgen/boltzgen_analysis'
 include { BOLTZGEN_FILTERING } from '../modules/local/boltzgen/boltzgen_filtering'
 
 include { PARSE_BOLTZGEN_CONFIG; detectParams; buildFilteringArgs } from '../modules/local/boltzgen/boltzgen_utils'
+include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
+include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 
 // Function to validate design_name does not end with a number
 def validateDesignName(design_name) {
@@ -90,6 +94,38 @@ workflow BOLTZGEN {
             --additional_filters          Extra hard filters. Format: feature>threshold or feature<threshold (e.g., 'design_ALA>0.3' 'design_GLY<0.2')
             --size_buckets                Optional constraint for maximum number of designs in size ranges. Format: min-max:count (e.g., '10-20:5' '20-30:10')
             --refolding_rmsd_threshold     Threshold used for RMSD-based filters (lower is better)
+
+        FoldSeek (optional, enabled with --do_foldseek):
+            --do_foldseek                 Enable FoldSeek structural similarity search on final designs
+            --foldseek_database           Database to search [default: CATH50]
+                                           Local search (default):
+                                             - CATH50 (default) — CATH domain DB, combined AF2+PDB at 50% seq.id.
+                                             - PDB              — Protein Data Bank
+                                             - Alphafold/UniProt — Full AF2 database (~700GB)
+                                             - Alphafold/UniProt50 — AF2 clustered at 50% seq.id.
+                                             - Alphafold/UniProt50-minimal — AF2 50% clusters (reps only)
+                                             - Alphafold/Proteome — AF2 proteomes
+                                             - Alphafold/Swiss-Prot — AF2 Swiss-Prot
+                                             - ESMAtlas30       — ESM metagenomic atlas at 30% seq.id.
+                                             - BFMD             — Big Fantastic Multimer Database
+                                             - BFVD             — Big Fantastic Virus Database
+                                           Remote search (--foldseek_use_webserver true):
+                                             - pdb100           — PDB (complex-aware, includes multimers)
+                                             - afdb50           — AlphaFold/UniProt50 (~37M structures)
+                                             - afdb-swissprot   — AlphaFold/Swiss-Prot
+                                             - afdb-proteome    — AlphaFold/Proteomes
+                                             - cath50           — CATH50 domain database
+                                             - bfmd             — BFMD multimers
+                                             - BFVD             — BFVD viruses
+                                             - mgnify_esm30     — MGnify-ESM30 metagenomic atlas
+            --foldseek_databases_path     Path to local databases directory (auto-downloaded if unset)
+            --foldseek_use_webserver      Use FoldSeek web API instead of local search [default: false]
+            --foldseek_mode               Search mode [default: 3diaa]
+            --foldseek_maxaccept          Max accepted alignments per query [default: 1]
+            --foldseek_gzip_output        Gzip TSV output [default: false]
+            --foldseek_include_html_output  Include HTML report [default: false]
+            --foldseek_cath_names_path    Path to local cath-names.txt (auto-downloaded if unset)
+                                          CATH annotation is automatic when database name starts with "CATH"
 
         """.stripIndent()
         )
@@ -280,6 +316,40 @@ workflow BOLTZGEN {
         Channel.value(filtering_args),
     )
 
+    // Phase 8: FoldSeek structural search (optional)
+    if (params.do_foldseek) {
+        // Collect BoltzGen output structure files, then extract design chains
+        ch_ranked_dir = BOLTZGEN_FILTERING.out.final_ranked_designs_dir.first()
+
+        ch_boltzgen_files = ch_ranked_dir.flatMap { dir ->
+            def files = []
+            def dirFile = new File(dir.toString())
+            dirFile.eachDir { batchDir ->
+                if (batchDir.name.startsWith('final_') && batchDir.name.endsWith('_designs')) {
+                    batchDir.listFiles()?.each { f ->
+                        if (f.isFile() && (f.name.endsWith('.cif') || f.name.endsWith('.cif.gz') ||
+                            f.name.endsWith('.pdb') || f.name.endsWith('.pdb.gz'))) {
+                            files << file(f.absolutePath)
+                        }
+                    }
+                }
+            }
+            files
+        }
+
+        FOLDSEEK_PREPARE_QUERIES(ch_boltzgen_files)
+
+        ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
+        ch_foldseek_meta = Channel.of([id: 'boltzgen_foldseek'])
+
+        FOLDSEEK_SEARCH(ch_foldseek_pdbs, ch_foldseek_meta)
+
+        FOLDSEEK_SEARCH.out.tsv.subscribe { f -> }
+    }
+
     emit:
     filtered_dir = BOLTZGEN_FILTERING.out.final_ranked_designs_dir
+    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

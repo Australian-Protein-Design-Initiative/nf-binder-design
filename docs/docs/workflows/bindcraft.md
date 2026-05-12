@@ -57,26 +57,32 @@ For running on SLURM, you can use the `-profile slurm` flag instead of `-profile
 
 ## Key Parameters
 
-- `--input_pdb`: Target protein structure
-- `--target_chains`: Target chain IDs (comma-separated)
-- `--hotspot_res`: Hotspot residues (comma-separated)
-- `--hotspot_subsample`: Random proportion of hotspot residues per design (explores hotspot selection)
-- `--binder_length_range`: Range of binder lengths to design
-- `--bindcraft_n_traj`: Number of trajectories to run
-- `--bindcraft_batch_size`: Number of trajectories per batch
-- `--gpu_devices`: Specify multiple GPUs, e.g., `--gpu_devices=0,1` - use only for `-profile local`
+| Flag | Description |
+|------|-------------|
+| `--input_pdb` | Target protein structure |
+| `--target_chains` | Target chain IDs (comma-separated) |
+| `--hotspot_res` | Hotspot residues (comma-separated) |
+| `--hotspot_subsample` | Random proportion of hotspot residues per design (explores hotspot selection) |
+| `--binder_length_range` | Range of binder lengths to design |
+| `--bindcraft_n_traj` | Number of trajectories to run |
+| `--bindcraft_batch_size` | Number of trajectories per batch |
+| `--gpu_devices` | Specify multiple GPUs, e.g., `--gpu_devices=0,1` — use only for `-profile local` |
 
 ## BindCraft Presets
 
 ### Advanced Settings Presets
 
-- `--bindcraft_advanced_settings_preset`: Use a preset from [settings_advanced](https://github.com/martinpacesa/BindCraft/tree/main/settings_advanced) (without .json extension)
+| Flag | Description |
+|------|-------------|
+| `--bindcraft_advanced_settings_preset` | Use a preset from [settings_advanced](https://github.com/martinpacesa/BindCraft/tree/main/settings_advanced) (without .json extension) |
 
 > Keep in mind, the experimental success rate of the advanced presets may not have been as rigorously validated as the `default4stage_multimer` preset. _Caveat emptor._
 
 ### Filter Presets
 
-- `--bindcraft_filters_preset`: Use filter settings presets from [settings_filters](https://github.com/martinpacesa/BindCraft/tree/main/settings_filters) (without .json extension). In most cases, it's probably best to stick with the default.
+| Flag | Description |
+|------|-------------|
+| `--bindcraft_filters_preset` | Use filter settings presets from [settings_filters](https://github.com/martinpacesa/BindCraft/tree/main/settings_filters) (without .json extension). In most cases, it's probably best to stick with the default. |
 
 ## Output Structure
 
@@ -118,6 +124,30 @@ Results are saved to `--outdir` in the `bindcraft/` subdirectory:
 ```
 
 A summary report is generated as `bindcraft_report.html`.
+
+## FoldSeek Structural Search (Optional)
+
+After BindCraft completes, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex — only the binder is searched, not the full target–binder complex.
+
+FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
+
+### Enabling FoldSeek
+
+Add `--do_foldseek` to your bindcraft command:
+
+```bash
+nextflow run main.nf --method bindcraft \
+  --input_pdb target.pdb --target_chains A \
+  --do_foldseek
+```
+
+### FoldSeek Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--do_foldseek` | `false` | Enable FoldSeek search on accepted designs |
+
+All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
 
 ## Examples
 
