@@ -1,0 +1,102 @@
+/* Custom CSS to change ReadTheDocs theme colors to green */
+
+/* Primary color overrides */
+.rst-content a,
+.rst-content a:visited {
+    color: #4CAE4F;
+    /* Green primary */
+}
+
+.rst-content a:hover {
+    color: #388E3C;
+    /* Darker green on hover */
+}
+
+/* Navigation and header colors */
+.wy-side-nav-search {
+    background-color: #4CAE4F;
+    /* Green primary */
+}
+
+.wy-side-nav-search input[type="text"] {
+    border-color: #388E3C;
+    /* Darker green border */
+}
+
+.wy-side-nav-search input[type="text"]:focus {
+    border-color: #388E3C;
+    box-shadow: 0 0 5px rgba(76, 174, 79, 0.3);
+}
+
+/* Top navigation bar */
+.wy-nav-top {
+    background-color: #4CAE4F;
+    /* Green primary */
+}
+
+/* Sidebar navigation */
+.wy-menu-vertical a {
+    color: #4CAE4F;
+    /* Green for links */
+}
+
+.wy-menu-vertical a:hover {
+    background-color: rgba(76, 174, 79, 0.1);
+    /* Light green background on hover */
+}
+
+/* Current page indicator */
+.wy-menu-vertical .current>a {
+    background-color: #4CAE4F;
+    /* Green for current page */
+    color: white;
+}
+
+/* Code blocks and syntax highlighting */
+.rst-content .highlight {
+    background-color: #f8f9fa;
+    border-left: 4px solid #4CAE4F;
+    /* Green accent border */
+}
+
+/* Buttons and interactive elements */
+.rst-content .btn,
+.rst-content .btn:visited {
+    background-color: #4CAE4F;
+    border-color: #4CAE4F;
+}
+
+.rst-content .btn:hover {
+    background-color: #388E3C;
+    border-color: #388E3C;
+}
+
+/* Table headers */
+.rst-content table.docutils thead th {
+    background-color: #4CAE4F;
+    color: white;
+}
+
+/* Admonition boxes */
+.rst-content .admonition-title {
+    background-color: #4CAE4F;
+    color: white;
+}
+
+.rst-content .admonition {
+    border-left: 4px solid #4CAE4F;
+}
+
+/* Version and breadcrumb */
+.wy-breadcrumbs a {
+    color: #4CAE4F;
+}
+
+/* Footer links */
+.rst-footer-buttons a {
+    color: #4CAE4F;
+}
+
+.rst-footer-buttons a:hover {
+    color: #388E3C;
+}

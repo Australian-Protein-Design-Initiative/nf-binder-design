@@ -1,5 +1,10 @@
 [
   {
+    "version": "rfd3",
+    "title": "rfd3",
+    "aliases": []
+  },
+  {
     "version": "main",
     "title": "main",
     "aliases": [
