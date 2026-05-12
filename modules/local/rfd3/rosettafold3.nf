@@ -1,5 +1,5 @@
 process ROSETTAFOLD3 {
-    container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.1.11-weights'
+    container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.1.13-weights'
     // container "rosettacommons/foundry:0.1.9-weights"
 
     publishDir path: "${params.outdir}/rfd3/rosettafold3/output", pattern: 'output/*', mode: 'copy', saveAs: { it.replaceFirst('output/', '') }

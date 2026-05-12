@@ -1,5 +1,5 @@
 process RFDIFFUSION3 {
-    container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.1.11-weights'
+    container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.1.12-weights'
     // container "rosettacommons/foundry:0.1.9-weights"
 
     publishDir path: "${params.outdir}/rfd3/rfdiffusion3", pattern: 'output/*.cif.gz', mode: 'copy'
