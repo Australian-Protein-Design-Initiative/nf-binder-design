@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- FoldSeek structural search (`--do_foldseek`) for the rfd, bindcraft, boltzgen, and rfd3 workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.
+
 ## [0.2.0] - 2026-05-06
 
 ### Added
