@@ -1,7 +1,7 @@
 process BOLTZGEN_FILTERING {
     tag "filtering"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:da0f092'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.3.2'
 
     // Only publish the final filtering outputs to avoid collisions when re-filtering an existing merged directory
     publishDir path: "${params.outdir}/boltzgen", pattern: 'filtered/final_ranked_designs', mode: 'copy', overwrite: true

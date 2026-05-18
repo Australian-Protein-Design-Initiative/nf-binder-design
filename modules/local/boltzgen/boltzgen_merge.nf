@@ -1,7 +1,7 @@
 process BOLTZGEN_MERGE {
     tag "merge"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:da0f092'
+    container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.3.2'
 
     publishDir path: "${params.outdir}/boltzgen", pattern: '**', mode: 'copy'
 
