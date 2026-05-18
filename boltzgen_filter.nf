@@ -16,9 +16,9 @@ params.additional_filters = []
 params.size_buckets = []
 params.refolding_rmsd_threshold = false
 
-include { BOLTZGEN_FILTERING } from './modules/boltzgen/boltzgen_filtering'
+include { BOLTZGEN_FILTERING } from './modules/local/boltzgen/boltzgen_filtering'
 
-include { detectParams; buildFilteringArgs } from './modules/boltzgen/boltzgen_utils'
+include { detectParams; buildFilteringArgs } from './modules/local/boltzgen/boltzgen_utils'
 
 def paramsToMap(params) {
     def map = [:]
