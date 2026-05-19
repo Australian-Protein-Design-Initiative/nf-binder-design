@@ -632,7 +632,7 @@ workflow RFD3 {
     // tuple(*it[0..9], it[11], it[10]) (binder chain vs MPNN paths swapped). Wrap as [list]
     // so one combine element stays a List for path(mpnn_cifs, stageAs: 'cifs/*').
     ch_mpnn_cifs = MPNN.out.cifs.flatten()
-        .ifEmpty(Channel.of(file("${projectDir}/assets/dummy_files/empty.cif")))
+        .ifEmpty(Channel.of(file("${projectDir}/assets/dummy_files/empty")))
         .collect()
         .map { cifs -> [cifs as List] }
 
