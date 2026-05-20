@@ -27,15 +27,15 @@ process RFDIFFUSION {
     def hotspot_res_arg = hotspot_res ? "ppi.hotspot_res='${hotspot_res}'" : ''
     def config_name = rfd_config_name ? "--config-name=${rfd_config_name}" : ''
     """
-    if [[ ${params.require_gpu} == "true" ]]; then
-       if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
-           echo "No GPU detected! Failing fast rather than going slow (since --require_gpu=true)"
-            exit 1
-        fi
-
-        nvidia-smi
-    fi
-
+    ##if [[ ${params.require_gpu} == "true" ]]; then
+    ##   if [[ \$(nvidia-smi -L || true) =~ "No devices found" ]]; then
+    ##       echo "No GPU detected! Failing fast rather than going slow (since --require_gpu=true)"
+    ##        exit 1
+    ##    fi
+    ##
+    ##    nvidia-smi || true
+    ##fi
+    ##
     # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
     # This is a bit of a hack, but nextflow (and hyperqueue) don't have good support for
     # allocating to specific GPUs on multi-GPU nodes, so this is the solution for now.
@@ -43,14 +43,15 @@ process RFDIFFUSION {
     # same GPU, but in practise it seems to generally work well enough for runs on single
     # nodes with multiple GPUs.
     # We DON'T need this for SLURM, it should correctly allocate GPU resources itself.
-    if [[ -n "${params.gpu_devices}" ]]; then
-        ps aux | grep "run_inference.py"
-        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
-        export CUDA_VISIBLE_DEVICES="\$free_gpu"
-        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
-    fi
+    ##if [[ -n "${params.gpu_devices}" ]]; then
+    ##    ps aux | grep "run_inference.py"
+    ##    free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+    ##    export CUDA_VISIBLE_DEVICES="\$free_gpu"
+    ##    echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+    ##fi
 
-    RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
+    # RUN_INF="python /app/RFdiffusion/scripts/run_inference.py"
+    RUN_INF="run_inference.py"
 
     mkdir -p schedules
 
@@ -68,6 +69,7 @@ process RFDIFFUSION {
         inference.num_designs=${batch_size} \
         inference.design_startnum=${design_startnum} \
         inference.schedule_directory_path=schedules \
+        inference.model_directory_path=/app/RFdiffusion/models \
         ${rfd_model_path_arg} \
         ${params.rfd_extra_args} \
         ${(task.ext?.args) ? ' ' + task.ext.args : ''}
