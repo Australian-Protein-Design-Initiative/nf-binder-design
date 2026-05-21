@@ -118,6 +118,7 @@ include {
     canonicalizeMpnnWeightsNoiseParam;
     normaliseContigToV3;
     mpnnDesignedChainsFirst;
+    extractRfd3InputPaths;
     resolveRfd3TargetBinderChains;
     validateRfd3MpnnPresetParams;
 } from '../modules/local/rfd3/rfd3_utils'
@@ -271,14 +272,11 @@ workflow RFD3 {
     def target_pdb_path
     if (params.rfd3_config) {
         def config_file = file(params.rfd3_config)
-        def config_dir = config_file.parent.toString()
-        def parse_cmd = ["python3", "${projectDir}/bin/rfd3/stage_rfd3_config.py", "parse-inputs", config_file.toString(), "--config-dir", config_dir]
-        def parse_output = parse_cmd.execute().text.trim()
-        def input_paths = parse_output.split('\n').findAll { it.trim() }
+        def input_paths = extractRfd3InputPaths(config_file.toString(), config_file.parent.toString())
         if (input_paths.isEmpty()) {
             throw new Exception("No 'input' path found in --rfd3_config ${params.rfd3_config}")
         }
-        target_pdb_path = file(input_paths[0].trim())
+        target_pdb_path = file(input_paths[0])
         ch_input_pdb = Channel.fromPath(target_pdb_path).first()
     } else {
         target_pdb_path = file(params.input_pdb)
@@ -294,7 +292,7 @@ workflow RFD3 {
     def n_batches = Math.ceil(params.rfd3_n_designs / params.rfd3_batch_size).toInteger()
     if (n_batches < 1) { n_batches = 1 }
 
-    def rf3ChainPair = resolveRfd3TargetBinderChains(projectDir, params)
+    def rf3ChainPair = resolveRfd3TargetBinderChains(params)
     def rfd3TargetChain = rf3ChainPair[0]
     def rfd3BinderChain = rf3ChainPair[1]
     def mpnnRaw = params.mpnn_designed_chains?.toString()?.trim()

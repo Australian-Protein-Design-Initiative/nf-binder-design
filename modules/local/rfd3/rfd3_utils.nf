@@ -53,6 +53,207 @@ def convertOmitAas(String omitStr) {
 }
 
 /**
+ * Convert RFDiffusion v1 contig format to v3 (comma-separated, /0 as its own token).
+ */
+def convertV1ContigsToV3(String contigs) {
+    def s = contigs?.trim() ?: ''
+    s = s.replaceAll(/^\[+/, '')
+    s = s.replaceAll(/\]+$/, '')
+    s = s.trim()
+    if (s.contains(',') && !s.contains(' ')) {
+        return s
+    }
+    def v3Parts = []
+    s.split(/\s+/).each { part ->
+        if (part.contains('/0')) {
+            // Limit -1: Java/Groovy regex split drops trailing empties; Python str.split does not.
+            def segments = part.split('/0', -1)
+            segments.eachWithIndex { seg, i ->
+                if (seg) {
+                    v3Parts << seg
+                }
+                if (i < segments.size() - 1) {
+                    v3Parts << '/0'
+                }
+            }
+        } else {
+            v3Parts << part
+        }
+    }
+    return v3Parts.join(',')
+}
+
+def normaliseContigForChainInfer(String contig) {
+    def s = contig?.trim() ?: ''
+    if (!s) {
+        return ''
+    }
+    if (s.length() >= 2 && s.startsWith('[') && s.endsWith(']')) {
+        return normaliseContigToV3(s)
+    }
+    if (s.contains(',') && !s.contains(' ')) {
+        return s
+    }
+    return convertV1ContigsToV3(s)
+}
+
+def splitPolymersV3(String v3Contig) {
+    def tokens = v3Contig.trim().split(',').collect { it.trim() }.findAll { it }
+    def polymers = []
+    def current = []
+    tokens.each { t ->
+        if (t == '/0') {
+            polymers << current
+            current = []
+        } else {
+            current << t
+        }
+    }
+    polymers << current
+    return polymers
+}
+
+def stripSlashSuffix(String part) {
+    def idx = part.indexOf('/')
+    return idx >= 0 ? part.substring(0, idx).trim() : part.trim()
+}
+
+boolean isBinderPolymer(List segments) {
+    if (!segments) {
+        return false
+    }
+    return segments.every { seg ->
+        def s = stripSlashSuffix(seg as String)
+        if (!s) {
+            return false
+        }
+        if (s ==~ /^([A-Za-z]+)(-?\d+)-(-?\d+)$/) {
+            return false
+        }
+        return s ==~ /^\d+-\d+$/
+    }
+}
+
+String inferBinderChainFromContig(String contig) {
+    def v3 = normaliseContigForChainInfer(contig)
+    if (!v3) {
+        throw new Exception('Empty contig after normalisation')
+    }
+    def polymers = splitPolymersV3(v3).findAll { it }
+    def binderIndices = []
+    polymers.eachWithIndex { p, i ->
+        if (isBinderPolymer(p)) {
+            binderIndices << i
+        }
+    }
+    if (binderIndices.size() != 1) {
+        throw new Exception(
+            "Expected exactly one binder polymer (length-only segments); found ${binderIndices.size()} in contig '${contig}' (v3='${v3}')"
+        )
+    }
+    return String.valueOf((char) ('A'.charAt(0) + binderIndices[0]))
+}
+
+List<String> resolveRfd3TargetBinderChainLetters(String contig, String explicitBinder = null) {
+    def v3 = normaliseContigForChainInfer(contig)
+    if (!v3) {
+        throw new Exception('Empty contig after normalisation')
+    }
+    def polymers = splitPolymersV3(v3).findAll { it }
+    if (polymers.size() != 2) {
+        throw new Exception(
+            "Expected exactly two contig polymers for RFD3 target/binder chain IDs; got ${polymers.size()} in contig '${contig}' (v3='${v3}')"
+        )
+    }
+    int bi
+    String binder
+    if (explicitBinder) {
+        binder = explicitBinder.trim().split(',')[0].trim().toUpperCase()
+        if (binder.length() != 1 || !(binder in ['A', 'B'])) {
+            throw new Exception("For a two-polymer contig, explicit binder chain must be A or B; got '${explicitBinder}'")
+        }
+        bi = ((int) binder.charAt(0)) - ((int) 'A'.charAt(0))
+    } else {
+        binder = inferBinderChainFromContig(contig)
+        bi = ((int) binder.charAt(0)) - ((int) 'A'.charAt(0))
+    }
+    def ti = 1 - bi
+    def target = String.valueOf((char) ('A'.charAt(0) + ti))
+    return [target, binder]
+}
+
+String contigFromRfd3ConfigPath(String configPath) {
+    def pathObj = file(configPath)
+    if (!pathObj.exists()) {
+        throw new Exception("RFD3 config not found: ${configPath}")
+    }
+    def name = pathObj.name.toLowerCase()
+    if (name.endsWith('.json')) {
+        def data = new groovy.json.JsonSlurper().parse(pathObj)
+        if (!(data instanceof Map) || data.isEmpty()) {
+            throw new Exception("RFD3 config must be a non-empty JSON object: ${configPath}")
+        }
+        def spec = data.values().iterator().next()
+        if (!(spec instanceof Map)) {
+            throw new Exception("First config entry must be an object: ${configPath}")
+        }
+        def c = spec.contig
+        if (!(c instanceof String)) {
+            throw new Exception("contig must be a string in ${configPath}")
+        }
+        return c.trim()
+    }
+    if (name.endsWith('.yaml') || name.endsWith('.yml')) {
+        def yaml = Class.forName('org.yaml.snakeyaml.Yaml').newInstance()
+        def data = yaml.load(pathObj.text)
+        if (!(data instanceof Map) || data.isEmpty()) {
+            throw new Exception("RFD3 config must be a non-empty mapping: ${configPath}")
+        }
+        def spec = data.values().iterator().next()
+        if (!(spec instanceof Map)) {
+            throw new Exception("First config entry must be a mapping: ${configPath}")
+        }
+        def c = spec.contig
+        if (!(c instanceof String)) {
+            throw new Exception("contig must be a string in ${configPath}")
+        }
+        return c.trim()
+    }
+    return pathObj.text.split(/\s+/).join(' ').trim()
+}
+
+/**
+ * Resolved input structure path(s) from an RFD3 JSON config (driver-side; JSON only).
+ */
+List<String> extractRfd3InputPaths(String configPath, String configDir = null) {
+    def pathObj = file(configPath)
+    def baseDir = configDir ? file(configDir) : pathObj.parent
+    if (!pathObj.exists()) {
+        throw new Exception("Config file not found: ${configPath}")
+    }
+    if (!pathObj.name.toLowerCase().endsWith('.json')) {
+        throw new Exception(
+            "Driver-side input path parsing requires a JSON config (got ${configPath}). Use .json or provide --input_pdb in params mode."
+        )
+    }
+    def config = new groovy.json.JsonSlurper().parse(pathObj)
+    def seen = [] as LinkedHashSet
+    def result = []
+    config.each { key, spec ->
+        if (spec instanceof Map && spec.containsKey('input')) {
+            def raw = spec.input.toString()
+            def resolvedFile = new File(raw).isAbsolute() ? file(raw) : file("${baseDir}/${raw}")
+            def resolved = resolvedFile.toString()
+            if (!seen.contains(resolved)) {
+                seen << resolved
+                result << resolved
+            }
+        }
+    }
+    return result
+}
+
+/**
  * First chain ID from resolved designed_chains (e.g. "A,B" -> "A").
  */
 def mpnnDesignedChainsFirst(String resolvedDesignedChains) {
@@ -67,40 +268,20 @@ def mpnnDesignedChainsFirst(String resolvedDesignedChains) {
  * RFD3 target/binder chain letters (polymer order: first polymer A, second B, …).
  * Two-polymer contigs only. With explicit --mpnn_designed_chains, passes first letter as --binder.
  */
-List<String> resolveRfd3TargetBinderChains(projectDir, params) {
-    // ProcessBuilder needs java.lang.String elements, not GString (avoids arraycopy type mismatch).
-    def cmdList = new ArrayList<String>()
-    cmdList.add('python3')
-    cmdList.add("${projectDir}/bin/rfd3/stage_rfd3_config.py".toString())
-    cmdList.add('infer-rfd3-chain-pair')
+List<String> resolveRfd3TargetBinderChains(params) {
+    String contig
     if (params.rfd3_config) {
-        cmdList.add('--rfd3-config')
-        cmdList.add(file(params.rfd3_config).toString())
+        contig = contigFromRfd3ConfigPath(params.rfd3_config.toString())
     } else if (params.contigs?.toString()?.trim()) {
-        cmdList.add('--contig')
-        cmdList.add(params.contigs.toString().trim())
+        contig = params.contigs.toString().trim()
     } else {
         throw new Exception('Cannot infer RFD3 target/binder chains without --rfd3_config or --contigs')
     }
     def mpnnRaw = params.mpnn_designed_chains?.toString()?.trim()
-    if (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto')) {
-        cmdList.add('--binder')
-        cmdList.add(mpnnDesignedChainsFirst(mpnnRaw).toString())
-    }
-    def pb = new ProcessBuilder(cmdList)
-    pb.redirectErrorStream(true)
-    def proc = pb.start()
-    proc.waitFor()
-    def out = proc.inputStream.text.trim()
-    if (proc.exitValue() != 0) {
-        throw new Exception("stage_rfd3_config.py infer-rfd3-chain-pair failed: ${out}")
-    }
-    def line = out ? out.split(/\r?\n/)[0].trim() : ''
-    if (!line || !line.contains(',')) {
-        throw new Exception("stage_rfd3_config.py infer-rfd3-chain-pair produced invalid output: ${line}")
-    }
-    def parts = line.split(',', 2)
-    return [parts[0].trim().toString(), parts[1].trim().toString()]
+    def explicitBinder = (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto'))
+        ? mpnnDesignedChainsFirst(mpnnRaw)
+        : null
+    return resolveRfd3TargetBinderChainLetters(contig, explicitBinder)
 }
 
 /**

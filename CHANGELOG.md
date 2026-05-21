@@ -15,7 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry`.
 
 ### Fixed
-- RFD3: remove default `ROSETTAFOLD3` `ext.args` that duplicated `num_steps` and `annotate_b_factor_with_plddt` and overrode `--rf3_num_steps` (Hydra last-wins).
 - Boltz refold RMSD and ipSAE: `BOLTZ_COMPARE_COMPLEX` and `BOLTZ_COMPARE_BINDER_MONOMER` now use Boltz complex chain **A** = binder and **B** = target (from `create_boltz_yaml.py` IDs), while the input design keeps `${binder_chain}` / `${target_chain}`. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated `rmsd_target_aligned_binder` / ruined aligned PDBs; `ipsae.py` now receives `--binder-chain A --target-chain B` for Boltz outputs.
 - Boltz: `BOLTZ`, `BOLTZ_COMPARE_COMPLEX`, and `BOLTZ_COMPARE_BINDER_MONOMER` tee `boltz predict` to `.boltz_predict_console.log` and exit 1 if the log contains `ran out of memory, skipping batch` (Boltz may otherwise exit 0 and leave outputs missing).
 
