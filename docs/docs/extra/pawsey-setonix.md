@@ -12,7 +12,48 @@ SSH to a workflow node: `setonix-workflow.pawsey.org.au` (`setonix-07`, `setonix
 
 Follow [How to Run Workflows on the Workflow Nodes](https://pawsey.atlassian.net/wiki/spaces/US/pages/286097469/How+to+Run+Workflows+on+the+Workflow+Nodes) and start a `screen` or `tmux` session before launching the pipeline.
 
-## Setup
+## Example run script
+
+From your run directory (with `input/*.pdb` and a local or pulled copy of the pipeline), use a script like:
+
+```bash
+#!/bin/bash
+
+module load singularity/4.1.0-mpi-gpu
+# or possibly ....
+# module load singularity/4.1.0-nompi
+module load nextflow/25.04.6
+
+unset SBATCH_EXPORT
+
+export SINGULARITY_CACHEDIR=/software/projects/${PAWSEY_PROJECT}/${USER}/.nextflow_singularity
+export NXF_SINGULARITY_CACHEDIR=${SINGULARITY_CACHEDIR}
+export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
+export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
+mkdir -p "${SINGULARITY_TMPDIR}"
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p results/logs
+
+nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account=${PAWSEY_PROJECT}-gpu \
+  --method rfd \
+  --input_pdb 'input/*.pdb' \
+  --outdir results \
+  --contigs "[A18-132/0 65-120]" \
+  --hotspot_res "A56" \
+  --rfd_n_designs=4 \
+  -profile pawsey_setonix \
+  -resume \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt
+```
+
+## Details
+
+To run the pipeline on Setonix using `-profile pawsey_setonix`, you need to load the correct modules, set (or unset) some environment variables, and use the correct SLURM account.
 
 Load Singularity and Nextflow (versions on Setonix may differ; check `module avail`):
 
@@ -46,65 +87,6 @@ GPU jobs on Setonix must use the project account with a **`-gpu` suffix** (for e
 
 ```bash
 --slurm_account=pawsey1343-gpu
-```
-
-## Example run script
-
-From your run directory (with `input/*.pdb` and a local or pulled copy of the pipeline), use a script like:
-
-```bash
-#!/bin/bash
-
-module load singularity/4.1.0-mpi-gpu
-module load nextflow/25.04.6
-
-unset SBATCH_EXPORT
-
-export SINGULARITY_CACHEDIR=/software/projects/${PAWSEY_PROJECT}/${USER}/.nextflow_singularity
-export NXF_SINGULARITY_CACHEDIR=${SINGULARITY_CACHEDIR}
-export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
-export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
-mkdir -p "${SINGULARITY_TMPDIR}"
-
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-mkdir -p results/logs
-
-# Local git checkout (development or pinned revision)
-PIPELINE_DIR=./nf-binder-design/
-
-nextflow run ${PIPELINE_DIR}/main.nf \
-  --slurm_account=${PAWSEY_PROJECT}-gpu \
-  --method rfd \
-  --input_pdb 'input/*.pdb' \
-  --outdir results \
-  --contigs "[A18-132/0 45-65]" \
-  --hotspot_res "A56" \
-  --rfd_n_designs=1 \
-  -profile pawsey_setonix \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
-```
-
-### Running from the Nextflow hub
-
-Instead of `PIPELINE_DIR`, pull the release and run by name:
-
-```bash
-nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
-
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
-  --slurm_account=${PAWSEY_PROJECT}-gpu \
-  --method rfd \
-  --input_pdb 'input/*.pdb' \
-  --outdir results \
-  --contigs "[A18-132/0 65-120]" \
-  --hotspot_res "A56" \
-  --rfd_n_designs=4 \
-  -profile pawsey_setonix \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
 ```
 
 ## References
