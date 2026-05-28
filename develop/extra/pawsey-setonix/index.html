@@ -80,17 +80,13 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#workflow-nodes">Workflow nodes</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#setup">Setup</a>
+    <li class="toctree-l2"><a class="reference internal" href="#example-run-script">Example run script</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#details">Details</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#singularity-cache-and-temp-directories">Singularity cache and temp directories</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#gpu-slurm-account">GPU SLURM account</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#example-run-script">Example run script</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#running-from-the-nextflow-hub">Running from the Nextflow hub</a>
     </li>
         </ul>
     </li>
@@ -142,7 +138,43 @@ Other workflows may be ported and supported in the future. however this requires
 <h2 id="workflow-nodes">Workflow nodes</h2>
 <p>SSH to a workflow node: <code>setonix-workflow.pawsey.org.au</code> (<code>setonix-07</code>, <code>setonix-08</code>). These nodes are intended for long-running workflows like Nextflow that submit work to the SLURM queue.</p>
 <p>Follow <a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/286097469/How+to+Run+Workflows+on+the+Workflow+Nodes">How to Run Workflows on the Workflow Nodes</a> and start a <code>screen</code> or <code>tmux</code> session before launching the pipeline.</p>
-<h2 id="setup">Setup</h2>
+<h2 id="example-run-script">Example run script</h2>
+<p>From your run directory (with <code>input/*.pdb</code> and a local or pulled copy of the pipeline), use a script like:</p>
+<pre><code class="language-bash">#!/bin/bash
+
+module load singularity/4.1.0-mpi-gpu
+# or possibly ....
+# module load singularity/4.1.0-nompi
+module load nextflow/25.04.6
+
+unset SBATCH_EXPORT
+
+export SINGULARITY_CACHEDIR=/software/projects/${PAWSEY_PROJECT}/${USER}/.nextflow_singularity
+export NXF_SINGULARITY_CACHEDIR=${SINGULARITY_CACHEDIR}
+export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
+export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
+mkdir -p &quot;${SINGULARITY_TMPDIR}&quot;
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p results/logs
+
+nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account=${PAWSEY_PROJECT}-gpu \
+  --method rfd \
+  --input_pdb 'input/*.pdb' \
+  --outdir results \
+  --contigs &quot;[A18-132/0 65-120]&quot; \
+  --hotspot_res &quot;A56&quot; \
+  --rfd_n_designs=4 \
+  -profile pawsey_setonix \
+  -resume \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt
+</code></pre>
+<h2 id="details">Details</h2>
+<p>To run the pipeline on Setonix using <code>-profile pawsey_setonix</code>, you need to load the correct modules, set (or unset) some environment variables, and use the correct SLURM account.</p>
 <p>Load Singularity and Nextflow (versions on Setonix may differ; check <code>module avail</code>):</p>
 <pre><code class="language-bash">module load singularity/4.1.0-mpi-gpu
 module load nextflow/25.04.6
@@ -162,57 +194,6 @@ mkdir -p &quot;${SINGULARITY_TMPDIR}&quot;
 <h3 id="gpu-slurm-account">GPU SLURM account</h3>
 <p>GPU jobs on Setonix must use the project account with a <strong><code>-gpu</code> suffix</strong> (for example <code>pawsey1343-gpu</code>, not <code>pawsey1343</code>). Pass it to Nextflow so each GPU process gets <code>--account=...</code> in <code>clusterOptions</code>:</p>
 <pre><code class="language-bash">--slurm_account=pawsey1343-gpu
-</code></pre>
-<h2 id="example-run-script">Example run script</h2>
-<p>From your run directory (with <code>input/*.pdb</code> and a local or pulled copy of the pipeline), use a script like:</p>
-<pre><code class="language-bash">#!/bin/bash
-
-module load singularity/4.1.0-mpi-gpu
-module load nextflow/25.04.6
-
-unset SBATCH_EXPORT
-
-export SINGULARITY_CACHEDIR=/software/projects/${PAWSEY_PROJECT}/${USER}/.nextflow_singularity
-export NXF_SINGULARITY_CACHEDIR=${SINGULARITY_CACHEDIR}
-export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
-export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
-mkdir -p &quot;${SINGULARITY_TMPDIR}&quot;
-
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-mkdir -p results/logs
-
-# Local git checkout (development or pinned revision)
-PIPELINE_DIR=./nf-binder-design/
-
-nextflow run ${PIPELINE_DIR}/main.nf \
-  --slurm_account=${PAWSEY_PROJECT}-gpu \
-  --method rfd \
-  --input_pdb 'input/*.pdb' \
-  --outdir results \
-  --contigs &quot;[A18-132/0 45-65]&quot; \
-  --hotspot_res &quot;A56&quot; \
-  --rfd_n_designs=1 \
-  -profile pawsey_setonix \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
-</code></pre>
-<h3 id="running-from-the-nextflow-hub">Running from the Nextflow hub</h3>
-<p>Instead of <code>PIPELINE_DIR</code>, pull the release and run by name:</p>
-<pre><code class="language-bash">nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
-
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
-  --slurm_account=${PAWSEY_PROJECT}-gpu \
-  --method rfd \
-  --input_pdb 'input/*.pdb' \
-  --outdir results \
-  --contigs &quot;[A18-132/0 65-120]&quot; \
-  --hotspot_res &quot;A56&quot; \
-  --rfd_n_designs=4 \
-  -profile pawsey_setonix \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
 </code></pre>
 <h2 id="references">References</h2>
 <ul>

@@ -2,50 +2,50 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/changelog/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/setup/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/testing/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/extra/m3-hpc-examples/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/extra/pawsey-setonix/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/extra/utility-scripts/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/subworkflows/foldseek/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/bindcraft/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/boltz-pulldown/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/boltzgen/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
     <url>
          <loc>https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/rfdiffusion/</loc>
-         <lastmod>2026-05-21</lastmod>
+         <lastmod>2026-05-28</lastmod>
     </url>
 </urlset>
