@@ -12,6 +12,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - **RFdiffusion Partial Diffusion → Boltz-2 refolding** for diversification and optimization
 - **RFdiffusion3** — [RosettaCommons/foundry](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html) binder workflow: `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3) (→ Boltz-2 refolding)
 - **BindCraft** - parallel execution across multiple GPUs
+- **Germinal** - antibody/nanobody design in parallel across multiple GPUs
 - **BoltzGen** - design proteins and complexes using BoltzGen
 - **Boltz Pulldown** - an AlphaPulldown-like protocol using Boltz-2
 
@@ -33,6 +34,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - [RFdiffusion Workflows](workflows/rfdiffusion.md)
 - [RFdiffusion3 Workflow](workflows/rfd3.md)
 - [BindCraft Workflow](workflows/bindcraft.md)
+- [Germinal Workflow](workflows/germinal.md)
 - [BoltzGen Workflow](workflows/boltzgen.md)
 - [Boltz Pulldown](workflows/boltz-pulldown.md)
 - [FoldSeek](subworkflows/foldseek.md)

@@ -21,6 +21,8 @@ if (params.method == "rfd") {
     include { RFD_PARTIAL } from './workflows/rfd_partial'
 } else if (params.method == "bindcraft") {
     include { BINDCRAFT } from './workflows/bindcraft'
+} else if (params.method == "germinal") {
+    include { GERMINAL } from './workflows/germinal'
 } else if (params.method == "boltzgen") {
     include { BOLTZGEN } from './workflows/boltzgen'
 } else if (params.method == "boltz_pulldown") {
@@ -68,6 +70,7 @@ workflow {
             rfd_partial     RFDiffusion partial diffusion for binder optimization
             rfd3            RFDiffusion3-based binder design
             bindcraft       BindCraft binder design
+            germinal        Germinal antibody/nanobody design
             boltzgen        BoltzGen binder design
             boltz_pulldown  Boltz pulldown predictions
             foldseek        FoldSeek structural similarity search
@@ -89,6 +92,8 @@ workflow {
         RFD_PARTIAL()
     } else if (params.method == "bindcraft") {
         BINDCRAFT()
+    } else if (params.method == "germinal") {
+        GERMINAL()
     } else if (params.method == "boltzgen") {
         BOLTZGEN()
     } else if (params.method == "boltz_pulldown") {
@@ -99,7 +104,7 @@ workflow {
         FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, boltzgen, boltz_pulldown, foldseek")
+        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, germinal, boltzgen, boltz_pulldown, foldseek")
         exit(1)
     }
 

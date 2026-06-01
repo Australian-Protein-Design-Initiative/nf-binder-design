@@ -1,0 +1,239 @@
+# @package _global_
+# Germinal example config: VHH PDL1 + Protenix + AbLang
+#
+# Used by examples/pdl1-germinal with nf-binder-design --method germinal.
+# Trajectory limits are set by Nextflow (--germinal_n_traj); values below are overridden per batch.
+
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+# --- high-level run settings (config.yaml) ---
+project_dir: "."
+results_dir: "results"
+experiment_name: "pdl1_vhh"
+run_config: ""
+max_trajectories: 10000
+max_hallucinated_trajectories: 1000
+max_passing_designs: 100
+
+# --- paths (config.yaml) ---
+pdb_dir: "pdbs"
+af_params_dir: ""
+dssp_path: "params/dssp"
+dalphaball_path: "params/DAlphaBall.gcc"
+
+# --- run settings (run/vhh_pdl1.yaml) ---
+
+# General run settings
+type: "nb"
+cdr_lengths: [11, 8, 18]
+fw_lengths: [25, 17, 38, 14]
+pregenerate_seeds: false
+vh_first: null
+vh_len: null
+vl_len: null
+
+# Loss function parameters
+weights_plddt: 1.0
+weights_i_plddt: 1.0
+weights_pae_intra: 0.1
+weights_pae_inter: 0.5
+weights_iptm: 0.7
+weights_con_intra: 0.1
+weights_con_inter: 0.2
+weights_rg: 0.1
+weights_helix: 0.1
+weights_beta: 0.1
+
+intra_contact_distance: 14.0
+inter_contact_distance: 20.0
+intra_contact_number: 2
+inter_contact_number: 10
+framework_contact_loss: true
+framework_contact_offset: 1
+
+# Hallucination settings
+logits_steps: 60
+softmax_steps: 35
+search_steps: 10
+search_mutation_rate: 0.05
+plddt_threshold: 0.75
+i_ptm_threshold: 0.68
+i_pae_threshold: 0.30
+seq_entropy_threshold: 0.10
+
+# AbLang / IgLM settings
+ablm_model: "ablang"
+grad_merge_method: "pcgrad"
+ablm_scale: [0.0, 0.2, 0.4, 1.0]
+ablm_temp: 0.6
+iglm_species: "[CAMEL]"
+seq_init_mode: ["gumbel", "soft"]
+bias_redesign: 10
+use_pos_distance: true
+clear_best: true
+
+# Sequence redesign settings
+mpnn_fix_interface: true
+num_seqs: 40
+max_mpnn_sequences: 5
+sampling_temp: 0.2
+backbone_noise: 0.0
+model_path: "abmpnn"
+mpnn_weights: "abmpnn"
+
+# Structure prediction settings
+structure_model: "protenix"
+msa_mode: "target"
+af3_structure_select_mode: "worst"
+
+# AF3 configuration (unused when structure_model == "protenix")
+af3_repo_path: null
+af3_sif_path: null
+af3_model_dir: null
+af3_db_dir: null
+msa_db_dir: null
+use_metagenomic_db: false
+cache_binder_msa: false
+
+# Protenix configuration
+protenix_conda_env: "protenix"
+# protenix_model_name: "protenix-v2"
+protenix_model_name: "protenix_base_default_v1.0.0"
+protenix_use_msa: true
+
+# Template removal settings
+rm_template_seq: true
+rm_template_sc: false
+rm_binder: false
+rm_binder_seq: true
+rm_binder_sc: true
+
+# Model and optimisation settings
+learning_rate: 0.1
+optimizer: "sgd"
+normalize_gradient: true
+linear_lr_annealing: true
+min_lr_scale: 0.25
+use_multimer_design: true
+sample_models: true
+num_models: 1
+num_recycles_design: 3
+recycle_mode: "last"
+
+# Relax (post-prediction) settings
+multi_relax: false
+n_relax: 5
+relax_score_mode: "average"
+
+# Other loss settings
+use_helix_loss: true
+use_beta_loss: true
+beta_loss_type: "strand"
+use_rg_loss: true
+use_termini_distance_loss: false
+use_i_ptm_loss: true
+
+# File management settings
+save_design_animations: false
+save_design_trajectory_plots: false
+
+# Other settings
+omit_AAs: false
+force_reject_AA: false
+dgram_cce: 0.01
+show_config: true
+
+# Filter thresholds (used during filtering, not Hydra filter configs)
+clash_threshold: 2.4
+hotspot_distance_threshold: 5.3
+residue_contact_distance: 6.0
+min_cdr_hotspot_contacts: 3
+sap_limit_sasa: 3.0
+sap_patch_radius: 7.5
+sap_avg_sasa_patch_thr: 1.5
+atom_distance_cutoff: 3.0
+
+# --- target (target/pdl1.yaml) ---
+target:
+  target_name: "pdl1"
+  target_pdb_path: "pdbs/pdl1.pdb"
+  target_chain: "A"
+  binder_chain: "B"
+  target_hotspots: "A37,A39,A41,A96,A98"
+  hotspot_residue: "W40"
+
+# --- filters (filter/initial/vhh_pdl1.yaml, filter/final/vhh_pdl1.yaml) ---
+filter:
+  initial:
+    clashes:
+      value: 1
+      operator: '<'
+    binder_near_hotspot:
+      value: true
+      operator: '=='
+    cdr3_hotspot_contacts:
+      value: 0
+      operator: '>'
+    percent_interface_cdr:
+      value: 0.5
+      operator: '>='
+    interface_shape_comp:
+      value: 0.6
+      operator: '>='
+
+  final:
+    clashes:
+      value: 1
+      operator: '<'
+    sc_rmsd:
+      value: 6.0
+      operator: '<'
+    binder_near_hotspot:
+      value: true
+      operator: '=='
+    cdr3_hotspot_contacts:
+      value: 1
+      operator: '>='
+    percent_interface_cdr:
+      value: 0.5
+      operator: '>='
+    interface_shape_comp:
+      value: 0.6
+      operator: '>='
+    interface_hbonds:
+      value: 3
+      operator: '>='
+    surface_hydrophobicity:
+      value: 0.4
+      operator: '<='
+    interface_hydrophobicity:
+      value: 45
+      operator: '>='
+    # pdockq2 is returning None, causing filter failure, so disabling for now
+    # pdockq2:
+    #   value: 0.23
+    #   operator: '>'
+    external_plddt:
+      value: 0.80
+      operator: '>='
+    external_iptm:
+      value: 0.75
+      operator: '>='
+    external_ptm:
+      value: 0.8
+      operator: '>='
+    external_pae:
+      value: 8
+      operator: '<'
+# ipsae is returning None, causing filter failure, so disabling for now
+#    ipsae:
+#      value: 0.6
+#      operator: '>='

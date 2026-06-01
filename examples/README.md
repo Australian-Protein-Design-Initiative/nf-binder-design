@@ -83,6 +83,17 @@ Peptide binder design for MDM2 (based on [Filus et al., 2025](https://doi.org/10
 | `run.sh` | Local run |
 | `run-dual-gpu.sh` | Dual-GPU local run |
 
+## Germinal (`--method germinal`)
+
+### `pdl1-germinal`
+
+PD-L1 VHH (nanobody) design with Protenix structure prediction and AbLang; combined Hydra config in `configs/pdl1_vhh.yaml`.
+
+| Script | Description |
+|--------|-------------|
+| `run.sh` | Local run |
+| `run-dual-gpu.sh` | Dual-GPU local run |
+
 ## BoltzGen (`--method boltzgen`)
 
 ### `pdl1-boltzgen`
