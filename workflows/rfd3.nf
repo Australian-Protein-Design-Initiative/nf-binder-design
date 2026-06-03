@@ -241,6 +241,11 @@ workflow RFD3 {
             --full_refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.full_refold_filter_sort}]
             --full_refold_create_target_msa  Create target MSA for refolding (runs MMseqs2) [default: ${params.full_refold_create_target_msa}]
             --full_refold_alignment    External A3M file for refold target; bypasses MMseqs2 when set [default: ${params.full_refold_alignment}]
+            --full_refold_use_msa_server     Use ColabFold MMseqs2 API for refold target MSA (skip local MMseqs) [default: ${params.full_refold_use_msa_server}]
+            --full_refold_target_fasta       Full-length target FASTA for Boltz refold (headers match PDB basenames) [default: ${params.full_refold_target_fasta}]
+            --full_refold_target_templates   Directory of full-length target template PDB/CIF for Boltz [default: ${params.full_refold_target_templates}]
+            --colabfold_envdb          ColabFold environment database (local MSA for RF3/refold when not using MSA server) [default: ${params.colabfold_envdb}]
+            --uniref30                 UniRef30 database (local MSA for RF3/refold when not using MSA server) [default: ${params.uniref30}]
 
         FoldSeek structural search (optional, enabled with --do_foldseek):
             --do_foldseek                 Enable FoldSeek search on the same designs selected for full refolding

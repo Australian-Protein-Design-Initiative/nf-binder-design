@@ -78,7 +78,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 In this mode, the workflow passes your config directly to RFDiffusion3; some sampler options defined outside the config file (e.g. `inference_sampler.step_scale`, `inference_sampler.gamma_0`) are provided as commandline options (eg `--rfd3_step_scale`, `--rfd3_gamma_0`), the rest can be passed directly via `--rfd3_extra_args`.
 
-#### 2. Params Mode (`--contigs`, `--hotspot_res`, etc.)
+### Params Mode (`--contigs`, `--hotspot_res`, etc.)
 
 In params mode, the workflow builds a minimal RFDiffusion3 JSON config for you internally. This is convenient for quick runs and for users familiar with the RFdiffusion v1 (`rfd`) workflow.
 
@@ -286,7 +286,22 @@ The workflow supports an optional **full refolding** step (e.g. using Boltz-2) t
   **Default:** `pair_pae_min` (ascending).
 
 - **`--full_refold_alignment`**  
-  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step.
+  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step. Mutually exclusive with **`--full_refold_create_target_msa`**.
+
+- **`--full_refold_create_target_msa`**  
+  When `true`, create a target-chain MSA for the Boltz refold step via local ColabFold/MMseqs2 or an external MSA server. **Default:** `false`.
+
+- **`--full_refold_use_msa_server`**  
+  When `true` and **`--full_refold_create_target_msa`** is set (and **`--full_refold_alignment`** is not), obtain refold target MSAs from the ColabFold MMseqs2 API instead of local MMseqs2. No **`--colabfold_envdb`** or **`--uniref30`** are required in this case. **Default:** `false`.
+
+- **`--full_refold_target_fasta`**  
+  FASTA file with full-length target sequence(s) for Boltz refold (headers should match PDB basenames in **`--full_refold_target_templates`**). **Default:** disabled.
+
+- **`--full_refold_target_templates`**  
+  Directory of full-length target template PDB/CIF files for Boltz-2 (improves target prediction when the RFD3 input is a cropped domain). **Default:** disabled.
+
+- **`--colabfold_envdb`** / **`--uniref30`**  
+  Paths to ColabFold environmental and UniRef30 databases. Required when creating MSAs locally for RF3 (**`--rf3_create_target_msa`**) or Boltz refold (**`--full_refold_create_target_msa`**) without an external MSA server and without **`--rf3_alignment`** / **`--full_refold_alignment`**.
 
 #### RMSD (design vs refold)
 

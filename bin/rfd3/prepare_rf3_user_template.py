@@ -16,13 +16,29 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-_SCRIPT_DIR = Path(__file__).resolve().parent
-if str(_SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(_SCRIPT_DIR))
-from gemmi_list_chains import gemmi_list_chains  # noqa: E402
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
+
+
+def run_gemmi(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        log.error("Command failed: %s\n%s", " ".join(cmd), r.stderr.strip())
+        sys.exit(1)
+    return r
+
+
+def gemmi_list_chains(structure: Path) -> list[str]:
+    r = run_gemmi(["gemmi", "residues", "-c", "-s", "-s", "-s", str(structure)])
+    lines = r.stdout.splitlines()
+    if len(lines) < 2:
+        return []
+    chains: set[str] = set()
+    for line in lines[1:]:
+        parts = line.split()
+        if parts:
+            chains.add(parts[0])
+    return sorted(chains)
 
 
 def structure_format(path: Path) -> str:
@@ -126,15 +142,8 @@ def resolve_source_chain(
     sys.exit(1)
 
 
-def run_gemmi(args: list[str]) -> None:
-    r = subprocess.run(args, capture_output=True, text=True)
-    if r.returncode != 0:
-        log.error("Command failed: %s\n%s", " ".join(args), r.stderr.strip())
-        sys.exit(1)
-
-
 def gemmi_convert(src: Path, dst: Path, extra: Optional[list[str]] = None) -> None:
-    cmd = ["gemmi", "convert"]
+    cmd: list[str] = ["gemmi", "convert"]
     if extra:
         cmd.extend(extra)
     cmd.extend([str(src), str(dst)])

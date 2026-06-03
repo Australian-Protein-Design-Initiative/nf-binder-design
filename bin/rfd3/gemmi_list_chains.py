@@ -24,15 +24,11 @@ def gemmi_list_chains(structure: Path) -> list[str]:
     Uses ``gemmi residues -c`` with three ``-s`` flags: gemmi allows -s 2x or 3x for
     progressively shorter output; 3x omits residue/atom detail so we only parse chain IDs.
     """
-    r = subprocess.run(
-        ["gemmi", "residues", "-c", "-s", "-s", "-s", str(structure)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    cmd = ["gemmi", "residues", "-c", "-s", "-s", "-s", str(structure)]
+    r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
-        log.error("gemmi residues failed: %s", r.stderr.strip())
-        raise SystemExit(1)
+        log.error("Command failed: %s\n%s", " ".join(cmd), r.stderr.strip())
+        sys.exit(1)
     lines = r.stdout.splitlines()
     if len(lines) < 2:
         return []
