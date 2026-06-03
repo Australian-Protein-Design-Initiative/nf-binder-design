@@ -617,24 +617,59 @@ workflow RFD3 {
     def ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
         .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1, sort: false)
 
-    // collect() yields a List; combine() flattens Lists into the parent tuple, which broke
-    // tuple(*it[0..9], it[11], it[10]) (binder chain vs MPNN paths swapped). Wrap as [list]
+    // collect() yields a List; combine() flattens Lists into the parent tuple. Wrap as [list]
     // so one combine element stays a List for path(mpnn_cifs, stageAs: 'cifs/*').
     def ch_mpnn_cifs = MPNN.out.cifs.flatten()
         .ifEmpty(Channel.of(file("${projectDir}/assets/dummy_files/empty")))
         .collect()
         .map { cifs -> [cifs as List] }
 
-    def ch_combine_input = ch_rf3_scores_merged
+    def ch_combine_core = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
         .combine(ch_rmsd_tuple)
         .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_complex")))
         .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer")))
         .combine(ch_boltz_rmsd_target_aligned_binder.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_target_aligned_binder")))
-        .combine(ch_boltz_rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_monomer_vs_complex")))
-        .combine(ch_mpnn_cifs)
+        .combine(ch_boltz_rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer_vs_complex")))
+        .map { rf3, rfd3, rmsd_tab, rmsd_cx, rmsd_bab, rmsd_tat, boltz_cx, boltz_mono, boltz_rmsd_tab, boltz_rmsd_mono ->
+            [
+                rf3_scores: rf3,
+                rfd3_scores: rfd3,
+                rmsd_target_aligned_binder: rmsd_tab,
+                rmsd_complex: rmsd_cx,
+                rmsd_binder_aligned_binder: rmsd_bab,
+                rmsd_target_aligned_target: rmsd_tat,
+                boltz_scores_complex: boltz_cx,
+                boltz_scores_monomer: boltz_mono,
+                boltz_rmsd_target_aligned_binder: boltz_rmsd_tab,
+                boltz_rmsd_monomer_vs_complex: boltz_rmsd_mono,
+            ]
+        }
+
+    // Binder chain before MPNN list: matches COMBINE_RFD3_SCORES input order (val then path list).
+    def ch_combine_input = ch_combine_core
         .combine(Channel.value(rfd3BinderChain))
-        .map { it -> tuple(*it[0..9], it[11], it[10]) }
+        .combine(ch_mpnn_cifs)
+        .map { scores, binder_chain, mpnn_cifs_wrapped ->
+            // collect()+wrap may arrive as [[cif, ...]] or flat [cif, ...]; [0] alone kept only one CIF.
+            def mpnn_cifs = (mpnn_cifs_wrapped instanceof List && mpnn_cifs_wrapped.size() == 1 && mpnn_cifs_wrapped[0] instanceof List)
+                ? mpnn_cifs_wrapped[0]
+                : mpnn_cifs_wrapped
+            tuple(
+                scores.rf3_scores,
+                scores.rfd3_scores,
+                scores.rmsd_target_aligned_binder,
+                scores.rmsd_complex,
+                scores.rmsd_binder_aligned_binder,
+                scores.rmsd_target_aligned_target,
+                scores.boltz_scores_complex,
+                scores.boltz_scores_monomer,
+                scores.boltz_rmsd_target_aligned_binder,
+                scores.boltz_rmsd_monomer_vs_complex,
+                binder_chain,
+                mpnn_cifs,
+            )
+        }
     COMBINE_RFD3_SCORES(ch_combine_input)
 
     emit:
