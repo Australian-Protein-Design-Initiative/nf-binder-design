@@ -77,7 +77,7 @@ process COMBINE_SCORES {
     python ${projectDir}/bin/pdb_to_fasta.py \
         --scores-table combined_scores.tsv \
         --scores pae_interaction,plddt_binder,rg,length \
-        --chain A \
+        --chains A \
         pdbs/*.pdb \
       >binders.fasta
     """

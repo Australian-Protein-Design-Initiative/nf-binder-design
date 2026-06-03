@@ -43,7 +43,7 @@ process PREPARE_RF3_TEMPLATE {
     fi
 
     # Step 2: Rename all chains to target_chain (matches RFD3 target polymer letter from contig order)
-    chains=\$(gemmi residues -c -s -s -s trimmed.pdb 2>/dev/null | tail -n +2 | awk '{print \$1}' | sort -u || true)
+    chains=\$(python3 ${projectDir}/bin/rfd3/gemmi_list_chains.py trimmed.pdb || true)
     rename_args=""
     for ch in \$chains; do
         if [[ "\$ch" != "${target_chain}" ]]; then

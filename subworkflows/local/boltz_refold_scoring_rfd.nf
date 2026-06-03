@@ -9,16 +9,16 @@ Refolds filtered AF2 initial guess designs with Boltz-2 and calculates
 RMSD metrics and BindCraft-style scores.
 
 This subworkflow is shared between the RFD and RFD_PARTIAL workflows.
+
+The refold + RMSD + BindCraft scoring is delegated to BOLTZ_REFOLD_CORE (shared
+with the RFD3 workflow); this wrapper adds the AF2IG score filtering up front and
+the COMBINE_SCORES aggregation at the end.
 */
 
 include { AF2IG_SCORE_FILTER } from '../../modules/local/rfd/af2ig_score_filter'
 include { COMBINE_SCORES } from '../../modules/local/common/combine_scores'
 include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_AF2IG } from '../../modules/local/rfd/bindcraft_scoring'
-include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_BOLTZ_COMPLEX } from '../../modules/local/rfd/bindcraft_scoring'
-include { PDB_TO_FASTA } from '../../modules/local/common/pdb_to_fasta'
-include { BOLTZ_COMPARE_COMPLEX } from '../../modules/local/common/boltz_compare_complex'
-include { BOLTZ_COMPARE_BINDER_MONOMER } from '../../modules/local/common/boltz_compare_binder_monomer'
-include { MMSEQS_COLABFOLDSEARCH } from '../../modules/local/common/mmseqs_colabfoldsearch'
+include { BOLTZ_REFOLD_CORE } from './boltz_refold_core'
 
 workflow BOLTZ_REFOLD_SCORING {
 
@@ -58,156 +58,34 @@ workflow BOLTZ_REFOLD_SCORING {
             .flatten()
             .map { pdb -> [[id: pdb.baseName], pdb] }
 
-        // Limit to refold_max if specified
-        ch_filtered_for_refold = refold_max
-            ? ch_filtered_with_meta.take(refold_max)
-            : ch_filtered_with_meta
-
-        // Optionally create target MSAs
-        if (refold_create_target_msa && !refold_use_msa_server) {
-            if (refold_target_fasta) {
-                // Use the refold_target_fasta file directly for MSA creation
-                ch_target_fastas = ch_filtered_for_refold.map { meta, pdb ->
-                    [meta, file(refold_target_fasta)]
-                }
-                ch_target_msas = MMSEQS_COLABFOLDSEARCH(
-                    ch_target_fastas,
-                    false,
-                    colabfold_envdb,
-                    uniref30,
-                    'boltz_refold/mmseqs2',
-                )
-            }
-            else {
-                // Create target FASTA files from PDBs for MSA creation
-                ch_target_fastas = ch_filtered_for_refold.map { meta, pdb -> pdb }
-                    | PDB_TO_FASTA(
-                        target_chain
-                    ).map { fasta ->
-                        def basename = fasta.baseName.replaceAll(/_${target_chain}$/, '')
-                        [[id: basename], fasta]
-                    }
-                ch_target_msas = MMSEQS_COLABFOLDSEARCH(
-                    ch_target_fastas,
-                    false,
-                    colabfold_envdb,
-                    uniref30,
-                    'boltz_refold/mmseqs2',
-                )
-            }
-        }
-        else if (refold_create_target_msa && refold_use_msa_server) {
-            ch_target_msas = ch_filtered_for_refold.map { meta, pdb ->
-                [meta, file("${projectDir}/assets/dummy_files/boltz_will_make_target_msa")]
-            }
-        }
-        else {
-            ch_target_msas = ch_filtered_for_refold.map { meta, pdb ->
-                [meta, file("${projectDir}/assets/dummy_files/empty_target_msa")]
-            }
-        }
-
-        // Run Boltz complex refolding with RMSD analysis
-        BOLTZ_COMPARE_COMPLEX(
-            ch_filtered_for_refold,
+        // Refold + RMSD + BindCraft scoring (shared with RFD3)
+        BOLTZ_REFOLD_CORE(
+            ch_filtered_with_meta,
             binder_chain,
             target_chain,
+            refold_max,
             refold_create_target_msa,
             refold_use_msa_server,
-            ch_target_msas.map { meta, target_msa -> target_msa },
-            file("${projectDir}/assets/dummy_files/empty_binder_msa"),
-            file(refold_target_templates ?: "${projectDir}/assets/dummy_files/empty_templates"),
-            refold_target_fasta ? file(refold_target_fasta) : "${projectDir}/assets/dummy_files/empty",
+            false,
+            refold_target_fasta,
+            refold_target_templates,
+            colabfold_envdb,
+            uniref30,
+            'af2ig',
+            'rfd/af2_initial_guess/extra_scores/',
+            outdir,
         )
 
-        // Run Boltz binder monomer prediction with RMSD analysis
-        BOLTZ_COMPARE_BINDER_MONOMER(
-            ch_filtered_for_refold.join(BOLTZ_COMPARE_COMPLEX.out.pdb).map { meta, af2ig_pdb, boltz_pdb ->
-                [meta, af2ig_pdb, boltz_pdb]
-            },
-            binder_chain,
-        )
-
-        // Aggregate RMSD outputs
-        ch_target_aligned_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_target_aligned
-            .map { meta, tsv_file -> tsv_file }
-            .collectFile(
-                name: 'rmsd_target_aligned_binder.tsv',
-                storeDir: "${outdir}/boltz_refold/rmsd",
-                keepHeader: true,
-                skip: 1,
-            )
-
-        ch_complex_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_complex
-            .map { meta, tsv_file -> tsv_file }
-            .collectFile(
-                name: 'rmsd_complex_vs_af2ig.tsv',
-                storeDir: "${outdir}/boltz_refold/rmsd",
-                keepHeader: true,
-                skip: 1,
-            )
-
-        ch_monomer_vs_af2ig_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_af2ig
-            .map { meta, tsv_file -> tsv_file }
-            .collectFile(
-                name: 'rmsd_monomer_vs_af2ig.tsv',
-                storeDir: "${outdir}/boltz_refold/rmsd",
-                keepHeader: true,
-                skip: 1,
-            )
-
-        ch_monomer_vs_complex_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_complex
-            .map { meta, tsv_file -> tsv_file }
-            .collectFile(
-                name: 'rmsd_monomer_vs_complex.tsv',
-                storeDir: "${outdir}/boltz_refold/rmsd",
-                keepHeader: true,
-                skip: 1,
-            )
-
-        // Aggregate confidence outputs
-        ch_complex_confidence = BOLTZ_COMPARE_COMPLEX.out.confidence_tsv
-            .map { meta, tsv_file -> tsv_file }
-            .collectFile(
-                name: 'boltz_scores_complex.tsv',
-                storeDir: "${outdir}/boltz_refold",
-                keepHeader: true,
-                skip: 1,
-            )
-
-        ch_monomer_confidence = BOLTZ_COMPARE_BINDER_MONOMER.out.confidence_tsv
-            .map { meta, tsv_file -> tsv_file }
-            .collectFile(
-                name: 'boltz_scores_binder_monomer.tsv',
-                storeDir: "${outdir}/boltz_refold",
-                keepHeader: true,
-                skip: 1,
-            )
-
-        ch_ipsae_tsv = BOLTZ_COMPARE_COMPLEX.out.ipsae_tsv
-        ch_ipsae_byres_tsv = BOLTZ_COMPARE_COMPLEX.out.ipsae_byres_tsv
-
-        // BindCraft-score the Boltz-2 refolded complexes
-        BINDCRAFT_SCORING_BOLTZ_COMPLEX(
-            BOLTZ_COMPARE_COMPLEX.out.pdb.map { meta, pdb -> pdb },
-            binder_chain,
-            'default_4stage_multimer',
-        )
-
-        extra_scores = BINDCRAFT_SCORING_BOLTZ_COMPLEX.out.scores.collectFile(
-            name: 'boltz_complex_extra_scores.tsv',
-            storeDir: "${outdir}/boltz_refold",
-            keepHeader: true,
-            skip: 1,
-        )
+        ch_ipsae_tsv = BOLTZ_REFOLD_CORE.out.ipsae_tsv
+        ch_ipsae_byres_tsv = BOLTZ_REFOLD_CORE.out.ipsae_byres_tsv
 
         // Combine all the score files into a single TSV file
         COMBINE_SCORES(
             ch_af2ig_scores.collect(),
-            extra_scores.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
-            ch_complex_confidence.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
-            ch_monomer_vs_complex_rmsd.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
-            ch_target_aligned_rmsd.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            BOLTZ_REFOLD_CORE.out.boltz_extra_scores.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            BOLTZ_REFOLD_CORE.out.boltz_scores_complex.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            BOLTZ_REFOLD_CORE.out.rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
+            BOLTZ_REFOLD_CORE.out.rmsd_target_aligned_binder.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
             ch_af2ig_pdbs.collect(),
         )
         ch_combined_scores = COMBINE_SCORES.out.combined_scores
@@ -218,6 +96,7 @@ workflow BOLTZ_REFOLD_SCORING {
             ch_af2ig_pdbs,
             binder_chain,
             'default_4stage_multimer',
+            'rfd/af2_initial_guess/extra_scores/',
         )
 
         extra_scores = BINDCRAFT_SCORING_AF2IG.out.scores.collectFile(

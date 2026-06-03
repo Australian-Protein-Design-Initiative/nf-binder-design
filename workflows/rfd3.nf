@@ -266,7 +266,6 @@ workflow RFD3 {
         exit(1)
     }
     def refold_methods = params.full_refold_with ? params.full_refold_with.toString().split(',').collect{it.trim()} : []
-    // println("Full refold methods: ${refold_methods}")
 
     def ch_input_pdb
     def target_pdb_path
@@ -285,8 +284,8 @@ workflow RFD3 {
 
     // Generate unique ID for this run
     UNIQUE_ID()
-    ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
-    ch_design_name = ch_unique_id.map { uid -> "${params.design_name}_${uid}" }
+    def ch_unique_id = UNIQUE_ID.out.id_file.map { it.text.trim() }.first()
+    def ch_design_name = ch_unique_id.map { uid -> "${params.design_name}_${uid}" }
 
     // Calculate number of batches
     def n_batches = Math.ceil(params.rfd3_n_designs / params.rfd3_batch_size).toInteger()
@@ -303,9 +302,10 @@ workflow RFD3 {
     def rf3UserTemplateSelectionRaw = params.rf3_template_selection ? params.rf3_template_selection.toString() : ''
     def rf3UserTselB64 = java.util.Base64.getEncoder().encodeToString(rf3UserTemplateSelectionRaw.getBytes('UTF-8'))
 
+    def ch_rfd3_startnum
     if (params.rfd3_config) {
         // Config mode: user provides their own JSON/YAML config
-        ch_config = Channel.fromPath(params.rfd3_config).first()
+        def ch_config = Channel.fromPath(params.rfd3_config).first()
 
         ch_rfd3_startnum = Channel.of(0..n_batches - 1)
 
@@ -357,8 +357,9 @@ workflow RFD3 {
         )
     }
 
-    ch_rfd3_cifs = RFDIFFUSION3.out.cifs.flatten()
+    def ch_rfd3_cifs = RFDIFFUSION3.out.cifs.flatten()
 
+    def ch_backbones
     if (params.rfd3_filters) {
         RFD3_FILTER_DESIGNS(
             ch_rfd3_cifs,
@@ -377,7 +378,7 @@ workflow RFD3 {
         mpnn_args,
     )
 
-    ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.baseName], c) }
+    def ch_mpnn_with_meta = MPNN.out.cifs.flatten().map { c -> tuple([id: c.baseName], c) }
 
     // Prepare RF3 template before MSA so --rf3_target_template MSA uses the same structure as RF3 (single chain, target chain ID).
     def ch_rf3_target_chain_val = Channel.value(rfd3TargetChain)
@@ -468,26 +469,26 @@ workflow RFD3 {
         Channel.value(rfd3BinderChain),
     )
 
-    ch_rf3_per_design = ROSETTAFOLD3.out.per_design_bundle.flatMap { metas, pddir ->
+    def ch_rf3_per_design = ROSETTAFOLD3.out.per_design_bundle.flatMap { metas, pddir ->
         def ml = metas instanceof List ? metas : [metas]
         ml.collect { m -> tuple(m, file("${pddir}/${m.id}/model.cif"), file("${pddir}/${m.id}/scores.tsv")) }
     }
-    ch_rf3_refolded_cif = ch_rf3_per_design.map { m, mod, sc -> tuple(m, mod) }
-    ch_rf3_scores_with_meta = ch_rf3_per_design.map { m, mod, sc -> tuple(m, sc) }
+    def ch_rf3_refolded_cif = ch_rf3_per_design.map { m, mod, sc -> tuple(m, mod) }
+    def ch_rf3_scores_with_meta = ch_rf3_per_design.map { m, mod, sc -> tuple(m, sc) }
 
-    ch_rmsd_input = ch_mpnn_with_meta
+    def ch_rmsd_input = ch_mpnn_with_meta
         .join(ch_rf3_refolded_cif)
         .combine(Channel.value(rfd3TargetChain))
         .combine(Channel.value(rfd3BinderChain))
     RFD3_RMSD(ch_rmsd_input)
 
-    ch_boltz_complex = Channel.empty()
-    ch_boltz_monomer = Channel.empty()
-    ch_boltz_rmsd_target_aligned_binder = Channel.empty()
-    ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
+    def ch_boltz_complex = Channel.empty()
+    def ch_boltz_monomer = Channel.empty()
+    def ch_boltz_rmsd_target_aligned_binder = Channel.empty()
+    def ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
 
     if (refold_methods.contains('boltz')) {
-        ch_boltz_input = ch_rf3_refolded_cif
+        def ch_boltz_input = ch_rf3_refolded_cif
             .join(ch_rf3_scores_with_meta)
             .map { meta, cif, score_tsv ->
                 def lines = score_tsv.readLines()
@@ -547,7 +548,7 @@ workflow RFD3 {
         // Reuse the same sorted/selected designs that go to full refold
         def foldseek_max = (params.foldseek_search_max ?: params.full_refold_max) as int
 
-        ch_foldseek_input = ch_rf3_refolded_cif
+        def ch_foldseek_input = ch_rf3_refolded_cif
             .join(ch_rf3_scores_with_meta)
             .map { meta, cif, score_tsv ->
                 def lines = score_tsv.readLines()
@@ -591,26 +592,26 @@ workflow RFD3 {
         // Extract design (shorter/binder) chain from complexes
         FOLDSEEK_PREPARE_QUERIES(ch_foldseek_input)
 
-        ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
-        ch_foldseek_meta = Channel.of([id: 'rfd3_foldseek'])
+        def ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
+        def ch_foldseek_meta = Channel.of([id: 'rfd3_foldseek'])
 
         FOLDSEEK_SEARCH(ch_foldseek_pdbs, ch_foldseek_meta)
     }
 
-    ch_rmsd_target_aligned_binder = RFD3_RMSD.out.rmsd_target_aligned_binder
+    def ch_rmsd_target_aligned_binder = RFD3_RMSD.out.rmsd_target_aligned_binder
         .map { meta, tsv -> tsv }
         .collectFile(name: 'rmsd_target_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
-    ch_rmsd_complex = RFD3_RMSD.out.rmsd_complex
+    def ch_rmsd_complex = RFD3_RMSD.out.rmsd_complex
         .map { meta, tsv -> tsv }
         .collectFile(name: 'rmsd_complex.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
-    ch_rmsd_binder_aligned_binder = RFD3_RMSD.out.rmsd_binder_aligned_binder
+    def ch_rmsd_binder_aligned_binder = RFD3_RMSD.out.rmsd_binder_aligned_binder
         .map { meta, tsv -> tsv }
         .collectFile(name: 'rmsd_binder_aligned_binder.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
-    ch_rmsd_target_aligned_target = RFD3_RMSD.out.rmsd_target_aligned_target
+    def ch_rmsd_target_aligned_target = RFD3_RMSD.out.rmsd_target_aligned_target
         .map { meta, tsv -> tsv }
         .collectFile(name: 'rmsd_target_aligned_target.tsv', storeDir: "${params.outdir}/rfd3/rosettafold3/rmsd", keepHeader: true, skip: 1)
 
-    ch_rmsd_tuple = ch_rmsd_target_aligned_binder
+    def ch_rmsd_tuple = ch_rmsd_target_aligned_binder
         .combine(ch_rmsd_complex)
         .combine(ch_rmsd_binder_aligned_binder)
         .combine(ch_rmsd_target_aligned_target)
@@ -621,20 +622,20 @@ workflow RFD3 {
             file("${projectDir}/assets/dummy_files/combine_placeholder_rmsd_target_aligned_target"),
         )))
 
-    ch_rf3_scores_merged = ROSETTAFOLD3.out.scores
+    def ch_rf3_scores_merged = ROSETTAFOLD3.out.scores
         .collectFile(name: 'rf3_scores.tsv', keepHeader: true, skip: 1, sort: false)
-    ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
+    def ch_rfd3_scores_merged = RFDIFFUSION3.out.scores
         .collectFile(name: 'rfd3_scores.tsv', keepHeader: true, skip: 1, sort: false)
 
     // collect() yields a List; combine() flattens Lists into the parent tuple, which broke
     // tuple(*it[0..9], it[11], it[10]) (binder chain vs MPNN paths swapped). Wrap as [list]
     // so one combine element stays a List for path(mpnn_cifs, stageAs: 'cifs/*').
-    ch_mpnn_cifs = MPNN.out.cifs.flatten()
+    def ch_mpnn_cifs = MPNN.out.cifs.flatten()
         .ifEmpty(Channel.of(file("${projectDir}/assets/dummy_files/empty")))
         .collect()
         .map { cifs -> [cifs as List] }
 
-    ch_combine_input = ch_rf3_scores_merged
+    def ch_combine_input = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
         .combine(ch_rmsd_tuple)
         .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_complex")))

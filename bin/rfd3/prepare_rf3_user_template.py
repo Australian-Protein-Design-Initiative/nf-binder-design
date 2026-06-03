@@ -16,6 +16,11 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+from gemmi_list_chains import gemmi_list_chains  # noqa: E402
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
 
@@ -30,27 +35,6 @@ def structure_format(path: Path) -> str:
 def needs_gemmi_normalise(structure: Path) -> bool:
     """Copying would duplicate .gz bytes into a plain .cif/.pdb path; use gemmi instead."""
     return structure.name.lower().endswith(".gz")
-
-
-def gemmi_list_chains(structure: Path) -> list[str]:
-    r = subprocess.run(
-        ["gemmi", "residues", "-c", "-s", "-s", "-s", str(structure)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if r.returncode != 0:
-        log.error("gemmi residues failed: %s", r.stderr.strip())
-        sys.exit(1)
-    lines = r.stdout.splitlines()
-    if len(lines) < 2:
-        return []
-    chains: set[str] = set()
-    for line in lines[1:]:
-        parts = line.split()
-        if parts:
-            chains.add(parts[0])
-    return sorted(chains)
 
 
 def chain_refs_from_token(token: str) -> list[str]:

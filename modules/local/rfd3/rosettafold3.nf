@@ -28,7 +28,7 @@ process ROSETTAFOLD3 {
     fi
 
     if [[ -n "${params.gpu_devices}" ]]; then
-        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+        free_gpu=\$(${projectDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
         export CUDA_VISIBLE_DEVICES="\$free_gpu"
         echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
     fi

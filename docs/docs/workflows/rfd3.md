@@ -316,6 +316,9 @@ By default outputs are written under `results/rfd3/` (or the directory specified
 
   > **Note:** If using a `--rf3_target_template` that is a different length to the `--input_pdb` target used by RFD3, the `rf3_rmsd_complex_rmsd_all` and `rf3_rmsd_target_aligned_target_rmsd_all` cannot be computed and will be empty in `combined_scores.tsv`.
 
+- **Boltz full refold (optional)**  
+  When `--full_refold_with` includes `boltz`, see `boltz_refold/` for Boltz confidence TSVs, RMSD tables, aggregated `boltz_complex_extra_scores.tsv`, and per-design BindCraft interface scores under `boltz_refold/extra_scores/`.
+
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 
 ## FoldSeek Structural Search (Optional)

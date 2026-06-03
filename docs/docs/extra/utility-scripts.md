@@ -52,7 +52,7 @@ Optional `--merge-key-replace-basename REGEX REPL` (repeatable) runs `re.sub` on
 
 ### pdb_to_fasta.py
 
-Extracts the FASTA sequence of chains in a PDB files.
+Extracts amino acid sequences from PDB/CIF files (FASTA by default). With `--tsv --chains CHAIN`, writes a tab-separated table (`filename`, `sequence`, `length`, `chain`) for merging into score tables; accepts a directory of structures and skips dummy `empty` placeholders.
 
 ### renumber_chains.py
 

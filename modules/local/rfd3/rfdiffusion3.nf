@@ -1,6 +1,5 @@
 process RFDIFFUSION3 {
     container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.1.12-weights'
-    // container "rosettacommons/foundry:0.1.9-weights"
 
     publishDir path: "${params.outdir}/rfd3/rfdiffusion3", pattern: 'output/*.cif.gz', mode: 'copy'
     publishDir path: "${params.outdir}/rfd3/rfdiffusion3", pattern: 'output/*.json', mode: 'copy'
@@ -43,7 +42,7 @@ process RFDIFFUSION3 {
 
     # Find least-used GPU and set CUDA_VISIBLE_DEVICES
     if [[ -n "${params.gpu_devices}" ]]; then
-        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
+        free_gpu=\$(${projectDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
         export CUDA_VISIBLE_DEVICES="\$free_gpu"
         echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
     fi

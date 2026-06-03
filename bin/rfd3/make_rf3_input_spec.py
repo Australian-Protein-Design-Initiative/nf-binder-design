@@ -7,10 +7,6 @@
 RF3 (RosettaFold3) input generation for Nextflow.
 
 Modes:
-  cif   - Produce an RF3 input CIF with optional target chain MSA path
-          (_msa_paths_by_chain_id). Legacy; prefer json for new use.
-  json  - Generate RF3 input JSON with name and components (seq, optional
-          msa_path, chain_id) for rf3 fold inputs=<path>.
   json-batch  - One JSON list for multiple CIFs (shared template/MSA): pass
           --structure-cifs and --names in the same order (length must match).
 """
@@ -25,36 +21,6 @@ from typing import List, Optional, Sequence
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
-
-
-def inject_msa_into_cif(structure_cif: Path, target_msa_path: Optional[Path], target_chain: str, out_path: Path) -> None:
-    """Write a CIF to out_path that mirrors structure_cif with optional _msa_paths_by_chain_id."""
-    with open(structure_cif) as f:
-        lines = f.readlines()
-
-    out_lines: List[str] = []
-    data_line_idx: Optional[int] = None
-    for i, line in enumerate(lines):
-        out_lines.append(line)
-        if line.startswith("data_") and data_line_idx is None:
-            data_line_idx = i
-            break
-
-    if data_line_idx is None:
-        raise ValueError(f"No data_ block found in {structure_cif}")
-
-    if target_msa_path is not None and target_msa_path.exists():
-        msa_abs = str(target_msa_path.resolve())
-        out_lines.append("#\n")
-        out_lines.append(f"_msa_paths_by_chain_id.{target_chain}   {msa_abs}\n")
-        out_lines.append("#\n")
-
-    out_lines.extend(lines[data_line_idx + 1 :])
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
-        f.writelines(out_lines)
-    log.info("Wrote RF3 input CIF to %s", out_path)
 
 
 def parse_template_selection_arg(raw: Optional[str]) -> Optional[List[str]]:
@@ -149,50 +115,9 @@ def generate_rf3_input(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="RF3 (RosettaFold3) input generation: CIF with MSA path or JSON for rf3 fold",
+        description="RF3 (RosettaFold3) batch input JSON generation for rf3 fold",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # --- cif subcommand (legacy) ---
-    cif_parser = subparsers.add_parser(
-        "cif",
-        help="Produce an RF3 input CIF with optional target chain MSA path",
-    )
-    cif_parser.add_argument("--structure-cif", required=True, type=Path, help="Input structure CIF (target + binder)")
-    # Prefer --target-msa for consistency; keep --target-msa-path as a deprecated alias.
-    cif_parser.add_argument("--target-msa", default=None, type=Path, help="Path to target chain MSA (.a3m); omit for no MSA")
-    cif_parser.add_argument("--target-msa-path", dest="target_msa", default=None, type=Path, help=argparse.SUPPRESS)
-    cif_parser.add_argument("--target-chain", default="A", help="Target chain ID for MSA (default: A)")
-    cif_parser.add_argument("-o", "--output", required=True, type=Path, help="Output CIF path")
-
-    # --- json subcommand ---
-    json_parser = subparsers.add_parser(
-        "json",
-        help="Generate RF3 input JSON with optional msa_path per component for rf3 fold",
-    )
-    json_parser.add_argument("--structure-cif", required=True, help="Structure CIF (target + binder)")
-    json_parser.add_argument("--target-chain", default="A", help="Target chain ID")
-    json_parser.add_argument(
-        "--binder-chain",
-        default="B",
-        help="chain_id for binder in RF3 JSON (match RFD3 output binder polymer)",
-    )
-    json_parser.add_argument(
-        "--binder-sequence-chain",
-        default=None,
-        help="Chain in CIF for binder sequence (default: --binder-chain); use MPNN designed chain",
-    )
-    json_parser.add_argument("--pdb-to-fasta", required=True, help="Path to pdb_to_fasta.py")
-    json_parser.add_argument("--name", default="rf3_input", help="Name field in the JSON")
-    json_parser.add_argument("--target-msa", default=None, help="Path to target chain MSA (.a3m); optional")
-    json_parser.add_argument("--template-structure", default=None, help="Single PDB/CIF to use as RF3 template (e.g. target structure; one per chain)")
-    json_parser.add_argument(
-        "--template-selection",
-        default=None,
-        help="RF3 template_selection: comma-separated AtomSelection tokens (e.g. 'A' or 'A/*/1-50,A/*/80-120')",
-    )
-    json_parser.add_argument("--basename-paths", action="store_true", help="Store msa_path and template paths as basenames/relative paths for Nextflow staging")
-    json_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
     batch_parser = subparsers.add_parser(
         "json-batch",
@@ -233,38 +158,6 @@ def main() -> int:
     batch_parser.add_argument("-o", "--output", required=True, help="Output JSON path")
 
     args = parser.parse_args()
-
-    if args.command == "cif":
-        if not args.structure_cif.exists():
-            log.error("Structure CIF not found: %s", args.structure_cif)
-            return 1
-        inject_msa_into_cif(
-            args.structure_cif,
-            args.target_msa,
-            args.target_chain,
-            args.output,
-        )
-        return 0
-
-    if args.command == "json":
-        tsel = parse_template_selection_arg(args.template_selection)
-        config = generate_rf3_input(
-            structure_cif=Path(args.structure_cif),
-            target_chain=args.target_chain,
-            binder_chain=args.binder_chain,
-            pdb_to_fasta_script=Path(args.pdb_to_fasta),
-            name=args.name,
-            target_msa_path=Path(args.target_msa) if args.target_msa else None,
-            template_structure=Path(args.template_structure) if args.template_structure else None,
-            template_selection=tsel,
-            basename_paths=args.basename_paths,
-            binder_sequence_chain=args.binder_sequence_chain,
-        )
-        with open(args.output, "w") as f:
-            # RF3 expects a list of config objects; wrap single config in a list.
-            json.dump([config], f, indent=2)
-        log.info("Wrote RF3 input JSON list to %s", args.output)
-        return 0
 
     if args.command == "json-batch":
         cifs = [Path(p) for p in args.structure_cifs]

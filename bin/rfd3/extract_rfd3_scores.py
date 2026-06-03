@@ -197,21 +197,6 @@ def main() -> int:
     rfd3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")
     rfd3_parser.set_defaults(func=cmd_rfdiffusion3)
 
-    rf3_parser = subparsers.add_parser("rf3", help="Extract from RosettaFold3 summary_confidences JSON(s)")
-    rf3_parser.add_argument("json", type=Path, nargs="+", help="Path(s) to *_summary_confidences.json")
-    rf3_parser.add_argument(
-        "--target-chain",
-        default=None,
-        help="Target chain ID in RF3 output (maps ptm_target when set with --binder-chain)",
-    )
-    rf3_parser.add_argument(
-        "--binder-chain",
-        default=None,
-        help="Binder chain ID in RF3 output (maps ptm_binder when set with --target-chain)",
-    )
-    rf3_parser.add_argument("-o", "--output", default="-", help="Output TSV (default: stdout)")
-    rf3_parser.set_defaults(func=cmd_rf3)
-
     rosettafold3_parser = subparsers.add_parser("rosettafold3", help="Extract from RosettaFold3 summary_confidences JSON(s)")
     rosettafold3_parser.add_argument("json", type=Path, nargs="+", help="Path(s) to *_summary_confidences.json")
     rosettafold3_parser.add_argument("--target-chain", default=None, help="Target chain ID in RF3 output")
