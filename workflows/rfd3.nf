@@ -99,7 +99,6 @@ params.foldseek_cath_names_path = false
 
 params.require_gpu = true
 params.gpu_devices = ''
-params.gpu_allocation_detect_process_regex = '(boltz predict|rfd3 design|rf3 fold)'
 
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
@@ -151,8 +150,8 @@ workflow RFD3 {
         throw new Exception('--rf3_target_template and --rf3_target_fasta are mutually exclusive. The target sequence comes from the template file when --rf3_target_template is set.')
     }
 
-    canonicalizeMpnnWeightsNoiseParam(params)
-    validateRfd3MpnnPresetParams(params)
+    def mpnn_weights_noise = canonicalizeMpnnWeightsNoiseParam(params)
+    validateRfd3MpnnPresetParams(params, mpnn_weights_noise)
 
     def hotspot_sub_frac = (params.hotspot_subsample != null)
         ? (params.hotspot_subsample as Double)
@@ -297,7 +296,7 @@ workflow RFD3 {
     def mpnnRaw = params.mpnn_designed_chains?.toString()?.trim()
     def effectiveMpnnDesignedChains = (mpnnRaw && !mpnnRaw.equalsIgnoreCase('auto')) ? mpnnRaw : rfd3BinderChain
     def mpnnBinderSeqChain = mpnnDesignedChainsFirst(effectiveMpnnDesignedChains)
-    def mpnn_args = buildMpnnArgs(params, effectiveMpnnDesignedChains)
+    def mpnn_args = buildMpnnArgs(params, effectiveMpnnDesignedChains, mpnn_weights_noise)
     def rf3TemplateSelection = params.rf3_template_selection ? params.rf3_template_selection.toString() : rfd3TargetChain
     def rf3UserTemplateSelectionRaw = params.rf3_template_selection ? params.rf3_template_selection.toString() : ''
     def rf3UserTselB64 = java.util.Base64.getEncoder().encodeToString(rf3UserTemplateSelectionRaw.getBytes('UTF-8'))
@@ -487,19 +486,14 @@ workflow RFD3 {
     def ch_boltz_rmsd_target_aligned_binder = Channel.empty()
     def ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
 
+    def rf3ScoreMapFromTsv = { score_tsv ->
+        score_tsv.splitCsv(header: true, sep: '\t')[0]
+    }
+
     if (refold_methods.contains('boltz')) {
         def ch_boltz_input = ch_rf3_refolded_cif
             .join(ch_rf3_scores_with_meta)
-            .map { meta, cif, score_tsv ->
-                def lines = score_tsv.readLines()
-                def header = lines[0].split('\t')
-                def values = lines[1].split('\t')
-                def scoreMap = [:]
-                for (int i = 0; i < header.size(); i++) {
-                    scoreMap[header[i]] = values[i]
-                }
-                return [meta, cif, scoreMap]
-            }
+            .map { meta, cif, score_tsv -> [meta, cif, rf3ScoreMapFromTsv(score_tsv)] }
             .toSortedList { a, b ->
                 def sort_key = params.full_refold_filter_sort ?: 'pair_pae_min'
                 def descending = false
@@ -550,16 +544,7 @@ workflow RFD3 {
 
         def ch_foldseek_input = ch_rf3_refolded_cif
             .join(ch_rf3_scores_with_meta)
-            .map { meta, cif, score_tsv ->
-                def lines = score_tsv.readLines()
-                def header = lines[0].split('\t')
-                def values = lines[1].split('\t')
-                def scoreMap = [:]
-                for (int i = 0; i < header.size(); i++) {
-                    scoreMap[header[i]] = values[i]
-                }
-                return [meta, cif, scoreMap]
-            }
+            .map { meta, cif, score_tsv -> [meta, cif, rf3ScoreMapFromTsv(score_tsv)] }
             .toSortedList { a, b ->
                 def sort_key = params.full_refold_filter_sort ?: 'pair_pae_min'
                 def descending = false
