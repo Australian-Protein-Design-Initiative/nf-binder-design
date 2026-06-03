@@ -48,45 +48,17 @@ process COMBINE_RFD3_SCORES {
     fi
 
     if [[ -s ${rmsd_target_aligned_binder_tsv} && -s ${rmsd_complex_tsv} && -s ${rmsd_binder_aligned_binder_tsv} && -s ${rmsd_target_aligned_target_tsv} ]]; then
-      csvtk -t cut -b -f structure1,rmsd_all ${rmsd_target_aligned_binder_tsv} > tmp_rmsd_target_aligned_binder.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        combined_scores.tsv tmp_rmsd_target_aligned_binder.tsv \\
+      python ${projectDir}/bin/rfd3/merge_rmsd_columns.py \\
+        combined_scores.tsv \\
+        "${rmsd_target_aligned_binder_tsv}=rf3_rmsd_target_aligned_binder_" \\
+        "${rmsd_complex_tsv}=rf3_rmsd_complex_" \\
+        "${rmsd_binder_aligned_binder_tsv}=rf3_rmsd_binder_aligned_binder_" \\
+        "${rmsd_target_aligned_target_tsv}=rf3_rmsd_target_aligned_target_" \\
         --keys filename,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
         --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
-        --column-prefix rf3_rmsd_target_aligned_binder_ \\
-        --drop-columns 'rf3_rmsd_target_aligned_binder_structure.*' \\
-        -o step1.tsv
-
-      csvtk -t cut -b -f structure1,rmsd_all ${rmsd_complex_tsv} > tmp_rmsd_complex.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        step1.tsv tmp_rmsd_complex.tsv \\
-        --keys filename,structure1 \\
-        --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
-        --column-prefix rf3_rmsd_complex_ \\
-        --drop-columns 'rf3_rmsd_complex_structure.*' \\
-        -o step2.tsv
-
-      csvtk -t cut -b -f structure1,rmsd_all ${rmsd_binder_aligned_binder_tsv} > tmp_rmsd_binder_aligned_binder.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        step2.tsv tmp_rmsd_binder_aligned_binder.tsv \\
-        --keys filename,structure1 \\
-        --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
-        --column-prefix rf3_rmsd_binder_aligned_binder_ \\
-        --drop-columns 'rf3_rmsd_binder_aligned_binder_structure.*' \\
-        -o step3.tsv
-
-      csvtk -t cut -b -f structure1,rmsd_all ${rmsd_target_aligned_target_tsv} > tmp_rmsd_target_aligned_target.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        step3.tsv tmp_rmsd_target_aligned_target.tsv \\
-        --keys filename,structure1 \\
-        --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --merge-key-replace-basename '_rf3\\.cif\$' '.cif' \\
-        --column-prefix rf3_rmsd_target_aligned_target_ \\
-        --drop-columns 'rf3_rmsd_target_aligned_target_structure.*' \\
-        -o combined_scores.tsv
+        --value-columns rmsd_all \\
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
     if [[ -s ${boltz_scores_complex} ]] || [[ -s ${boltz_scores_monomer} ]] \\
@@ -104,8 +76,7 @@ process COMBINE_RFD3_SCORES {
         --keys merge_id,id \\
         --column-prefix boltz_complex_ \\
         --drop-columns 'boltz_complex_target,boltz_complex_binder,boltz_complex_state,boltz_complex_ptm,boltz_complex_iptm,boltz_complex_ligand_iptm,boltz_complex_protein_iptm,boltz_complex_has_clash' \\
-        -o step4.tsv
-      mv step4.tsv combined_scores.tsv
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
     if [[ -s ${boltz_scores_monomer} ]]; then
@@ -115,32 +86,27 @@ process COMBINE_RFD3_SCORES {
         --keys merge_id,id \\
         --column-prefix boltz_monomer_ \\
         --drop-columns 'boltz_monomer_target,boltz_monomer_binder,boltz_monomer_state,boltz_monomer_ptm,boltz_monomer_ligand_iptm,boltz_monomer_protein_iptm,boltz_monomer_has_clash' \\
-        -o step5.tsv
-      mv step5.tsv combined_scores.tsv
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
     if [[ -s ${boltz_rmsd_target_aligned_binder} ]]; then
-      csvtk -t cut -b -f structure1,rmsd_pruned,rmsd_all ${boltz_rmsd_target_aligned_binder} > tmp_boltz_rmsd_target_aligned_binder.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        combined_scores.tsv tmp_boltz_rmsd_target_aligned_binder.tsv \\
+      python ${projectDir}/bin/rfd3/merge_rmsd_columns.py \\
+        combined_scores.tsv \\
+        "${boltz_rmsd_target_aligned_binder}=boltz_target_aligned_binder_" \\
         --keys merge_id,structure1 \\
         --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --column-prefix boltz_target_aligned_binder_ \\
-        --drop-columns 'boltz_target_aligned_binder_structure.*' \\
-        -o step_boltz_rmsd_tab.tsv
-      mv step_boltz_rmsd_tab.tsv combined_scores.tsv
+        --value-columns rmsd_pruned,rmsd_all \\
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
     if [[ -s ${boltz_rmsd_monomer_vs_complex} ]]; then
-      csvtk -t cut -b -f structure1,rmsd_pruned,rmsd_all ${boltz_rmsd_monomer_vs_complex} > tmp_boltz_rmsd_monomer_vs_complex.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        combined_scores.tsv tmp_boltz_rmsd_monomer_vs_complex.tsv \\
+      python ${projectDir}/bin/rfd3/merge_rmsd_columns.py \\
+        combined_scores.tsv \\
+        "${boltz_rmsd_monomer_vs_complex}=boltz_monomer_vs_complex_" \\
         --keys merge_id,structure1 \\
         --strip-suffix '(_model_0\\.pdb|_monomer)\$' \\
-        --column-prefix boltz_monomer_vs_complex_ \\
-        --drop-columns 'boltz_monomer_vs_complex_structure.*' \\
-        -o step_boltz_rmsd_mono.tsv
-      mv step_boltz_rmsd_mono.tsv combined_scores.tsv
+        --value-columns rmsd_pruned,rmsd_all \\
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
     if [[ -s combined_scores.tsv ]] && grep -q 'merge_id' combined_scores.tsv; then
