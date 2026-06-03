@@ -28,6 +28,20 @@ head $OUTDIR/combined_scores.tsv
 
 Calculates shape-based scoring metrics for protein designs (eg radius of gyration, etc.).
 
+### complex-sasa.py
+
+Calculates per-residue delta SASA on target chains when a binder is removed from a complex (wide TSV output). Reports burial as `SASA(apo) - SASA(complex)` in angstrom and percent-of-max-SASA columns, with optional site sums and column pruning via `--min-change-percent`. Processes multiple PDBs in parallel (`--threads`, default: CPU count).
+
+**Usage:**
+```bash
+uv run bin/complex_sasa.py \
+  --binder-chains B \
+  --site HLA=A41,A42,A100 \
+  --site TCR=A23,A84 \
+  --min-change-percent 1 \
+  model.pdb
+```
+
 ### create_bindcraft_settings.py
 
 Generates BindCraft configuration files.
