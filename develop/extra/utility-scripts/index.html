@@ -82,6 +82,8 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#calculate_shape_scorespy">calculate_shape_scores.py</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#complex-sasapy">complex-sasa.py</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#create_bindcraft_settingspy">create_bindcraft_settings.py</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#create_boltz_yamlpy">create_boltz_yaml.py</a>
@@ -173,6 +175,16 @@ head $OUTDIR/combined_scores.tsv
 </code></pre>
 <h3 id="calculate_shape_scorespy">calculate_shape_scores.py</h3>
 <p>Calculates shape-based scoring metrics for protein designs (eg radius of gyration, etc.).</p>
+<h3 id="complex-sasapy">complex-sasa.py</h3>
+<p>Calculates per-residue delta SASA on target chains when a binder is removed from a complex (wide TSV output). Reports burial as <code>SASA(apo) - SASA(complex)</code> in angstrom and percent-of-max-SASA columns, with optional site sums and column pruning via <code>--min-change-percent</code>. Processes multiple PDBs in parallel (<code>--threads</code>, default: CPU count).</p>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash">uv run bin/complex_sasa.py \
+  --binder-chains B \
+  --site HLA=A41,A42,A100 \
+  --site TCR=A23,A84 \
+  --min-change-percent 1 \
+  model.pdb
+</code></pre>
 <h3 id="create_bindcraft_settingspy">create_bindcraft_settings.py</h3>
 <p>Generates BindCraft configuration files.</p>
 <h3 id="create_boltz_yamlpy">create_boltz_yaml.py</h3>
