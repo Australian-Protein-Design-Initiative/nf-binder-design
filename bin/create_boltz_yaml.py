@@ -24,18 +24,22 @@ def sanitize_for_filename(text: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_\-.]", "_", text)
 
 
-def get_chain_sequences(pdb_file: str, chain_ids: Optional[list] = None) -> dict:
-    """Extract one-letter amino acid sequences for specified chains in a PDB file.
+def get_chain_sequences(file_path: str, chain_ids: Optional[list] = None) -> dict:
+    """Extract one-letter amino acid sequences for specified chains in a structure file.
 
     Args:
-        pdb_file: Path to the PDB file
+        file_path: Path to the PDB or CIF file
         chain_ids: List of chain IDs to extract sequences from. If None, extract all chains.
 
     Returns:
         Dictionary mapping chain IDs to their amino acid sequences
     """
-    parser = PDB.PDBParser(QUIET=True)
-    structure = parser.get_structure("structure", pdb_file)
+    if file_path.lower().endswith(('.cif', '.mmcif')):
+        parser = PDB.MMCIFParser(QUIET=True)
+    else:
+        parser = PDB.PDBParser(QUIET=True)
+        
+    structure = parser.get_structure("structure", file_path)
 
     sequences = {}
 

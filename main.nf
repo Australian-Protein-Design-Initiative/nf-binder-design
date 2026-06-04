@@ -25,6 +25,8 @@ if (params.method == "rfd") {
     include { BOLTZGEN } from './workflows/boltzgen'
 } else if (params.method == "boltz_pulldown") {
     include { BOLTZ_PULLDOWN } from './workflows/boltz_pulldown'
+} else if (params.method == "rfd3") {
+    include { RFD3 } from './workflows/rfd3'
 } else if (params.method == "foldseek") {
     include { FOLDSEEK } from './workflows/foldseek'
 }
@@ -64,6 +66,7 @@ workflow {
         Available methods:
             rfd             RFDiffusion-based binder design
             rfd_partial     RFDiffusion partial diffusion for binder optimization
+            rfd3            RFDiffusion3-based binder design
             bindcraft       BindCraft binder design
             boltzgen        BoltzGen binder design
             boltz_pulldown  Boltz pulldown predictions
@@ -90,11 +93,13 @@ workflow {
         BOLTZGEN()
     } else if (params.method == "boltz_pulldown") {
         BOLTZ_PULLDOWN()
+    } else if (params.method == "rfd3") {
+        RFD3()
     } else if (params.method == "foldseek") {
         FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, bindcraft, boltzgen, boltz_pulldown, foldseek")
+        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, boltzgen, boltz_pulldown, foldseek")
         exit(1)
     }
 

@@ -45,8 +45,8 @@ jobs:
         run: |
           git fetch origin gh-pages --depth=1 || true
 
-          DOCS_BRANCHES=("develop" "rfd3")
-          
+          DOCS_BRANCHES=("develop" "develop-rfd3" "rfd3")
+
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
             mike deploy --config-file docs/mkdocs.yml --push --update-aliases "${VERSION}"

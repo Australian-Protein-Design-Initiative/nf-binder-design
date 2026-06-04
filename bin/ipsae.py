@@ -40,7 +40,7 @@
 
 #  python ipsae.py <path_to_af2_pae_file>     <path_to_af2_pdb_file>     <pae_cutoff> <dist_cutoff>
 #  python ipsae.py <path_to_af3_pae_file>     <path_to_af3_cif_file>     <pae_cutoff> <dist_cutoff>
-#  python ipsae.py <path_to_boltz1_pae_file>  <path_to_boltz1_cif_file>  <pae_cutoff> <dist_cutoff>
+#  python ipsae.py <path_to_boltz_pae_file>  <path_to_boltz_cif_file>  <pae_cutoff> <dist_cutoff>
 #
 # All output files will be in same path/folder as cif or pdb file
 
@@ -93,6 +93,28 @@ def main():
         default=10.0,
         help="Distance cutoff value (default: 10.0)",
     )
+    parser.add_argument(
+        "--format",
+        choices=("auto", "af2", "af3", "boltz", "rf3"),
+        default="auto",
+        help="Input format (default: auto from file extensions). Use rf3 for RosettaFold3 confidences JSON.",
+    )
+    parser.add_argument(
+        "--update-summary",
+        metavar="PATH",
+        default=None,
+        help="After computing scores, add ipsae_binder_target, ipsae_target_binder, ipsae_min to this summary JSON and save.",
+    )
+    parser.add_argument(
+        "--binder-chain",
+        default="A",
+        help="Chain ID for binder (used with --update-summary). Default: A",
+    )
+    parser.add_argument(
+        "--target-chain",
+        default="B",
+        help="Chain ID for target (used with --update-summary). Default: B",
+    )
 
     args = parser.parse_args()
 
@@ -114,32 +136,37 @@ def main():
         path_stem = f'{pdb_path.replace(".pdb", "")}_{pae_string}_{dist_string}'
         af2 = False
         af3 = False
-        boltz1 = True
+        boltz = True
         cif = False
     elif ".cif" in pdb_path and pae_file_path.endswith(".npz"):
         pdb_stem = pdb_path.replace(".cif", "")
         path_stem = f'{pdb_path.replace(".cif", "")}_{pae_string}_{dist_string}'
         af2 = False
         af3 = False
-        boltz1 = True
+        boltz = True
         cif = True
     elif ".cif" in pdb_path and pae_file_path.endswith(".json"):
         pdb_stem = pdb_path.replace(".cif", "")
         path_stem = f'{pdb_path.replace(".cif", "")}_{pae_string}_{dist_string}'
         af2 = False
         af3 = True
-        boltz1 = False
+        boltz = False
         cif = True
     elif ".pdb" in pdb_path:
         pdb_stem = pdb_path.replace(".pdb", "")
         path_stem = f'{pdb_path.replace(".pdb", "")}_{pae_string}_{dist_string}'
         af2 = True
         af3 = False
-        boltz1 = False
+        boltz = False
         cif = False
     else:
         print("Wrong PDB or PAE file type ", pdb_path)
         sys.exit()
+
+    rf3 = args.format == "rf3" and af3
+    if args.format == "rf3" and ".cif" in pdb_path and pae_file_path.endswith(".json"):
+        af3 = True
+        rf3 = True
 
     file_path = path_stem + "_ipsae.tsv"
     file2_path = path_stem + "_ipsae_byres.tsv"
@@ -381,7 +408,7 @@ def main():
         {}
     )  # contains order of atom_site fields in mmCIF files; handles any mmCIF field order
 
-    # For af3 and boltz1: need mask to identify CA atom tokens in plddt vector and pae matrix;
+    # For af3 and boltz: need mask to identify CA atom tokens in plddt vector and pae matrix;
     # Skip ligand atom tokens and non-CA-atom tokens in PTMs (those not in residue_set)
     token_mask = list()
     residue_set = {
@@ -465,7 +492,7 @@ def main():
                         }
                     )
 
-                # add nucleic acids and non-CA atoms in PTM residues to tokens (as 0), whether labeled as "HETATM" (af3) or as "ATOM" (boltz1)
+                # add nucleic acids and non-CA atoms in PTM residues to tokens (as 0), whether labeled as "HETATM" (af3) or as "ATOM" (boltz)
                 if (
                     atom["atom_name"] != "CA"
                     and "C1" not in atom["atom_name"]
@@ -547,7 +574,7 @@ def main():
             print("AF2 PAE file does not exist: ", pae_file_path)
             sys.exit()
 
-    if boltz1:
+    if boltz:
         # Boltz1 filenames:
         # AURKA_TPX2_model_0.cif
         # confidence_AURKA_TPX2_model_0.json
@@ -557,17 +584,17 @@ def main():
         plddt_file_path = pae_file_path.replace("pae", "plddt")
         if os.path.exists(plddt_file_path):
             data_plddt = np.load(plddt_file_path)
-            plddt_boltz1 = np.array(100.0 * data_plddt["plddt"])
-            plddt = plddt_boltz1[np.ix_(token_array.astype(bool))]
-            cb_plddt = plddt_boltz1[np.ix_(token_array.astype(bool))]
+            plddt_boltz = np.array(100.0 * data_plddt["plddt"])
+            plddt = plddt_boltz[np.ix_(token_array.astype(bool))]
+            cb_plddt = plddt_boltz[np.ix_(token_array.astype(bool))]
         else:
             plddt = np.zeros(ntokens)
             cb_plddt = np.zeros(ntokens)
 
         if os.path.exists(pae_file_path):
             data_pae = np.load(pae_file_path)
-            pae_matrix_boltz1 = np.array(data_pae["pae"])
-            pae_matrix = pae_matrix_boltz1[
+            pae_matrix_boltz = np.array(data_pae["pae"])
+            pae_matrix = pae_matrix_boltz[
                 np.ix_(token_array.astype(bool), token_array.astype(bool))
             ]
 
@@ -577,7 +604,7 @@ def main():
 
         summary_file_path = pae_file_path.replace("pae", "confidence")
         summary_file_path = summary_file_path.replace(".npz", ".json")
-        iptm_boltz1 = {
+        iptm_boltz = {
             chain1: {chain2: 0 for chain2 in unique_chains if chain1 != chain2}
             for chain1 in unique_chains
         }
@@ -585,14 +612,14 @@ def main():
             with open(summary_file_path, "r") as file:
                 data_summary = json.load(file)
 
-                boltz1_chain_pair_iptm_data = data_summary["pair_chains_iptm"]
+                boltz_chain_pair_iptm_data = data_summary["pair_chains_iptm"]
                 for chain1 in unique_chains:
                     nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
                     for chain2 in unique_chains:
                         if chain1 == chain2:
                             continue
                         nchain2 = ord(chain2) - ord("A")
-                        iptm_boltz1[chain1][chain2] = boltz1_chain_pair_iptm_data[
+                        iptm_boltz[chain1][chain2] = boltz_chain_pair_iptm_data[
                             str(nchain1)
                         ][str(nchain2)]
         else:
@@ -615,6 +642,8 @@ def main():
             sys.exit()
 
         atom_plddts = np.array(data["atom_plddts"])
+        if rf3:
+            atom_plddts = atom_plddts * 100.0
         plddt = atom_plddts[CA_atom_num]  # pull out residue plddts from Calpha atoms
         cb_plddt = atom_plddts[
             CB_atom_num
@@ -653,18 +682,28 @@ def main():
         if summary_file_path is not None and os.path.exists(summary_file_path):
             with open(summary_file_path, "r") as file:
                 data_summary = json.load(file)
-            af3_chain_pair_iptm_data = data_summary["chain_pair_iptm"]
-            for chain1 in unique_chains:
-                nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
-                for chain2 in unique_chains:
-                    if chain1 == chain2:
-                        continue
-                    nchain2 = ord(chain2) - ord("A")
-                    iptm_af3[chain1][chain2] = af3_chain_pair_iptm_data[nchain1][
-                        nchain2
-                    ]
+            af3_chain_pair_iptm_data = data_summary.get("chain_pair_iptm")
+            if af3_chain_pair_iptm_data is not None:
+                for chain1 in unique_chains:
+                    nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
+                    for chain2 in unique_chains:
+                        if chain1 == chain2:
+                            continue
+                        nchain2 = ord(chain2) - ord("A")
+                        if nchain1 < len(af3_chain_pair_iptm_data) and nchain2 < len(
+                            af3_chain_pair_iptm_data[nchain1]
+                        ):
+                            iptm_af3[chain1][chain2] = af3_chain_pair_iptm_data[
+                                nchain1
+                            ][nchain2]
+            elif rf3:
+                print(
+                    "Warning: RF3 summary has no chain_pair_iptm; ipTM from summary will be 0",
+                    file=sys.stderr,
+                )
         else:
-            print("AF3 summary file does not exist: ", summary_file_path)
+            if not rf3:
+                print("AF3 summary file does not exist: ", summary_file_path)
 
     # Compute chain-pair-specific interchain PTM and PAE, count valid pairs, and count unique residues
     # First, create dictionaries of appropriate size: top keys are chain1 and chain2 where chain1 != chain2
@@ -1287,8 +1326,8 @@ def main():
                 iptm_af = iptm_af3[chain1][
                     chain2
                 ]  # symmetric value for each chain pair
-            if boltz1:
-                iptm_af = iptm_boltz1[chain1][chain2]
+            if boltz:
+                iptm_af = iptm_boltz[chain1][chain2]
 
             out_fields = [
                 str(chain1),
@@ -1339,9 +1378,9 @@ def main():
 
                 iptm_af_value = iptm_af
                 pDockQ2_value = max(pDockQ2[chain1][chain2], pDockQ2[chain2][chain1])
-                if boltz1:
+                if boltz:
                     iptm_af_value = max(
-                        iptm_boltz1[chain1][chain2], iptm_boltz1[chain2][chain1]
+                        iptm_boltz[chain1][chain2], iptm_boltz[chain2][chain1]
                     )
 
                 LIS_Score = (LIS[chain1][chain2] + LIS[chain2][chain1]) / 2.0
@@ -1394,9 +1433,9 @@ def main():
 
                 iptm_af_value_min = iptm_af
                 pDockQ2_value_min = min(pDockQ2[chain1][chain2], pDockQ2[chain2][chain1])
-                if boltz1:
+                if boltz:
                     iptm_af_value_min = min(
-                        iptm_boltz1[chain1][chain2], iptm_boltz1[chain2][chain1]
+                        iptm_boltz[chain1][chain2], iptm_boltz[chain2][chain1]
                     )
 
                 LIS_Score_min = (LIS[chain1][chain2] + LIS[chain2][chain1]) / 2.0
@@ -1438,6 +1477,48 @@ def main():
                 f"alias {chain_pair}, color gray80, all; color {color1}, {chain1_residues}; color {color2}, {chain2_residues}\n\n"
             )
         OUT.write("\n")
+
+    OUT.close()
+    PML.close()
+    OUT2.close()
+
+    if getattr(args, "update_summary", None) and (af3 or boltz):
+        summary_path = args.update_summary
+        binder_chain = getattr(args, "binder_chain", "A")
+        target_chain = getattr(args, "target_chain", "B")
+        ipsae_binder_target = None
+        ipsae_target_binder = None
+        ipsae_min = None
+        
+        prefix = ""
+        if rf3:
+            prefix = "rf3_"
+            
+        if binder_chain in unique_chains and target_chain in unique_chains:
+            ipsae_binder_target = float(
+                ipsae_d0res_asym[binder_chain][target_chain]
+            )
+            ipsae_target_binder = float(
+                ipsae_d0res_asym[target_chain][binder_chain]
+            )
+            ch_lo, ch_hi = (
+                min(binder_chain, target_chain),
+                max(binder_chain, target_chain),
+            )
+            ipsae_min = float(ipsae_d0res_min[ch_hi][ch_lo])
+        if os.path.exists(summary_path):
+            with open(summary_path, "r") as f:
+                summary_data = json.load(f)
+            summary_data[f"{prefix}ipsae_binder_target"] = ipsae_binder_target
+            summary_data[f"{prefix}ipsae_target_binder"] = ipsae_target_binder
+            summary_data[f"{prefix}ipsae_min"] = ipsae_min
+            with open(summary_path, "w") as f:
+                json.dump(summary_data, f, indent=2)
+        else:
+            print(
+                f"Warning: --update-summary path does not exist: {summary_path}",
+                file=sys.stderr,
+            )
 
 
 if __name__ == "__main__":

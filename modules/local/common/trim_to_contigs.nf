@@ -1,5 +1,5 @@
 process TRIM_TO_CONTIGS {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
     path input_pdb

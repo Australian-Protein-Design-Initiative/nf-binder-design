@@ -1,8 +1,8 @@
 process COMBINE_SCORES {
-  container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
+  container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
-  publishDir "${params.outdir}", pattern: 'combined_scores.tsv', mode: 'copy'
-  publishDir "${params.outdir}", pattern: 'binders.fasta', mode: 'copy'
+  publishDir "${params.outdir}/rfd", pattern: 'combined_scores.tsv', mode: 'copy'
+  publishDir "${params.outdir}/rfd", pattern: 'binders.fasta', mode: 'copy'
 
   input:
   path 'af2ig_scores/*'
@@ -77,7 +77,7 @@ process COMBINE_SCORES {
     python ${projectDir}/bin/pdb_to_fasta.py \
         --scores-table combined_scores.tsv \
         --scores pae_interaction,plddt_binder,rg,length \
-        --chain A \
+        --chains A \
         pdbs/*.pdb \
       >binders.fasta
     """

@@ -60,13 +60,25 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
         --binder_msa empty \\
         --output_yaml '${yaml_file}'
 
-    # Step 2: Run Boltz prediction for monomer
+    # Step 2: Run Boltz prediction; fail if log shows GPU OOM batch skip (boltz may still exit 0)
+    BOLTZ_PREDICT_LOG=.boltz_predict_console.log
+    rm -f "\$BOLTZ_PREDICT_LOG"
+    set +e
     boltz predict \\
         ${args} \\
         --preprocessing-threads ${task.cpus} \\
         --num_workers ${task.cpus} \\
         --output_format pdb \\
-        ${yaml_file}
+        ${yaml_file} 2>&1 | tee "\$BOLTZ_PREDICT_LOG"
+    boltz_rc=\${PIPESTATUS[0]}
+    set -e
+    if grep -qF 'ran out of memory, skipping batch' "\$BOLTZ_PREDICT_LOG"; then
+        echo 'BOLTZ_COMPARE_BINDER_MONOMER: Boltz logged GPU OOM (batch skipped); failing.' >&2
+        exit 1
+    fi
+    if [[ "\$boltz_rc" -ne 0 ]]; then
+        exit "\$boltz_rc"
+    fi
 
     # Step 3: Run RMSD calculations
     # Create directories for rmsd4all
@@ -85,16 +97,17 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
     ln -s "\$(readlink -f ${af2ig_pdb})" "fixed/\$(basename ${af2ig_pdb})"
     ln -s "\$(readlink -f \$MONOMER_PDB)" "mobile/\$(basename \$MONOMER_PDB)"
 
+    # Monomer Boltz output uses chain A (create_boltz_yaml binder-only mode). AF2IG/RFD3 binder is ${binder_chain}.
     /usr/bin/python3 ${projectDir}/bin/rmsd4all.py \\
         --tm-score \\
         --superimpose-chains ${binder_chain} \\
-        --mobile-superimpose-chains ${binder_chain} \\
+        --mobile-superimpose-chains A \\
         --score-chains ${binder_chain} \\
-        --mobile-score-chains ${binder_chain} \\
+        --mobile-score-chains A \\
         ${output_transformed_flag} \\
         fixed/ mobile/ > rmsd_monomer_vs_af2ig_${meta.id}.tsv
 
-    # Run RMSD: monomer vs Boltz complex binder (chain A)
+    # Run RMSD: monomer vs Boltz complex binder (Boltz complex always labels binder chain A; see boltz_compare_complex.nf)
     # Create fresh directories for this comparison
     rm -rf fixed/ mobile/
     mkdir -p fixed/
@@ -105,10 +118,10 @@ process BOLTZ_COMPARE_BINDER_MONOMER {
 
     /usr/bin/python3 ${projectDir}/bin/rmsd4all.py \\
         --tm-score \\
-        --superimpose-chains ${binder_chain} \\
-        --mobile-superimpose-chains ${binder_chain} \\
-        --score-chains ${binder_chain} \\
-        --mobile-score-chains ${binder_chain} \\
+        --superimpose-chains A \\
+        --mobile-superimpose-chains A \\
+        --score-chains A \\
+        --mobile-score-chains A \\
         ${output_transformed_flag_complex} \\
         fixed/ mobile/ > rmsd_monomer_vs_complex_${meta.id}.tsv
 

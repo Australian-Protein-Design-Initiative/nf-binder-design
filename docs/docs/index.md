@@ -10,6 +10,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 
 - **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding** pipeline
 - **RFdiffusion Partial Diffusion → Boltz-2 refolding** for diversification and optimization
+- **RFdiffusion3** - [`RosettaCommons/foundry`](https://rosettacommons.github.io/foundry/models/rfd3/examples/protein_binder_design.html binder workflow):  `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3) (→  Boltz-2 refolding)
 - **BindCraft** - parallel execution across multiple GPUs
 - **BoltzGen** - design proteins and complexes using BoltzGen
 - **Boltz Pulldown** - an AlphaPulldown-like protocol using Boltz-2
@@ -64,10 +65,22 @@ and include citations for the underlying tools used in the workflow as appropria
   
     - Bennett, N.R., Coventry, B., Goreshnik, I. et al. Improving de novo protein binder design with deep learning. _Nat Commun_, **14**, 2625 (2023). [https://doi.org/10.1038/s41467-023-38328-5](https://doi.org/10.1038/s41467-023-38328-5)
   
-  - ProteinMPNN
+  - RFdiffusion3
+    
+    - Butcher, J., Krishna, R., Mitra, R. et al. De novo Design of All-atom Biomolecular Interactions with RFdiffusion3. _bioRxiv_ (2025). [https://doi.org/10.1101/2025.09.18.676967](https://doi.org/10.1101/2025.09.18.676967)
+
+  - ProteinMPNN / LigandMPNN / SolubleMPNN
   
     - Dauparas, J. et al. Robust deep learning–based protein sequence design using ProteinMPNN. _Science_, **378**,49-56(2022). [https://doi.org/10.1126/science.add2187](https://doi.org/10.1126/science.add2187)
-  
+
+    - Dauparas, J. et al. Atomic context-conditioned protein sequence design using LigandMPNN. _Nature Methods_, **22**, 717–723 (2025). [https://doi.org/10.1038/s41592-025-02626-1](https://doi.org/10.1038/s41592-025-02626-1)
+
+    - Goverde, C. A. et al. Computational design of soluble and functional membrane protein analogues. _Nature_, **631**, 449–458 (2024). [https://doi.org/10.1038/s41586-024-07601-y](https://doi.org/10.1038/s41586-024-07601-y)
+
+  - RosettaFold3
+    
+    - Corley, N. et al. Accelerating Biomolecular Modeling with AtomWorks and RF3. _bioRxiv_ (2025). [https://doi.org/10.1101/2025.08.14.670328](https://doi.org/10.1101/2025.08.14.670328)
+
   - Alphafold2
      - Jumper, J. et al. Highly accurate protein structure prediction with AlphaFold. Nature 596, 583–589 (2021). [https://doi.org/10.1038/s41586-021-03819-2](https://doi.org/10.1038/s41586-021-03819-2)
    

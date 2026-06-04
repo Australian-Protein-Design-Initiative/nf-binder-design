@@ -12,9 +12,13 @@ import argparse
 import logging
 import csv
 import gzip
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 from Bio.PDB import MMCIFParser, PDBParser
 from Bio.PDB.Polypeptide import protein_letters_3to1, is_aa
+
+_SKIP_NAMES = frozenset({"empty.cif", "empty"})
+_STRUCTURE_GLOBS = ("*.pdb", "*.cif", "*.pdb.gz", "*.cif.gz")
 
 
 def get_chain_sequences(pdb_file: str, chain_ids: Optional[List[str]] = None) -> Dict[str, str]:
@@ -72,6 +76,60 @@ def get_chain_sequences(pdb_file: str, chain_ids: Optional[List[str]] = None) ->
             sequences[chain_id] = sequence
             
     return sequences
+
+
+def expand_structure_inputs(files: List[str]) -> List[str]:
+    """Expand directory arguments to structure files; skip dummy placeholders."""
+    paths: List[str] = []
+    for item in files:
+        p = Path(item)
+        if p.is_dir():
+            for pattern in _STRUCTURE_GLOBS:
+                paths.extend(str(f) for f in sorted(p.glob(pattern)))
+        else:
+            paths.append(str(p))
+    return [path for path in paths if Path(path).name not in _SKIP_NAMES]
+
+
+def write_sequences_tsv(
+    structure_files: List[str],
+    chain_id: str,
+    output_file: Optional[str] = None,
+) -> int:
+    """Write filename/sequence/length/chain TSV rows for one chain per structure file."""
+    rows: List[tuple[str, str, int, str]] = []
+    for path in structure_files:
+        try:
+            sequences = get_chain_sequences(path, [chain_id])
+        except OSError as e:
+            logging.warning("Cannot read %s: %s", path, e)
+            continue
+        except Exception as e:
+            logging.warning("Failed to parse %s: %s", path, e)
+            continue
+
+        seq = sequences.get(chain_id)
+        if not seq:
+            available = ", ".join(sorted(sequences))
+            logging.warning(
+                "Chain %s not found in %s (available: %s)",
+                chain_id,
+                os.path.basename(path),
+                available or "none",
+            )
+            continue
+        rows.append((os.path.basename(path), seq, len(seq), chain_id))
+
+    out = sys.stdout if not output_file or output_file == "-" else open(output_file, "w")
+    try:
+        out.write("filename\tsequence\tlength\tchain\n")
+        for filename, seq, length, chain in rows:
+            out.write(f"{filename}\t{seq}\t{length}\t{chain}\n")
+    finally:
+        if out is not sys.stdout:
+            out.close()
+
+    return len(rows)
 
 
 def load_scores_table(scores_file: str) -> Dict[str, Dict[str, Any]]:
@@ -212,48 +270,68 @@ def write_fasta(pdb_files: List[str], chain_ids: Optional[List[str]] = None,
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Extract amino acid sequences from PDB/CIF files (can be gzipped) and output in FASTA format"
+        description="Extract amino acid sequences from PDB/CIF files (can be gzipped)",
+        allow_abbrev=False,
     )
-    parser.add_argument("files", nargs="+", help="PDB/CIF files to process")
+    parser.add_argument(
+        "files",
+        nargs="+",
+        help="PDB/CIF files or directories containing them",
+    )
     parser.add_argument(
         "-o", "--output", help="Output file (default: stdout)", default="-"
     )
     parser.add_argument(
-        "--chains", 
-        help="Chain ID(s) to extract (comma-separated for multiple chains)", 
-        default=None
+        "--chains",
+        help="Chain ID(s) to extract (comma-separated for multiple chains)",
+        default=None,
     )
     parser.add_argument(
-        "--scores-table", 
-        help="TSV file containing scores to include in FASTA headers", 
-        default=None
+        "--tsv",
+        action="store_true",
+        help="Output sequences TSV (filename, sequence, length, chain) instead of FASTA",
     )
     parser.add_argument(
-        "--scores", 
+        "--scores-table",
+        help="TSV file containing scores to include in FASTA headers",
+        default=None,
+    )
+    parser.add_argument(
+        "--scores",
         help="Comma-separated list of score columns to include (default: pae_interaction,rg,length)",
-        default="pae_interaction,rg,length"
+        default="pae_interaction,rg,length",
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", 
-        help="Enable verbose output"
+        "-v", "--verbose", action="store_true",
+        help="Enable verbose output",
     )
     args = parser.parse_args()
 
-    # Set logging level based on verbose flag
     log_level = logging.INFO if args.verbose else logging.WARNING
     logging.basicConfig(level=log_level, format="%(message)s", stream=sys.stderr)
 
-    # Parse chain IDs if provided
+    structure_files = expand_structure_inputs(args.files)
     chain_ids = None
     if args.chains:
-        chain_ids = [c.strip() for c in args.chains.split(",")]
+        chain_ids = [c.strip() for c in args.chains.split(",") if c.strip()]
 
-    # Parse score columns if scores table is provided
+    if args.tsv:
+        if args.scores_table:
+            parser.error("--scores-table is only valid for FASTA output")
+        if not chain_ids:
+            parser.error("--tsv requires --chains")
+        if len(chain_ids) != 1:
+            parser.error("--tsv supports exactly one chain")
+        n = write_sequences_tsv(structure_files, chain_ids[0], args.output)
+        if args.verbose and args.output != "-":
+            logging.info("Wrote %d rows to %s", n, args.output)
+        return
+
     score_columns = None
     if args.scores_table:
         score_columns = [c.strip() for c in args.scores.split(",")]
 
-    write_fasta(args.files, chain_ids, args.output, args.scores_table, score_columns)
+    write_fasta(structure_files, chain_ids, args.output, args.scores_table, score_columns)
 
 
 if __name__ == "__main__":

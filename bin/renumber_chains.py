@@ -7,6 +7,8 @@
 # ///
 
 import argparse
+import io
+import sys
 from Bio.PDB import PDBParser, PDBIO
 import string
 
@@ -101,11 +103,17 @@ def main():
         default=1,
         help="Residue number to start counting from (default: 1)",
     )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="-",
+        help="Output PDB file (default: stdout)",
+    )
     args = parser.parse_args()
 
     # Parse the input PDB file
-    parser = PDBParser()
-    structure = parser.get_structure("input", args.pdb_file)
+    pdb_parser = PDBParser()
+    structure = pdb_parser.get_structure("input", args.pdb_file)
 
     # Reorder chains if binder_chains is specified
     if args.binder_chains:
@@ -115,17 +123,21 @@ def main():
     renumber_residues(structure, args.ignore_chains, args.start_resnum)
 
     # Output the modified structure with chains in order
-    io = PDBIO()
-    io.set_structure(structure)
+    pdb_io = PDBIO()
+    pdb_io.set_structure(structure)
 
     # Sort chains alphabetically before saving
     for model in structure:
         model.child_list.sort(key=lambda x: x.id)
 
-    io.save(sys.stdout)
+    if args.output == "-" or args.output is None:
+        buffer = io.StringIO()
+        pdb_io.save(buffer)
+        sys.stdout.write(buffer.getvalue())
+    else:
+        with open(args.output, "w") as fh:
+            pdb_io.save(fh)
 
 
 if __name__ == "__main__":
-    import sys
-
     main()

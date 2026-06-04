@@ -1,10 +1,10 @@
 process RFDIFFUSION {
     container 'ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407'
 
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'pdbs/*.pdb', mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'traj/*.pdb{,.gz}', mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'configs/*/*.yaml', mode: 'copy'
-    publishDir path: "${params.outdir}/rfdiffusion", pattern: 'logs/*/*.log', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd/rfdiffusion", pattern: 'pdbs/*.pdb', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd/rfdiffusion", pattern: 'traj/*.pdb{,.gz}', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd/rfdiffusion", pattern: 'configs/*/*.yaml', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd/rfdiffusion", pattern: 'logs/*/*.log', mode: 'copy'
 
     input:
     val rfd_config_name

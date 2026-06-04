@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry` (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).
 - FoldSeek structural search (`--do_foldseek`) for the `rfd`, `bindcraft`, `boltzgen`, and `rfd3` workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.
 - `bin/complex_sasa.py`: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and `--min-change-percent` column pruning.
 
@@ -19,7 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BoltzGen: support for list-valued `entities[].file.path` and multiple entities so all referenced files are staged as Nextflow `path()` inputs. Referenced config YAMLs (`.yaml`/`.yml` in `entities[].file.path`, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.
 - Versioned documentation using [mike](https://github.com/jimporter/mike); docs are now deployed for `main` (alias: `latest`), `develop` (alias: `dev`), and version tags.
 
+### Fixed
+- Boltz refold RMSD and ipSAE: `BOLTZ_COMPARE_COMPLEX` and `BOLTZ_COMPARE_BINDER_MONOMER` now use Boltz complex chain **A** = binder and **B** = target (from `create_boltz_yaml.py` IDs), while the input design keeps `${binder_chain}` / `${target_chain}`. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated `rmsd_target_aligned_binder` / ruined aligned PDBs; `ipsae.py` now receives `--binder-chain A --target-chain B` for Boltz outputs.
+- Boltz: `BOLTZ`, `BOLTZ_COMPARE_COMPLEX`, and `BOLTZ_COMPARE_BINDER_MONOMER` tee `boltz predict` to `.boltz_predict_console.log` and exit 1 if the log contains `ran out of memory, skipping batch` (Boltz may otherwise exit 0 and leave outputs missing).
+
 ### Changed
+- `merge_scores.py`: drop from the right any column that exists in the current left before each merge so the result has no `_x`/`_y` suffixes; treat `.cif` as path-like (use basename for merge key) in addition to `.pdb`.
+- `trim_to_contigs.py`: `parse_contigs()` now supports RFD3 v3 contig format (comma-separated, `/0` as separate element, e.g. `A18-132,/0,65-120`) in addition to v1 style.
 - Major project restructure shifting individual workflows into `workflows/`, each launched via a single `main.nf` entry point with the `--method` flag.
   - `--method rfd` for RFdiffusion binder design (previously `main.nf`)
   - `--method rfd_partial` for partial diffusion (previously `partial.nf`)

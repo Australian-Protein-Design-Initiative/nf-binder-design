@@ -1,12 +1,13 @@
 process BINDCRAFT_SCORING {
   container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:0366085-nv-cuda120'
 
-  publishDir path: "${params.outdir}/af2_initial_guess/extra_scores/", pattern: '*.tsv', mode: 'copy'
+  publishDir path: "${params.outdir}/${extra_scores_publish_dir}", pattern: '*.tsv', mode: 'copy'
 
   input:
   path pdb_file
   val binder_chain
   val advanced_settings_preset
+  val extra_scores_publish_dir
 
   output:
   path '*.tsv', emit: scores
