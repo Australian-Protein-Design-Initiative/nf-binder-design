@@ -428,12 +428,12 @@ workflow RFD3 {
             def target_fasta_file = file(params.rf3_target_fasta)
             ch_target_fasta_with_meta = Channel.of(tuple([id: 'target'], target_fasta_file))
         } else {
-            if (params.rf3_target_template) {
-                PDB_TO_FASTA(ch_rf3_template_val, rfd3TargetChain)
-            } else {
-                def ch_target_pdb_for_msa = Channel.fromPath(target_pdb_path).first()
-                PDB_TO_FASTA(ch_target_pdb_for_msa, 'A')
-            }
+            // Derive the target FASTA from the prepared RF3 template (ch_rf3_template_val),
+            // which is trimmed to the contigs and has its target chain renamed to
+            // rfd3TargetChain by PREPARE_RF3_TEMPLATE / RENAME_RF3_TEMPLATE_CHAINS. This keeps the
+            // MSA query in sync with the structure RF3 actually folds, regardless of the input
+            // PDB's original target chain ID (which is whatever the contig specifies, e.g. "C").
+            PDB_TO_FASTA(ch_rf3_template_val, rfd3TargetChain)
             ch_target_fasta_with_meta = PDB_TO_FASTA.out.map { f -> tuple([id: 'target'], f) }
         }
         def rf3_msa_db = params.rf3_use_msa_server ? file("${projectDir}/assets/dummy_files/empty") : params.colabfold_envdb
