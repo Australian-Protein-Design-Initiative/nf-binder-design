@@ -71,9 +71,9 @@
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#config-mode-rfd3_config">Config Mode (--rfd3_config)</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#2-params-mode-contigs-hotspot_res-etc">2. Params Mode (--contigs, --hotspot_res, etc.)</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#params-mode-contigs-hotspot_res-etc">Params Mode (--contigs, --hotspot_res, etc.)</a>
+        <ul>
     <li class="toctree-l3"><a class="reference internal" href="#chain-ids-in-rfd3-output-vs-input-pdb">Chain IDs in RFD3 output vs input PDB</a>
     </li>
         </ul>
@@ -195,7 +195,7 @@
   --outdir results
 </code></pre>
 <p>In this mode, the workflow passes your config directly to RFDiffusion3; some sampler options defined outside the config file (e.g. <code>inference_sampler.step_scale</code>, <code>inference_sampler.gamma_0</code>) are provided as commandline options (eg <code>--rfd3_step_scale</code>, <code>--rfd3_gamma_0</code>), the rest can be passed directly via <code>--rfd3_extra_args</code>.</p>
-<h4 id="2-params-mode-contigs-hotspot_res-etc">2. Params Mode (<code>--contigs</code>, <code>--hotspot_res</code>, etc.)</h4>
+<h3 id="params-mode-contigs-hotspot_res-etc">Params Mode (<code>--contigs</code>, <code>--hotspot_res</code>, etc.)</h3>
 <p>In params mode, the workflow builds a minimal RFDiffusion3 JSON config for you internally. This is convenient for quick runs and for users familiar with the RFdiffusion v1 (<code>rfd</code>) workflow.</p>
 <p>Minimal example:</p>
 <pre><code class="language-bash">OUTDIR=results
@@ -464,7 +464,27 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </li>
 <li>
 <p><strong><code>--full_refold_alignment</code></strong><br />
-  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step.</p>
+  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step. Mutually exclusive with <strong><code>--full_refold_create_target_msa</code></strong>.</p>
+</li>
+<li>
+<p><strong><code>--full_refold_create_target_msa</code></strong><br />
+  When <code>true</code>, create a target-chain MSA for the Boltz refold step via local ColabFold/MMseqs2 or an external MSA server. <strong>Default:</strong> <code>false</code>.</p>
+</li>
+<li>
+<p><strong><code>--full_refold_use_msa_server</code></strong><br />
+  When <code>true</code> and <strong><code>--full_refold_create_target_msa</code></strong> is set (and <strong><code>--full_refold_alignment</code></strong> is not), obtain refold target MSAs from the ColabFold MMseqs2 API instead of local MMseqs2. No <strong><code>--colabfold_envdb</code></strong> or <strong><code>--uniref30</code></strong> are required in this case. <strong>Default:</strong> <code>false</code>.</p>
+</li>
+<li>
+<p><strong><code>--full_refold_target_fasta</code></strong><br />
+  FASTA file with full-length target sequence(s) for Boltz refold (headers should match PDB basenames in <strong><code>--full_refold_target_templates</code></strong>). <strong>Default:</strong> disabled.</p>
+</li>
+<li>
+<p><strong><code>--full_refold_target_templates</code></strong><br />
+  Directory of full-length target template PDB/CIF files for Boltz-2 (improves target prediction when the RFD3 input is a cropped domain). <strong>Default:</strong> disabled.</p>
+</li>
+<li>
+<p><strong><code>--colabfold_envdb</code></strong> / <strong><code>--uniref30</code></strong><br />
+  Paths to ColabFold environmental and UniRef30 databases. Required when creating MSAs locally for RF3 (<strong><code>--rf3_create_target_msa</code></strong>) or Boltz refold (<strong><code>--full_refold_create_target_msa</code></strong>) without an external MSA server and without <strong><code>--rf3_alignment</code></strong> / <strong><code>--full_refold_alignment</code></strong>.</p>
 </li>
 </ul>
 <h4 id="rmsd-design-vs-refold">RMSD (design vs refold)</h4>
@@ -505,6 +525,10 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <blockquote>
 <p><strong>Note:</strong> If using a <code>--rf3_target_template</code> that is a different length to the <code>--input_pdb</code> target used by RFD3, the <code>rf3_rmsd_complex_rmsd_all</code> and <code>rf3_rmsd_target_aligned_target_rmsd_all</code> cannot be computed and will be empty in <code>combined_scores.tsv</code>.</p>
 </blockquote>
+<ul>
+<li><strong>Boltz full refold (optional)</strong><br />
+  When <code>--full_refold_with</code> includes <code>boltz</code>, see <code>boltz_refold/</code> for Boltz confidence TSVs, RMSD tables, aggregated <code>boltz_complex_extra_scores.tsv</code>, and per-design BindCraft interface scores under <code>boltz_refold/extra_scores/</code>.</li>
+</ul>
 <p>The exact directory layout follows the <code>modules/local/rfd3/</code> processes (<code>rfdiffusion3</code>, <code>mpnn</code>, <code>rosettafold3</code>); you can examine those modules or a completed run for the precise structure.</p>
 <h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
 <p>After RosettaFold3 predictions, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the top designs to identify structurally similar proteins and annotate designs with known structural folds.</p>
