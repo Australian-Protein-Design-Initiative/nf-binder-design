@@ -58,6 +58,8 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
@@ -194,9 +196,10 @@ head $OUTDIR/combined_scores.tsv
 <h3 id="get_contigspy">get_contigs.py</h3>
 <p>Extracts 'contig' information from protein structures in RFdiffusion syntax - useful for determining the contig ranges from a hand-cropped structure.</p>
 <h3 id="merge_scorespy">merge_scores.py</h3>
-<p>Merges scoring tables from multiple sources.</p>
+<p>Merges scoring tables from multiple sources. Uses a list of potential key columns to join on; for path-like columns (<code>.pdb</code> or <code>.cif</code>) builds the merge key from the basename. Drops duplicate-named columns from the right before each merge so the result has no <code>_x</code>/<code>_y</code> suffixes (left's copy is kept).</p>
+<p>Optional <code>--merge-key-replace-basename REGEX REPL</code> (repeatable) runs <code>re.sub</code> on the basename of path-like keys before <code>--strip-suffix</code>, on every input table. Example: <code>--merge-key-replace-basename '_rf3\.cif$' '.cif'</code> aligns score <code>filename</code> values with RMSD <code>structure1</code> names when one side uses a RosettaFold3 refold suffix (see <code>COMBINE_RFD3_SCORES</code>).</p>
 <h3 id="pdb_to_fastapy">pdb_to_fasta.py</h3>
-<p>Extracts the FASTA sequence of chains in a PDB files.</p>
+<p>Extracts amino acid sequences from PDB/CIF files (FASTA by default). With <code>--tsv --chains CHAIN</code>, writes a tab-separated table (<code>filename</code>, <code>sequence</code>, <code>length</code>, <code>chain</code>) for merging into score tables; accepts a directory of structures and skips dummy <code>empty</code> placeholders.</p>
 <h3 id="renumber_chainspy">renumber_chains.py</h3>
 <p>Renumbers a chain in a PDB file.</p>
 <h3 id="trim_to_contigspy">trim_to_contigs.py</h3>

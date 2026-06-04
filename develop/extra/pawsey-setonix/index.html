@@ -58,6 +58,8 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
@@ -135,6 +137,7 @@ As a result, only the <code>rfd</code> workflow is currently supported on Setoni
 Other workflows may be ported and supported in the future. however this requires tools and containers to be modified to support ROCm, which is not trivial in many cases.</p>
 </blockquote>
 <p>Run <strong>nf-binder-design</strong> on <a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/51925914/Nextflow">Pawsey Setonix</a> using the <code>pawsey_setonix</code> profile. GPU processes use AMD MI250X (ROCm); see <code>conf/platforms/pawsey_setonix.config</code> for per-process container and SLURM settings.</p>
+<p>The <code>pawsey_setonix</code> profile sets <code>rfd_command=run_inference.py</code>, <code>rfd_model_directory_path=/app/RFdiffusion/models</code>, and <code>require_gpu=false</code> (ROCm nodes; leave <code>gpu_devices</code> unset so NVIDIA GPU check does not fail).</p>
 <h2 id="workflow-nodes">Workflow nodes</h2>
 <p>SSH to a workflow node: <code>setonix-workflow.pawsey.org.au</code> (<code>setonix-07</code>, <code>setonix-08</code>). These nodes are intended for long-running workflows like Nextflow that submit work to the SLURM queue.</p>
 <p>Follow <a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/286097469/How+to+Run+Workflows+on+the+Workflow+Nodes">How to Run Workflows on the Workflow Nodes</a> and start a <code>screen</code> or <code>tmux</code> session before launching the pipeline.</p>
