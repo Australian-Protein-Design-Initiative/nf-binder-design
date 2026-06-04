@@ -6,6 +6,8 @@
 
 Run **nf-binder-design** on [Pawsey Setonix](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925914/Nextflow) using the `pawsey_setonix` profile. GPU processes use AMD MI250X (ROCm); see `conf/platforms/pawsey_setonix.config` for per-process container and SLURM settings.
 
+The `pawsey_setonix` profile sets `rfd_command=run_inference.py`, `rfd_model_directory_path=/app/RFdiffusion/models`, and `require_gpu=false` (ROCm nodes; leave `gpu_devices` unset so NVIDIA GPU check does not fail).
+
 ## Workflow nodes
 
 SSH to a workflow node: `setonix-workflow.pawsey.org.au` (`setonix-07`, `setonix-08`). These nodes are intended for long-running workflows like Nextflow that submit work to the SLURM queue.

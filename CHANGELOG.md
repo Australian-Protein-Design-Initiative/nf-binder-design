@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FoldSeek structural search (`--do_foldseek`) for the `rfd`, `bindcraft`, `boltzgen`, and `rfd3` workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.
 - `bin/complex_sasa.py`: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and `--min-change-percent` column pruning.
 
+### Fixed
+- `rfd`: configurable `RFDIFFUSION` via `rfd_command` and `rfd_model_directory_path` (Pawsey config overrides in `pawsey_setonix.config`; GPU behaviour uses existing `require_gpu` and `gpu_devices`).
+
 ## [0.2.0] - 2026-05-06
 
 ### Added

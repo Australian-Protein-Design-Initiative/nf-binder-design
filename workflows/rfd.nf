@@ -24,6 +24,9 @@ params.rfd_config = false
 params.rfd_noise_scale = 0
 params.rfd_extra_args = ''
 params.rfd_compress_trajectories = true
+// RFdiffusion inference (CUDA default; override on Pawsey Setonix — see pawsey_setonix.config)
+params.rfd_command = 'python /app/RFdiffusion/scripts/run_inference.py'
+params.rfd_model_directory_path = false
 
 params.pmpnn_relax_cycles = 3
 params.pmpnn_seqs_per_struct = 1
