@@ -147,7 +147,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --rfd_extra_args='potentials.guiding_potentials=["type:binder_ROG,weight:7,min_dist:10"] potentials.guide_decay="quadratic"' \
     --pmpnn_seqs_per_struct=2 \
     --pmpnn_relax_cycles=5 \
-    --pmpnn_weigths="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
+    --pmpnn_weights="/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt" \
     --af2ig_recycle=3 \
     --refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
     --refold_max=100 \
@@ -173,8 +173,13 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--rfd_extra_args` | Extra arguments passed to RFdiffusion (e.g. guiding potentials) |
 | `--pmpnn_seqs_per_struct` | Number of sequences per backbone design with ProteinMPNN |
 | `--pmpnn_relax_cycles` | Number of FastRelax cycles for ProteinMPNN |
-| `--pmpnn_weights` | Custom ProteinMPNN weights |
+| `--pmpnn_weights` | Path to ProteinMPNN checkpoint ([available weights](#proteinmpnn-weights); default vanilla `v_48_020`) |
+| `--pmpnn_temperature` | Sampling temperature for ProteinMPNN (default `0.000001`) |
+| `--pmpnn_augment_eps` | Gaussian noise (Å) added to input coordinates at inference (default `0`) |
+| `--pmpnn_omit_aas` | One-letter residue types to exclude from design (default `CX`) |
 | `--af2ig_recycle` | Number of recycles for AF2 initial guess |
+
+#### Boltz-2 Refolding (`--refold_af2ig_filters`)
 
 When `--refold_af2ig_filters` is set, designs that pass these score thresholds are refolded using Boltz-2 (both the complex and unbound binder monomer):
 
@@ -267,6 +272,45 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 The other `--refold_` parameters, as used above for the `--method rfd` workflow, can also be used here if you'd like to refold the best designs with Boltz-2.
 
 > ⚠️ Note - if you are applying partial diffusion to designs output from the `--method rfd` workflow, the binder will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !
+
+## ProteinMPNN weights
+
+The `rfd` workflow runs [dl_binder_design](https://github.com/nrbennet/dl_binder_design) ProteinMPNN inside a `proteinmpnn_dl_binder_design` Apptainer image. Pass a checkpoint with **`--pmpnn_weights`** with one of the following paths; when unset, dl_binder_design uses vanilla ProteinMPNN **`v_48_020`** (0.2 Å training noise).
+
+**Built-in checkpoints** (under `/app/dl_binder_design/mpnn_fr/ProteinMPNN/` in the default container):
+
+| Model family | Training noise (Å) | Checkpoint filename | `--pmpnn_weights` path |
+|--------------|-------------------|---------------------|------------------------|
+| Vanilla (ProteinMPNN) | 0.02 | `v_48_002.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_002.pt` |
+| Vanilla (ProteinMPNN) | 0.10 | `v_48_010.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_010.pt` |
+| Vanilla (ProteinMPNN) | 0.20 | `v_48_020.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_020.pt` |
+| Vanilla (ProteinMPNN) | 0.30 | `v_48_030.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_030.pt` |
+| Soluble (SolubleMPNN) | 0.02 | `v_48_002.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_002.pt` |
+| Soluble (SolubleMPNN) | 0.10 | `v_48_010.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_010.pt` |
+| Soluble (SolubleMPNN) | 0.20 | `v_48_020.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_020.pt` |
+| Soluble (SolubleMPNN) | 0.30 | `v_48_030.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_030.pt` |
+| CA-only (ProteinMPNN) | 0.02 | `v_48_002.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights/v_48_002.pt` |
+| CA-only (ProteinMPNN) | 0.10 | `v_48_010.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights/v_48_010.pt` |
+| CA-only (ProteinMPNN) | 0.20 | `v_48_020.pt` | `/app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights/v_48_020.pt` |
+
+The filename suffix (`002`, `010`, `020`, `030`) is the **training-time** backbone coordinate noise (in hundredths of an Å), as in the upstream [ProteinMPNN](https://github.com/dauparas/ProteinMPNN) model names. **`--pmpnn_augment_eps`** is separate: it adds noise at inference only.
+
+**HyperMPNN** weights are not baked into the image. You can download them from the [HyperMPNN GitHub repository](https://github.com/meilerlab/HyperMPNN) or with the convenience script `./models/download_hypermpnn_weights.sh`, then bind-mount the project `models/` directory (e.g. `-B ${projectDir}/models:/models` in Apptainer `runOptions`). Then use paths under **`/models/HyperMPNN/retrained_models/`**:
+
+| Model family | Training noise (Å) | Checkpoint filename | `--pmpnn_weights` path (bind-mounted) |
+|--------------|-------------------|---------------------|---------------------------------------|
+| Hyper (HyperMPNN) | 0.02 | `v48_002_epoch240_hyper.pt` | `/models/HyperMPNN/retrained_models/v48_002_epoch240_hyper.pt` |
+| Hyper (HyperMPNN) | 0.10 | `v48_010_epoch300_hyper.pt` | `/models/HyperMPNN/retrained_models/v48_010_epoch300_hyper.pt` |
+| Hyper (HyperMPNN) | 0.20 | `v48_020_epoch300_hyper.pt` | `/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt` |
+| Hyper (HyperMPNN) | 0.30 | `v48_030_epoch300_hyper.pt` | `/models/HyperMPNN/retrained_models/v48_030_epoch300_hyper.pt` |
+
+Example (soluble 0.1 Å tier):
+
+```bash
+--pmpnn_weights="/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_010.pt"
+```
+
+See also [`examples/egfr-rfd-hypermpnn/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/egfr-rfd-hypermpnn) for HyperMPNN with a local bind mount.
 
 ## Design Filter Plugin System
 

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- RFD workflow docs: table of built-in and bind-mounted HyperMPNN `--pmpnn_weights` checkpoints in the `proteinmpnn_dl_binder_design` container.
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry` (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).
 - FoldSeek structural search (`--do_foldseek`) for the `rfd`, `bindcraft`, `boltzgen`, and `rfd3` workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.
 - `bin/complex_sasa.py`: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and `--min-change-percent` column pruning.

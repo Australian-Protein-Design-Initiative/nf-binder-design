@@ -28,7 +28,9 @@ You can also pull a specific version like:
 nextflow pull -r 0.2.0 Australian-Protein-Design-Initiative/nf-binder-design
 ```
 
-## RFdiffusion Workflows
+Add the `-r` flag (eg `-r 0.2.0`) to examples below when using a specific version of the workflow.
+
+## RFdiffusion Example
 
 Create an SBATCH script named `run.sh` like:
 
@@ -42,9 +44,18 @@ Create an SBATCH script named `run.sh` like:
 #SBATCH --output=nf-binder-design-%j.log
 #SBATCH --error=nf-binder-design-%j.err
 
+# Change this to your project ID
+export PROJECT_ID=ab12
+
 # Set the apptainer cache directory to a location in your /scratch2 directory (not in /home)
-export NXF_APPTAINER_CACHEDIR=/scratch2/ab12/${USER}/apptainer_cache
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}$/${USER}/apptainer_cache
 export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
+
+# When apptainer downloads container images, it often stages them into /tmp (TMDIR) by default.
+# Occasionally /tmp on the node fills up, so we set a custom tmp directory to prevent this.
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+export TMPDIR=${APPTAINER_TMPDIR}
+mkdir -p ${APPTAINER_TMPDIR}
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
@@ -53,6 +64,7 @@ mkdir -p results/logs
 module load nextflow/24.04.3
 
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account ${PROJECT_ID} \
   --method rfd \
   --input_pdb input/PDL1.pdb \
   --outdir results \
@@ -84,6 +96,77 @@ sbatch run.sh
 ```
 
 Monitor the output of `nf-binder-design-%j.log`, or `.nextflow.log`.
+
+> If using an interactive `smux` or low resource CPU-only Strudel session, you can run without `sbatch` like: `./run.sh` - Nextflow will still submit jobs to the queue. This can be convenient for debugging.
+
+## BindCraft Example
+
+Create an SBATCH script named `run.sh` like:
+
+```bash
+#!/bin/bash
+#SBATCH --account=ab12
+#SBATCH --time=7-00:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --job-name=nf-binder-design
+#SBATCH --output=nf-binder-design-%j.log
+#SBATCH --error=nf-binder-design-%j.err
+
+# Change this to your project ID
+export PROJECT_ID=ab12
+
+# Set the apptainer cache directory to a location in your /scratch2 directory (not in /home)
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}/${USER}/apptainer_cache
+export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
+
+# When apptainer downloads container images, it often stages them into /tmp (TMDIR) by default.
+# Occasionally /tmp on the node fills up, so we set a custom tmp directory to prevent this.
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+export TMPDIR=${APPTAINER_TMPDIR}
+mkdir -p ${APPTAINER_TMPDIR}
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p results/logs
+
+module load nextflow/24.04.3
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account ${PROJECT_ID} \
+  --method bindcraft \
+  --input_pdb input/PDL1.pdb \
+  --outdir results \
+  --target_chains "A" \
+  --hotspot_res "A56" \
+  --binder_length_range "55-120" \
+  --bindcraft_n_traj 4 \
+  --bindcraft_batch_size 1 \
+  --bindcraft_advanced_settings_preset "default_4stage_multimer" \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  -resume \
+  -profile slurm,m3
+
+# or, if you have access to the `bdi` partition, use:
+# -profile slurm,m3_bdi
+```
+
+Get the input files for this example (from the `examples/pdl1-bindcraft` directory):
+
+```bash
+mkdir -p input
+cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/examples/pdl1-bindcraft/input/PDL1.pdb input/
+```
+
+Submit the job to the queue:
+```bash
+sbatch run.sh
+```
+
+Monitor the output of `nf-binder-design-%j.log`, or `.nextflow.log`.
+
+> If using an interactive `smux` or low resource CPU-only Strudel session, you can run without `sbatch` like: `./run.sh` - Nextflow will still submit jobs to the queue. This can be convenient for debugging.
 
 ## Troubleshooting failures
 
@@ -143,3 +226,30 @@ The task exceeded the memory (RAM) allocated to the task.
 **Solution:**
 
 - Create a custom `nextflow.config` based on `~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/m3.config` and increase the `memory` directive for the task.
+
+**Problem/message:**
+
+```
+no space left on device
+```
+or:
+```
+Disk quota exceeded
+```
+
+The filesystem where containers are being downloaded or `results` and `work` are being written is full / over quota.
+
+**Solution:**
+
+- Check that the filesystem where `work` and `results` are being written is not over quota.
+
+- Ensure the environment variables `NXF_APPTAINER_CACHEDIR` and `APPTAINER_TMPDIR` are set in your run.sh script or `~/.bashrc` to a location with sufficient space (ie your `/scratch2` directory), eg:
+
+```bash
+export PROJECT_ID=ab12
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}/${USER}/apptainer_cache
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+mkdir -p ${APPTAINER_TMPDIR}
+```
+
+- Clean up files in your home directory if it's full - see [M3 docs: "Run over your storage quota?"](https://docs.erc.monash.edu/Compute/HPC/M3/Files/RunOverQuota/).
