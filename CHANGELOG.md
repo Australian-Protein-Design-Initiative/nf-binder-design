@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Trimmed README.md, testing section moved to `docs/docs/extra/development.md`, general docs cleaunp and corrections.
+
 ### Added
 - RFD workflow docs: table of built-in and bind-mounted HyperMPNN `--pmpnn_weights` checkpoints in the `proteinmpnn_dl_binder_design` container.
 - New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry` (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).

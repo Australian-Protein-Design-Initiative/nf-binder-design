@@ -16,6 +16,8 @@ nav:
   - Subworkflows:
       - FoldSeek: subworkflows/foldseek.md
   - Extra:
+      - Examples: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md
+      - Development: extra/development.md
       - Utility Scripts: extra/utility-scripts.md
       - M3 HPC Examples: extra/m3-hpc-examples.md
       - Pawsey Setonix Examples: extra/pawsey-setonix.md

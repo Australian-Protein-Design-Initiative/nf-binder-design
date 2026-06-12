@@ -393,5 +393,5 @@ For complete, runnable examples using RFDiffusion3, see:
 
 - [`examples/pdl1-rfd3/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/pdl1-rfd3) – protein binder design with `rfd3`, both cli params and JSON config examples
 
-For context on the original RFdiffusion v1 workflows (and how RFD3 compares conceptually), see `docs/docs/workflows/rfdiffusion.md`.
+For context on the original RFdiffusion v1 workflows (and how RFD3 compares conceptually), see [RFdiffusion Workflows](rfdiffusion.md).
 

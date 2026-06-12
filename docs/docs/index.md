@@ -10,7 +10,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 
 - **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding** pipeline
 - **RFdiffusion Partial Diffusion → Boltz-2 refolding** for diversification and optimization
-- **RFdiffusion3** - [`RosettaCommons/foundry`](https://rosettacommons.github.io/foundry/models/rfd3/examples/protein_binder_design.html binder workflow):  `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3) (→  Boltz-2 refolding)
+- **RFdiffusion3** — [RosettaCommons/foundry](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html) binder workflow: `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3) (→ Boltz-2 refolding)
 - **BindCraft** - parallel execution across multiple GPUs
 - **BoltzGen** - design proteins and complexes using BoltzGen
 - **Boltz Pulldown** - an AlphaPulldown-like protocol using Boltz-2
@@ -31,12 +31,17 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 
 - [Setup Instructions](setup.md)
 - [RFdiffusion Workflows](workflows/rfdiffusion.md)
+- [RFdiffusion3 Workflow](workflows/rfd3.md)
 - [BindCraft Workflow](workflows/bindcraft.md)
 - [BoltzGen Workflow](workflows/boltzgen.md)
 - [Boltz Pulldown](workflows/boltz-pulldown.md)
+- [FoldSeek](subworkflows/foldseek.md)
+- [Testing](testing.md)
+- [Development](extra/development.md)
+- [M3 HPC Examples](extra/m3-hpc-examples.md)
 - [Utility Scripts](extra/utility-scripts.md)
+- [Examples](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md)
 - [GitHub Repository](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design)
-- [Examples Directory](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples)
 - [Release history](changelog.md)
 
 ## License

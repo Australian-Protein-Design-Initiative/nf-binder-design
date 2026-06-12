@@ -126,8 +126,10 @@ All common `--foldseek_*` flags (database, search mode, output options, CATH ann
 
 The [examples/](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples) directory contains complete working examples for BoltzGen workflows:
 
+- `examples/pdl1-boltzgen`: PD-L1 protein binder (`protein-anything`)
 - `examples/boltzgen-protein`: Protein binder design (protocol `protein-anything`)
 - `examples/boltzgen-cyclic-peptide`: Cyclic peptide binder design (protocol `peptide-anything`)
 - `examples/boltzgen-small-molecule-binder`: Small molecule binder design (protocol `protein-small_molecule`)
+- `examples/boltzgen-nanobody`: Nanobody binder design (protocol `nanobody-anything`)
 
 See the [examples/README.md](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md) for details.

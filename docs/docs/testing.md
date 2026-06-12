@@ -166,7 +166,7 @@ Refer to the upstream documentation for details on writing
   picks up `inference.deterministic=true` from `tests/nextflow.config` via
   `process.withName: RFDIFFUSION { ext.args = '...' }` and a trailing append in
   `modules/local/rfd/rfdiffusion.nf`. A standalone reproducer lives under
-  a full-`rfd` example: `examples/glp1-rfd-mini/` (runs `main.nf --method rfd` on the GLP-1 test structure).
+  a full `rfd` example: [`examples/pdl1-rfd/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/pdl1-rfd) (`run-local-simple.sh`).
 - Keep other heavy GPU-bound processes (BindCraft, Boltz, BoltzGen, AF2 initial guess) out
   of the default test suite, or guard them behind tags, until you have a similar setup.
 - Tag every test (`tag "<feature>"`) so suites can be selected with
