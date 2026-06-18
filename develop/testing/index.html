@@ -74,6 +74,10 @@
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/development/">Development</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../extra/utility-scripts/">Utility Scripts</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../extra/m3-hpc-examples/">M3 HPC Examples</a>
@@ -271,7 +275,7 @@ Edit the generated file to define the <code>when</code> block (inputs/params) an
   picks up <code>inference.deterministic=true</code> from <code>tests/nextflow.config</code> via
   <code>process.withName: RFDIFFUSION { ext.args = '...' }</code> and a trailing append in
   <code>modules/local/rfd/rfdiffusion.nf</code>. A standalone reproducer lives under
-  a full-<code>rfd</code> example: <code>examples/glp1-rfd-mini/</code> (runs <code>main.nf --method rfd</code> on the GLP-1 test structure).</li>
+  a full <code>rfd</code> example: <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/pdl1-rfd"><code>examples/pdl1-rfd/</code></a> (<code>run-local-simple.sh</code>).</li>
 <li>Keep other heavy GPU-bound processes (BindCraft, Boltz, BoltzGen, AF2 initial guess) out
   of the default test suite, or guard them behind tags, until you have a similar setup.</li>
 <li>Tag every test (<code>tag "&lt;feature&gt;"</code>) so suites can be selected with
