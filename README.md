@@ -32,6 +32,8 @@ Nextflow pipelines for _de novo_ protein binder design.
 
 **Full documentation at:** https://australian-protein-design-initiative.github.io/nf-binder-design/
 
+An [agent skill](.agents/skills/nf-binder-design/SKILL.md) is included for AI-assisted setup, configuration, and execution of the pipeline workflows.
+
 ----
 
 ## Quickstart
@@ -44,6 +46,14 @@ Pull the workflow:
 
 ```bash
 nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
+```
+
+### AI Agent Skill
+
+An agent skill is included at [`.agents/skills/nf-binder-design/`](.agents/skills/nf-binder-design/SKILL.md) to help AI coding agents set up, configure, and run the pipeline. Install it into your project with [skills](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add Australian-Protein-Design-Initiative/nf-binder-design --skill nf-binder-design
 ```
 
 ### Running on a local GPU workstation

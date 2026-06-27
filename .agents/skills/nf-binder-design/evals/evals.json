@@ -1,0 +1,72 @@
+{
+  "skill_name": "nf-binder-design",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Design me a binder targeting PDL1",
+      "expected_output": "Recommend an appropriate --method (rfd, bindcraft, or boltzgen), guide target structure preparation (PDL1 PDB, hotspot selection), and provide a complete nextflow run command with plausible contigs/hotspots and -profile local or slurm as appropriate.",
+      "files": [],
+      "expectations": [
+        "Selects a suitable --method for de novo binder design",
+        "Mentions target PDB preparation and hotspot residue selection",
+        "Provides a runnable nextflow run command",
+        "References examples/pdl1-* or similar PDL1 examples in the repo",
+        "Includes -profile and -resume flags"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Create nanobodies against IL-3 using BoltzGen",
+      "expected_output": "Set up --method boltzgen with --protocol nanobody-anything, a YAML config describing the IL-3 target and nanobody scaffold, and explain 1-based residue numbering for hotspots.",
+      "files": [],
+      "expectations": [
+        "Uses --method boltzgen",
+        "Sets --protocol nanobody-anything, --batch_size and --num_designs",
+        "Advises on the number of designs suggested by the BoltzGen documentation for a full production run (40,000 - 60,000)"
+        "Mentions --config_yaml requirement",
+        "Notes BoltzGen 1-based residue indexing and renumber_chains.py if needed",
+        "Warns about absolute paths in BoltzGen YAML"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Generate a peptide that binds to MDM2",
+      "expected_output": "Recommend boltzgen with --protocol peptide-anything (or rfd/rfd3 for peptide-length binders), guide target preparation for MDM2, and provide a run command with appropriate design parameters.",
+      "files": [],
+      "expectations": [
+        "Recommends --method boltzgen with peptide-anything or an alternative method (eg BindCraft) with rationale",
+        "Addresses MDM2 target structure and hotspot selection",
+        "Provides a runnable nextflow run command",
+        "Mentions YAML config for boltzgen"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Design de novo binders against IL-3 using RFDiffusion3",
+      "expected_output": "Set up --method rfd3 with params mode or config mode, v3 contig syntax, hotspot residues, and point to rfd3-workflow.md for MPNN/RF3 options.",
+      "files": [],
+      "expectations": [
+        "Uses --method rfd3",
+        "Uses v3 contig syntax (comma-separated, e.g. A17-131,/0,50-120) with correct target chain ID",
+        "Sets --hotspot_res, --rfd3_n_designs and --rfd3_batch_size",
+        "Mentions params mode vs config mode for atom-level hotspots",
+        "References references/rfd3-workflow.md for advanced options"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Help me run nf-binder-design on HPC",
+      "expected_output": "Guide installation check, environment variables (APPTAINER_CACHEDIR, TMPDIR), SLURM profile usage, SBATCH wrapper script, and site-specific configs from conf/platforms/.",
+      "files": [],
+      "expectations": [
+        "Runs java -version and confirms Java 17+ or guides installation",
+        "Runs nextflow info or installs Nextflow per Seqera docs",
+        "Checks if pipeline is already installed at ~/.nextflow/assets/...",
+        "Uses the correct profile (slurm vs nci_gadi vs local) for the user's environment",
+        "Mentions -profile slurm and --slurm_account where applicable",
+        "Sets APPTAINER_CACHEDIR and NXF_TEMP on scratch storage",
+        "Provides SBATCH script template or references setup-and-hpc.md for custom configs"
+      ]
+    }
+  ]
+}
