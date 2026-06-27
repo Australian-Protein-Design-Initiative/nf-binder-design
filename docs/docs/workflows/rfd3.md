@@ -71,9 +71,10 @@ You can then run:
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method rfd3 \
-  --input_pdb input/pdl1.pdb \
   --rfd3_config pdl1_rfd3.json \
-  --outdir results
+  --rfd3_n_designs 10 \
+  --rfd3_batch_size 1 \
+  -profile local
 ```
 
 In this mode, the workflow passes your config directly to RFDiffusion3; some sampler options defined outside the config file (e.g. `inference_sampler.step_scale`, `inference_sampler.gamma_0`) are provided as commandline options (eg `--rfd3_step_scale`, `--rfd3_gamma_0`), the rest can be passed directly via `--rfd3_extra_args`.
