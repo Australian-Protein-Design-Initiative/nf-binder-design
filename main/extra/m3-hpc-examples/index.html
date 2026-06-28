@@ -58,7 +58,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
                   </li>
@@ -72,13 +76,19 @@
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul class="current">
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../utility-scripts/">Utility Scripts</a>
                   </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="#">M3 HPC Examples</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#setup">Setup</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#rfdiffusion-workflows">RFdiffusion Workflows</a>
+    <li class="toctree-l2"><a class="reference internal" href="#rfdiffusion-example">RFdiffusion Example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#bindcraft-example">BindCraft Example</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#troubleshooting-failures">Troubleshooting failures</a>
         <ul>
@@ -87,6 +97,8 @@
         </ul>
     </li>
     </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pawsey-setonix/">Pawsey Setonix Examples</a>
                   </li>
               </ul>
               <ul>
@@ -138,7 +150,8 @@ nextflow info
 <p>You can also pull a specific version like: </p>
 <pre><code class="language-bash">nextflow pull -r 0.2.0 Australian-Protein-Design-Initiative/nf-binder-design
 </code></pre>
-<h2 id="rfdiffusion-workflows">RFdiffusion Workflows</h2>
+<p>Add the <code>-r</code> flag (eg <code>-r 0.2.0</code>) to examples below when using a specific version of the workflow.</p>
+<h2 id="rfdiffusion-example">RFdiffusion Example</h2>
 <p>Create an SBATCH script named <code>run.sh</code> like:</p>
 <pre><code class="language-bash">#!/bin/bash
 #SBATCH --account=ab12
@@ -149,15 +162,27 @@ nextflow info
 #SBATCH --output=nf-binder-design-%j.log
 #SBATCH --error=nf-binder-design-%j.err
 
+# Change this to your project ID
+export PROJECT_ID=ab12
+
 # Set the apptainer cache directory to a location in your /scratch2 directory (not in /home)
-export NXF_APPTAINER_CACHEDIR=/scratch2/ab12/${USER}/apptainer_cache
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}$/${USER}/apptainer_cache
 export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
+
+# When apptainer downloads container images, it often stages them into /tmp (TMDIR) by default.
+# Occasionally /tmp on the node fills up, so we set a custom tmp directory to prevent this.
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+export TMPDIR=${APPTAINER_TMPDIR}
+mkdir -p ${APPTAINER_TMPDIR}
 
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 mkdir -p results/logs
 
+module load nextflow/24.04.3
+
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account ${PROJECT_ID} \
   --method rfd \
   --input_pdb input/PDL1.pdb \
   --outdir results \
@@ -183,6 +208,69 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
 <pre><code class="language-bash">sbatch run.sh
 </code></pre>
 <p>Monitor the output of <code>nf-binder-design-%j.log</code>, or <code>.nextflow.log</code>.</p>
+<blockquote>
+<p>If using an interactive <code>smux</code> or low resource CPU-only Strudel session, you can run without <code>sbatch</code> like: <code>./run.sh</code> - Nextflow will still submit jobs to the queue. This can be convenient for debugging.</p>
+</blockquote>
+<h2 id="bindcraft-example">BindCraft Example</h2>
+<p>Create an SBATCH script named <code>run.sh</code> like:</p>
+<pre><code class="language-bash">#!/bin/bash
+#SBATCH --account=ab12
+#SBATCH --time=7-00:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --job-name=nf-binder-design
+#SBATCH --output=nf-binder-design-%j.log
+#SBATCH --error=nf-binder-design-%j.err
+
+# Change this to your project ID
+export PROJECT_ID=ab12
+
+# Set the apptainer cache directory to a location in your /scratch2 directory (not in /home)
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}/${USER}/apptainer_cache
+export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
+
+# When apptainer downloads container images, it often stages them into /tmp (TMDIR) by default.
+# Occasionally /tmp on the node fills up, so we set a custom tmp directory to prevent this.
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+export TMPDIR=${APPTAINER_TMPDIR}
+mkdir -p ${APPTAINER_TMPDIR}
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p results/logs
+
+module load nextflow/24.04.3
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account ${PROJECT_ID} \
+  --method bindcraft \
+  --input_pdb input/PDL1.pdb \
+  --outdir results \
+  --target_chains &quot;A&quot; \
+  --hotspot_res &quot;A56&quot; \
+  --binder_length_range &quot;55-120&quot; \
+  --bindcraft_n_traj 4 \
+  --bindcraft_batch_size 1 \
+  --bindcraft_advanced_settings_preset &quot;default_4stage_multimer&quot; \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  -resume \
+  -profile slurm,m3
+
+# or, if you have access to the `bdi` partition, use:
+# -profile slurm,m3_bdi
+</code></pre>
+<p>Get the input files for this example (from the <code>examples/pdl1-bindcraft</code> directory):</p>
+<pre><code class="language-bash">mkdir -p input
+cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/examples/pdl1-bindcraft/input/PDL1.pdb input/
+</code></pre>
+<p>Submit the job to the queue:</p>
+<pre><code class="language-bash">sbatch run.sh
+</code></pre>
+<p>Monitor the output of <code>nf-binder-design-%j.log</code>, or <code>.nextflow.log</code>.</p>
+<blockquote>
+<p>If using an interactive <code>smux</code> or low resource CPU-only Strudel session, you can run without <code>sbatch</code> like: <code>./run.sh</code> - Nextflow will still submit jobs to the queue. This can be convenient for debugging.</p>
+</blockquote>
 <h2 id="troubleshooting-failures">Troubleshooting failures</h2>
 <p>If you encounter an error, the <code>.nextflow.log</code> file will report the failing task and the path into the <code>./work</code> directory, like:</p>
 <pre><code>Work dir:
@@ -224,12 +312,36 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
 <ul>
 <li>Create a custom <code>nextflow.config</code> based on <code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/m3.config</code> and increase the <code>memory</code> directive for the task.</li>
 </ul>
+<p><strong>Problem/message:</strong></p>
+<pre><code>no space left on device
+</code></pre>
+<p>or:</p>
+<pre><code>Disk quota exceeded
+</code></pre>
+<p>The filesystem where containers are being downloaded or <code>results</code> and <code>work</code> are being written is full / over quota.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li>
+<p>Check that the filesystem where <code>work</code> and <code>results</code> are being written is not over quota.</p>
+</li>
+<li>
+<p>Ensure the environment variables <code>NXF_APPTAINER_CACHEDIR</code> and <code>APPTAINER_TMPDIR</code> are set in your run.sh script or <code>~/.bashrc</code> to a location with sufficient space (ie your <code>/scratch2</code> directory), eg:</p>
+</li>
+</ul>
+<pre><code class="language-bash">export PROJECT_ID=ab12
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}/${USER}/apptainer_cache
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+mkdir -p ${APPTAINER_TMPDIR}
+</code></pre>
+<ul>
+<li>Clean up files in your home directory if it's full - see <a href="https://docs.erc.monash.edu/Compute/HPC/M3/Files/RunOverQuota/">M3 docs: "Run over your storage quota?"</a>.</li>
+</ul>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../utility-scripts/" class="btn btn-neutral float-left" title="Utility Scripts"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../testing/" class="btn btn-neutral float-right" title="Testing">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../pawsey-setonix/" class="btn btn-neutral float-right" title="Pawsey Setonix Examples">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -259,7 +371,7 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
       <span><a href="../utility-scripts/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../testing/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../pawsey-setonix/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

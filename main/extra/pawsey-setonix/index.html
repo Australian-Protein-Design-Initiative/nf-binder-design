@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/main/extra/pawsey-setonix/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Pawsey Setonix Examples - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+        <link href="../../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Pawsey Setonix Examples";
+        var mkdocs_page_input_path = "extra/pawsey-setonix.md";
+        var mkdocs_page_url = "/nf-binder-design/main/extra/pawsey-setonix/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Pawsey Setonix Examples</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#workflow-nodes">Workflow nodes</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-run-script">Example run script</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#details">Details</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#singularity-cache-and-temp-directories">Singularity cache and temp directories</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#gpu-slurm-account">GPU SLURM account</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#references">References</a>
+    </li>
+    </ul>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Extra</li>
+      <li class="breadcrumb-item active">Pawsey Setonix Examples</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/extra/pawsey-setonix.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="pawsey-setonix">Pawsey Setonix</h1>
+<blockquote>
+<p>⚠️ Note - the Pawsey Setonix supercomputer uses AMD MI250X GPUs - these do not support CUDA.
+As a result, only the <code>rfd</code> workflow is currently supported on Setonix.
+Other workflows may be ported and supported in the future. however this requires tools and containers to be modified to support ROCm, which is not trivial in many cases.</p>
+</blockquote>
+<p>Run <strong>nf-binder-design</strong> on <a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/51925914/Nextflow">Pawsey Setonix</a> using the <code>pawsey_setonix</code> profile. GPU processes use AMD MI250X (ROCm); see <code>conf/platforms/pawsey_setonix.config</code> for per-process container and SLURM settings.</p>
+<p>The <code>pawsey_setonix</code> profile sets <code>rfd_command=run_inference.py</code>, <code>rfd_model_directory_path=/app/RFdiffusion/models</code>, and <code>require_gpu=false</code> (ROCm nodes; leave <code>gpu_devices</code> unset so NVIDIA GPU check does not fail).</p>
+<h2 id="workflow-nodes">Workflow nodes</h2>
+<p>SSH to a workflow node: <code>setonix-workflow.pawsey.org.au</code> (<code>setonix-07</code>, <code>setonix-08</code>). These nodes are intended for long-running workflows like Nextflow that submit work to the SLURM queue.</p>
+<p>Follow <a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/286097469/How+to+Run+Workflows+on+the+Workflow+Nodes">How to Run Workflows on the Workflow Nodes</a> and start a <code>screen</code> or <code>tmux</code> session before launching the pipeline.</p>
+<h2 id="example-run-script">Example run script</h2>
+<p>From your run directory (with <code>input/*.pdb</code> and a local or pulled copy of the pipeline), use a script like:</p>
+<pre><code class="language-bash">#!/bin/bash
+
+module load singularity/4.1.0-mpi-gpu
+# or possibly ....
+# module load singularity/4.1.0-nompi
+module load nextflow/25.04.6
+
+unset SBATCH_EXPORT
+
+export SINGULARITY_CACHEDIR=/software/projects/${PAWSEY_PROJECT}/${USER}/.nextflow_singularity
+export NXF_SINGULARITY_CACHEDIR=${SINGULARITY_CACHEDIR}
+export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
+export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
+mkdir -p &quot;${SINGULARITY_TMPDIR}&quot;
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+mkdir -p results/logs
+
+nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account=${PAWSEY_PROJECT}-gpu \
+  --method rfd \
+  --input_pdb 'input/*.pdb' \
+  --outdir results \
+  --contigs &quot;[A18-132/0 65-120]&quot; \
+  --hotspot_res &quot;A56&quot; \
+  --rfd_n_designs=4 \
+  -profile pawsey_setonix \
+  -resume \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt
+</code></pre>
+<h2 id="details">Details</h2>
+<p>To run the pipeline on Setonix using <code>-profile pawsey_setonix</code>, you need to load the correct modules, set (or unset) some environment variables, and use the correct SLURM account.</p>
+<p>Load Singularity and Nextflow (versions on Setonix may differ; check <code>module avail</code>):</p>
+<pre><code class="language-bash">module load singularity/4.1.0-mpi-gpu
+module load nextflow/25.04.6
+</code></pre>
+<p>Do <strong>not</strong> <code>module load rocm</code> in the shell that launches Nextflow. Host ROCm paths in <code>LD_LIBRARY_PATH</code> can break containers that are not ROCm images (even <code>/bin/bash</code> inside the container).</p>
+<p><code>unset SBATCH_EXPORT</code> so SLURM variables from an interactive or batch login shell are not passed into child jobs in a way that confuses the executor.</p>
+<h3 id="singularity-cache-and-temp-directories">Singularity cache and temp directories</h3>
+<p>The profile uses <code>$MYSOFTWARE/.nextflow_singularity</code> as the default image cache. Set these explicitly if you prefer a fixed path (replace project and username):</p>
+<pre><code class="language-bash">export SINGULARITY_CACHEDIR=/software/projects/${PAWSEY_PROJECT}/${USER}/.nextflow_singularity
+export NXF_SINGULARITY_CACHEDIR=${SINGULARITY_CACHEDIR}
+
+export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
+export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
+mkdir -p &quot;${SINGULARITY_TMPDIR}&quot;
+</code></pre>
+<p>Use <strong>scratch</strong> for <code>SINGULARITY_TMPDIR</code> so large image layers and build temps do not fill project quota under <code>/software/projects</code>.</p>
+<h3 id="gpu-slurm-account">GPU SLURM account</h3>
+<p>GPU jobs on Setonix must use the project account with a <strong><code>-gpu</code> suffix</strong> (for example <code>pawsey1343-gpu</code>, not <code>pawsey1343</code>). Pass it to Nextflow so each GPU process gets <code>--account=...</code> in <code>clusterOptions</code>:</p>
+<pre><code class="language-bash">--slurm_account=pawsey1343-gpu
+</code></pre>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/51928618/Setonix+GPU+Partition+Quick+Start">Setonix GPU partition quick start</a></li>
+<li><a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity">Singularity on Pawsey</a></li>
+<li><a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/51925964/Job+Scheduling">Job scheduling (SLURM partitions)</a></li>
+<li><a href="https://pawsey.atlassian.net/wiki/spaces/US/pages/51925914/Nextflow">Nextflow on Pawsey Setonix</a></li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../m3-hpc-examples/" class="btn btn-neutral float-left" title="M3 HPC Examples"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../../testing/" class="btn btn-neutral float-right" title="Testing">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../m3-hpc-examples/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../../testing/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+      <script src="../../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

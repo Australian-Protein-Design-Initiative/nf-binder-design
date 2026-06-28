@@ -81,6 +81,10 @@
     <li class="toctree-l3"><a class="reference internal" href="#parallel-tasks-on-an-hpc-cluster">Parallel tasks on an HPC Cluster</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#boltz-2-refolding-refold_af2ig_filters">Boltz-2 Refolding (--refold_af2ig_filters)</a>
+    </li>
+        </ul>
     </li>
         </ul>
     </li>
@@ -93,6 +97,8 @@
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#partial-diffusion-on-binder-designs-method-rfd_partial">Partial Diffusion on Binder Designs (--method rfd_partial)</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#proteinmpnn-weights">ProteinMPNN weights</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#design-filter-plugin-system">Design Filter Plugin System</a>
         <ul>
@@ -114,7 +120,11 @@
     </li>
     </ul>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../rfd3/">RFdiffusion3</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
                   </li>
@@ -128,9 +138,15 @@
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/development/">Development</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/pawsey-setonix/">Pawsey Setonix Examples</a>
                   </li>
               </ul>
               <ul>
@@ -315,7 +331,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --rfd_extra_args='potentials.guiding_potentials=[&quot;type:binder_ROG,weight:7,min_dist:10&quot;] potentials.guide_decay=&quot;quadratic&quot;' \
     --pmpnn_seqs_per_struct=2 \
     --pmpnn_relax_cycles=5 \
-    --pmpnn_weigths=&quot;/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt&quot; \
+    --pmpnn_weights=&quot;/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt&quot; \
     --af2ig_recycle=3 \
     --refold_af2ig_filters=&quot;pae_interaction&lt;=10;plddt_binder&gt;=80&quot; \
     --refold_max=100 \
@@ -374,7 +390,19 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </tr>
 <tr>
 <td><code>--pmpnn_weights</code></td>
-<td>Custom ProteinMPNN weights</td>
+<td>Path to ProteinMPNN checkpoint (<a href="#proteinmpnn-weights">available weights</a>; default vanilla <code>v_48_020</code>)</td>
+</tr>
+<tr>
+<td><code>--pmpnn_temperature</code></td>
+<td>Sampling temperature for ProteinMPNN (default <code>0.000001</code>)</td>
+</tr>
+<tr>
+<td><code>--pmpnn_augment_eps</code></td>
+<td>Gaussian noise (Å) added to input coordinates at inference (default <code>0</code>)</td>
+</tr>
+<tr>
+<td><code>--pmpnn_omit_aas</code></td>
+<td>One-letter residue types to exclude from design (default <code>CX</code>)</td>
 </tr>
 <tr>
 <td><code>--af2ig_recycle</code></td>
@@ -382,6 +410,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </tr>
 </tbody>
 </table>
+<h4 id="boltz-2-refolding-refold_af2ig_filters">Boltz-2 Refolding (<code>--refold_af2ig_filters</code>)</h4>
 <p>When <code>--refold_af2ig_filters</code> is set, designs that pass these score thresholds are refolded using Boltz-2 (both the complex and unbound binder monomer):</p>
 <table>
 <thead>
@@ -476,6 +505,129 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <blockquote>
 <p>⚠️ Note - if you are applying partial diffusion to designs output from the <code>--method rfd</code> workflow, the binder will be chain A, with other chains named B, C, etc., regardless of the original target PDB chain IDs. Residue numbering is sequential 1 to N. Your hotspots should be adjusted to account for this !</p>
 </blockquote>
+<h2 id="proteinmpnn-weights">ProteinMPNN weights</h2>
+<p>The <code>rfd</code> workflow runs <a href="https://github.com/nrbennet/dl_binder_design">dl_binder_design</a> ProteinMPNN inside a <code>proteinmpnn_dl_binder_design</code> Apptainer image. Pass a checkpoint with <strong><code>--pmpnn_weights</code></strong> with one of the following paths; when unset, dl_binder_design uses vanilla ProteinMPNN <strong><code>v_48_020</code></strong> (0.2 Å training noise).</p>
+<p><strong>Built-in checkpoints</strong> (under <code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/</code> in the default container):</p>
+<table>
+<thead>
+<tr>
+<th>Model family</th>
+<th>Training noise (Å)</th>
+<th>Checkpoint filename</th>
+<th><code>--pmpnn_weights</code> path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vanilla (ProteinMPNN)</td>
+<td>0.02</td>
+<td><code>v_48_002.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_002.pt</code></td>
+</tr>
+<tr>
+<td>Vanilla (ProteinMPNN)</td>
+<td>0.10</td>
+<td><code>v_48_010.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_010.pt</code></td>
+</tr>
+<tr>
+<td>Vanilla (ProteinMPNN)</td>
+<td>0.20</td>
+<td><code>v_48_020.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_020.pt</code></td>
+</tr>
+<tr>
+<td>Vanilla (ProteinMPNN)</td>
+<td>0.30</td>
+<td><code>v_48_030.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/vanilla_model_weights/v_48_030.pt</code></td>
+</tr>
+<tr>
+<td>Soluble (SolubleMPNN)</td>
+<td>0.02</td>
+<td><code>v_48_002.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_002.pt</code></td>
+</tr>
+<tr>
+<td>Soluble (SolubleMPNN)</td>
+<td>0.10</td>
+<td><code>v_48_010.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_010.pt</code></td>
+</tr>
+<tr>
+<td>Soluble (SolubleMPNN)</td>
+<td>0.20</td>
+<td><code>v_48_020.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_020.pt</code></td>
+</tr>
+<tr>
+<td>Soluble (SolubleMPNN)</td>
+<td>0.30</td>
+<td><code>v_48_030.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_030.pt</code></td>
+</tr>
+<tr>
+<td>CA-only (ProteinMPNN)</td>
+<td>0.02</td>
+<td><code>v_48_002.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights/v_48_002.pt</code></td>
+</tr>
+<tr>
+<td>CA-only (ProteinMPNN)</td>
+<td>0.10</td>
+<td><code>v_48_010.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights/v_48_010.pt</code></td>
+</tr>
+<tr>
+<td>CA-only (ProteinMPNN)</td>
+<td>0.20</td>
+<td><code>v_48_020.pt</code></td>
+<td><code>/app/dl_binder_design/mpnn_fr/ProteinMPNN/ca_model_weights/v_48_020.pt</code></td>
+</tr>
+</tbody>
+</table>
+<p>The filename suffix (<code>002</code>, <code>010</code>, <code>020</code>, <code>030</code>) is the <strong>training-time</strong> backbone coordinate noise (in hundredths of an Å), as in the upstream <a href="https://github.com/dauparas/ProteinMPNN">ProteinMPNN</a> model names. <strong><code>--pmpnn_augment_eps</code></strong> is separate: it adds noise at inference only.</p>
+<p><strong>HyperMPNN</strong> weights are not baked into the image. You can download them from the <a href="https://github.com/meilerlab/HyperMPNN">HyperMPNN GitHub repository</a> or with the convenience script <code>./models/download_hypermpnn_weights.sh</code>, then bind-mount the project <code>models/</code> directory (e.g. <code>-B ${projectDir}/models:/models</code> in Apptainer <code>runOptions</code>). Then use paths under <strong><code>/models/HyperMPNN/retrained_models/</code></strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Model family</th>
+<th>Training noise (Å)</th>
+<th>Checkpoint filename</th>
+<th><code>--pmpnn_weights</code> path (bind-mounted)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hyper (HyperMPNN)</td>
+<td>0.02</td>
+<td><code>v48_002_epoch240_hyper.pt</code></td>
+<td><code>/models/HyperMPNN/retrained_models/v48_002_epoch240_hyper.pt</code></td>
+</tr>
+<tr>
+<td>Hyper (HyperMPNN)</td>
+<td>0.10</td>
+<td><code>v48_010_epoch300_hyper.pt</code></td>
+<td><code>/models/HyperMPNN/retrained_models/v48_010_epoch300_hyper.pt</code></td>
+</tr>
+<tr>
+<td>Hyper (HyperMPNN)</td>
+<td>0.20</td>
+<td><code>v48_020_epoch300_hyper.pt</code></td>
+<td><code>/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt</code></td>
+</tr>
+<tr>
+<td>Hyper (HyperMPNN)</td>
+<td>0.30</td>
+<td><code>v48_030_epoch300_hyper.pt</code></td>
+<td><code>/models/HyperMPNN/retrained_models/v48_030_epoch300_hyper.pt</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example (soluble 0.1 Å tier):</p>
+<pre><code class="language-bash">--pmpnn_weights=&quot;/app/dl_binder_design/mpnn_fr/ProteinMPNN/soluble_model_weights/v_48_010.pt&quot;
+</code></pre>
+<p>See also <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/egfr-rfd-hypermpnn"><code>examples/egfr-rfd-hypermpnn/</code></a> for HyperMPNN with a local bind mount.</p>
 <h2 id="design-filter-plugin-system">Design Filter Plugin System</h2>
 <p>The <code>--method rfd</code> and <code>--method rfd_partial</code> pipelines support custom metric calculation and filtering via plugins.</p>
 <h3 id="using-filters">Using Filters</h3>
@@ -522,7 +674,7 @@ as well as size/shape scores (<code>rg</code>, <code>dmax</code>, <code>aspheric
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../../setup/" class="btn btn-neutral float-left" title="Setup"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../bindcraft/" class="btn btn-neutral float-right" title="BindCraft">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../rfd3/" class="btn btn-neutral float-right" title="RFdiffusion3">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -552,7 +704,7 @@ as well as size/shape scores (<code>rg</code>, <code>dmax</code>, <code>aspheric
       <span><a href="../../setup/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../bindcraft/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../rfd3/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

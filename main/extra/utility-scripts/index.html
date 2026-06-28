@@ -58,7 +58,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
                   </li>
@@ -72,6 +76,10 @@
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul class="current">
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a>
+                  </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="#">Utility Scripts</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#running-scripts">Running Scripts</a>
@@ -81,6 +89,8 @@
     <li class="toctree-l3"><a class="reference internal" href="#af2_combine_scorespy">af2_combine_scores.py</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#calculate_shape_scorespy">calculate_shape_scores.py</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#complex-sasapy">complex-sasa.py</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#create_bindcraft_settingspy">create_bindcraft_settings.py</a>
     </li>
@@ -119,6 +129,8 @@
     </ul>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pawsey-setonix/">Pawsey Setonix Examples</a>
                   </li>
               </ul>
               <ul>
@@ -171,6 +183,16 @@ head $OUTDIR/combined_scores.tsv
 </code></pre>
 <h3 id="calculate_shape_scorespy">calculate_shape_scores.py</h3>
 <p>Calculates shape-based scoring metrics for protein designs (eg radius of gyration, etc.).</p>
+<h3 id="complex-sasapy">complex-sasa.py</h3>
+<p>Calculates per-residue delta SASA on target chains when a binder is removed from a complex (wide TSV output). Reports burial as <code>SASA(apo) - SASA(complex)</code> in angstrom and percent-of-max-SASA columns, with optional site sums and column pruning via <code>--min-change-percent</code>. Processes multiple PDBs in parallel (<code>--threads</code>, default: CPU count).</p>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash">uv run bin/complex_sasa.py \
+  --binder-chains B \
+  --site HLA=A41,A42,A100 \
+  --site TCR=A23,A84 \
+  --min-change-percent 1 \
+  model.pdb
+</code></pre>
 <h3 id="create_bindcraft_settingspy">create_bindcraft_settings.py</h3>
 <p>Generates BindCraft configuration files.</p>
 <h3 id="create_boltz_yamlpy">create_boltz_yaml.py</h3>
@@ -180,9 +202,10 @@ head $OUTDIR/combined_scores.tsv
 <h3 id="get_contigspy">get_contigs.py</h3>
 <p>Extracts 'contig' information from protein structures in RFdiffusion syntax - useful for determining the contig ranges from a hand-cropped structure.</p>
 <h3 id="merge_scorespy">merge_scores.py</h3>
-<p>Merges scoring tables from multiple sources.</p>
+<p>Merges scoring tables from multiple sources. Uses a list of potential key columns to join on; for path-like columns (<code>.pdb</code> or <code>.cif</code>) builds the merge key from the basename. Drops duplicate-named columns from the right before each merge so the result has no <code>_x</code>/<code>_y</code> suffixes (left's copy is kept).</p>
+<p>Optional <code>--merge-key-replace-basename REGEX REPL</code> (repeatable) runs <code>re.sub</code> on the basename of path-like keys before <code>--strip-suffix</code>, on every input table. Example: <code>--merge-key-replace-basename '_rf3\.cif$' '.cif'</code> aligns score <code>filename</code> values with RMSD <code>structure1</code> names when one side uses a RosettaFold3 refold suffix (see <code>COMBINE_RFD3_SCORES</code>).</p>
 <h3 id="pdb_to_fastapy">pdb_to_fasta.py</h3>
-<p>Extracts the FASTA sequence of chains in a PDB files.</p>
+<p>Extracts amino acid sequences from PDB/CIF files (FASTA by default). With <code>--tsv --chains CHAIN</code>, writes a tab-separated table (<code>filename</code>, <code>sequence</code>, <code>length</code>, <code>chain</code>) for merging into score tables; accepts a directory of structures and skips dummy <code>empty</code> placeholders.</p>
 <h3 id="renumber_chainspy">renumber_chains.py</h3>
 <p>Renumbers a chain in a PDB file.</p>
 <h3 id="trim_to_contigspy">trim_to_contigs.py</h3>
@@ -215,7 +238,7 @@ head $OUTDIR/combined_scores.tsv
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../../subworkflows/foldseek/" class="btn btn-neutral float-left" title="FoldSeek"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../development/" class="btn btn-neutral float-left" title="Development"><span class="icon icon-circle-arrow-left"></span> Previous</a>
         <a href="../m3-hpc-examples/" class="btn btn-neutral float-right" title="M3 HPC Examples">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
@@ -243,7 +266,7 @@ head $OUTDIR/combined_scores.tsv
         </span>
     
     
-      <span><a href="../../subworkflows/foldseek/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../development/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
       <span><a href="../m3-hpc-examples/" style="color: #fcfcfc">Next &raquo;</a></span>

@@ -70,7 +70,11 @@
               <ul>
                   <li class="toctree-l1"><a class="reference internal" href="workflows/rfdiffusion/">RFdiffusion</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="workflows/rfd3/">RFdiffusion3</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="workflows/germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="workflows/boltzgen/">BoltzGen</a>
                   </li>
@@ -84,9 +88,15 @@
               </ul>
               <p class="caption"><span class="caption-text">Extra</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="extra/development/">Development</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="extra/utility-scripts/">Utility Scripts</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="extra/m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="extra/pawsey-setonix/">Pawsey Setonix Examples</a>
                   </li>
               </ul>
               <ul>
@@ -129,7 +139,9 @@
 <ul>
 <li><strong>RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding</strong> pipeline</li>
 <li><strong>RFdiffusion Partial Diffusion → Boltz-2 refolding</strong> for diversification and optimization</li>
+<li><strong>RFdiffusion3</strong> — <a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html">RosettaCommons/foundry</a> binder workflow: <code>rfd3</code> (RFdiffusion3) → <code>mpnn</code> → <code>rf3</code> (RosettaFold3) (→ Boltz-2 refolding)</li>
 <li><strong>BindCraft</strong> - parallel execution across multiple GPUs</li>
+<li><strong>Germinal</strong> - antibody/nanobody design in parallel across multiple GPUs</li>
 <li><strong>BoltzGen</strong> - design proteins and complexes using BoltzGen</li>
 <li><strong>Boltz Pulldown</strong> - an AlphaPulldown-like protocol using Boltz-2</li>
 </ul>
@@ -147,12 +159,18 @@
 <ul>
 <li><a href="setup/">Setup Instructions</a></li>
 <li><a href="workflows/rfdiffusion/">RFdiffusion Workflows</a></li>
+<li><a href="workflows/rfd3/">RFdiffusion3 Workflow</a></li>
 <li><a href="workflows/bindcraft/">BindCraft Workflow</a></li>
+<li><a href="workflows/germinal/">Germinal Workflow</a></li>
 <li><a href="workflows/boltzgen/">BoltzGen Workflow</a></li>
 <li><a href="workflows/boltz-pulldown/">Boltz Pulldown</a></li>
+<li><a href="subworkflows/foldseek/">FoldSeek</a></li>
+<li><a href="testing/">Testing</a></li>
+<li><a href="extra/development/">Development</a></li>
+<li><a href="extra/m3-hpc-examples/">M3 HPC Examples</a></li>
 <li><a href="extra/utility-scripts/">Utility Scripts</a></li>
+<li><a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a></li>
 <li><a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design">GitHub Repository</a></li>
-<li><a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">Examples Directory</a></li>
 <li><a href="changelog/">Release history</a></li>
 </ul>
 <h2 id="license">License</h2>
@@ -187,9 +205,29 @@
 </ul>
 </li>
 <li>
-<p>ProteinMPNN</p>
+<p>RFdiffusion3</p>
 <ul>
-<li>Dauparas, J. et al. Robust deep learning–based protein sequence design using ProteinMPNN. <em>Science</em>, <strong>378</strong>,49-56(2022). <a href="https://doi.org/10.1126/science.add2187">https://doi.org/10.1126/science.add2187</a></li>
+<li>Butcher, J., Krishna, R., Mitra, R. et al. De novo Design of All-atom Biomolecular Interactions with RFdiffusion3. <em>bioRxiv</em> (2025). <a href="https://doi.org/10.1101/2025.09.18.676967">https://doi.org/10.1101/2025.09.18.676967</a></li>
+</ul>
+</li>
+<li>
+<p>ProteinMPNN / LigandMPNN / SolubleMPNN</p>
+<ul>
+<li>
+<p>Dauparas, J. et al. Robust deep learning–based protein sequence design using ProteinMPNN. <em>Science</em>, <strong>378</strong>,49-56(2022). <a href="https://doi.org/10.1126/science.add2187">https://doi.org/10.1126/science.add2187</a></p>
+</li>
+<li>
+<p>Dauparas, J. et al. Atomic context-conditioned protein sequence design using LigandMPNN. <em>Nature Methods</em>, <strong>22</strong>, 717–723 (2025). <a href="https://doi.org/10.1038/s41592-025-02626-1">https://doi.org/10.1038/s41592-025-02626-1</a></p>
+</li>
+<li>
+<p>Goverde, C. A. et al. Computational design of soluble and functional membrane protein analogues. <em>Nature</em>, <strong>631</strong>, 449–458 (2024). <a href="https://doi.org/10.1038/s41586-024-07601-y">https://doi.org/10.1038/s41586-024-07601-y</a></p>
+</li>
+</ul>
+</li>
+<li>
+<p>RosettaFold3</p>
+<ul>
+<li>Corley, N. et al. Accelerating Biomolecular Modeling with AtomWorks and RF3. <em>bioRxiv</em> (2025). <a href="https://doi.org/10.1101/2025.08.14.670328">https://doi.org/10.1101/2025.08.14.670328</a></li>
 </ul>
 </li>
 <li>
@@ -277,5 +315,5 @@
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2026-05-12 22:21:57.535964+00:00
+Build Date UTC : 2026-06-28 01:29:20.665468+00:00
 -->
