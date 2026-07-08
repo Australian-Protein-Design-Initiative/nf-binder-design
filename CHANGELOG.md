@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `manifest.nextflowVersion` now bounds the supported range to `!>=23.04.0, <26.10` (hard failure outside this range).
 
 ### Added
+- `conf/platforms/monash_containers.config`: container URL overrides so the `m3`, `m3_bdi` M3/MASSIVE platform configs pull mirrored containers from a Monash local server instead of `ghcr.io`. Some containers (`SILENT_FROM_PDBS`, `MMSEQS_COLABFOLDSEARCH`, FoldSeek) are not yet mirrored and still pull from their original registries.
 - Spartan HPC platform configs `spartan-a100.config` (gpu-a100-short) and `spartan-l40s.config` (gpu-l40s) for University of Melbourne Spartan.
 - Agent skill at `.agents/skills/nf-binder-design/` for AI-assisted pipeline setup and execution.
 - RFD workflow docs: table of built-in and bind-mounted HyperMPNN `--pmpnn_weights` checkpoints in the `proteinmpnn_dl_binder_design` container.
