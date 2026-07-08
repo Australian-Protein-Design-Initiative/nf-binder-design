@@ -95,7 +95,7 @@ workflow BOLTZ_REFOLD_CORE {
     }
 
     // Run Boltz complex refolding with RMSD analysis
-    def use_target_msa = refold_create_target_msa || refold_alignment
+    use_target_msa = refold_create_target_msa || refold_alignment
     BOLTZ_COMPARE_COMPLEX(
         ch_filtered_for_refold,
         binder_chain,

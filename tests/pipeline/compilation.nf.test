@@ -1,0 +1,66 @@
+nextflow_pipeline {
+
+    name "Pipeline compilation (DSL parses across Nextflow versions)"
+    script "main.nf"
+
+    tag "compilation"
+
+    // These tests launch each method in `-preview` mode: Nextflow compiles every
+    // included workflow/module and builds the DAG, but does not execute any process.
+    // This catches DSL parser regressions (e.g. the 24.04.3 "Variable `Channel`
+    // already defined in the process scope" error) without needing GPUs or containers.
+    //
+    // To check several Nextflow versions, run the suite once per version, e.g.:
+    //   for v in 24.04.3 25.04.7 26.04.4; do NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test; done
+
+    test("rfd3 method compiles") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd3"
+                input_pdb = "${projectDir}/examples/pdl1-rfd3/input/PDL1.pdb"
+                contigs = "[A18-132/0 50-120]"
+                hotspot_res = "A56"
+                rfd3_n_designs = 3
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("rfd method compiles") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30/0 10-20"
+                hotspot_res = "A10"
+                rfd_n_designs = 2
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("rfd_partial method compiles") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd_partial"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30"
+                hotspot_res = "A10"
+                rfd_n_designs = 2
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+}

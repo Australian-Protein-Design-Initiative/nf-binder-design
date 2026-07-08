@@ -95,6 +95,55 @@ options for CPU-only CI. For on-disk image names and `apptainer exec` without
 See the [nf-test running tests docs](https://www.nf-test.com/docs/running-tests/)
 for the full list of options.
 
+## Testing across Nextflow versions
+
+`tests/pipeline/compilation.nf.test` (tag `compilation`) launches each workflow
+method in Nextflow `-preview` mode. Preview compiles every included workflow and
+module and builds the DAG, but does **not** execute any process, so it needs no
+GPUs or containers and runs in seconds. This guards against version-specific DSL
+parser regressions (for example the Nextflow 24.04.3 *"Variable `Channel` already
+defined in the process scope"* error).
+
+nf-test uses whichever Nextflow is selected via `NXF_VER`, so run the suite once
+per version to cover the supported range (see
+[Nextflow version compatibility](setup.md#nextflow-version-compatibility)):
+
+```bash
+# 24.04.x and 25.04.x use the default parser
+for v in 24.04.3 25.04.7; do
+  NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test
+done
+
+# 26.04+ defaults to the strict parser; force the legacy parser
+NXF_VER=26.04.4 NXF_SYNTAX_PARSER=v1 nf-test test tests/pipeline/compilation.nf.test
+```
+
+The repository root `nextflow.config` also pins `manifest.nextflowVersion` to
+`!>=23.04.0, <26.10`, so Nextflow itself aborts with a clear message when run
+outside the supported range.
+
+## Linting
+
+Alongside nf-test, lint `.nf` and `config` files with `nextflow lint`:
+
+```bash
+# Use a Nextflow that ships the linter (e.g. 25.04.x)
+NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
+```
+
+Useful warnings include unused variables and parameters (prefix unused closure
+parameters with `_` to silence them).
+
+`nextflow lint` parses with the strict (v2) syntax, so it also flags constructs
+kept for Nextflow 24.04.3 compatibility — the conditional `include` statements in
+`main.nf`, `@Field`/`import` in `modules/local/rfd3/rfd3_utils.nf`, and multi-name
+function includes (shown as `... is not defined`). Those are expected and should
+**not** be changed in ways that break 24.04.3. Only run `nextflow lint -format`
+with `NXF_VER=25.04.7` (not 25.10+), so any reformatting stays compatible with
+older parsers. `nextflow lint` always uses the strict parser; `NXF_SYNTAX_PARSER=v1`
+has no effect on it (it only changes `nextflow run`). See
+[Nextflow version compatibility](setup.md#nextflow-version-compatibility).
+
 ## Writing a new test
 
 Generate a skeleton for a process or workflow:

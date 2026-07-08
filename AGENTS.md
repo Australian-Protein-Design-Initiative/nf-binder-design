@@ -3,6 +3,14 @@
 ## Project
 
 - This is a Nextflow project - remember Nextflow is it's own DSL based on Groovy - it is not Python.
+- Support Nextflow version 24.04.3 - more recent language features may not be supported by 24.04.3
+  - The Nextflow changelogs are here:  https://github.com/nextflow-io/nextflow/blob/master/CHANGELOG.md
+  - The migration guides for later versions give indications of features you should NOT use for 24.04.3:
+    - https://docs.seqera.io/nextflow/migrations/24-10
+    - https://docs.seqera.io/nextflow/migrations/25-04
+    - https://docs.seqera.io/nextflow/migrations/25-10
+    - https://docs.seqera.io/nextflow/migrations/26-04
+    - https://docs.seqera.io/nextflow/strict-syntax#overview
 - Refer to the Nextflow docs to understand channel operations: https://www.nextflow.io/docs/latest/reference/operator.html
 - Helper Python scripts go in `bin/`
 - Make new 'process' wrappers in `modules/`. Follow the conventions in other existing `modules/`, including `publishDir`.
@@ -81,3 +89,6 @@ If there is a CHANGELOG.md file, update it with any notable features or bug fixe
 - Inside `script:` sections, ensure $ is correctly escaped - use \${BASH_VARIABLE} or \$(basename x) for shell variables or subshells, and no escaping for ${nextflow_variables}
 - Files passed between processes via channels should be or type `path()` or `file()` - passing files as a `val()` is almost always incorrect
 - Be aware that Nextflow channels do not behave like regular lists - consult the documentation (https://www.nextflow.io/docs/latest/reference/operator.html) to understand the methods ("operators") available on channels
+- Lint `.nf`/`config` changes with `NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules`. Fix genuine issues it reports (unused variables/parameters, style). Note that `nextflow lint` uses the strict (v2) parser, so it will also flag constructs we deliberately keep for 24.04.3 support (conditional `include` in `main.nf`, `@Field`/`import` in `rfd3_utils.nf`, multi-name function includes reported as "not defined"). Do NOT "fix" those in ways that break 24.04.3.
+- Avoid `nextflow lint -format` on 25.10+; if you must reformat, run it with `NXF_VER=25.04.7` so output stays compatible with parsers prior to 25.10.
+- `nextflow lint` always parses with the strict syntax; `NXF_SYNTAX_PARSER=v1` has no effect on it (that variable only changes `nextflow run`), so there is no point setting it when linting.

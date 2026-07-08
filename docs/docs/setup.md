@@ -37,6 +37,20 @@ export PATH="$PATH:$HOME/.local/bin"
 nextflow info
 ```
 
+### Nextflow version compatibility
+
+The pipeline is tested against Nextflow `24.04.3` and `25.04.x`.
+
+Nextflow `26.04` and later default to the new "strict" language parser, which does
+not accept some constructs this pipeline relies on. When running with Nextflow `26.04+`,
+select the legacy parser:
+
+```bash
+export NXF_SYNTAX_PARSER=v1
+```
+
+You can also set it inline for a single run, e.g. `NXF_SYNTAX_PARSER=v1 nextflow run ...`.
+
 ## Pull the workflow using Nextflow
 
 To pre-cache the `nf-binder-design` repository in `~/.nextflow/assets/`, run:
