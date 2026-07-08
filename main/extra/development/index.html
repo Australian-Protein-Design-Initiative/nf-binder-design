@@ -82,6 +82,8 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#running-the-tests">Running the tests</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#linting">Linting</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
     </ul>
@@ -148,6 +150,24 @@ nf-test test --tag rfd
 <p>See the <a href="../../testing/">Testing</a> page and the upstream
 <a href="https://www.nf-test.com/docs/getting-started/">nf-test docs</a> for layout, writing tests,
 Apptainer cache notes, and more detail.</p>
+<h2 id="linting">Linting</h2>
+<p>Lint <code>.nf</code> and <code>config</code> files with <code>nextflow lint</code> before opening a PR:</p>
+<pre><code class="language-bash"># Lint the pipeline source (use a Nextflow with the linter, e.g. 25.04.x)
+NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
+</code></pre>
+<p><code>nextflow lint</code> catches genuine issues such as unused variables and parameters
+(prefix unused closure parameters with <code>_</code> to silence those warnings).</p>
+<p>It parses with the strict (v2) syntax, so it also reports constructs that this
+pipeline deliberately keeps for Nextflow 24.04.3 compatibility — the conditional
+<code>include</code> statements in <code>main.nf</code>, the <code>@Field</code>/<code>import</code> in
+<code>modules/local/rfd3/rfd3_utils.nf</code>, and multi-name function includes (reported as
+<code>... is not defined</code>). These are expected; <strong>do not</strong> "fix" them in ways that
+break 24.04.3. See <a href="../../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>.</p>
+<p>Avoid <code>nextflow lint -format</code> on Nextflow 25.10+, as it rewrites code to the
+strict syntax; if you need to reformat, run it with <code>NXF_VER=25.04.7</code> so the
+result stays compatible with parsers prior to 25.10.</p>
+<p><code>nextflow lint</code> always parses with the strict syntax; <code>NXF_SYNTAX_PARSER=v1</code> has
+no effect on it (that variable only changes <code>nextflow run</code>).</p>
 <h2 id="license">License</h2>
 <p>The <code>nf-binder-design</code> pipeline code is licensed under the MIT License.</p>
 <blockquote>
