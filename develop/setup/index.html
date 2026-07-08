@@ -57,6 +57,8 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#install-nextflow">Install Nextflow</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#nextflow-version-compatibility">Nextflow version compatibility</a>
+    </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#pull-the-workflow-using-nextflow">Pull the workflow using Nextflow</a>
@@ -176,6 +178,14 @@ export PATH=&quot;$PATH:$HOME/.local/bin&quot;
 # Test it works
 nextflow info
 </code></pre>
+<h3 id="nextflow-version-compatibility">Nextflow version compatibility</h3>
+<p>The pipeline is tested against Nextflow <code>24.04.3</code> and <code>25.04.x</code>.</p>
+<p>Nextflow <code>26.04</code> and later default to the new "strict" language parser, which does
+not accept some constructs this pipeline relies on. When running with Nextflow <code>26.04+</code>,
+select the legacy parser:</p>
+<pre><code class="language-bash">export NXF_SYNTAX_PARSER=v1
+</code></pre>
+<p>You can also set it inline for a single run, e.g. <code>NXF_SYNTAX_PARSER=v1 nextflow run ...</code>.</p>
 <h2 id="pull-the-workflow-using-nextflow">Pull the workflow using Nextflow</h2>
 <p>To pre-cache the <code>nf-binder-design</code> repository in <code>~/.nextflow/assets/</code>, run:</p>
 <pre><code class="language-bash">nextflow pull Australian-Protein-Design-Initiative/nf-binder-design

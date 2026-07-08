@@ -203,18 +203,23 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <h3 id="changed">Changed</h3>
 <ul>
 <li>Trimmed README.md, testing section moved to <code>docs/docs/extra/development.md</code>, general docs cleaunp and corrections.</li>
+<li>Docs: note Nextflow version compatibility. On Nextflow <code>26.04+</code> (new strict parser default), set <code>NXF_SYNTAX_PARSER=v1</code> to use the legacy parser.</li>
+<li><code>manifest.nextflowVersion</code> now bounds the supported range to <code>!&gt;=23.04.0, &lt;26.10</code> (hard failure outside this range).</li>
 </ul>
 <h3 id="added">Added</h3>
 <ul>
+<li>Spartan HPC platform configs <code>spartan-a100.config</code> (gpu-a100-short) and <code>spartan-l40s.config</code> (gpu-l40s) for University of Melbourne Spartan.</li>
 <li>Agent skill at <code>.agents/skills/nf-binder-design/</code> for AI-assisted pipeline setup and execution.</li>
 <li>RFD workflow docs: table of built-in and bind-mounted HyperMPNN <code>--pmpnn_weights</code> checkpoints in the <code>proteinmpnn_dl_binder_design</code> container.</li>
 <li>New <code>--method rfd3</code> workflow for RFDiffusion3-based binder design using <code>RosettaCommons/foundry</code> (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).</li>
 <li>Germinal antibody/nanobody design workflow (<code>--method germinal</code>).</li>
 <li>FoldSeek structural search (<code>--do_foldseek</code>) for the <code>rfd</code>, <code>bindcraft</code>, <code>boltzgen</code>, and <code>rfd3</code> workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.</li>
 <li><code>bin/complex_sasa.py</code>: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and <code>--min-change-percent</code> column pruning.</li>
+<li>nf-test <code>tests/pipeline/compilation.nf.test</code>: launches <code>rfd</code>, <code>rfd_partial</code>, and <code>rfd3</code> in <code>-preview</code> mode to verify every workflow/module compiles; run per Nextflow version with <code>NXF_VER=&lt;version&gt; nf-test ...</code> to guard against version-specific DSL parser regressions.</li>
 </ul>
 <h3 id="fixed">Fixed</h3>
 <ul>
+<li>Nextflow 24.04.3 compatibility: the <code>rfd3</code> workflow and <code>boltz_refold_core</code> subworkflow no longer trigger the "Variable already defined in the process scope" DSL parser error on Nextflow 24.04.3 (a bug fixed in the 24.10 parser rewrite). Channel/path local variables use plain assignments instead of <code>def</code> in these workflow bodies.</li>
 <li><code>rfd</code>: configurable <code>RFDIFFUSION</code> via <code>rfd_command</code> and <code>rfd_model_directory_path</code> (Pawsey config overrides in <code>pawsey_setonix.config</code>; GPU behaviour uses existing <code>require_gpu</code> and <code>gpu_devices</code>).</li>
 </ul>
 <h2 id="020-2026-05-06">[0.2.0] - 2026-05-06</h2>

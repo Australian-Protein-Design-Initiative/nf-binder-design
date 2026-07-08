@@ -98,6 +98,10 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#run-the-tests">Run the tests</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#testing-across-nextflow-versions">Testing across Nextflow versions</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#linting">Linting</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#writing-a-new-test">Writing a new test</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#tips">Tips</a>
@@ -215,6 +219,43 @@ options for CPU-only CI. For on-disk image names and <code>apptainer exec</code>
 <code>docker://</code>, see <a href="#apptainer-cache-and-image-filenames">Apptainer cache and image filenames</a> above.</p>
 <p>See the <a href="https://www.nf-test.com/docs/running-tests/">nf-test running tests docs</a>
 for the full list of options.</p>
+<h2 id="testing-across-nextflow-versions">Testing across Nextflow versions</h2>
+<p><code>tests/pipeline/compilation.nf.test</code> (tag <code>compilation</code>) launches each workflow
+method in Nextflow <code>-preview</code> mode. Preview compiles every included workflow and
+module and builds the DAG, but does <strong>not</strong> execute any process, so it needs no
+GPUs or containers and runs in seconds. This guards against version-specific DSL
+parser regressions (for example the Nextflow 24.04.3 <em>"Variable <code>Channel</code> already
+defined in the process scope"</em> error).</p>
+<p>nf-test uses whichever Nextflow is selected via <code>NXF_VER</code>, so run the suite once
+per version to cover the supported range (see
+<a href="../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>):</p>
+<pre><code class="language-bash"># 24.04.x and 25.04.x use the default parser
+for v in 24.04.3 25.04.7; do
+  NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test
+done
+
+# 26.04+ defaults to the strict parser; force the legacy parser
+NXF_VER=26.04.4 NXF_SYNTAX_PARSER=v1 nf-test test tests/pipeline/compilation.nf.test
+</code></pre>
+<p>The repository root <code>nextflow.config</code> also pins <code>manifest.nextflowVersion</code> to
+<code>!&gt;=23.04.0, &lt;26.10</code>, so Nextflow itself aborts with a clear message when run
+outside the supported range.</p>
+<h2 id="linting">Linting</h2>
+<p>Alongside nf-test, lint <code>.nf</code> and <code>config</code> files with <code>nextflow lint</code>:</p>
+<pre><code class="language-bash"># Use a Nextflow that ships the linter (e.g. 25.04.x)
+NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
+</code></pre>
+<p>Useful warnings include unused variables and parameters (prefix unused closure
+parameters with <code>_</code> to silence them).</p>
+<p><code>nextflow lint</code> parses with the strict (v2) syntax, so it also flags constructs
+kept for Nextflow 24.04.3 compatibility — the conditional <code>include</code> statements in
+<code>main.nf</code>, <code>@Field</code>/<code>import</code> in <code>modules/local/rfd3/rfd3_utils.nf</code>, and multi-name
+function includes (shown as <code>... is not defined</code>). Those are expected and should
+<strong>not</strong> be changed in ways that break 24.04.3. Only run <code>nextflow lint -format</code>
+with <code>NXF_VER=25.04.7</code> (not 25.10+), so any reformatting stays compatible with
+older parsers. <code>nextflow lint</code> always uses the strict parser; <code>NXF_SYNTAX_PARSER=v1</code>
+has no effect on it (it only changes <code>nextflow run</code>). See
+<a href="../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>.</p>
 <h2 id="writing-a-new-test">Writing a new test</h2>
 <p>Generate a skeleton for a process or workflow:</p>
 <pre><code class="language-bash"># For a process (modules/)
