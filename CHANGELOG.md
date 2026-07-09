@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-09
+
 ### Changed
 - Trimmed README.md, testing section moved to `docs/docs/extra/development.md`, general docs cleaunp and corrections.
 - Docs: note Nextflow version compatibility. On Nextflow `26.04+` (new strict parser default), set `NXF_SYNTAX_PARSER=v1` to use the legacy parser.
 - `manifest.nextflowVersion` now bounds the supported range to `!>=23.04.0, <26.10` (hard failure outside this range).
+- Set `nextflow.enable.configProcessNamesValidation = false` to silence the "There's no process matching config selector" warnings printed on every run (only the selected `--method` workflow is included, so the `withName:` selectors for other methods' processes match nothing).
+
+### Fixed
+- `examples/*/nextflow.dual-gpu.config`: fixed `if (params.gpu_devices) { maxForks = ... }` inside `withName:` blocks, which printed a `WARN: Unknown directive 'params'` on every dual-GPU example run and hard-errored (`Unknown config attribute`) if `--gpu_devices` was not passed. Replaced with a plain ternary assignment and a local `params { gpu_devices = '' }` redeclaration so the overlay file can resolve the param without depending on cross-file config evaluation order.
 
 ### Added
 - `conf/platforms/monash_containers.config`: container URL overrides so the `m3`, `m3_bdi` M3/MASSIVE platform configs pull mirrored containers from a Monash local server instead of `ghcr.io`. Some containers (`SILENT_FROM_PDBS`, `MMSEQS_COLABFOLDSEARCH`, FoldSeek) are not yet mirrored and still pull from their original registries.
@@ -26,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Nextflow 24.04.3 compatibility: the `rfd3` workflow and `boltz_refold_core` subworkflow no longer trigger the "Variable already defined in the process scope" DSL parser error on Nextflow 24.04.3 (a bug fixed in the 24.10 parser rewrite). Channel/path local variables use plain assignments instead of `def` in these workflow bodies.
 - `rfd`: configurable `RFDIFFUSION` via `rfd_command` and `rfd_model_directory_path` (Pawsey config overrides in `pawsey_setonix.config`; GPU behaviour uses existing `require_gpu` and `gpu_devices`).
+- `germinal`: `--method germinal` no longer crashes with a `MissingPropertyException` when `--germinal_pdb_dir` is omitted; the documented default (`../pdbs` relative to the config) is now inferred correctly (`config_path` is a `Path`, which has no `.parentFile`).
+- `rfd3`: legacy `--pmpnn_temperature`, `--pmpnn_augment_eps` and `--pmpnn_omit_aas` flags are now honoured instead of being silently overridden by the modern `--mpnn_*` defaults. The modern name still takes precedence when both are set; defaults are unchanged (temperature `0.1`, structure noise `0`, omit `CX`, sequences-per-structure `1`).
+- `foldseek`: database names containing `/` (e.g. `Alphafold/UniProt50`, `Alphafold/Swiss-Prot`) now download and search correctly; the download step creates the nested output prefix directory and the local search resolves prefixes nested one level deep.
+- `rfd3`: `RFDIFFUSION3` and `ROSETTAFOLD3` now fail fast with a clear message when `nvidia-smi` is not installed (previously died with a cryptic `command not found` under `set -e`).
+- `combine_scores.sh`: updated to the current `results/rfd/af2_initial_guess/{pdbs,scores}` output layout (was still pointing at the pre-reorg `results/af2_initial_guess/...`).
 
 ## [0.2.0] - 2026-05-06
 

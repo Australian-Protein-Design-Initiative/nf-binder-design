@@ -14,7 +14,13 @@ abstract:
 
   <li>"Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)</li>
 
-  <li>....</li>
+  <li>RFdiffusion3 -&gt; ProteinMPNN -&gt; RosettaFold3 / Boltz refolding</li>
+
+  <li>Germinal (antibody/nanobody design)</li>
+
+  <li>BoltzGen</li>
+
+  <li>FoldSeek structural search of designed binders</li>
 
   </ul>'
 authors:
@@ -31,12 +37,12 @@ authors:
     given-names: Gavin J.
     orcid: 0000-0002-9007-6273
 cff-version: 1.2.0
-date-released: "2025-08-12"
+date-released: "2026-07-09"
 doi: 10.5281/zenodo.16809705
 license:
   - mit
 message: If you use this software, please cite it using the metadata from this file.
-repository-code: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/0.1.4
+repository-code: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/0.3.0
 title: "nf-binder-design: a Nextflow pipeline for protein binder design"
 type: software
-version: 0.1.4
+version: 0.3.0

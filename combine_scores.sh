@@ -16,9 +16,10 @@ fi
 script_dir="$(dirname "$0")"
 
 results_dir="$1"
-pdb_dir="${results_dir}/af2_initial_guess/pdbs"
-# scores_dir="${results_dir}/af2_initial_guess"  # DEPRECATED old path
-scores_dir="${results_dir}/af2_initial_guess/scores"
+# RFD outputs now live under results/rfd/ (see modules/local/rfd/af2_initial_guess.nf)
+pdb_dir="${results_dir}/rfd/af2_initial_guess/pdbs"
+# scores_dir="${results_dir}/af2_initial_guess"  # DEPRECATED old path (pre-results/rfd reorg)
+scores_dir="${results_dir}/rfd/af2_initial_guess/scores"
 
 # Ensure directories exist
 if [ ! -d "$pdb_dir" ] || [ ! -d "$scores_dir" ]; then

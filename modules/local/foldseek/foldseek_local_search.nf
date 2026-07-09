@@ -38,15 +38,23 @@ process FOLDSEEK_LOCAL_SEARCH {
     # Create query database from all staged structures (PDB, mmCIF, with optional .gz)
     foldseek createdb queries/* query_db
 
-    # Find the database prefix inside the directory
-    DB_PREFIX=""
-    for f in ${db_dir}/*.dbtype; do
-        base=\$(basename "\$f" .dbtype)
-        if [[ ! "\$base" =~ _ca\$ && ! "\$base" =~ _ss\$ && ! "\$base" =~ _h\$ && ! "\$base" =~ _clu\$ ]]; then
-            DB_PREFIX="${db_dir}/\$base"
-            break
-        fi
-    done
+    # Find the database prefix inside the directory.
+    # Names like CATH50 land directly under ${db_dir}, but names containing a
+    # "/" (e.g. Alphafold/UniProt50) are nested in a subdir, and may be nested
+    # one level deeper again if this is a published/cached DB (see saveAs
+    # note in foldseek_download_db.nf). Try the deterministic path first,
+    # then fall back to a recursive search for the base .dbtype file.
+    DB_PREFIX="${db_dir}/${db_name}"
+    if [ ! -f "\${DB_PREFIX}.dbtype" ]; then
+        DB_PREFIX=""
+        for f in \$(find ${db_dir} -name '*.dbtype'); do
+            base=\$(basename "\$f" .dbtype)
+            if [[ ! "\$base" =~ _ca\$ && ! "\$base" =~ _ss\$ && ! "\$base" =~ _h\$ && ! "\$base" =~ _clu\$ ]]; then
+                DB_PREFIX="\$(dirname "\$f")/\$base"
+                break
+            fi
+        done
+    fi
 
     if [ -z "\$DB_PREFIX" ]; then
         echo "ERROR: Could not find FoldSeek database prefix in ${db_dir}"

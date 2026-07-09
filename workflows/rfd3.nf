@@ -50,20 +50,25 @@ params.rf3_template_selection = false
 params.mpnn_model_type = 'protein_mpnn'
 params.mpnn_legacy_weights = true
 params.mpnn_designed_chains = 'auto'
+// All MPNN batch/temperature/noise/omit params below default to `false` as an
+// explicit "not set by user" sentinel; resolveParam() (rfd3_utils.nf) applies
+// the true default (see buildMpnnArgs fallback args) only when neither the
+// modern nor legacy name was set. Do not change these to real default values
+// or the legacy pmpnn_* names will be silently ignored again.
 params.mpnn_batch_size = false
-params.mpnn_temperature = 0.1
-params.mpnn_structure_noise = 0
-params.mpnn_omit = 'CX'
+params.mpnn_temperature = false  // true default: 0.1
+params.mpnn_structure_noise = false  // true default: 0
+params.mpnn_omit = false  // true default: 'CX'
 params.mpnn_checkpoint_path = false
 params.mpnn_preset = false
 params.mpnn_weights_noise = false
 
 // Legacy MPNN params (pmpnn_*) - for backward compatibility with rfd workflow
-params.pmpnn_seqs_per_struct = 1  // mpnn_batch_size
-params.pmpnn_temperature = false  // mpnn_temperature 
-params.pmpnn_augment_eps = false  // mpnn_structure_noise
-params.pmpnn_omit_aas = false     // mpnn_omit (with 1-letter -> 3-letter conversion)
-params.pmpnn_weights = false      // mpnn_checkpoint_path
+params.pmpnn_seqs_per_struct = false  // mpnn_batch_size; true default: 1
+params.pmpnn_temperature = false      // mpnn_temperature; true default: 0.1
+params.pmpnn_augment_eps = false      // mpnn_structure_noise; true default: 0
+params.pmpnn_omit_aas = false         // mpnn_omit (with 1-letter -> 3-letter conversion); true default: 'CX'
+params.pmpnn_weights = false          // mpnn_checkpoint_path
 
 // RosettaFold3 params
 params.rf3_early_stopping_plddt_threshold = 0.5  // exits early if mean pLDDT < 0.5 after the first recycle
@@ -220,10 +225,10 @@ workflow RFD3 {
             --mpnn_model_type / (n/a)                  Model type [default: ${params.mpnn_model_type}]
             --mpnn_legacy_weights / (n/a)              Use legacy weights [default: ${params.mpnn_legacy_weights}]
             --mpnn_designed_chains / (n/a)             Chains for MPNN --designed_chains, or 'auto' (infer binder polymer from contig) [default: ${params.mpnn_designed_chains}]
-            --mpnn_batch_size / --pmpnn_seqs_per_struct  Sequences per structure [default: ${params.pmpnn_seqs_per_struct}]
-            --mpnn_temperature / --pmpnn_temperature   Sampling temperature [default: ${params.mpnn_temperature}]
-            --mpnn_structure_noise / --pmpnn_augment_eps  Inference-time Gaussian noise on input coordinates (Å); not the training-noise weight tier [default: ${params.mpnn_structure_noise}]
-            --mpnn_omit / --pmpnn_omit_aas             Omit residue types (1-letter eg "CX") [default: ${params.mpnn_omit}]
+            --mpnn_batch_size / --pmpnn_seqs_per_struct  Sequences per structure [default: 1]
+            --mpnn_temperature / --pmpnn_temperature   Sampling temperature [default: 0.1]
+            --mpnn_structure_noise / --pmpnn_augment_eps  Inference-time Gaussian noise on input coordinates (Å); not the training-noise weight tier [default: 0]
+            --mpnn_omit / --pmpnn_omit_aas             Omit residue types (1-letter eg "CX") [default: CX]
             --mpnn_checkpoint_path / --pmpnn_weights   Custom weights path; when set, overrides --mpnn_preset / --mpnn_weights_noise [default: ${params.mpnn_checkpoint_path}]
             --mpnn_preset                              Weight family: vanilla, soluble, hyper, or false for default (ProteinMPNN v48_020) [default: ${params.mpnn_preset}]
             --mpnn_weights_noise                       Training-noise tier string: prefer '005','010','020','030' (see docs); use -params-file JSON strings or quoted CLI values to avoid coercion to integers [default: ${params.mpnn_weights_noise}]

@@ -4,12 +4,11 @@ This site uses [MkDocs](https://www.mkdocs.org/) and the `readthedocs` theme, wi
 
 ## Online Deployment
 
-The online documentation is automatically deployed via a GitHub Action (`.github/workflows/docs.yml`). The action is triggered on pushes to `main`, `develop`, the `rfd3` branch, and version tags (`v*`).
+The online documentation is automatically deployed via a GitHub Action (`.github/workflows/docs.yml`). The action is triggered on pushes to `main`, `develop`, and version tags (either `v*` or unprefixed semver like `0.3.0`).
 
 - Pushes to `main` deploy to the `/main/` directory and update the `latest` alias. `main` is also set as the default version.
 - Pushes to `develop` deploy to the `/develop/` directory and update the `dev` alias.
-- Pushes to `rfd3` deploy to the `/rfd3/` directory.
-- Pushes to version tags (e.g. `v0.1.6`) are deployed as immutable versions (`/0.1.6/`).
+- Pushes to version tags (e.g. `0.3.0`) are deployed as immutable versions (`/0.3.0/`).
 
 ## Local Development & Viewing
 

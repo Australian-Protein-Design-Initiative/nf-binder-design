@@ -28,13 +28,19 @@ def normaliseContigToV3(String contig) {
 
 /**
  * Resolve a parameter with dual naming (legacy pmpnn_* and new mpnn_*).
- * The modern (new) value takes precedence if explicitly set.
+ * The modern (new) value takes precedence if explicitly set; otherwise the
+ * legacy value is used if explicitly set; otherwise fallback (the real
+ * default) applies. Both legacy and modern params must default to `false`
+ * (the "not set by user" sentinel) for this to work correctly.
  */
-def resolveParam(legacy, modern) {
+def resolveParam(legacy, modern, fallback = null) {
     if (modern != null && modern != false) {
         return modern
     }
-    return legacy
+    if (legacy != null && legacy != false) {
+        return legacy
+    }
+    return fallback
 }
 
 /**
@@ -419,12 +425,12 @@ def buildMpnnArgs(params, String resolvedDesignedChains, def mpnnWeightsNoise = 
     def legacy_weights = resolved.legacy_weights
     def checkpoint_path = resolved.checkpoint_path
 
-    def batch_size = resolveParam(params.pmpnn_seqs_per_struct, params.mpnn_batch_size)
-    def temperature = resolveParam(params.pmpnn_temperature, params.mpnn_temperature)
-    def structure_noise = resolveParam(params.pmpnn_augment_eps, params.mpnn_structure_noise)
+    def batch_size = resolveParam(params.pmpnn_seqs_per_struct, params.mpnn_batch_size, 1)
+    def temperature = resolveParam(params.pmpnn_temperature, params.mpnn_temperature, 0.1)
+    def structure_noise = resolveParam(params.pmpnn_augment_eps, params.mpnn_structure_noise, 0)
 
     // Resolve omit: new mpnn_omit can be either 1-letter (auto-converted) or already 3-letter JSON list
-    def omit_raw = resolveParam(params.pmpnn_omit_aas, params.mpnn_omit)
+    def omit_raw = resolveParam(params.pmpnn_omit_aas, params.mpnn_omit, 'CX')
 
     def args = []
     args << "--model_type ${model_type}"

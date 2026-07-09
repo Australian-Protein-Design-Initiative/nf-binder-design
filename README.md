@@ -105,7 +105,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method rfd --help
 ```
 
-Available methods: `rfd`, `rfd3`, `rfd_partial`, `bindcraft`, `germinal`, `boltzgen`, `boltz_pulldown`
+Available methods: `rfd`, `rfd3`, `rfd_partial`, `bindcraft`, `germinal`, `boltzgen`, `boltz_pulldown`, `foldseek`
 
 Any `--params` option can alternatively be defined in a `params.json` file and passed with `-params-file params.json`.
 

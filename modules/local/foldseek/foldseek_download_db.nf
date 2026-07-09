@@ -36,7 +36,11 @@ process FOLDSEEK_DOWNLOAD_DB {
     script:
     def args = task.ext.args ?: ''
     """
-    mkdir -p db
+    # Some db names contain a "/" (e.g. Alphafold/UniProt50), so the output
+    # prefix db/${db_name} needs its parent dir created first, not just "db".
+    # `dirname` on a name without a slash returns ".", so this is a no-op
+    # (mkdir -p db/.) for names like CATH50 or PDB.
+    mkdir -p "db/\$(dirname "${db_name}")"
     foldseek databases ${db_name} db/${db_name} ./tmp ${args}
     """
 }

@@ -16,3 +16,14 @@ tmp
 
 .nf-test
 .nf-test.log
+
+# Editor / OS cruft
+.vscode/
+.DS_Store
+.ipynb_checkpoints/
+
+# Backups, archives and scratch artifacts (avoid accidentally committing scratch files)
+*.bak
+*.orig
+*.tar.gz
+*.zip

@@ -29,7 +29,8 @@ def resolveGerminalPdbDir(config_path) {
     if (params.germinal_pdb_dir) {
         return file(params.germinal_pdb_dir, checkIfExists: true)
     }
-    def inferred = new File(config_path.parentFile, '../pdbs').canonicalFile
+
+    def inferred = file("${config_path.parent}/../pdbs").normalize()
     if (!inferred.exists()) {
         error "Could not infer --germinal_pdb_dir from config location. Expected ${inferred} or pass --germinal_pdb_dir explicitly."
     }

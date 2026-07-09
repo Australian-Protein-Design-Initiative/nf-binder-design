@@ -19,6 +19,11 @@ process ROSETTAFOLD3 {
     set -euo pipefail
 
     if [[ ${params.require_gpu} == "true" ]]; then
+        if ! command -v nvidia-smi >/dev/null 2>&1; then
+            echo "nvidia-smi not found / no NVIDIA driver detected! Failing fast rather than going slow (since --require_gpu=true; set --require_gpu false to bypass)"
+            exit 1
+        fi
+
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
            echo "No GPU detected! Failing fast rather than going slow (since --require_gpu=true)"
             exit 1
