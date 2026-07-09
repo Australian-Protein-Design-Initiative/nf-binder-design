@@ -230,6 +230,8 @@ Site-specific configs in `conf/platforms/` can be activated with `-profile`:
 | `mlerp` | MLeRP HPC cluster | `slurm,mlerp` |
 | `nci_gadi` | NCI Gadi (PBS Pro, not SLURM) | `nci_gadi` |
 | `pawsey_setonix` | Pawsey Setonix (AMD MI250X GPUs) | `pawsey_setonix` |
+| `spartan_a100` | Spartan HPC (University of Melbourne, A100) | `slurm,spartan_a100` |
+| `spartan_l40s` | Spartan HPC (University of Melbourne, L40S) | `slurm,spartan_l40s` |
 | `hyperqueue` | Generic HyperQueue cluster | `hyperqueue` |
 
 Usage examples:
