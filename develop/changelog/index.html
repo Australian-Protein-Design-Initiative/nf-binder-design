@@ -208,6 +208,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="added">Added</h3>
 <ul>
+<li><code>conf/platforms/monash_containers.config</code>: container URL overrides so the <code>m3</code>, <code>m3_bdi</code> M3/MASSIVE platform configs pull mirrored containers from a Monash local server instead of <code>ghcr.io</code>. Some containers (<code>SILENT_FROM_PDBS</code>, <code>MMSEQS_COLABFOLDSEARCH</code>, FoldSeek) are not yet mirrored and still pull from their original registries.</li>
 <li>Spartan HPC platform configs <code>spartan-a100.config</code> (gpu-a100-short) and <code>spartan-l40s.config</code> (gpu-l40s) for University of Melbourne Spartan.</li>
 <li>Agent skill at <code>.agents/skills/nf-binder-design/</code> for AI-assisted pipeline setup and execution.</li>
 <li>RFD workflow docs: table of built-in and bind-mounted HyperMPNN <code>--pmpnn_weights</code> checkpoints in the <code>proteinmpnn_dl_binder_design</code> container.</li>
