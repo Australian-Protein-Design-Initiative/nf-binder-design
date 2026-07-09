@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/0.3.0/workflows/germinal/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Germinal - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+        <link href="../../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Germinal";
+        var mkdocs_page_input_path = "workflows/germinal.md";
+        var mkdocs_page_url = "/nf-binder-design/0.3.0/workflows/germinal/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Germinal</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-differences">Key Differences</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#output-structure">Output Structure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/pawsey-setonix/">Pawsey Setonix Examples</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Workflows</li>
+      <li class="breadcrumb-item active">Germinal</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/germinal.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="germinal-workflow">Germinal Workflow</h1>
+<p>Parallel <a href="https://github.com/SantiagoMille/germinal">Germinal</a> execution for antibody and nanobody design across multiple GPUs.</p>
+<h2 id="overview">Overview</h2>
+<p>The <code>--method germinal</code> workflow runs Germinal trajectories in parallel across multiple GPUs — ideal for HPC clusters or multi-GPU workstations. Configuration is supplied via a Germinal Hydra YAML file (combined or partial config with Hydra default groups).</p>
+<h2 id="key-differences">Key Differences</h2>
+<p>Unlike a single long Germinal run that loops until stopping criteria are met, this pipeline:</p>
+<ul>
+<li>Runs a <strong>fixed number of trajectories</strong> (<code>--germinal_n_traj</code>)</li>
+<li>Splits work into <strong>parallel batches</strong> (<code>--germinal_batch_size</code>)</li>
+<li>Merges per-batch CSVs and structure folders into a single output tree</li>
+</ul>
+<p>If you want a specific number of accepted designs, run a small pilot (<code>--germinal_n_traj 10</code>) to estimate acceptance rate, then scale up.</p>
+<h2 id="command-line-options">Command-line Options</h2>
+<p>See available options with <code>--method germinal</code> and no config:</p>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method germinal
+</code></pre>
+<h2 id="example-usage">Example Usage</h2>
+<pre><code class="language-bash">#!/bin/bash
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+RUN_DIR=/path/to/runs/germinal/test-protenix2
+
+nextflow run /path/to/nf-binder-design-germinal/main.nf \
+  --method germinal \
+  --germinal_config &quot;${RUN_DIR}/configs/pdl1_vhh_protenix.yaml&quot; \
+  --germinal_pdb_dir &quot;${RUN_DIR}/pdbs&quot; \
+  --germinal_experiment_name pdl1_vhh \
+  --germinal_n_traj 2 \
+  --germinal_batch_size 1 \
+  --outdir &quot;${RUN_DIR}/results/nf-germinal&quot; \
+  -profile local \
+  -resume \
+  -with-report &quot;results/logs/report_${DATESTAMP}.html&quot; \
+  -with-trace &quot;results/logs/trace_${DATESTAMP}.txt&quot;
+</code></pre>
+<p>For SLURM on M3 BDI, use <code>-profile slurm,m3_bdi</code> with <code>--slurm_account=yt41</code>.</p>
+<p>Partial configs (e.g. <code>configs/config.yaml</code> with <code>defaults: [run: vhh, target: pdl1, ...]</code>) are supported: the workflow copies built-in Hydra config groups from the container and places your config alongside them.</p>
+<h2 id="key-parameters">Key Parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--germinal_config</code></td>
+<td>Germinal Hydra config YAML (required)</td>
+</tr>
+<tr>
+<td><code>--germinal_pdb_dir</code></td>
+<td>Directory with target PDB and optional <code>nb.pdb</code> scaffold (default: <code>../pdbs</code> relative to config)</td>
+</tr>
+<tr>
+<td><code>--germinal_experiment_name</code></td>
+<td>Output subdirectory name under <code>results/</code></td>
+</tr>
+<tr>
+<td><code>--germinal_n_traj</code></td>
+<td>Total trajectory attempts across all batches</td>
+</tr>
+<tr>
+<td><code>--germinal_batch_size</code></td>
+<td>Trajectories per parallel batch</td>
+</tr>
+<tr>
+<td><code>--germinal_max_passing_designs</code></td>
+<td>Max accepted designs per batch (default: high)</td>
+</tr>
+<tr>
+<td><code>--germinal_max_hallucinated_trajectories</code></td>
+<td>Max hallucinated trajectories per batch (default: high)</td>
+</tr>
+<tr>
+<td><code>--gpu_devices</code></td>
+<td>GPU devices for local multi-GPU runs, e.g. <code>--gpu_devices=0,1</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="output-structure">Output Structure</h2>
+<pre><code>results/germinal/
+├── all_trajectories.csv      # merged across all batches
+├── accepted_designs.csv      # merged from per-batch accepted/designs.csv
+├── failure_counts.csv
+├── config/
+│   └── final_config.yaml     # resolved Hydra config (batch 0 only)
+├── accepted/
+│   └── structures/           # flattened accepted PDBs from all batches
+├── trajectories/
+│   ├── designs.csv
+│   └── structures/
+├── redesign_candidates/
+│   ├── designs.csv
+│   └── structures/
+└── batches/
+    └── 0/
+        └── pdl1_vhh/         # per-batch Germinal output (includes final_config.yaml)
+</code></pre>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>The nanobody scaffold (<code>nb.pdb</code>) is copied from the container into <code>pdb_dir</code> if missing.</li>
+<li><code>target.target_pdb_path</code> in the config should be relative (e.g. <code>pdbs/pdl1.pdb</code>) so paths resolve from the process working directory.</li>
+<li>Stopping criteria per batch: whichever of <code>max_trajectories</code>, <code>max_hallucinated_trajectories</code>, or <code>max_passing_designs</code> is reached first.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../bindcraft/" class="btn btn-neutral float-left" title="BindCraft"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../boltzgen/" class="btn btn-neutral float-right" title="BoltzGen">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../bindcraft/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../boltzgen/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+      <script src="../../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

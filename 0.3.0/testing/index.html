@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/0.3.0/testing/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Testing - nf-binder-design</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../styles.green.css" rel="stylesheet" />
+        <link href="../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Testing";
+        var mkdocs_page_input_path = "testing.md";
+        var mkdocs_page_url = "/nf-binder-design/0.3.0/testing/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/germinal/">Germinal</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/pawsey-setonix/">Pawsey Setonix Examples</a>
+                  </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Testing</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#install-nf-test">Install nf-test</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#layout">Layout</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#apptainer-cache-and-image-filenames">Apptainer cache and image filenames</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#run-the-tests">Run the tests</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#testing-across-nextflow-versions">Testing across Nextflow versions</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#linting">Linting</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#writing-a-new-test">Writing a new test</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#tips">Tips</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Testing</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/testing.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="testing">Testing</h1>
+<p>The pipeline uses <a href="https://www.nf-test.com/">nf-test</a> for unit and integration
+tests. Tests live in the <code>tests/</code> directory and mirror the layout of the
+modules and workflows they cover.</p>
+<h2 id="install-nf-test">Install nf-test</h2>
+<p><code>nf-test</code> is a single self-contained binary. Install it once and place it on
+your <code>PATH</code>:</p>
+<pre><code class="language-bash">curl -fsSL https://code.askimed.com/install/nf-test | bash
+mv nf-test &quot;$HOME/.local/bin/&quot;
+
+nf-test version
+</code></pre>
+<p>It requires a working Nextflow installation (see <a href="../setup/">Setup</a>).</p>
+<h2 id="layout">Layout</h2>
+<pre><code>nf-test.config              # project-wide nf-test configuration
+tests/
+  nextflow.config           # Nextflow config used when running tests
+                            # (includes ../nextflow.config, forces local executor)
+  modules/local/...*.nf.test
+  workflows/...*.nf.test
+</code></pre>
+<p>The project-level <code>nf-test.config</code> sets <code>testsDir = "tests"</code> so only files
+under <code>tests/</code> are picked up by <code>nf-test test</code>.</p>
+<p>The test-time <code>tests/nextflow.config</code> includes the repository root
+<code>nextflow.config</code> via <code>includeConfig '../nextflow.config'</code>, so Apptainer stays
+enabled and each process uses the <code>container</code> image declared on that process in
+its module file (there is no single global test image). A follow-up
+<code>process { executor = 'local' }</code> block overrides the default SLURM executor so
+tests run on the current machine. Processes that do not declare a <code>container</code>
+still execute on the host interpreter when Apptainer is enabled.</p>
+<h2 id="apptainer-cache-and-image-filenames">Apptainer cache and image filenames</h2>
+<p>When Nextflow (or <code>apptainer pull docker://…</code>) pulls an image, the file on disk
+is <strong>not</strong> named like the <code>docker://</code> URI. It is stored under
+<code>NXF_APPTAINER_CACHEDIR</code> / <code>APPTAINER_CACHEDIR</code> (often <code>~/.apptainer/cache</code>) with
+slashes turned into hyphens and the tag appended, for example:</p>
+<table>
+<thead>
+<tr>
+<th>Module <code>container</code> directive</th>
+<th>Typical cached filename</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ghcr.io/australian-protein-design-initiative/containers/rfdiffusion:pytorch2407</code></td>
+<td><code>ghcr.io-australian-protein-design-initiative-containers-rfdiffusion-pytorch2407.img</code></td>
+</tr>
+</tbody>
+</table>
+<p>Use that path for direct <code>apptainer exec</code> or debugging, e.g.:</p>
+<pre><code class="language-bash">APPTAINER_CACHE=&quot;${NXF_APPTAINER_CACHEDIR:-$HOME/.apptainer/cache}&quot;
+RFD=&quot;${APPTAINER_CACHE}/ghcr.io-australian-protein-design-initiative-containers-rfdiffusion-pytorch2407.img&quot;
+apptainer exec --nv &quot;$RFD&quot; python /app/RFdiffusion/scripts/run_inference.py --help
+</code></pre>
+<p>Nextflow still resolves the module <code>container</code> string to this file when the cache
+is set; the table above is for <strong>manual</strong> <code>apptainer</code> use without <code>docker://</code>.</p>
+<h2 id="run-the-tests">Run the tests</h2>
+<p>From the repository root:</p>
+<pre><code class="language-bash"># Run every test under tests/
+nf-test test
+
+# Run a single test file
+nf-test test tests/modules/local/common/unique_id.nf.test
+
+# Run by tag (tags are declared inside the .nf.test files)
+nf-test test --tag unique_id
+
+# Generate a TAP report (useful in CI)
+nf-test test --tap report.tap
+</code></pre>
+<p>Use <code>--profile &lt;name&gt;</code> to apply a Nextflow profile from <code>nextflow.config</code>,
+for example <code>--profile local</code> to merge the local executor block from the main
+config (the test config already sets <code>executor = 'local'</code>; profiles are for
+extra options such as queue tuning).</p>
+<p>Containerised tests need Apptainer available and enough disk for image pulls;
+see <a href="../setup/">Setup</a> for setting <code>NXF_APPTAINER_CACHEDIR</code> and related variables.
+The inherited <code>apptainer.runOptions</code> include <code>--nv</code>; GPU images need a host with
+NVIDIA drivers unless you add a dedicated test profile that relaxes those
+options for CPU-only CI. For on-disk image names and <code>apptainer exec</code> without
+<code>docker://</code>, see <a href="#apptainer-cache-and-image-filenames">Apptainer cache and image filenames</a> above.</p>
+<p>See the <a href="https://www.nf-test.com/docs/running-tests/">nf-test running tests docs</a>
+for the full list of options.</p>
+<h2 id="testing-across-nextflow-versions">Testing across Nextflow versions</h2>
+<p><code>tests/pipeline/compilation.nf.test</code> (tag <code>compilation</code>) launches each workflow
+method in Nextflow <code>-preview</code> mode. Preview compiles every included workflow and
+module and builds the DAG, but does <strong>not</strong> execute any process, so it needs no
+GPUs or containers and runs in seconds. This guards against version-specific DSL
+parser regressions (for example the Nextflow 24.04.3 <em>"Variable <code>Channel</code> already
+defined in the process scope"</em> error).</p>
+<p>nf-test uses whichever Nextflow is selected via <code>NXF_VER</code>, so run the suite once
+per version to cover the supported range (see
+<a href="../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>):</p>
+<pre><code class="language-bash"># 24.04.x and 25.04.x use the default parser
+for v in 24.04.3 25.04.7; do
+  NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test
+done
+
+# 26.04+ defaults to the strict parser; force the legacy parser
+NXF_VER=26.04.4 NXF_SYNTAX_PARSER=v1 nf-test test tests/pipeline/compilation.nf.test
+</code></pre>
+<p>The repository root <code>nextflow.config</code> also pins <code>manifest.nextflowVersion</code> to
+<code>!&gt;=23.04.0, &lt;26.10</code>, so Nextflow itself aborts with a clear message when run
+outside the supported range.</p>
+<h2 id="linting">Linting</h2>
+<p>Alongside nf-test, lint <code>.nf</code> and <code>config</code> files with <code>nextflow lint</code>:</p>
+<pre><code class="language-bash"># Use a Nextflow that ships the linter (e.g. 25.04.x)
+NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
+</code></pre>
+<p>Useful warnings include unused variables and parameters (prefix unused closure
+parameters with <code>_</code> to silence them).</p>
+<p><code>nextflow lint</code> parses with the strict (v2) syntax, so it also flags constructs
+kept for Nextflow 24.04.3 compatibility — the conditional <code>include</code> statements in
+<code>main.nf</code>, <code>@Field</code>/<code>import</code> in <code>modules/local/rfd3/rfd3_utils.nf</code>, and multi-name
+function includes (shown as <code>... is not defined</code>). Those are expected and should
+<strong>not</strong> be changed in ways that break 24.04.3. Only run <code>nextflow lint -format</code>
+with <code>NXF_VER=25.04.7</code> (not 25.10+), so any reformatting stays compatible with
+older parsers. <code>nextflow lint</code> always uses the strict parser; <code>NXF_SYNTAX_PARSER=v1</code>
+has no effect on it (it only changes <code>nextflow run</code>). See
+<a href="../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>.</p>
+<h2 id="writing-a-new-test">Writing a new test</h2>
+<p>Generate a skeleton for a process or workflow:</p>
+<pre><code class="language-bash"># For a process (modules/)
+nf-test generate process modules/local/common/unique_id.nf
+
+# For a workflow
+nf-test generate workflow workflows/rfd.nf
+</code></pre>
+<p>This creates a <code>*.nf.test</code> file under <code>tests/</code> mirroring the source path.
+Edit the generated file to define the <code>when</code> block (inputs/params) and the
+<code>then</code> block (assertions on <code>process.out</code> / <code>workflow.out</code>).</p>
+<p>A minimal example, lifted from <code>tests/modules/local/common/unique_id.nf.test</code>:</p>
+<pre><code class="language-groovy">nextflow_process {
+
+    name &quot;Test Process UNIQUE_ID&quot;
+    script &quot;modules/local/common/unique_id.nf&quot;
+    process &quot;UNIQUE_ID&quot;
+
+    tag &quot;unique_id&quot;
+
+    test(&quot;Should generate a 7-character base58 unique_id.txt&quot;) {
+
+        when {
+            params {
+                outdir = &quot;${outputDir}&quot;
+            }
+            process {
+                &quot;&quot;&quot;
+                &quot;&quot;&quot;
+            }
+        }
+
+        then {
+            assert process.success
+            with(process.out.id_file) {
+                assert size() == 1
+                def id = path(get(0)).text.trim()
+                assert id.length() == 7
+                assert id ==~ /[1-9A-HJ-NP-Za-km-z]{7}/
+            }
+        }
+    }
+}
+</code></pre>
+<p>Refer to the upstream documentation for details on writing
+<a href="https://www.nf-test.com/docs/testcases/nextflow_process/">process</a>,
+<a href="https://www.nf-test.com/docs/testcases/nextflow_workflow/">workflow</a> and
+<a href="https://www.nf-test.com/docs/testcases/nextflow_pipeline/">pipeline</a> tests.</p>
+<h2 id="tips">Tips</h2>
+<ul>
+<li>Prefer lightweight, non-GPU processes for fast unit tests (eg <code>UNIQUE_ID</code>,
+  config-generation processes, simple Python helpers).</li>
+<li>The <code>RFDIFFUSION</code> process tests (<code>tests/modules/local/rfd/rfdiffusion.nf.test</code>) need a
+  visible GPU (<code>require_gpu = true</code> in the test params, matching the pipeline default),
+  the rfdiffusion Apptainer image, and an extra minute or so per test. They are
+  tagged <code>rfd</code> and <code>gpu</code>. Run only those with
+  <code>nf-test test --tag rfd</code> (or <code>nf-test test tests/modules/local/rfd/rfdiffusion.nf.test</code>);
+  to skip them, run
+  <code>nf-test test --tag unique_id</code> (or any tag that excludes the RFD file). <code>RFDIFFUSION</code>
+  picks up <code>inference.deterministic=true</code> from <code>tests/nextflow.config</code> via
+  <code>process.withName: RFDIFFUSION { ext.args = '...' }</code> and a trailing append in
+  <code>modules/local/rfd/rfdiffusion.nf</code>. A standalone reproducer lives under
+  a full <code>rfd</code> example: <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/pdl1-rfd"><code>examples/pdl1-rfd/</code></a> (<code>run-local-simple.sh</code>).</li>
+<li>Keep other heavy GPU-bound processes (BindCraft, Boltz, BoltzGen, AF2 initial guess) out
+  of the default test suite, or guard them behind tags, until you have a similar setup.</li>
+<li>Tag every test (<code>tag "&lt;feature&gt;"</code>) so suites can be selected with
+  <code>nf-test test --tag &lt;feature&gt;</code>.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../extra/pawsey-setonix/" class="btn btn-neutral float-left" title="Pawsey Setonix Examples"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../changelog/" class="btn btn-neutral float-right" title="Release history">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../extra/pawsey-setonix/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../changelog/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+      <script src="../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

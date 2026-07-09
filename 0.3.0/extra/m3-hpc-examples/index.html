@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/0.3.0/extra/m3-hpc-examples/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>M3 HPC Examples - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+        <link href="../../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "M3 HPC Examples";
+        var mkdocs_page_input_path = "extra/m3-hpc-examples.md";
+        var mkdocs_page_url = "/nf-binder-design/0.3.0/extra/m3-hpc-examples/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">M3 HPC Examples</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#setup">Setup</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#rfdiffusion-example">RFdiffusion Example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#bindcraft-example">BindCraft Example</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#troubleshooting-failures">Troubleshooting failures</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#common-errors">Common errors</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pawsey-setonix/">Pawsey Setonix Examples</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Extra</li>
+      <li class="breadcrumb-item active">M3 HPC Examples</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/extra/m3-hpc-examples.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="m3-hpc-cluster-examples">M3 HPC cluster examples</h1>
+<p>Here are some examples for specific workflows on the Monash <a href="https://docs.erc.monash.edu/Compute/HPC/M3/">M3 HPC cluster</a>.</p>
+<p>These can be adapted for other HPC clusters the use SLURM.</p>
+<h2 id="setup">Setup</h2>
+<p>Load the Nextflow module:</p>
+<pre><code class="language-bash">module load nextflow/24.04.3
+
+nextflow info
+</code></pre>
+<p>Pull the workflow:</p>
+<pre><code class="language-bash">nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
+</code></pre>
+<p>(this creates a local cache of the workflow in <code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/</code>)</p>
+<p>You can also pull a specific version like: </p>
+<pre><code class="language-bash">nextflow pull -r 0.2.0 Australian-Protein-Design-Initiative/nf-binder-design
+</code></pre>
+<p>Add the <code>-r</code> flag (eg <code>-r 0.2.0</code>) to examples below when using a specific version of the workflow.</p>
+<h2 id="rfdiffusion-example">RFdiffusion Example</h2>
+<p>Create an SBATCH script named <code>run.sh</code> like:</p>
+<pre><code class="language-bash">#!/bin/bash
+#SBATCH --account=ab12
+#SBATCH --time=7-00:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --job-name=nf-binder-design
+#SBATCH --output=nf-binder-design-%j.log
+#SBATCH --error=nf-binder-design-%j.err
+
+# Change this to your project ID
+export PROJECT_ID=ab12
+
+# Set the apptainer cache directory to a location in your /scratch2 directory (not in /home)
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}$/${USER}/apptainer_cache
+export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
+
+# When apptainer downloads container images, it often stages them into /tmp (TMDIR) by default.
+# Occasionally /tmp on the node fills up, so we set a custom tmp directory to prevent this.
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+export TMPDIR=${APPTAINER_TMPDIR}
+mkdir -p ${APPTAINER_TMPDIR}
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p results/logs
+
+module load nextflow/24.04.3
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account ${PROJECT_ID} \
+  --method rfd \
+  --input_pdb input/PDL1.pdb \
+  --outdir results \
+  --contigs &quot;[A18-132/0 65-120]&quot; \
+  --hotspot_res &quot;A56&quot; \
+  --rfd_n_designs=4 \
+  --rfd_batch_size=1 \
+  --pmpnn_seqs_per_struct=2 \
+  --pmpnn_relax_cycles=1 \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  -resume \
+  -profile slurm,m3
+
+# or, if you have access to the `bdi` partition, use:
+# -profile slurm,m3_bdi
+</code></pre>
+<p>Get the input files for this example (from the <code>examples/pdl1-rfd</code> directory):</p>
+<pre><code class="language-bash">mkdir -p input
+cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/examples/pdl1-rfd/input/PDL1.pdb input/
+</code></pre>
+<p>Submit the job to the queue:</p>
+<pre><code class="language-bash">sbatch run.sh
+</code></pre>
+<p>Monitor the output of <code>nf-binder-design-%j.log</code>, or <code>.nextflow.log</code>.</p>
+<blockquote>
+<p>If using an interactive <code>smux</code> or low resource CPU-only Strudel session, you can run without <code>sbatch</code> like: <code>./run.sh</code> - Nextflow will still submit jobs to the queue. This can be convenient for debugging.</p>
+</blockquote>
+<h2 id="bindcraft-example">BindCraft Example</h2>
+<p>Create an SBATCH script named <code>run.sh</code> like:</p>
+<pre><code class="language-bash">#!/bin/bash
+#SBATCH --account=ab12
+#SBATCH --time=7-00:00:00
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8G
+#SBATCH --job-name=nf-binder-design
+#SBATCH --output=nf-binder-design-%j.log
+#SBATCH --error=nf-binder-design-%j.err
+
+# Change this to your project ID
+export PROJECT_ID=ab12
+
+# Set the apptainer cache directory to a location in your /scratch2 directory (not in /home)
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}/${USER}/apptainer_cache
+export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
+
+# When apptainer downloads container images, it often stages them into /tmp (TMDIR) by default.
+# Occasionally /tmp on the node fills up, so we set a custom tmp directory to prevent this.
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+export TMPDIR=${APPTAINER_TMPDIR}
+mkdir -p ${APPTAINER_TMPDIR}
+
+DATESTAMP=$(date +%Y%m%d_%H%M%S)
+
+mkdir -p results/logs
+
+module load nextflow/24.04.3
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --slurm_account ${PROJECT_ID} \
+  --method bindcraft \
+  --input_pdb input/PDL1.pdb \
+  --outdir results \
+  --target_chains &quot;A&quot; \
+  --hotspot_res &quot;A56&quot; \
+  --binder_length_range &quot;55-120&quot; \
+  --bindcraft_n_traj 4 \
+  --bindcraft_batch_size 1 \
+  --bindcraft_advanced_settings_preset &quot;default_4stage_multimer&quot; \
+  -with-report results/logs/report_${DATESTAMP}.html \
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  -resume \
+  -profile slurm,m3
+
+# or, if you have access to the `bdi` partition, use:
+# -profile slurm,m3_bdi
+</code></pre>
+<p>Get the input files for this example (from the <code>examples/pdl1-bindcraft</code> directory):</p>
+<pre><code class="language-bash">mkdir -p input
+cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/examples/pdl1-bindcraft/input/PDL1.pdb input/
+</code></pre>
+<p>Submit the job to the queue:</p>
+<pre><code class="language-bash">sbatch run.sh
+</code></pre>
+<p>Monitor the output of <code>nf-binder-design-%j.log</code>, or <code>.nextflow.log</code>.</p>
+<blockquote>
+<p>If using an interactive <code>smux</code> or low resource CPU-only Strudel session, you can run without <code>sbatch</code> like: <code>./run.sh</code> - Nextflow will still submit jobs to the queue. This can be convenient for debugging.</p>
+</blockquote>
+<h2 id="troubleshooting-failures">Troubleshooting failures</h2>
+<p>If you encounter an error, the <code>.nextflow.log</code> file will report the failing task and the path into the <code>./work</code> directory, like:</p>
+<pre><code>Work dir:
+  /home/harshil/repos/nf-core/fetchngs/work/ab/123456789aabbccddeeff123456789
+</code></pre>
+<p>This directory contains:</p>
+<ul>
+<li><code>command.log</code>: contains both stdout and stderr from the task</li>
+<li><code>exitcode</code>: created when the job ends, with exit code</li>
+<li><code>command.run</code>: wrapper script used to run the job (handles environment setup and job submission)</li>
+<li><code>command.sh</code>: command used for this task</li>
+<li><code>command.trace</code>: logs of compute resource usage</li>
+<li>any input files used for the task (often symlinked from an upstream task)</li>
+<li>any output files generated before the error occurred</li>
+</ul>
+<p>You can diagnose the problem by inspecting the <code>command.log</code> file, the options used in <code>.command.sh</code> and the input and output files.</p>
+<h3 id="common-errors">Common errors</h3>
+<hr />
+<p><strong>Problem/message:</strong></p>
+<pre><code>RuntimeError: CUDA out of memory. Tried to allocate 8.94 GiB (GPU 0; 15.90 GiB total capacity; 8.94 GiB already allocated; 6.34 GiB free; 0 bytes cached)
+</code></pre>
+<p><em>(or some variation involving <code>CUDA</code> and a failure to allocate memory)</em></p>
+<p>The task requires more GPU memory (VRAM) than was available to it.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li>If possible, trim your target or generate smaller binders – fewer residues means less VRAM usage.</li>
+<li>Create a custom <code>nextflow.config</code> based on <code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/m3.config</code> to use a GPU with more VRAM (such as an A100 80GB or H100 80GB).</li>
+</ul>
+<hr />
+<p><strong>Problem/message:</strong></p>
+<p><code>.command.log</code> ends with:</p>
+<pre><code>slurmstepd: error: Detected 1 oom-kill event(s) in step 1090990.batch cgroup.
+</code></pre>
+<p>or simply ends with:</p>
+<pre><code>Killed
+</code></pre>
+<p>The task exceeded the memory (RAM) allocated to the task.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li>Create a custom <code>nextflow.config</code> based on <code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/m3.config</code> and increase the <code>memory</code> directive for the task.</li>
+</ul>
+<p><strong>Problem/message:</strong></p>
+<pre><code>no space left on device
+</code></pre>
+<p>or:</p>
+<pre><code>Disk quota exceeded
+</code></pre>
+<p>The filesystem where containers are being downloaded or <code>results</code> and <code>work</code> are being written is full / over quota.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li>
+<p>Check that the filesystem where <code>work</code> and <code>results</code> are being written is not over quota.</p>
+</li>
+<li>
+<p>Ensure the environment variables <code>NXF_APPTAINER_CACHEDIR</code> and <code>APPTAINER_TMPDIR</code> are set in your run.sh script or <code>~/.bashrc</code> to a location with sufficient space (ie your <code>/scratch2</code> directory), eg:</p>
+</li>
+</ul>
+<pre><code class="language-bash">export PROJECT_ID=ab12
+export NXF_APPTAINER_CACHEDIR=/scratch2/${PROJECT_ID}/${USER}/apptainer_cache
+export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
+mkdir -p ${APPTAINER_TMPDIR}
+</code></pre>
+<ul>
+<li>Clean up files in your home directory if it's full - see <a href="https://docs.erc.monash.edu/Compute/HPC/M3/Files/RunOverQuota/">M3 docs: "Run over your storage quota?"</a>.</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../utility-scripts/" class="btn btn-neutral float-left" title="Utility Scripts"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../pawsey-setonix/" class="btn btn-neutral float-right" title="Pawsey Setonix Examples">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../utility-scripts/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../pawsey-setonix/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+      <script src="../../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
