@@ -77,6 +77,12 @@ results/germinal/
 └── batches/0/{experiment_name}/
 ```
 
+## Hotspot numbering
+
+`target.target_hotspots` uses **1-indexed positions relative to the start of each target chain** (Nth residue in that chain as loaded), not arbitrary PDB auth residue numbers. Germinal's hotspot proximity filter maps hotspots via sequential indices (`chain_start + index - 1`), so numbering must be contiguous from 1 with **no gaps**.
+
+Renumber the input target PDB to 1…N per chain (e.g. `bin/renumber_chains.py`), then set `target_hotspots` / `hotspot_residue` against that renumbered structure.
+
 ## Notes
 
 - The nanobody scaffold (`nb.pdb`) is copied from the container into `pdb_dir` if missing.
