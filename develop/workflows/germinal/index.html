@@ -76,6 +76,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#output-structure">Output Structure</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#hotspot-numbering">Hotspot numbering</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#notes">Notes</a>
     </li>
     </ul>
@@ -236,6 +238,13 @@ nextflow run /path/to/nf-binder-design-germinal/main.nf \
     └── 0/
         └── pdl1_vhh/         # per-batch Germinal output (includes final_config.yaml)
 </code></pre>
+<h2 id="hotspot-numbering">Hotspot numbering</h2>
+<p><code>target.target_hotspots</code> in the Germinal config (e.g. <code>"A37,A39,A41"</code>) uses <strong>1-indexed positions relative to the start of each target chain</strong> — the Nth residue in that chain as loaded, not arbitrary PDB/mmCIF auth residue numbers.</p>
+<p>Germinal's hotspot proximity filter (<code>find_nearby_residues_from_pdb</code>) maps each hotspot to pose residue <code>chain_start + index - 1</code>. Residue indices must therefore be contiguous from 1 with <strong>no gaps</strong>. If your input PDB is numbered from a non-1 start, has numbering gaps (e.g. missing residues left as holes in the numbering), or otherwise does not match 1…N sequential order, hotspot values will not refer to the residues you intend.</p>
+<p><strong>Recommendation:</strong> renumber the input target PDB so each chain is numbered sequentially from 1 with no gaps, then choose hotspots against that renumbered structure (e.g. in ChimeraX / PyMOL / Mol*). Use <code>bin/renumber_chains.py</code>:</p>
+<pre><code class="language-bash">uv run bin/renumber_chains.py input/target.pdb -o pdbs/target.pdb
+</code></pre>
+<p>After renumbering, set <code>target_hotspots</code> (and <code>hotspot_residue</code> if used) to match the new 1-based sequential numbers.</p>
 <h2 id="notes">Notes</h2>
 <ul>
 <li>The nanobody scaffold (<code>nb.pdb</code>) is copied from the container into <code>pdb_dir</code> if missing.</li>
