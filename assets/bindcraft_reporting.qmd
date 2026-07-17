@@ -353,7 +353,7 @@ Summary of all the design trajectories, accepted and rejected.
 
                 if plot_data:
                     # Create box plot
-                    bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+                    bp = ax.boxplot(plot_data, patch_artist=True, tick_labels=labels)
 
                     # Color the boxes
                     for patch in bp['boxes']:
@@ -385,7 +385,7 @@ Summary of all the design trajectories, accepted and rejected.
                     fig, ax = plt.subplots(figsize=(8, 6))
                     
                     # Create box plot for Target_RMSD
-                    bp = ax.boxplot(rmsd_data.values, patch_artist=True, labels=['Target_RMSD'])
+                    bp = ax.boxplot(rmsd_data.values, patch_artist=True, tick_labels=['Target_RMSD'])
                     
                     # Color the box
                     bp['boxes'][0].set_facecolor('lightblue')
@@ -411,7 +411,7 @@ Summary of all the design trajectories, accepted and rejected.
                     fig, ax = plt.subplots(figsize=(8, 6))
                     
                     # Create box plot for dG
-                    bp = ax.boxplot(dg_data.values, patch_artist=True, labels=['dG'])
+                    bp = ax.boxplot(dg_data.values, patch_artist=True, tick_labels=['dG'])
                     
                     # Color the box
                     bp['boxes'][0].set_facecolor('lightcoral')
@@ -531,7 +531,7 @@ Summary of scores for designs after sequence generation with ProteinMPNN.
 
                 if plot_data:
                     # Create box plot
-                    bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+                    bp = ax.boxplot(plot_data, patch_artist=True, tick_labels=labels)
 
                     # Color the boxes
                     for patch in bp['boxes']:
@@ -560,7 +560,7 @@ Summary of scores for designs after sequence generation with ProteinMPNN.
                     fig, ax = plt.subplots(figsize=(8, 6))
                     
                     # Create box plot for dG
-                    bp = ax.boxplot(dg_data.values, patch_artist=True, labels=['Average_dG'])
+                    bp = ax.boxplot(dg_data.values, patch_artist=True, tick_labels=['Average_dG'])
                     
                     # Color the box
                     bp['boxes'][0].set_facecolor('lightcoral')
@@ -687,7 +687,7 @@ if final_design_df is not None and len(final_design_df) > 0:
 
             if plot_data:
                 # Create box plot
-                bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+                bp = ax.boxplot(plot_data, patch_artist=True, tick_labels=labels)
 
                 # Color the boxes
                 for patch in bp['boxes']:
@@ -748,7 +748,7 @@ if final_design_df is not None and len(final_design_df) > 0:
             data = final_design_df[metric].dropna()
             if len(data) > 0:
                 # Create box plot
-                bp = ax.boxplot(data.values, patch_artist=True, labels=[metric])
+                bp = ax.boxplot(data.values, patch_artist=True, tick_labels=[metric])
 
                 # Color the box
                 bp["boxes"][0].set_facecolor("lightcoral")
@@ -822,7 +822,7 @@ if final_design_df is not None and len(final_design_df) > 0:
                         labels.append(metric)
 
                 if plot_data:
-                    bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+                    bp = ax.boxplot(plot_data, patch_artist=True, tick_labels=labels)
                     for patch in bp["boxes"]:
                         patch.set_facecolor("lightcoral")
                     for median in bp["medians"]:
@@ -853,7 +853,7 @@ if final_design_df is not None and len(final_design_df) > 0:
                         labels.append(metric)
 
                 if plot_data:
-                    bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+                    bp = ax.boxplot(plot_data, patch_artist=True, tick_labels=labels)
                     for patch in bp["boxes"]:
                         patch.set_facecolor("lightcoral")
                     for median in bp["medians"]:
@@ -877,7 +877,7 @@ if final_design_df is not None and len(final_design_df) > 0:
                 # Single metric box plot
                 data = final_design_df[plot_type].dropna()
                 if len(data) > 0:
-                    bp = ax.boxplot(data.values, patch_artist=True, labels=[plot_type])
+                    bp = ax.boxplot(data.values, patch_artist=True, tick_labels=[plot_type])
                     bp["boxes"][0].set_facecolor("lightcoral")
                     bp["medians"][0].set_color("red")
 
