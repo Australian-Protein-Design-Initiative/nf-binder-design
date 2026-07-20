@@ -5,7 +5,7 @@ A FASTA file with more than one record (multimer) fails fast with a clear
 error; multimer support (paired MSAs per method) is a later phase.
 
 This example folds human PD-L1 (`input/pdl1.fasta`, reused from
-`examples/af2/input/pdl1.fasta`) as a single-chain monomer with any
+`examples/pdl1-rfd/input/full/3BIK_B.fasta`) as a single-chain monomer with any
 combination of AlphaFold2, Boltz-2, RosettaFold3 and Protenix, sharing one
 MSA-generation stage selected by `--msa_method`.
 
@@ -63,6 +63,13 @@ To run locally (e.g. on a GPU workstation):
 ```
 
 Both default to `--methods af2,boltz,rf3,protenix --msa_method jackhmmer_af2`.
+Pass `--methods` to select a subset - e.g. AlphaFold2 only (the native
+jackhmmer/hhblits MSA + GPU predict route):
+
+```bash
+./run-m3.sh --methods af2
+```
+
 To try the ColabFold MSA route instead (bridging the resulting a3m into AF2 too):
 
 ```bash
@@ -76,8 +83,10 @@ required unless you have your own `colabfold_search`-format `--uniref30`/
 
 ## Outputs
 
-- `results/af2/msas/pdl1/`, `results/af2/predictions/pdl1/` - same layout as
-  `examples/af2/` (raw MSAs / `ranked_0.pdb` etc).
+- `results/af2/msas/pdl1/` (raw MSAs from the CPU jackhmmer/hhblits stage) and
+  `results/af2/predictions/pdl1/` (GPU structure prediction: `ranked_0.pdb`,
+  `ranking_debug.json`, `result_model_*.pkl`, and with `monomer_ptm` per-residue
+  pLDDT / predicted aligned error).
 - `results/boltz/` - `boltz_results_pdl1/predictions/pdl1/pdl1_model_0.pdb`,
   confidence JSON, ipSAE TSVs, and an aggregated `boltz_fold_scores.tsv`.
 - `results/rf3/pdl1/` - RF3 structures (`one_model_per_file=true`) and

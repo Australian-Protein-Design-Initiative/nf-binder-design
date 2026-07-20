@@ -8,10 +8,10 @@ Phase 1 scope: monomer only. Paired multimer MSAs (plan §4) are deliberately
 not implemented here yet.
 */
 
-include { ALPHAFOLD2_JACKHMMER_MSA } from '../../modules/local/af2/alphafold2_jackhmmer_msa'
+include { ALPHAFOLD2_JACKHMMER_MSA } from '../../modules/fold/af2/alphafold2_jackhmmer_msa'
 include { MMSEQS_COLABFOLDSEARCH } from '../../modules/local/common/mmseqs_colabfoldsearch'
-include { COLABFOLD_A3M_TO_AF2_MSAS } from '../../modules/local/af2/colabfold_a3m_to_af2_msas'
-include { AF2_MSAS_TO_A3M } from '../../modules/local/af2/af2_msas_to_a3m'
+include { COLABFOLD_A3M_TO_AF2_MSAS } from '../../modules/fold/af2/colabfold_a3m_to_af2_msas'
+include { AF2_MSAS_TO_A3M } from '../../modules/fold/af2/af2_msas_to_a3m'
 
 workflow FOLD_MSA {
     take:

@@ -3,9 +3,8 @@ import java.nio.file.Path
 
 /*
 Shared workflow.onComplete params.json helper, de-duplicated from the
-identical paramsToMap() copies previously living in main.nf and af2.nf (see
-plans/fold-nf-multi-method-folding.md). fold.nf and the refactored af2.nf both
-use this.
+identical paramsToMap() copies previously living in main.nf and the standalone
+fold entrypoints (see plans/fold-nf-multi-method-folding.md). fold.nf uses this.
 */
 class ParamsHelper {
     static def paramsToMap(params) {

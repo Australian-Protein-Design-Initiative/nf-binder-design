@@ -8,8 +8,8 @@ multi-record FASTA before this subworkflow ever runs - see fold.nf's
 monomer-only guard.
 */
 
-include { GENERATE_PROTENIX_INPUT } from '../../modules/local/protenix/generate_protenix_input'
-include { PROTENIX_FOLD as PROTENIX_FOLD_PROCESS } from '../../modules/local/protenix/protenix_fold'
+include { GENERATE_PROTENIX_INPUT } from '../../modules/fold/protenix/generate_protenix_input'
+include { PROTENIX_FOLD as PROTENIX_FOLD_PROCESS } from '../../modules/fold/protenix/protenix_fold'
 
 workflow PROTENIX_FOLD {
     take:

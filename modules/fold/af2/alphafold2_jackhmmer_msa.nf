@@ -41,7 +41,7 @@ process ALPHAFOLD2_JACKHMMER_MSA {
     ].join(' ')
     """
     # AlphaFold names its per-target output directory after the FASTA stem, which
-    # is exactly meta.id (see af2.nf's input channel), so the predict stage can
+    # is exactly meta.id (see fold.nf's input channel), so the predict stage can
     # find this directory again with no extra bookkeeping.
     python /app/alphafold/run_alphafold.py \
         --fasta_paths=${fasta} \

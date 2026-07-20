@@ -28,7 +28,7 @@ params.outdir = 'results'
 params.methods = 'af2'
 params.msa_method = 'jackhmmer_af2'
 
-// --- AF2 (same defaults/semantics as af2.nf; see af2.nf for the monomer-verified route) ---
+// --- AF2 (monomer-verified route: jackhmmer MSA -> ALPHAFOLD2 predict) ---
 params.alphafold2_db_path = '/mnt/datasets/alphafold/alphafold_20240229'
 params.alphafold2_model_preset = 'monomer_ptm' // monomer|monomer_ptm|monomer_casp14|multimer
 params.alphafold2_db_preset = 'full_dbs'
@@ -172,8 +172,8 @@ workflow {
         )
     }
 
-    // Accept a single file, a glob, or a directory of FASTA files, matching
-    // af2.nf's convention (one FASTA file = one prediction unit). Resolved
+    // Accept a single file, a glob, or a directory of FASTA files (one FASTA
+    // file = one prediction unit). Resolved
     // synchronously via the `file()` DSL function (which returns a List<Path>
     // for a glob pattern) rather than a lazy Channel.fromPath, so the
     // monomer-only guard below can fail the whole run up front, before any
@@ -205,7 +205,7 @@ workflow {
     }
 
     // meta.id is the FASTA stem, matching AF2's own per-target output
-    // directory naming (see af2.nf) - the MSA -> predict wiring in
+    // directory naming - the MSA -> predict wiring in
     // subworkflows/local/alphafold2.nf relies on that matching.
     ch_input = Channel.fromList(input_paths).map { f -> [[id: f.baseName, n_chains: 1], f] }
 

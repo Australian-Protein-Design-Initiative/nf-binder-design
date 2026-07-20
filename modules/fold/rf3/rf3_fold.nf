@@ -9,7 +9,7 @@ process RF3_FOLD {
 
     container 'oras://ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.2.0-weights'
 
-    // Recursive glob publish - see modules/local/af2/alphafold2.nf's comment
+    // Recursive glob publish - see modules/fold/af2/alphafold2.nf's comment
     // for why: publishDir pattern/saveAs only see the top-level output
     // *item* (a directory), never files nested inside it, so declaring the
     // output as "output/**" makes each nested file its own publish item.

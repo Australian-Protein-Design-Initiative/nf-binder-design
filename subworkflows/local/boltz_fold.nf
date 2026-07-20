@@ -6,9 +6,9 @@ each chain's own `msa:`) is Phase 2 work (see plans/
 fold-nf-multi-method-folding.md §5).
 */
 
-include { FOLD_CREATE_BOLTZ_YAML } from '../../modules/local/boltz/fold_create_boltz_yaml'
+include { FOLD_CREATE_BOLTZ_YAML } from '../../modules/fold/boltz/fold_create_boltz_yaml'
 include { BOLTZ } from '../../modules/local/common/boltz'
-include { FOLD_PARSE_BOLTZ_CONFIDENCE } from '../../modules/local/boltz/fold_parse_boltz_confidence'
+include { FOLD_PARSE_BOLTZ_CONFIDENCE } from '../../modules/fold/boltz/fold_parse_boltz_confidence'
 
 workflow BOLTZ_FOLD {
     take:

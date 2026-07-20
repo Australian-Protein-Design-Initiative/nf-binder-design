@@ -9,7 +9,7 @@ process PROTENIX_FOLD {
 
     container 'oras://ghcr.io/australian-protein-design-initiative/containers/protenix:v2.0.0-weights'
 
-    // Recursive glob publish - see modules/local/rf3/rf3_fold.nf's comment for
+    // Recursive glob publish - see modules/fold/rf3/rf3_fold.nf's comment for
     // why (publishDir pattern/saveAs only see the top-level output *item*,
     // never files nested inside it). protenix pred writes to
     // out_dir/<name>/seed_<seed>/predictions/... where name == meta.id (see

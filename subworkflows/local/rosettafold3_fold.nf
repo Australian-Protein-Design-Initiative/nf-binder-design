@@ -7,8 +7,8 @@ generically for N chains, but fold.nf itself rejects multi-record FASTA
 before this subworkflow ever runs - see fold.nf's monomer-only guard).
 */
 
-include { GENERATE_RF3_FOLD_INPUT } from '../../modules/local/rf3/generate_rf3_fold_input'
-include { RF3_FOLD } from '../../modules/local/rf3/rf3_fold'
+include { GENERATE_RF3_FOLD_INPUT } from '../../modules/fold/rf3/generate_rf3_fold_input'
+include { RF3_FOLD } from '../../modules/fold/rf3/rf3_fold'
 
 workflow ROSETTAFOLD3_FOLD {
     take:
