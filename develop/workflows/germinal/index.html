@@ -149,7 +149,7 @@
 <li>Splits work into <strong>parallel batches</strong> (<code>--germinal_batch_size</code>)</li>
 <li>Merges per-batch CSVs and structure folders into a single output tree</li>
 </ul>
-<p>If you want a specific number of accepted designs, run a small pilot (<code>--germinal_n_traj 10</code>) to estimate acceptance rate, then scale up.</p>
+<p>If you want a specific number of accepted designs, run a small pilot (<code>--germinal_n_traj 100</code> or more) to estimate acceptance rate, then scale up. The Germinal documentation and paper detail the specific parameter sweeps you may want to try (via different config files) to improve the acceptance rate.</p>
 <h2 id="command-line-options">Command-line Options</h2>
 <p>See available options with <code>--method germinal</code> and no config:</p>
 <pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
