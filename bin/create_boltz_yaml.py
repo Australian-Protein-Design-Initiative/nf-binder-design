@@ -305,7 +305,9 @@ def main():
         binder_protein = {"id": ["A"], "sequence": binder_seq}
 
         if args.binder_msa:
-            binder_protein["msa"] = args.binder_msa
+            # Basename so fold.nf can overwrite the staged a3m in-task
+            # (MSA subsample) without rewriting this YAML.
+            binder_protein["msa"] = os.path.basename(args.binder_msa)
 
         data = {"version": 1, "sequences": [{"protein": binder_protein}]}
     else:
@@ -315,9 +317,9 @@ def main():
         binder_protein = {"id": ["B"], "sequence": binder_seq}
 
         if args.target_msa:
-            target_protein["msa"] = args.target_msa
+            target_protein["msa"] = os.path.basename(args.target_msa)
         if args.binder_msa:
-            binder_protein["msa"] = args.binder_msa
+            binder_protein["msa"] = os.path.basename(args.binder_msa)
 
         data = {
             "version": 1,

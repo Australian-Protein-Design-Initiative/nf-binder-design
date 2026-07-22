@@ -98,10 +98,15 @@ params.protenix_batch_size = false // samples per Protenix job (--sample); unset
 params.protenix_model_name = 'protenix_base_default_v1.0.0' // checkpoint baked into the container at /models/protenix/checkpoint
 params.protenix_use_msa = true // false forces protenix to ignore our a3m and predict MSA-free
 
+// --- MSA subsample (CF-random-style shallow random MSA per predict task) ---
+// false = off; true = CF-random default depths; or "1:2,4:8,..." custom list.
+params.msa_subsample = false
+params.msa_subsample_include_full = true // also keep one full-MSA job when subsampling
+
 // --- EnGens (post-prediction conformational clustering; on by default) ---
 params.skip_engens = false // skip EnGens clustering / report
 params.engens_dimred = 'umap' // umap only for static predicted ensembles
-params.engens_clustering = 'gmm' // gmm (default); km or km,gmm also accepted
+params.engens_clustering = 'hdbscan' // hdbscan (default); gmm, km, or comma-separated combinations
 params.engens_min_structures = 3 // skip clustering below this many usable structures
 params.engens_max_clusters = 10 // upper bound for auto cluster-count search
 params.engens_gmm_ic = 'aic' // aic|bic for GMM information-criterion selection
@@ -199,6 +204,16 @@ workflow {
             --protenix_model_name               Checkpoint name (baked into the container) [default: ${params.protenix_model_name}]
             --protenix_use_msa                  Feed our shared a3m to Protenix; false predicts MSA-free [default: ${params.protenix_use_msa}]
 
+            MSA subsample (optional CF-random-style shallow MSA per predict task):
+            --msa_subsample                     false (default), true (CF-random depths
+                                                1:2,2:4,4:8,8:16,16:32,32:64,64:128), or a custom
+                                                comma-separated max_seq:max_extra_seq list.
+                                                Depths with max_seq >= MSA size are skipped.
+                                                [default: ${params.msa_subsample}]
+            --msa_subsample_include_full        When subsampling, also keep one full-MSA job
+                                                (AF2 reuses templated features.pkl for that job)
+                                                [default: ${params.msa_subsample_include_full}]
+
             ColabFold MSA (--msa_method mmseqs2_colabfold):
             --use_remote_server                 Query the ColabFold MMseqs2 API instead of a local DB search [default: ${params.use_remote_server}]
             --uniref30                          UniRef30 database path (local search only) [default: ${params.uniref30}]
@@ -207,9 +222,10 @@ workflow {
                                                 (see plans/fold-nf-multi-method-folding.md); use --use_remote_server
                                                 true if you haven't set them up yourself.
 
-            EnGens (runs by default after prediction; UMAP + GMM clustering):
+            EnGens (runs by default after prediction; UMAP + HDBSCAN clustering):
             --skip_engens                       Skip EnGens clustering / clusters.html report [default: ${params.skip_engens}]
-            --engens_clustering                 gmm (default), km, or comma-separated km,gmm [default: ${params.engens_clustering}]
+            --engens_clustering                 hdbscan (default), gmm, km, or comma-separated
+                                                combinations [default: ${params.engens_clustering}]
             --engens_dimred                     Dimensionality reduction (umap) [default: ${params.engens_dimred}]
             --engens_min_structures             Minimum usable structures before clustering [default: ${params.engens_min_structures}]
             --engens_max_clusters               Upper bound for auto cluster-count search [default: ${params.engens_max_clusters}]
@@ -270,8 +286,8 @@ workflow {
     }
     def engens_clustering = params.engens_clustering.toString().split(',').collect { it.trim().toLowerCase() }
     engens_clustering.each { c ->
-        if (!(c in ['gmm', 'km'])) {
-            error("fold.nf: unknown --engens_clustering entry '${c}' (valid: gmm, km)")
+        if (!(c in ['gmm', 'km', 'hdbscan'])) {
+            error("fold.nf: unknown --engens_clustering entry '${c}' (valid: gmm, km, hdbscan)")
         }
     }
     if (!(params.engens_dimred.toString().toLowerCase() in ['umap'])) {
@@ -285,6 +301,29 @@ workflow {
     }
     if ((params.engens_max_clusters as int) < 2) {
         error("fold.nf: --engens_max_clusters must be >= 2 (got '${params.engens_max_clusters}')")
+    }
+    // Validate --msa_subsample (false | true | "1:2,4:8,...")
+    if (MsaSubsample.isEnabled(params.msa_subsample)) {
+        def raw = (params.msa_subsample instanceof Boolean \
+            || params.msa_subsample.toString().trim().toLowerCase() in ['true', '1', 'yes']) \
+            ? MsaSubsample.MSA_DEPTH_DEFAULTS \
+            : params.msa_subsample.toString().trim()
+        raw.split(',').each { part ->
+            def pdepth = part.trim()
+            if (!pdepth) {
+                return
+            }
+            if (!(pdepth ==~ /^\d+:\d+$/)) {
+                error(
+                    "fold.nf: invalid --msa_subsample depth '${pdepth}' " +
+                    "(expected max_seq:max_extra_seq, or true for CF-random defaults)"
+                )
+            }
+            def bits = pdepth.split(':')
+            if ((bits[0] as int) < 1) {
+                error("fold.nf: --msa_subsample max_seq must be >= 1 (got '${pdepth}')")
+            }
+        }
     }
     if (params.msa_method == 'mmseqs2_colabfold' && !params.use_remote_server && !(params.uniref30 && params.colabfold_envdb)) {
         error(
@@ -342,7 +381,18 @@ workflow {
     ch_protenix_pred = Channel.empty()
 
     if ('af2' in methods) {
-        ALPHAFOLD2(FOLD_MSA.out.af2_msas)
+        // Hybrid: always stage msas_dir (templated features.pkl for full jobs);
+        // join real a3m when --msa_subsample is on, else a dummy stub.
+        def a3m_stub = file("${projectDir}/assets/dummy_files/empty")
+        if (MsaSubsample.isEnabled(params.msa_subsample)) {
+            ch_af2_in = FOLD_MSA.out.af2_msas
+                .join(FOLD_MSA.out.a3m.map { meta, fasta, a3m -> [meta, a3m] })
+                .map { meta, fasta, msas, a3m -> [meta, fasta, msas, a3m] }
+        }
+        else {
+            ch_af2_in = FOLD_MSA.out.af2_msas.map { meta, fasta, msas -> [meta, fasta, msas, a3m_stub] }
+        }
+        ALPHAFOLD2(ch_af2_in)
         ch_af2_pred = ALPHAFOLD2.out.predictions
     }
     if ('boltz' in methods) {

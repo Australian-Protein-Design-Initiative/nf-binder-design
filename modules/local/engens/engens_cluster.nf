@@ -19,7 +19,7 @@ process ENGENS {
     tuple val(meta), path('clustering'), emit: clustering, optional: true
 
     script:
-    def clustering = params.engens_clustering ?: 'gmm'
+    def clustering = params.engens_clustering ?: 'hdbscan'
     def dimred = params.engens_dimred ?: 'umap'
     def min_structures = params.engens_min_structures ?: 3
     def max_clusters = params.engens_max_clusters ?: 10

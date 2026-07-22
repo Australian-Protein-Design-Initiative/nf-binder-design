@@ -1,5 +1,5 @@
 process BOLTZ {
-    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
+    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
     container 'ghcr.io/australian-protein-design-initiative/containers/boltz:v2.2.1-2'
     // Recursive /** so each nested file is its own publish item. A directory
     // output is a single item - saveAs never sees *_model_N.cif inside it, so
@@ -9,7 +9,9 @@ process BOLTZ {
         path: "${params.outdir}/${step_name}",
         mode: 'copy',
         saveAs: { filename ->
-            meta.fold_namespaced ? "batch_${meta.fold_batch}/${filename}" : filename
+            if (!meta.fold_namespaced) { return filename }
+            def msa_bit = meta.msa_depth_tag ? "_msa_${meta.msa_depth_tag}" : ''
+            return "batch_${meta.fold_batch}${msa_bit}/${filename}"
         }
     )
     // Second publishDir (fold.nf only): gather per-sample structures into the
@@ -23,7 +25,19 @@ process BOLTZ {
             if (!step_name.toString().startsWith('fold/')) { return null }
             def bn = filename.toString().replaceFirst(/^.*\//, '')
             if (!(bn ==~ /.*_model_\d+\.(cif|pdb)/)) { return null }
-            return meta.fold_namespaced ? "boltz_batch${meta.fold_batch}_${bn}" : "boltz_${bn}"
+            def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
+            return meta.fold_namespaced \
+                ? "boltz_batch${meta.fold_batch}${msa_bit}_${bn}" \
+                : "boltz${msa_bit}_${bn}"
+        }
+    )
+    // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
+    publishDir(
+        path: "${params.outdir}/fold/msa_ids",
+        mode: 'copy',
+        pattern: '*_ids.txt',
+        saveAs: { filename ->
+            step_name.toString().startsWith('fold/') ? filename : null
         }
     )
 
@@ -47,6 +61,7 @@ process BOLTZ {
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/confidence_${yaml_file.baseName}_model_*.json"), emit: confidence_json_all
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae.tsv"), emit: ipsae_tsv
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae_byres.tsv"), emit: ipsae_byres_tsv
+    path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
@@ -70,7 +85,33 @@ process BOLTZ {
         params.boltz_sampling_steps ? "--sampling_steps ${params.boltz_sampling_steps}" : '',
         seed ? "--seed ${seed}" : '',
     ].findAll { it }.join(' ')
+    def do_subsample = meta.msa_max_seq != null
+    def write_msa_ids = meta.msa_depth_tag != null
+    def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
+    def msa_ids_file = write_msa_ids \
+        ? "boltz_${batch_bit}msa${meta.msa_depth_tag}_${meta.id}_ids.txt" \
+        : ''
     """
+    set -euo pipefail
+
+    # Optional CF-random-style MSA subsample (overwrite staged binder a3m in place)
+    if [[ "${do_subsample}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${binder_msa}" \
+            --max-seq ${meta.msa_max_seq} \
+            --max-extra-seq ${meta.msa_max_extra_seq} \
+            --seed ${meta.msa_subsample_seed} \
+            -o subsampled.a3m \
+            --ids-output "${msa_ids_file}"
+        rm -f "${binder_msa}"
+        mv subsampled.a3m "${binder_msa}"
+    elif [[ "${write_msa_ids}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${binder_msa}" \
+            --ids-only \
+            --ids-output "${msa_ids_file}"
+    fi
+
     # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
     if [[ -n "${params.gpu_devices}" ]]; then
         free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
@@ -131,7 +172,7 @@ process BOLTZ {
         d=\$(dirname "\$pae")
         model=\$(basename "\$pae" .npz)      # pae_<name>_model_<i>
         model=\${model#pae_}                 # <name>_model_<i>
-        ${projectDir}/bin/ipsae.py \\
+        python3 ${projectDir}/bin/ipsae.py \\
             --update-summary "\$d/confidence_\${model}.json" \\
             --format boltz \\
             "\$pae" "\$d/\${model}.${out_fmt}" 10 10

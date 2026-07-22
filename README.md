@@ -13,6 +13,7 @@ Nextflow pipelines for _de novo_ protein binder design.
 - Germinal (antibody/nanobody design in parallel across multiple GPUs)
 - BoltzGen (design proteins and peptides binders, in parallel across multiple GPUs)
 - "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
+- Fold (`fold.nf`) — multi-method monomer structure prediction (AF2, Boltz-2, RF3, Protenix) with shared MSAs and EnGens clustering
 
 ----
 

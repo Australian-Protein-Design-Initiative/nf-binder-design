@@ -14,6 +14,7 @@ nav:
       - Germinal: workflows/germinal.md
       - BoltzGen: workflows/boltzgen.md
       - Boltz Pulldown: workflows/boltz-pulldown.md
+      - Fold: workflows/fold.md
   - Subworkflows:
       - FoldSeek: subworkflows/foldseek.md
   - Extra:

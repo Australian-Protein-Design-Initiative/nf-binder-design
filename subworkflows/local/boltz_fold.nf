@@ -46,21 +46,42 @@ workflow BOLTZ_FOLD {
     // the unused "target" slot gets the same empty-placeholder file
     // boltz_pulldown.nf uses for its own target-msa-less branches.
     def batches = foldPredictionBatches(params.boltz_batch_size, 1, params.n_predictions)
-    def namespaced = batches.size() > 1
     def base_seed = params.boltz_seed ? (params.boltz_seed as int) : null
 
     ch_boltz_input = FOLD_CREATE_BOLTZ_YAML.out.yaml.flatMap { meta, yaml, msa ->
-        batches.withIndex().collect { n_samples, i ->
-            def m = meta + [
-                fold_batch: i + 1,
-                fold_batch_size: n_samples,
-                fold_namespaced: namespaced,
-            ]
-            if (base_seed != null) {
-                m = m + [boltz_seed: base_seed + i]
+        def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
+            ? MsaSubsample.countA3mSequences(msa) : null
+        def depth_jobs = MsaSubsample.depthJobs(
+            params.msa_subsample, params.msa_subsample_include_full, n_seq
+        )
+        def namespaced = batches.size() > 1 || depth_jobs.size() > 1
+        def jobs = []
+        batches.withIndex().each { n_samples, i ->
+            depth_jobs.each { depth ->
+                def m = meta + [
+                    fold_batch: i + 1,
+                    fold_batch_size: n_samples,
+                    fold_namespaced: namespaced,
+                ]
+                if (base_seed != null) {
+                    m = m + [boltz_seed: base_seed + i]
+                }
+                if (depth != null) {
+                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    m = m + [
+                        msa_max_seq: depth[0],
+                        msa_max_extra_seq: depth[1],
+                        msa_subsample_seed: s,
+                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                    ]
+                }
+                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                    m = m + [msa_depth_tag: 'full']
+                }
+                jobs << [m, yaml, file("${projectDir}/assets/dummy_files/empty_target_msa"), msa]
             }
-            [m, yaml, file("${projectDir}/assets/dummy_files/empty_target_msa"), msa]
         }
+        jobs
     }
 
     // step_name is BOLTZ's publishDir subdir under params.outdir; use 'fold/boltz'

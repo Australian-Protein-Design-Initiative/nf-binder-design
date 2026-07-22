@@ -1,5 +1,9 @@
 Multi-method structure folding with the standalone `fold.nf` workflow.
 
+See the [Fold workflow docs](../../docs/docs/workflows/fold.md) for MSA options,
+EnGens, outputs, and AlphaFold / ColabFold database setup
+(`scripts/download_alphafold_dbs.sh`, `scripts/download_colabfold_dbs.sh`).
+
 **Phase 1 of `plans/fold-nf-multi-method-folding.md`: monomer inputs only.**
 A FASTA file with more than one record (multimer) fails fast with a clear
 error; multimer support (paired MSAs per method) is a later phase.
@@ -23,8 +27,9 @@ real multimer test case yet.
 | `--msa_method` (`jackhmmer_af2`\|`mmseqs2_colabfold`) | `--af2_db_preset` | `--boltz_recycling` (`--recycling_steps`) | `--rf3_n_recycles` | `--protenix_step` (`--step`) |
 | `--use_remote_server`, `--uniref30`, `--colabfold_envdb` (ColabFold local/remote MSA) | `--af2_max_template_date` | `--boltz_batch_size` (`--diffusion_samples` per job) | `--rf3_batch_size` (`diffusion_batch_size` per job) | `--protenix_batch_size` (`--sample` per job) |
 | `--n_predictions` (total structures; split by method batch size) | `--af2_random_seed` | `--boltz_sampling_steps` (`--sampling_steps`) | `--rf3_early_stopping_plddt_threshold` | `--protenix_model_name`, `--protenix_use_msa` |
-| `--gpu_devices` | `--af2_keep_models`, `--af2_no_relax` | `--boltz_seed` | `--rf3_seed` | `--protenix_seeds` |
-| EnGens (default on): `--skip_engens`, `--engens_clustering` (`gmm`\|`km`), `--engens_min_structures`, `--engens_max_clusters` | | | | |
+| `--msa_subsample` (`false`\|`true`\|`max:extra,...`), `--msa_subsample_include_full` | `--af2_keep_models`, `--af2_no_relax` | `--boltz_seed` | `--rf3_seed` | `--protenix_seeds` |
+| `--gpu_devices` | | | | |
+| EnGens (default on): `--skip_engens`, `--engens_clustering` (`hdbscan`\|`gmm`\|`km`), `--engens_min_structures`, `--engens_max_clusters` | | | | |
 
 Method-namespaced params (`--af2_*`, `--boltz_*`,
 `--rf3_*`, `--protenix_*`) are kept explicit rather than unified, since
@@ -71,6 +76,17 @@ jackhmmer/hhblits MSA + GPU predict route):
 ./run-m3.sh --methods af2
 ```
 
+Optional CF-random-style MSA subsample (shallow random MSA depths per predict
+task; `--msa_subsample true` uses depths `1:2,2:4,...,64:128`, or pass a custom
+`max_seq:max_extra_seq` list). Depths with `max_seq >=` MSA size are skipped;
+`--msa_subsample_include_full` (default) keeps one full-MSA job. Full-MSA jobs
+keep AF2 templates; shallow AF2 jobs rebuild `features.pkl` from the subsampled
+a3m without templates:
+
+```bash
+./run-m3.sh --methods af2,boltz --msa_subsample true --n_predictions 5
+```
+
 To try the ColabFold MSA route instead (bridging the resulting a3m into AF2 too):
 
 ```bash
@@ -90,9 +106,13 @@ required unless you have your own `colabfold_search`-format `--uniref30`/
 - Per-method predictions under `results/fold/` and a flat gather of mmCIF
   structures in `results/fold/predictions/` (tool-prefixed filenames: `af2_`,
   `boltz_`, `rf3_`, `protenix_`).
+- With `--msa_subsample`, sequence ID lists for each depth job under
+  `results/fold/msa_ids/` (`header_line<TAB>id`; 0-based `>` line in the
+  original a3m; filenames include method, batch/run and `_msa<depth>`).
+  Depths with `max_seq >=` MSA size are skipped.
 - EnGens (unless `--skip_engens`): `results/engens/<id>/clusters.html` plus
   representative structures under
-  `results/engens/<id>/clustering/<featurizer>/<gmm|km>/conformations/`
+  `results/engens/<id>/clustering/<featurizer>/<gmm|km|hdbscan>/conformations/`
   (e.g. `residue_mindist`, `backbone_torsions`, `backbone_torsions-residue_mindist`).
 - `results/fold/params.json` written on completion.
 

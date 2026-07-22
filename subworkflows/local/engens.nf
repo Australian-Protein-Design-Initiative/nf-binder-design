@@ -4,7 +4,7 @@ ENGENS_CLUSTER: conformational clustering of predicted structures from fold.nf.
 Takes a channel of [meta, structure_files] (already uniquely named), stages
 them if needed, and renders assets/engens/engens-analysis.qmd to
 results/engens/<id>/clusters.html with representative PDBs under
-clustering/<featurizer>/<gmm|km>/conformations/
+clustering/<featurizer>/<gmm|km|hdbscan>/conformations/
 (e.g. residue_mindist, backbone_torsions-residue_mindist).
 */
 
@@ -50,24 +50,33 @@ def engensStructurePaths(files) {
     }
 }
 
-// Collision-free basename matching fold/predictions/ publish naming.
+// Collision-free basename matching fold/predictions/ publish naming
+// (includes _msa<depth> when --msa_subsample fans out depth jobs).
 def engensUniqueName(meta, path) {
     def bn = path.getName().toString()
-    def batch = meta.fold_batch != null ? "batch${meta.fold_batch}_" : ''
+    def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
     if (bn ==~ /relaxed_model_.*\.cif/ || bn ==~ /unrelaxed_model_.*\.cif/ || bn == 'ranked_0.cif') {
-        def run = meta.af2_run != null ? "run${meta.af2_run}_" : ''
-        return "af2_${meta.id}_${run}${bn}"
+        def run = meta.af2_run != null ? "run${meta.af2_run}" : ''
+        def run_bit = run ? "_${run}" : ''
+        return "af2_${meta.id}${run_bit}${msa_bit}_${bn}"
     }
     if (bn ==~ /.*_model_\d+\.(cif|pdb)/ && !(bn ==~ /.*_sample.*/)) {
-        return "boltz_${batch}${bn}"
+        return meta.fold_namespaced \
+            ? "boltz_batch${meta.fold_batch}${msa_bit}_${bn}" \
+            : "boltz${msa_bit}_${bn}"
     }
     if (bn ==~ /.*_sample-\d+_model\.cif/) {
-        return "rf3_${batch}${bn}"
+        return meta.fold_namespaced \
+            ? "rf3_batch${meta.fold_batch}${msa_bit}_${bn}" \
+            : "rf3${msa_bit}_${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
-        return "protenix_${batch}${bn}"
+        return meta.fold_namespaced \
+            ? "protenix_batch${meta.fold_batch}${msa_bit}_${bn}" \
+            : "protenix${msa_bit}_${bn}"
     }
-    return "${meta.id}_${batch}${bn}"
+    def batch = meta.fold_batch != null ? "_batch${meta.fold_batch}" : ''
+    return "${meta.id}${batch}${msa_bit}_${bn}"
 }
 
 workflow ENGENS_CLUSTER {

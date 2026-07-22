@@ -74,7 +74,9 @@ def make_protenix_input(fasta_path: Path, name: str, a3m_path: Optional[Path] = 
         # Phase 1 is monomer-only, so a single provided a3m always belongs to
         # the sole chain - see module docstring for the multi-chain caveat.
         if a3m_path is not None and len(sequences) == 1:
-            protein_chain["unpairedMsaPath"] = str(a3m_path.resolve())
+            # Basename so fold.nf can overwrite the staged a3m in-task
+            # (MSA subsample) without rewriting this JSON.
+            protein_chain["unpairedMsaPath"] = a3m_path.name
         entries.append({"proteinChain": protein_chain})
 
     return {"name": name, "sequences": entries}

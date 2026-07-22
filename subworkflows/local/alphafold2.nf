@@ -6,17 +6,19 @@ deliberately NOT part of this subworkflow: fold.nf's FOLD_MSA
 jackhmmer/hhblits MSAs (--msa_method jackhmmer_af2) or a ColabFold a3m bridged
 into the same precomputed-MSA directory contract this subworkflow's `take`
 expects (--msa_method mmseqs2_colabfold).
+
+When --msa_subsample is on, shallow depth jobs rebuild features.pkl from a
+subsampled a3m (empty templates); full-depth jobs reuse the precomputed
+features.pkl (templates kept for jackhmmer).
 */
 
 include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/fold/af2/alphafold2'
 
 workflow ALPHAFOLD2 {
     take:
-    // tuple(meta, fasta, msas_dir) - msas_dir MUST be a directory named
-    // exactly meta.id containing features.pkl (the only file the predict
-    // module actually reads under --use_precomputed_msas=true; see
-    // modules/fold/af2/colabfold_a3m_to_af2_msas.nf for why).
-    ch_af2_msas
+    // tuple(meta, fasta, msas_dir, a3m)
+    // a3m may be a dummy stub when --msa_subsample is off.
+    ch_af2_input
 
     main:
     // AF2 always generates its 5 trained models per predict. --af2_keep_models
@@ -36,14 +38,35 @@ workflow ALPHAFOLD2 {
     // so omitting the seed does not collapse the N runs into one.
     def base = params.af2_random_seed ? (params.af2_random_seed as int) : null
     def seeds = (0..<n_runs).collect { i -> base != null ? base + i : null }
-    def namespaced = n_runs > 1
 
-    ch_runs = ch_af2_msas.flatMap { meta, fasta, msas ->
-        seeds.withIndex().collect { seed, i ->
-            def m = meta + [af2_run: i + 1, af2_keep_models: keep_models, af2_namespaced: namespaced]
-            if (seed != null) { m = m + [af2_seed: seed] }
-            [m, fasta, msas]
+    ch_runs = ch_af2_input.flatMap { meta, fasta, msas, a3m ->
+        def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
+            ? MsaSubsample.countA3mSequences(a3m) : null
+        def depth_jobs = MsaSubsample.depthJobs(
+            params.msa_subsample, params.msa_subsample_include_full, n_seq
+        )
+        def namespaced = n_runs > 1 || depth_jobs.size() > 1
+        def jobs = []
+        seeds.withIndex().each { seed, i ->
+            depth_jobs.each { depth ->
+                def m = meta + [af2_run: i + 1, af2_keep_models: keep_models, af2_namespaced: namespaced]
+                if (seed != null) { m = m + [af2_seed: seed] }
+                if (depth != null) {
+                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    m = m + [
+                        msa_max_seq: depth[0],
+                        msa_max_extra_seq: depth[1],
+                        msa_subsample_seed: s,
+                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                    ]
+                }
+                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                    m = m + [msa_depth_tag: 'full']
+                }
+                jobs << [m, fasta, msas, a3m]
+            }
         }
+        jobs
     }
 
     ALPHAFOLD2_PREDICT(ch_runs)

@@ -21,7 +21,10 @@ workflow FOLD_MSA {
 
     main:
     def need_af2_msas = 'af2' in methods
-    def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods)
+    // a3m needed for Boltz/RF3/Protenix, and for AF2 when --msa_subsample is on
+    // (shallow jobs rebuild features.pkl from a subsampled a3m).
+    def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) \
+        || (need_af2_msas && MsaSubsample.isEnabled(params.msa_subsample))
 
     ch_af2_msas = Channel.empty()
     ch_a3m = Channel.empty()
@@ -85,7 +88,8 @@ workflow FOLD_MSA {
 
     emit:
     af2_msas = ch_af2_msas  // tuple(meta, fasta, msas_dir) - empty channel if af2 wasn't requested
-    for_boltz = ch_a3m      // tuple(meta, fasta, a3m) - empty channel if none of boltz/rf3/protenix requested
+    a3m = ch_a3m            // tuple(meta, fasta, a3m) - also when AF2+subsample needs it
+    for_boltz = ch_a3m
     for_rf3 = ch_a3m
     for_protenix = ch_a3m
 }

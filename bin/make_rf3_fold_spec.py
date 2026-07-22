@@ -73,7 +73,9 @@ def make_rf3_fold_spec(fasta_path: Path, name: str, a3m_path: Optional[Path] = N
         # the sole chain. Multimer per-chain MSA routing is Phase 2 work (see
         # module docstring).
         if a3m_path is not None and len(sequences) == 1:
-            comp["msa_path"] = str(a3m_path.resolve())
+            # Basename so fold.nf can overwrite the staged a3m in-task
+            # (MSA subsample) without rewriting this JSON.
+            comp["msa_path"] = a3m_path.name
         components.append(comp)
 
     return {"name": name, "components": components}

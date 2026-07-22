@@ -5,7 +5,7 @@
 // `protenix pred` needs no download at predict time, same as rf3's
 // rc-foundry image).
 process PROTENIX_FOLD {
-    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
+    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
     container 'oras://ghcr.io/australian-protein-design-initiative/containers/protenix:v2.0.0-weights'
 
@@ -27,7 +27,8 @@ process PROTENIX_FOLD {
             def rel = filename.toString().replaceFirst(/^output\//, '')
             if (meta.fold_namespaced && rel.startsWith("${meta.id}/")) {
                 def tail = rel.substring(meta.id.toString().length() + 1)
-                return "${meta.id}/batch_${meta.fold_batch}/${tail}"
+                def msa_bit = meta.msa_depth_tag ? "_msa_${meta.msa_depth_tag}" : ''
+                return "${meta.id}/batch_${meta.fold_batch}${msa_bit}/${tail}"
             }
             return rel
         }
@@ -40,8 +41,17 @@ process PROTENIX_FOLD {
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
             if (!(bn ==~ /.*_sample_\d+\.cif/)) { return null }
-            return meta.fold_namespaced ? "protenix_batch${meta.fold_batch}_${bn}" : "protenix_${bn}"
+            def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
+            return meta.fold_namespaced \
+                ? "protenix_batch${meta.fold_batch}${msa_bit}_${bn}" \
+                : "protenix${msa_bit}_${bn}"
         }
+    )
+    // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
+    publishDir(
+        path: "${params.outdir}/fold/msa_ids",
+        mode: 'copy',
+        pattern: '*_ids.txt'
     )
 
     input:
@@ -49,6 +59,7 @@ process PROTENIX_FOLD {
 
     output:
     tuple val(meta), path('output/**'), emit: predictions
+    path("*_ids.txt"), emit: msa_ids, optional: true
     tuple val(meta), path('output/**/*_summary_confidence_sample_*.json'), emit: confidence_json
 
     script:
@@ -59,8 +70,32 @@ process PROTENIX_FOLD {
     // else params; unset -> omit (protenix default, -resume-stable).
     def seeds = meta.protenix_seeds != null ? meta.protenix_seeds : params.protenix_seeds
     def seeds_arg = seeds ? "--seeds ${seeds}" : ''
+    def do_subsample = meta.msa_max_seq != null
+    def write_msa_ids = meta.msa_depth_tag != null
+    def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
+    def msa_ids_file = write_msa_ids \
+        ? "protenix_${batch_bit}msa${meta.msa_depth_tag}_${meta.id}_ids.txt" \
+        : ''
     """
     set -euo pipefail
+
+    # Optional CF-random-style MSA subsample (JSON uses a3m basename)
+    if [[ "${do_subsample}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${a3m}" \
+            --max-seq ${meta.msa_max_seq} \
+            --max-extra-seq ${meta.msa_max_extra_seq} \
+            --seed ${meta.msa_subsample_seed} \
+            -o subsampled.a3m \
+            --ids-output "${msa_ids_file}"
+        rm -f "${a3m}"
+        mv subsampled.a3m "${a3m}"
+    elif [[ "${write_msa_ids}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${a3m}" \
+            --ids-only \
+            --ids-output "${msa_ids_file}"
+    fi
 
     if [[ ${params.require_gpu} == "true" ]]; then
         if ! command -v nvidia-smi >/dev/null 2>&1; then

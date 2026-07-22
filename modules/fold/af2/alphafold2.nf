@@ -1,5 +1,5 @@
 process ALPHAFOLD2 {
-    tag "${meta.id} run${meta.af2_run}"
+    tag "${meta.id} run${meta.af2_run}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
     container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
 
@@ -13,8 +13,8 @@ process ALPHAFOLD2 {
     // COLABFOLD_A3M_TO_AF2_MSAS (features.pkl under fold/af2/msas/; raw msas/
     // under fold/msa/<method>/). The "out/" dir carries a copy only because the
     // precomputed MSAs are staged into it.
-    // When --n_predictions fans AF2 out into multiple seeded runs (meta.af2_namespaced),
-    // each run's output is nested under run_<n>/ so they don't collide.
+    // When --n_predictions / --msa_subsample fans AF2 out (meta.af2_namespaced),
+    // each run's output is nested under run_<n>[_msa_...]/ so they don't collide.
     // In --af2_keep_models=best mode only the top-ranked model and the ranking
     // table are kept per run; 'all' keeps everything (minus the MSAs/features).
     publishDir(
@@ -34,6 +34,9 @@ process ALPHAFOLD2 {
             if (meta.af2_namespaced) {
                 def tail = rel.substring(meta.id.toString().length() + 1) // strip "${meta.id}/"
                 def runtag = meta.af2_seed != null ? "run_${meta.af2_run}_seed_${meta.af2_seed}" : "run_${meta.af2_run}"
+                if (meta.msa_depth_tag) {
+                    runtag = "${runtag}_msa_${meta.msa_depth_tag}"
+                }
                 return "${meta.id}/${runtag}/${tail}"
             }
             return rel
@@ -57,15 +60,23 @@ process ALPHAFOLD2 {
                 match = bn ==~ /relaxed_model_.*\.cif/
             }
             if (!match) { return null }
-            return "af2_${meta.id}_run${meta.af2_run}_${bn}"
+            def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
+            return "af2_${meta.id}_run${meta.af2_run}${msa_bit}_${bn}"
         }
+    )
+    // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
+    publishDir(
+        path: "${params.outdir}/fold/msa_ids",
+        mode: 'copy',
+        pattern: '*_ids.txt'
     )
 
     input:
-    tuple val(meta), path(fasta), path(msa_dir)
+    tuple val(meta), path(fasta), path(msa_dir), path(a3m)
 
     output:
     tuple val(meta), path("out/${meta.id}/**"), emit: predictions
+    path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:
     // Same DB flags as ALPHAFOLD2_JACKHMMER_MSA - see the comment there for why
@@ -103,7 +114,16 @@ process ALPHAFOLD2 {
     def num_multimer_predictions_flag = params.af2_model_preset == 'multimer'
         ? "--num_multimer_predictions_per_model=${params.af2_num_predictions_per_model}"
         : ''
+    // Shallow --msa_subsample jobs: rebuild features.pkl from subsampled a3m
+    // (empty templates). Full / non-subsample: reuse staged features.pkl.
+    def do_subsample = meta.msa_max_seq != null
+    def write_msa_ids = meta.msa_depth_tag != null
+    def msa_ids_file = write_msa_ids \
+        ? "af2_${meta.id}_run${meta.af2_run}_msa${meta.msa_depth_tag}_ids.txt" \
+        : ''
     """
+    set -euo pipefail
+
     if [[ ${params.require_gpu} == "true" ]]; then
         if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
             echo "No GPU detected! Failing fast rather than going slow (since --require_gpu=true)"
@@ -120,10 +140,32 @@ process ALPHAFOLD2 {
     fi
 
     mkdir -p out
-    # -L dereferences the symlink-staged MSA dir (stageInMode='symlink') into real,
-    # writable files - AlphaFold rewrites features.pkl and writes prediction
-    # outputs alongside it, which fails/corrupts -resume caching against a symlink.
-    cp -rL "${msa_dir}" "out/${meta.id}"
+    if [[ "${do_subsample}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${a3m}" \
+            --max-seq ${meta.msa_max_seq} \
+            --max-extra-seq ${meta.msa_max_extra_seq} \
+            --seed ${meta.msa_subsample_seed} \
+            -o subsampled.a3m \
+            --ids-output "${msa_ids_file}"
+        mkdir -p "out/${meta.id}/msas"
+        cp subsampled.a3m "out/${meta.id}/msas/subsampled.a3m"
+        python ${projectDir}/bin/colabfold_a3m_to_af2_msas.py \
+            --fasta ${fasta} \
+            --a3m subsampled.a3m \
+            --output-dir "out/${meta.id}"
+    else
+        # -L dereferences the symlink-staged MSA dir (stageInMode='symlink') into real,
+        # writable files - AlphaFold rewrites features.pkl and writes prediction
+        # outputs alongside it, which fails/corrupts -resume caching against a symlink.
+        cp -rL "${msa_dir}" "out/${meta.id}"
+        if [[ "${write_msa_ids}" == "true" ]]; then
+            python3 ${projectDir}/bin/subsample_a3m.py \
+                --a3m "${a3m}" \
+                --ids-only \
+                --ids-output "${msa_ids_file}"
+        fi
+    fi
 
     python /app/alphafold/run_alphafold.py \
         --fasta_paths=${fasta} \

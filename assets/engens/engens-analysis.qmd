@@ -27,7 +27,7 @@ import os
 input_dir = os.environ.get("ENGENS_INPUT_DIR", "structures")
 target_id = os.environ.get("ENGENS_TARGET_ID", "target")
 dimred = os.environ.get("ENGENS_DIMRED", "umap").strip().lower()
-clustering = [c.strip().lower() for c in os.environ.get("ENGENS_CLUSTERING", "gmm").split(",") if c.strip()]
+clustering = [c.strip().lower() for c in os.environ.get("ENGENS_CLUSTERING", "hdbscan").split(",") if c.strip()]
 min_structures = int(os.environ.get("ENGENS_MIN_STRUCTURES", "3"))
 max_clusters = int(os.environ.get("ENGENS_MAX_CLUSTERS", "10"))
 gmm_ic = os.environ.get("ENGENS_GMM_IC", "aic").strip().lower()
@@ -259,11 +259,29 @@ def show_structures_overlay(
         print("No structures to overlay.")
         return
 
+    # Quarto HTML often includes RequireJS. Mol*'s UMD build then hits
+    # "Mismatched anonymous define() module" unless AMD define is hidden.
+    _amd_off = (
+        "<script>"
+        "window.__nfbd_define=window.define;window.define=undefined;"
+        "</script>\n"
+    )
+    _amd_on = (
+        "<script>"
+        "window.define=window.__nfbd_define;delete window.__nfbd_define;"
+        "</script>\n"
+    )
+
     assets = ""
     if not _MOLSTAR_ASSETS_EMITTED:
         try:
             js, css = _fetch_molstar_assets()
-            assets = f"<style>\n{css}\n</style>\n<script>\n{js}\n</script>\n"
+            assets = (
+                f"<style>\n{css}\n</style>\n"
+                + _amd_off
+                + f"<script>\n{js}\n</script>\n"
+                + _amd_on
+            )
             _MOLSTAR_ASSETS_EMITTED = True
         except Exception as exc:  # noqa: BLE001
             log.warning(
@@ -273,7 +291,9 @@ def show_structures_overlay(
             )
             assets = (
                 f'<link rel="stylesheet" type="text/css" href="{_MOLSTAR_CSS_URL}"/>'
-                f'<script src="{_MOLSTAR_JS_URL}"></script>'
+                + _amd_off
+                + f'<script src="{_MOLSTAR_JS_URL}"></script>\n'
+                + _amd_on
             )
             _MOLSTAR_ASSETS_EMITTED = True
 
@@ -420,12 +440,22 @@ representative conformation is taken from each cluster.
 ```{python}
 #| label: overview-params
 #| output: asis
-_clust_crit = gmm_ic.upper() if "gmm" in clustering else "elbow"
+_has_auto_n = any(c in ("gmm", "km") for c in clustering)
+_clust_crit = (
+    gmm_ic.upper() if "gmm" in clustering and "km" not in clustering
+    else "elbow" if "km" in clustering and "gmm" not in clustering
+    else f"{gmm_ic.upper()}/elbow"
+) if _has_auto_n else "density (HDBSCAN)"
+_crit_note = (
+    f"(cluster count chosen automatically via {_clust_crit})"
+    if _has_auto_n
+    else "(HDBSCAN chooses cluster count from density; noise labelled -1)"
+)
 print(
     f"Target: `{target_id}`  \n"
     f"Dimensionality reduction: **{dimred.upper()}**  \n"
     f"Clustering: **{', '.join(c.upper() for c in clustering)}** "
-    f"(cluster count chosen automatically via {_clust_crit})  \n"
+    f"{_crit_note}  \n"
     f"Featurizers: EnGens defaults "
     f"(0: residue_mindist, 1: backbone_torsions, "
     f"2: backbone_torsions & residue_mindist)\n"
@@ -623,14 +653,16 @@ if enough and umap_by_feat:
 
 # Cluster-count selection
 
-For each featurizer, candidate cluster counts are scored and the optimum is
+For GMM / K-means, candidate cluster counts are scored and the optimum is
 chosen automatically (Akaike information criterion for GMM; elbow method for
 K-means). The red dashed line marks the selected number of components/clusters.
+HDBSCAN does not use a fixed-n search (no plot below for that method).
 
 ```{python}
 #| label: clustering
-# EnGens registers methods as uppercase keys (GMM, KM).
-engens_method_key = {"gmm": "GMM", "km": "KM"}
+# EnGens registers GMM/KM as uppercase keys. HDBSCAN is run via sklearn
+# directly (not in EnGens' clusterings registry) - CF-random blind-mode analog.
+engens_method_key = {"gmm": "GMM", "km": "KM", "hdbscan": "HDBSCAN"}
 
 summary_rows = []
 # (feat_idx, method) -> list of (cluster_id, frame, label, src_path)
@@ -656,6 +688,36 @@ def choose_n_auto(
     plt.close("all")
     return int(best["n_clusters"])
 
+def run_hdbscan(embedding: np.ndarray):
+    """Fit HDBSCAN on a UMAP embedding; return (labels, cluster_ids_sorted)."""
+    try:
+        from sklearn.cluster import HDBSCAN as SkHDBSCAN
+        model = SkHDBSCAN(min_cluster_size=max(2, min(5, embedding.shape[0] // 5)))
+        labels = model.fit_predict(embedding)
+    except Exception:
+        try:
+            import hdbscan as hdbscan_pkg
+            model = hdbscan_pkg.HDBSCAN(min_cluster_size=max(2, min(5, embedding.shape[0] // 5)))
+            labels = model.fit_predict(embedding)
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                "HDBSCAN unavailable: need sklearn>=1.3 (sklearn.cluster.HDBSCAN) "
+                f"or the hdbscan package ({exc})"
+            ) from exc
+    cluster_ids = sorted({int(c) for c in labels if int(c) >= 0})
+    return labels, cluster_ids
+
+def hdbscan_medoids(embedding: np.ndarray, labels: np.ndarray, cluster_ids: list[int]):
+    """One medoid frame per cluster (nearest to cluster mean in embedding)."""
+    medoids = []
+    for cid in cluster_ids:
+        idxs = np.where(labels == cid)[0]
+        pts = embedding[idxs]
+        centre = pts.mean(axis=0)
+        dists = np.linalg.norm(pts - centre, axis=1)
+        medoids.append((cid, int(idxs[int(np.argmin(dists))])))
+    return medoids
+
 if enough:
     from engens.core.ClustEn import clusterings
 
@@ -667,9 +729,74 @@ if enough:
         engen.chosen_feat_index = feat_idx
         engen.dimred_data = umap_by_feat[feat_idx]
         engen.data = umap_by_feat[feat_idx]
+        embedding = np.asarray(umap_by_feat[feat_idx])
 
         for method in clustering:
             method_key = engens_method_key.get(method, method.upper())
+            key = (feat_idx, method)
+
+            if method == "hdbscan":
+                try:
+                    labels, cluster_ids = run_hdbscan(embedding)
+                except RuntimeError as exc:
+                    log.warning("%s - skipping HDBSCAN for featurizer %s", exc, feat_name)
+                    continue
+                if not cluster_ids:
+                    log.warning(
+                        "HDBSCAN found no clusters (all noise) for [%s] %s - skipping",
+                        feat_idx, feat_name,
+                    )
+                    continue
+
+                cluster_png = plots_dir / f"{slug}_{method}_clusters.png"
+                fig, ax = plt.subplots(figsize=(6, 5))
+                noise = labels < 0
+                if noise.any():
+                    ax.scatter(
+                        embedding[noise, 0], embedding[noise, 1],
+                        c="#bbbbbb", s=18, alpha=0.5, label="noise",
+                    )
+                for i, cid in enumerate(cluster_ids):
+                    mask = labels == cid
+                    color = CLUSTER_COLORS[i % len(CLUSTER_COLORS)]
+                    ax.scatter(
+                        embedding[mask, 0], embedding[mask, 1],
+                        c=color, s=28, alpha=0.85, label=f"cluster {cid}",
+                    )
+                medoids = hdbscan_medoids(embedding, labels, cluster_ids)
+                for cid, frame in medoids:
+                    ax.scatter(
+                        embedding[frame, 0], embedding[frame, 1],
+                        c="yellow", edgecolors="black", s=90, zorder=5,
+                    )
+                ax.set_title(
+                    f"HDBSCAN clusters on UMAP - {target_id} - [{feat_idx}] {feat_name}"
+                )
+                ax.legend(fontsize=8, loc="best")
+                fig.tight_layout()
+                fig.savefig(cluster_png, dpi=150, bbox_inches="tight")
+                plt.close(fig)
+
+                n_points = max(1, int((labels >= 0).sum()))
+                reps = []
+                for cid, frame in medoids:
+                    label, src_path = kept[int(frame)]
+                    weight = float((labels == cid).sum()) / float(n_points)
+                    reps.append((cid, int(frame), label, src_path))
+                    summary_rows.append({
+                        "featurizer_index": feat_idx,
+                        "featurizer": feat_name,
+                        "method": method_key,
+                        "cluster": int(cid),
+                        "weight": round(weight, 4),
+                        "representative_frame": int(frame),
+                        "representative_structure": label,
+                    })
+                representatives[key] = reps
+                cluster_plots[key] = cluster_png
+                n_selected[key] = len(cluster_ids)
+                continue
+
             if method_key not in clusterings:
                 log.warning(
                     "Unknown clustering method '%s' (EnGens key '%s') - skipping",
@@ -715,7 +842,6 @@ if enough:
                     "representative_structure": label,
                 })
 
-            key = (feat_idx, method)
             representatives[key] = reps
             n_select_plots[key] = n_png
             cluster_plots[key] = cluster_png
@@ -738,6 +864,8 @@ if enough and n_select_plots:
                     f"[{feat_idx}] `{feat_name}`"
                     + (f" (chosen n = {n_sel})" if n_sel is not None else "")
                 )
+            elif method == "hdbscan":
+                continue
             else:
                 cap = (
                     f"KMeans elbow vs clusters — "
@@ -750,10 +878,10 @@ if enough and n_select_plots:
 
 # Clustering
 
-Clustering using a Gaussian Mixture Model (GMM) (or K-means when selected)
-assigns each UMAP-projected structure to a conformational cluster. Points are
-coloured by cluster membership; cluster centres are shown in red and the
-chosen representative frames in yellow.
+Clustering (GMM, K-means, and/or HDBSCAN) assigns each UMAP-projected structure
+to a conformational cluster. Points are coloured by cluster membership; for
+GMM/K-means, cluster centres are shown in red and chosen representatives in
+yellow. HDBSCAN marks noise in grey and medoid representatives in yellow.
 
 ```{python}
 #| label: cluster-umap-plots

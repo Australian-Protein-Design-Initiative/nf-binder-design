@@ -5,7 +5,7 @@
 // GENERATE_RF3_FOLD_INPUT built (monomer in Phase 1; multimer is Phase 2),
 // with no postprocessing beyond what `rf3 fold` itself emits.
 process RF3_FOLD {
-    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
+    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
     container 'oras://ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.2.0-weights'
 
@@ -25,7 +25,8 @@ process RF3_FOLD {
             def rel = filename.toString().replaceFirst(/^output\//, '')
             if (meta.fold_namespaced && rel.startsWith("${meta.id}/")) {
                 def tail = rel.substring(meta.id.toString().length() + 1)
-                return "${meta.id}/batch_${meta.fold_batch}/${tail}"
+                def msa_bit = meta.msa_depth_tag ? "_msa_${meta.msa_depth_tag}" : ''
+                return "${meta.id}/batch_${meta.fold_batch}${msa_bit}/${tail}"
             }
             return rel
         }
@@ -39,8 +40,17 @@ process RF3_FOLD {
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
             if (!(bn ==~ /.*_sample-\d+_model\.cif/)) { return null }
-            return meta.fold_namespaced ? "rf3_batch${meta.fold_batch}_${bn}" : "rf3_${bn}"
+            def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
+            return meta.fold_namespaced \
+                ? "rf3_batch${meta.fold_batch}${msa_bit}_${bn}" \
+                : "rf3${msa_bit}_${bn}"
         }
+    )
+    // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
+    publishDir(
+        path: "${params.outdir}/fold/msa_ids",
+        mode: 'copy',
+        pattern: '*_ids.txt'
     )
 
     input:
@@ -49,6 +59,7 @@ process RF3_FOLD {
     output:
     tuple val(meta), path('output/**'), emit: predictions
     tuple val(meta), path('output/**/*_summary_confidences.json'), emit: confidence_json
+    path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:
     // Per-job sample count from BOLTZ-style fan-out meta (fold.nf), else the
@@ -60,8 +71,32 @@ process RF3_FOLD {
     // task hash stays stable for -resume).
     def seed = meta.rf3_seed != null ? meta.rf3_seed : params.rf3_seed
     def seed_arg = seed ? "seed=${seed}" : ''
+    def do_subsample = meta.msa_max_seq != null
+    def write_msa_ids = meta.msa_depth_tag != null
+    def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
+    def msa_ids_file = write_msa_ids \
+        ? "rf3_${batch_bit}msa${meta.msa_depth_tag}_${meta.id}_ids.txt" \
+        : ''
     """
     set -euo pipefail
+
+    # Optional CF-random-style MSA subsample (JSON uses a3m basename)
+    if [[ "${do_subsample}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${a3m}" \
+            --max-seq ${meta.msa_max_seq} \
+            --max-extra-seq ${meta.msa_max_extra_seq} \
+            --seed ${meta.msa_subsample_seed} \
+            -o subsampled.a3m \
+            --ids-output "${msa_ids_file}"
+        rm -f "${a3m}"
+        mv subsampled.a3m "${a3m}"
+    elif [[ "${write_msa_ids}" == "true" ]]; then
+        python3 ${projectDir}/bin/subsample_a3m.py \
+            --a3m "${a3m}" \
+            --ids-only \
+            --ids-output "${msa_ids_file}"
+    fi
 
     if [[ ${params.require_gpu} == "true" ]]; then
         if ! command -v nvidia-smi >/dev/null 2>&1; then

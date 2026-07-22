@@ -38,11 +38,15 @@ Uses the remote ColabFold mmseqs2 server.
 
 ### Option 2: Local Databases
 
-Download and set up databases with the ColabFold [setup_databases.sh](https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh) script, then specify paths:
+Download and index databases with
+[`scripts/download_colabfold_dbs.sh`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/scripts/download_colabfold_dbs.sh)
+(wraps ColabFold
+[setup_databases.sh](https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh)),
+then specify paths. Full notes are in the [Fold databases](fold.md#colabfold-mmseqs2-databases) section.
 
 ```bash
---uniref30 /path/to/uniref30
---colabfold_envdb /path/to/colabfold_envdb
+--uniref30 /path/to/colabfold_dbs/uniref30
+--colabfold_envdb /path/to/colabfold_dbs/colabfold_envdb
 ```
 
 ## Custom Boltz Arguments

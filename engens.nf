@@ -20,7 +20,7 @@ params.outdir = 'results'
 params.id = false // target id for publishDir / report; default = input dir basename or 'engens'
 
 params.engens_dimred = 'umap'
-params.engens_clustering = 'gmm'
+params.engens_clustering = 'hdbscan'
 params.engens_min_structures = 3
 params.engens_max_clusters = 10
 params.engens_gmm_ic = 'aic'
@@ -37,7 +37,7 @@ workflow {
         ==================================================================
 
         Cluster an existing folder/glob of .cif / .pdb structures with EnGens
-        (UMAP + GMM by default) and write results/engens/<id>/clusters.html.
+        (UMAP + HDBSCAN by default) and write results/engens/<id>/clusters.html.
 
         Required arguments:
             --input                            Directory of structures, or a glob of .cif/.pdb files.
@@ -46,8 +46,8 @@ workflow {
             --outdir                           Output directory [default: ${params.outdir}]
             --id                               Target id for results/engens/<id>/ [default: input
                                                 directory basename, or 'engens' for a bare glob]
-            --engens_clustering                gmm (default), km, or comma-separated km,gmm
-                                                [default: ${params.engens_clustering}]
+            --engens_clustering                hdbscan (default), gmm, km, or comma-separated
+                                                combinations [default: ${params.engens_clustering}]
             --engens_dimred                    Dimensionality reduction (umap)
                                                 [default: ${params.engens_dimred}]
             --engens_min_structures            Minimum usable structures before clustering
@@ -69,8 +69,8 @@ workflow {
 
     def engens_clustering = params.engens_clustering.toString().split(',').collect { it.trim().toLowerCase() }
     engens_clustering.each { c ->
-        if (!(c in ['gmm', 'km'])) {
-            error("engens.nf: unknown --engens_clustering entry '${c}' (valid: gmm, km)")
+        if (!(c in ['gmm', 'km', 'hdbscan'])) {
+            error("engens.nf: unknown --engens_clustering entry '${c}' (valid: gmm, km, hdbscan)")
         }
     }
     if (!(params.engens_dimred.toString().toLowerCase() in ['umap'])) {

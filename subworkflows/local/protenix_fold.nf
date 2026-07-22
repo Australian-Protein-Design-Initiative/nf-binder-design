@@ -35,30 +35,56 @@ workflow PROTENIX_FOLD {
     GENERATE_PROTENIX_INPUT(ch_for_protenix)
 
     def batches = foldPredictionBatches(params.protenix_batch_size, 5, params.n_predictions)
-    def namespaced = batches.size() > 1
 
-    if (namespaced && params.protenix_seeds && params.protenix_seeds.toString().contains(',')) {
-        error(
-            "fold.nf: --protenix_seeds with multiple comma-separated values cannot be " +
-            "auto-offset across --protenix_batch_size jobs; pin a single seed (batches " +
-            "use seed, seed+1, ...) or leave --protenix_seeds unset."
-        )
+    if (params.protenix_seeds && params.protenix_seeds.toString().contains(',')) {
+        // namespaced is only known after per-a3m depth filtering; reject multi-seed
+        // whenever batching or subsample could fan out (same rule as before).
+        def maybe_depths = MsaSubsample.depthJobs(params.msa_subsample, params.msa_subsample_include_full)
+        if (batches.size() > 1 || maybe_depths.size() > 1) {
+            error(
+                "fold.nf: --protenix_seeds with multiple comma-separated values cannot be " +
+                "auto-offset across --protenix_batch_size jobs; pin a single seed (batches " +
+                "use seed, seed+1, ...) or leave --protenix_seeds unset."
+            )
+        }
     }
 
     def base_seed = params.protenix_seeds ? (params.protenix_seeds.toString().split(',')[0].trim() as int) : null
 
     ch_batched = GENERATE_PROTENIX_INPUT.out.with_json.flatMap { meta, fasta, a3m, json ->
-        batches.withIndex().collect { n_samples, i ->
-            def m = meta + [
-                fold_batch: i + 1,
-                fold_batch_size: n_samples,
-                fold_namespaced: namespaced,
-            ]
-            if (base_seed != null) {
-                m = m + [protenix_seeds: "${base_seed + i}"]
+        def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
+            ? MsaSubsample.countA3mSequences(a3m) : null
+        def depth_jobs = MsaSubsample.depthJobs(
+            params.msa_subsample, params.msa_subsample_include_full, n_seq
+        )
+        def namespaced = batches.size() > 1 || depth_jobs.size() > 1
+        def jobs = []
+        batches.withIndex().each { n_samples, i ->
+            depth_jobs.each { depth ->
+                def m = meta + [
+                    fold_batch: i + 1,
+                    fold_batch_size: n_samples,
+                    fold_namespaced: namespaced,
+                ]
+                if (base_seed != null) {
+                    m = m + [protenix_seeds: "${base_seed + i}"]
+                }
+                if (depth != null) {
+                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    m = m + [
+                        msa_max_seq: depth[0],
+                        msa_max_extra_seq: depth[1],
+                        msa_subsample_seed: s,
+                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                    ]
+                }
+                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                    m = m + [msa_depth_tag: 'full']
+                }
+                jobs << [m, fasta, a3m, json]
             }
-            [m, fasta, a3m, json]
         }
+        jobs
     }
 
     PROTENIX_FOLD_PROCESS(ch_batched)
