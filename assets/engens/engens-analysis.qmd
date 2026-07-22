@@ -1,0 +1,848 @@
+---
+title: "EnGens conformational clustering"
+author: "Australian-Protein-Design-Initiative/nf-binder-design"
+date: last-modified
+format:
+  html:
+    echo: false
+    code-fold: false
+    code-tools: false
+    code-summary: "Show code"
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+jupyter: python3
+---
+
+```{python}
+#| label: parameters
+# Parameters are passed from the ENGENS Nextflow process via environment
+# variables (robust across Quarto versions - no papermill parameter cell needed).
+import os
+
+input_dir = os.environ.get("ENGENS_INPUT_DIR", "structures")
+target_id = os.environ.get("ENGENS_TARGET_ID", "target")
+dimred = os.environ.get("ENGENS_DIMRED", "umap").strip().lower()
+clustering = [c.strip().lower() for c in os.environ.get("ENGENS_CLUSTERING", "gmm").split(",") if c.strip()]
+min_structures = int(os.environ.get("ENGENS_MIN_STRUCTURES", "3"))
+max_clusters = int(os.environ.get("ENGENS_MAX_CLUSTERS", "10"))
+gmm_ic = os.environ.get("ENGENS_GMM_IC", "aic").strip().lower()
+seed_env = os.environ.get("ENGENS_SEED", "").strip()
+seed = int(seed_env) if seed_env else None
+conformations_root = os.environ.get("ENGENS_OUTDIR", "engens_out")
+```
+
+```{python}
+#| label: setup
+import matplotlib
+matplotlib.use("Agg")  # headless; figures are saved to PNG and embedded explicitly
+
+import base64
+import sys
+import shutil
+import logging
+import warnings
+import io
+from contextlib import redirect_stdout, redirect_stderr
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import mdtraj as md
+from Bio.PDB import MMCIFParser, PDBIO
+from IPython.display import HTML, Image, Markdown, display
+
+# PyEMMA 2.5 still reads mdtraj.version.version; mdtraj >=1.10 dropped that
+# attribute (version is now mdtraj.__version__).
+if not hasattr(md, "version"):
+    import types
+    md.version = types.SimpleNamespace(version=getattr(md, "__version__", "0.0"))
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
+log = logging.getLogger("engens")
+# Quash PyEMMA's noisy residue-pair / progress warnings in the HTML report.
+logging.getLogger("pyemma").setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", module=r"pyemma(\.|$)")
+
+if seed is not None:
+    np.random.seed(seed)
+
+plots_dir = Path("plots")
+plots_dir.mkdir(exist_ok=True)
+
+_MOLSTAR_ASSETS_EMITTED = False
+_MOLSTAR_JS_URL = "https://cdn.jsdelivr.net/npm/molstar@4.4.1/build/viewer/molstar.js"
+_MOLSTAR_CSS_URL = "https://cdn.jsdelivr.net/npm/molstar@4.4.1/build/viewer/molstar.css"
+_MOLSTAR_JS_INLINE: str | None = None
+_MOLSTAR_CSS_INLINE: str | None = None
+
+PREDICTOR_COLORS = {
+    "af2": "#1f77b4",
+    "boltz": "#ff7f0e",
+    "rf3": "#2ca02c",
+    "protenix": "#d62728",
+    "other": "#555555",
+}
+CLUSTER_COLORS = [
+    "#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
+    "#ff7f00", "#a65628", "#f781bf", "#999999",
+]
+
+def predictor_from_label(label: str) -> str:
+    low = label.lower()
+    # Match prefix at start or after a '_' (e.g. rep_cluster_0_protenix_...).
+    for prefix in ("af2", "boltz", "rf3", "protenix"):
+        if (
+            low.startswith(f"{prefix}_")
+            or low.startswith(f"{prefix}-")
+            or f"_{prefix}_" in low
+            or f"-{prefix}-" in low
+        ):
+            return prefix
+    return "other"
+
+def show_png(path: Path, caption: str | None = None) -> None:
+    """Embed a saved matplotlib PNG in the Quarto HTML (Agg does not auto-display)."""
+    if caption:
+        display(Markdown(f"**{caption}**"))
+    display(Image(filename=str(path)))
+
+def quiet_call(fn, *args, **kwargs):
+    """Run EnGens/PyEMMA helpers without dumping chatter into the HTML report."""
+    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+        return fn(*args, **kwargs)
+
+def redraw_n_select_plot(cm, method: str, n_sel: int, plot_path: Path) -> None:
+    """Redraw AIC/elbow with a vertical line at the automatically chosen n."""
+    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    means = np.asarray(cm.metric_vals["mean"], dtype=float)
+    stds = np.asarray(cm.metric_vals["std"], dtype=float)
+    if method == "gmm":
+        xs = [int(p["n_components"]) for p in cm.params]
+        ax.plot(xs, means, "bx-")
+        if cm.n_rep > 1:
+            ax.fill_between(xs, means - stds, means + stds, facecolor="blue", alpha=0.4)
+        ax.set_xlabel("number of components")
+        ax.set_ylabel(str(cm.metric))
+        ax.set_title("Information criterion vs number of components")
+    else:
+        xs = [int(p.get("n_clusters", i + 2)) for i, p in enumerate(cm.params)]
+        ax.plot(xs, means, "bx-")
+        if cm.n_rep > 1:
+            ax.fill_between(xs, means - stds, means + stds, facecolor="blue", alpha=0.4)
+        ax.set_xlabel("number of clusters")
+        ax.set_ylabel(str(cm.metric))
+        ax.set_title("Elbow method vs number of clusters")
+    ax.axvline(
+        n_sel, color="red", linestyle="--", linewidth=1.5,
+        label=f"chosen n = {n_sel}",
+    )
+    ax.legend(loc="best")
+    fig.tight_layout()
+    fig.savefig(plot_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+def _fetch_molstar_assets() -> tuple[str, str]:
+    """Download Mol* JS/CSS at render time so the HTML does not depend on a CDN."""
+    global _MOLSTAR_JS_INLINE, _MOLSTAR_CSS_INLINE
+    if _MOLSTAR_JS_INLINE is not None and _MOLSTAR_CSS_INLINE is not None:
+        return _MOLSTAR_JS_INLINE, _MOLSTAR_CSS_INLINE
+    import urllib.request
+
+    def _get(url: str) -> str:
+        with urllib.request.urlopen(url, timeout=120) as resp:
+            return resp.read().decode("utf-8")
+
+    js = _get(_MOLSTAR_JS_URL).replace("</script>", "<\\/script>")
+    css = _get(_MOLSTAR_CSS_URL)
+    _MOLSTAR_JS_INLINE = js
+    _MOLSTAR_CSS_INLINE = css
+    log.info("Inlined Mol* viewer assets (%d bytes JS, %d bytes CSS)", len(js), len(css))
+    return js, css
+
+def plot_umap_by_predictor(
+    coords: np.ndarray,
+    labels: list[str],
+    out_path: Path,
+    title: str,
+) -> None:
+    """Scatter UMAP coords coloured by fold predictor prefix in the filename."""
+    preds = [predictor_from_label(lab) for lab in labels]
+    fig, ax = plt.subplots(figsize=(7.0, 5.5))
+    for pred in ("af2", "boltz", "rf3", "protenix", "other"):
+        idx = [i for i, p in enumerate(preds) if p == pred]
+        if not idx:
+            continue
+        pts = coords[idx]
+        ax.scatter(
+            pts[:, 0], pts[:, 1],
+            c=PREDICTOR_COLORS[pred],
+            label=f"{pred} (n={len(idx)})",
+            s=36, alpha=0.85, edgecolors="k", linewidths=0.35, zorder=2,
+        )
+    ax.set_xlabel("UMAP-1")
+    ax.set_ylabel("UMAP-2")
+    ax.set_title(title)
+    ax.legend(frameon=True, loc="best")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+
+def _structure_to_pdb(path: Path, out_pdb: Path) -> Path:
+    """Ensure a PDB on disk (BioPython for CIF — mdtraj CIF→PDB can break ATOM serials)."""
+    out_pdb.parent.mkdir(parents=True, exist_ok=True)
+    if path.suffix.lower() == ".pdb":
+        if path.resolve() != out_pdb.resolve():
+            shutil.copyfile(path.resolve(), out_pdb)
+        return out_pdb
+    parser = MMCIFParser(QUIET=True)
+    structure = parser.get_structure(path.stem, str(path))
+    io = PDBIO()
+    io.set_structure(structure)
+    io.save(str(out_pdb))
+    return out_pdb
+
+def _load_mdtraj(path: Path) -> md.Trajectory:
+    if path.suffix.lower() == ".pdb":
+        return md.load(str(path))
+    tmp = Path("pdb_inputs") / f"_overlay_{path.stem}.pdb"
+    return md.load(str(_structure_to_pdb(path, tmp)))
+
+def superpose_structures(paths: list[Path], out_dir: Path) -> list[Path]:
+    """Rigid-body superpose each structure onto the first (CA atoms) and write PDBs."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # Normalise to PDB first so mdtraj save_pdb does not choke on CIF metadata.
+    pdb_paths = [
+        _structure_to_pdb(p, out_dir / f"_src_{i}_{p.stem}.pdb")
+        for i, p in enumerate(paths)
+    ]
+    trajs = [md.load(str(p)) for p in pdb_paths]
+    ref = trajs[0]
+    ref_ca = ref.top.select("name CA")
+    written: list[Path] = []
+    for i, (path, traj) in enumerate(zip(paths, trajs)):
+        ca = traj.top.select("name CA")
+        n = min(int(ref_ca.size), int(ca.size))
+        if n >= 3:
+            traj.superpose(ref, atom_indices=ca[:n], ref_atom_indices=ref_ca[:n])
+        else:
+            log.warning("Too few CA atoms to superpose %s - leaving unaligned", path.name)
+        out = out_dir / f"aligned_cluster_{i}_{path.stem}.pdb"
+        # force_overwrite: re-runs in the same work dir
+        traj.save_pdb(str(out), force_overwrite=True)
+        written.append(out)
+    return written
+
+def show_structures_overlay(
+    entries: list[tuple[str, Path, str]],
+    title: str,
+    viewer_key: str | None = None,
+) -> None:
+    """One Mol* viewer with all structures overlaid, each a uniform colour.
+
+    Structure coordinates are base64-inlined into the HTML (not loaded from
+    paths when the report is opened). Mol* JS/CSS are also inlined at render
+    time so clusters.html is self-contained offline.
+    entries: (legend_label, path, css_hex_color) — paths should already be
+    superimposed. Uses Mol* plugin builders (not ipymolstar widgets).
+    viewer_key: optional disambiguator so multiple overlays in one report get
+    unique DOM ids (e.g. featurizer index).
+    """
+    global _MOLSTAR_ASSETS_EMITTED
+
+    if not entries:
+        print("No structures to overlay.")
+        return
+
+    assets = ""
+    if not _MOLSTAR_ASSETS_EMITTED:
+        try:
+            js, css = _fetch_molstar_assets()
+            assets = f"<style>\n{css}\n</style>\n<script>\n{js}\n</script>\n"
+            _MOLSTAR_ASSETS_EMITTED = True
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "Could not download Mol* assets for inlining (%s); "
+                "falling back to CDN links (report will need network to view).",
+                exc,
+            )
+            assets = (
+                f'<link rel="stylesheet" type="text/css" href="{_MOLSTAR_CSS_URL}"/>'
+                f'<script src="{_MOLSTAR_JS_URL}"></script>'
+            )
+            _MOLSTAR_ASSETS_EMITTED = True
+
+    uid_src = (viewer_key or "",) + tuple(e[0] for e in entries)
+    uid = f"molstar_overlay_{abs(hash(uid_src)) % 10**12}"
+    structs_js = []
+    legend_bits = []
+    for label, path, color in entries:
+        # Inline structure bytes so the published HTML does not need the PDB/CIF
+        # files alongside it (self-contained clusters.html).
+        payload = base64.b64encode(path.read_bytes()).decode("ascii")
+        # Mol* Color wants 0xRRGGBB int
+        hex_int = int(color.lstrip("#"), 16)
+        structs_js.append(
+            "{"
+            f'label:{label!r},color:{hex_int},'
+            f'b64:{payload!r}'
+            "}"
+        )
+        legend_bits.append(
+            f'<span style="display:inline-block;margin:0 0.75rem 0.35rem 0;">'
+            f'<span style="display:inline-block;width:0.85em;height:0.85em;'
+            f'background:{color};border:1px solid #333;margin-right:0.3em;'
+            f'vertical-align:middle;"></span>{label}</span>'
+        )
+
+    # Do NOT put Mol* JS inside an f-string — its braces would be interpolated.
+    boot_js = """
+  (function() {
+    var el = document.getElementById(__UID__);
+    var structs = __STRUCTS__;
+    function fail(msg) {
+      el.innerHTML = '<p style="padding:1rem;color:#666;font-family:sans-serif;">' + msg + '</p>';
+    }
+    function b64ToUint8(b64) {
+      var raw = atob(b64);
+      var data = new Uint8Array(raw.length);
+      for (var i = 0; i < raw.length; i++) data[i] = raw.charCodeAt(i);
+      return data;
+    }
+    function colorTheme(plugin, structure, colorInt) {
+      var Color = (molstar.Color || (molstar.Util && molstar.Util.Color));
+      var value = Color ? Color(colorInt) : colorInt;
+      var comps = structure.components || [];
+      return Promise.all(comps.map(function(c) {
+        return plugin.managers.structure.component.updateRepresentationsTheme([c], {
+          color: 'uniform',
+          colorParams: { value: value }
+        });
+      }));
+    }
+    function addOne(plugin, item) {
+      var data = b64ToUint8(item.b64);
+      var text = new TextDecoder('utf-8').decode(data);
+      return plugin.builders.data.rawData({ data: text, label: item.label })
+        .then(function(dataRef) {
+          return plugin.builders.structure.parseTrajectory(dataRef, 'pdb');
+        })
+        .then(function(traj) {
+          return plugin.builders.structure.hierarchy.applyPreset(traj, 'default');
+        })
+        .then(function() {
+          var structures = plugin.managers.structure.hierarchy.current.structures;
+          var last = structures[structures.length - 1];
+          return colorTheme(plugin, last, item.color);
+        });
+    }
+    function boot() {
+      if (typeof molstar === "undefined" || !molstar.Viewer) return false;
+      molstar.Viewer.create(__UID__, {
+        layoutIsExpanded: false,
+        layoutShowControls: false,
+        layoutShowRemoteState: false,
+        layoutShowSequence: true,
+        layoutShowLog: false,
+        layoutShowLeftPanel: true,
+        viewportShowExpand: true,
+        viewportShowSelectionMode: false,
+        viewportShowAnimation: false
+      }).then(function(viewer) {
+        var plugin = viewer.plugin;
+        var chain = Promise.resolve();
+        structs.forEach(function(item) {
+          chain = chain.then(function() { return addOne(plugin, item); });
+        });
+        return chain.then(function() {
+          try { plugin.managers.camera.focusScene(); } catch (e) {}
+        });
+      }).catch(function(err) {
+        fail("Mol* overlay failed to initialise.");
+        console.warn(err);
+      });
+      return true;
+    }
+    if (boot()) return;
+    var tries = 0;
+    var timer = setInterval(function() {
+      tries += 1;
+      if (boot() || tries > 50) {
+        clearInterval(timer);
+        if (tries > 50 && (typeof molstar === "undefined" || !molstar.Viewer)) {
+          fail("Mol* viewer script did not initialise.");
+        }
+      }
+    }, 100);
+  })();
+"""
+    boot_js = boot_js.replace("__UID__", repr(uid)).replace(
+        "__STRUCTS__", "[" + ",".join(structs_js) + "]"
+    )
+
+    html = (
+        assets
+        + '<div style="margin:0.5rem 0 1.25rem 0;">\n'
+        + '  <div style="font-family:sans-serif;font-size:0.9rem;margin-bottom:0.4rem;">\n'
+        + "    " + "".join(legend_bits) + "\n"
+        + "  </div>\n"
+        + f'  <div id="{uid}" style="width:100%;height:520px;position:relative;'
+        + 'border:1px solid #ddd;background:#fafafa;">\n'
+        + '    <p style="padding:1rem;color:#666;font-family:sans-serif;">\n'
+        + "      Loading Mol* overlay…\n"
+        + "    </p>\n"
+        + "  </div>\n"
+        + "  <script>\n"
+        + boot_js
+        + "  </script>\n"
+        + "</div>\n"
+    )
+    if title:
+        display(Markdown(f"**{title}**"))
+    display(HTML(html))
+
+# EnGens is imported lazily (after we have >= min_structures) so the report
+# still renders a clear message on tiny ensembles even if an import is heavy.
+```
+
+# Overview
+
+This report clusters a predicted structural ensemble with
+[EnGens](https://github.com/KavrakiLab/EnGens): structures are featurized,
+projected with UMAP, clustered (Gaussian mixture model by default), and a
+representative conformation is taken from each cluster.
+
+```{python}
+#| label: overview-params
+#| output: asis
+_clust_crit = gmm_ic.upper() if "gmm" in clustering else "elbow"
+print(
+    f"Target: `{target_id}`  \n"
+    f"Dimensionality reduction: **{dimred.upper()}**  \n"
+    f"Clustering: **{', '.join(c.upper() for c in clustering)}** "
+    f"(cluster count chosen automatically via {_clust_crit})  \n"
+    f"Featurizers: EnGens defaults "
+    f"(0: residue_mindist, 1: backbone_torsions, "
+    f"2: backbone_torsions & residue_mindist)\n"
+)
+```
+
+Analyses below are repeated for each default featurizer. Representative
+structures are written to
+`clustering/<featurizer>/<method>/conformations/` (full original predicted
+structure closest to each cluster centre).
+
+```{python}
+#| label: gather-structures
+# Collect the staged predictions. Anything ending .cif is converted to .pdb via
+# BioPython so mdtraj + downstream EnGens can read it. A backbone-only
+# (N, CA, C, O) trajectory is then built: predicted structures from different
+# engines differ in hydrogens/side-chain detail (e.g. AF2 Amber-relaxed models
+# carry hydrogens), so restricting to the protein backbone guarantees a
+# consistent atom count across the whole cross-engine ensemble.
+
+def cif_to_pdb(cif_path: Path, out_path: Path) -> bool:
+    try:
+        parser = MMCIFParser(QUIET=True)
+        structure = parser.get_structure(cif_path.stem, str(cif_path))
+        io = PDBIO()
+        io.set_structure(structure)
+        io.save(str(out_path))
+        return True
+    except Exception as exc:  # noqa: BLE001 - report and skip a bad file
+        log.warning("Failed to convert %s to PDB: %s", cif_path.name, exc)
+        return False
+
+src = Path(input_dir)
+raw = sorted([p for p in src.iterdir() if p.suffix.lower() in (".pdb", ".cif")]) if src.is_dir() else []
+
+pdb_dir = Path("pdb_inputs")
+pdb_dir.mkdir(exist_ok=True)
+
+# ordered list of (label, analysis_pdb, original_structure). Analysis uses a
+# backbone-trimmed PDB; the original path is what we publish as the cluster
+# representative (preserving .cif from fold/predictions/).
+structures: list[tuple[str, Path, Path]] = []
+for p in raw:
+    if p.suffix.lower() == ".cif":
+        out = pdb_dir / (p.stem + ".pdb")
+        if cif_to_pdb(p, out):
+            structures.append((p.stem, out, p))
+    else:
+        structures.append((p.stem, p, p))
+
+n_input = len(structures)
+print(f"Found {n_input} input structures for '{target_id}'.")
+```
+
+```{python}
+#| label: build-trajectory
+enough = n_input >= min_structures
+traj = None
+kept: list[tuple[str, Path]] = []  # (label, original structure path)
+
+if enough:
+    ref = None
+    coords = []
+    for label, analysis_path, original_path in structures:
+        try:
+            t = md.load(str(analysis_path))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("mdtraj could not load %s: %s", analysis_path.name, exc)
+            continue
+        sel = t.top.select("protein and name N CA C O")
+        if sel.size == 0:
+            log.warning("No backbone atoms found in %s - skipping", analysis_path.name)
+            continue
+        t = t.atom_slice(sel)
+        if t.n_frames > 1:
+            t = t[0]
+        if ref is None:
+            ref = t
+            coords.append(t.xyz[0])
+            kept.append((label, original_path))
+        else:
+            if t.n_atoms != ref.n_atoms:
+                log.warning(
+                    "Backbone atom count mismatch for %s (%d vs %d) - skipping",
+                    analysis_path.name, t.n_atoms, ref.n_atoms,
+                )
+                continue
+            t.superpose(ref)
+            coords.append(t.xyz[0])
+            kept.append((label, original_path))
+
+    if ref is not None and len(kept) >= min_structures:
+        traj = md.Trajectory(np.array(coords), ref.top)
+        Path("engens_work").mkdir(exist_ok=True)
+        top_file = "engens_work/topology.pdb"
+        traj_file = "engens_work/ensemble.xtc"
+        ref.save_pdb(top_file)
+        traj.save_xtc(traj_file)
+        print(f"Built backbone ensemble: {traj.n_frames} frames, {traj.n_atoms} atoms.")
+    else:
+        enough = False
+
+n_frames = len(kept)
+```
+
+```{python}
+#| label: guard
+#| output: asis
+if not enough:
+    print(
+        f"::: {{.callout-warning}}\n"
+        f"## Not enough structures to cluster\n\n"
+        f"Only **{n_frames}** usable structures were found for `{target_id}` "
+        f"(minimum is **{min_structures}**). Clustering was skipped.\n"
+        f":::\n"
+    )
+```
+
+```{python}
+#| label: engen-featurize
+engen = None
+feat_indices: list[int] = []
+feat_names: list[str] = []
+feat_slugs: list[str] = []
+
+def feat_slug(name: str) -> str:
+    """Filesystem-safe featurizer folder name under clustering/.
+
+    EnGens names use '&' for combined features; publish as a hyphen, e.g.
+    backbone_torsions-residue_mindist.
+    """
+    return name.replace("&", "-").replace(" ", "_")
+
+if enough:
+    from engens.core.EnGens import EnGen
+
+    logging.getLogger("pyemma").setLevel(logging.ERROR)
+    logging.getLogger("pyemma.coordinates").setLevel(logging.ERROR)
+
+    def _init_engen():
+        eg = EnGen(traj_file, top_file, align=False)
+        eg.reset_featurizers()
+        eg.init_featurizers_default()
+        eg.apply_featurizations()
+        return eg
+
+    engen = quiet_call(_init_engen)
+    # Avoid engen.describe_featurizers() - it builds an ipywidget that Quarto
+    # embeds as a broken SVG placeholder in static HTML.
+    feat_names = list(getattr(engen, "featurizer_names", []) or [])
+    feat_indices = list(range(len(feat_names)))
+    feat_slugs = [feat_slug(n) for n in feat_names]
+```
+
+# Dimensionality reduction: UMAP
+
+Each structure is represented by its chosen featurizer (`residue_mindist`, `backbone_torsions` and `backbone_torsions+residue_mindist`), then projected into two dimensions with UMAP. 
+Points are coloured by the structure predictor inferred from the filename prefix (`af2_`, `boltz_`, `rf3_`, `protenix_`).
+
+```{python}
+#| label: dimred-umap
+# Free-energy UMAP looks poor on small discrete predicted ensembles; use a
+# scatter coloured by structure predictor instead. Run once per featurizer.
+umap_by_feat: dict[int, np.ndarray] = {}
+kept_labels = [label for label, _ in kept]
+
+if enough:
+    from engens.core.DimReduction import UMAPReducer
+
+    # UMAP needs n_neighbors < n_samples.
+    n_neighbors = max(2, min(15, n_frames - 1))
+    for feat_idx, feat_name in zip(feat_indices, feat_names):
+        engen.chosen_feat_index = feat_idx
+        reducer = UMAPReducer(
+            engen, n_neighbors=n_neighbors, min_dist=0.1, n_components=2
+        )
+        quiet_call(reducer.apply)
+        # Copy: UMAPReducer reuses a fixed memmap path on the next featurizer.
+        umap_by_feat[feat_idx] = np.asarray(reducer.transformed_data).copy()
+```
+
+```{python}
+#| label: dimred-plot
+if enough and umap_by_feat:
+    for feat_idx, feat_name, slug in zip(feat_indices, feat_names, feat_slugs):
+        umap_png = plots_dir / f"{slug}_umap_by_predictor.png"
+        plot_umap_by_predictor(
+            umap_by_feat[feat_idx],
+            kept_labels,
+            umap_png,
+            f"UMAP by predictor — {target_id} — [{feat_idx}] {feat_name}",
+        )
+        show_png(umap_png, f"UMAP by predictor — [{feat_idx}] `{feat_name}`")
+```
+
+# Cluster-count selection
+
+For each featurizer, candidate cluster counts are scored and the optimum is
+chosen automatically (Akaike information criterion for GMM; elbow method for
+K-means). The red dashed line marks the selected number of components/clusters.
+
+```{python}
+#| label: clustering
+# EnGens registers methods as uppercase keys (GMM, KM).
+engens_method_key = {"gmm": "GMM", "km": "KM"}
+
+summary_rows = []
+# (feat_idx, method) -> list of (cluster_id, frame, label, src_path)
+representatives: dict[tuple[int, str], list[tuple[int, int, str, Path]]] = {}
+n_select_plots: dict[tuple[int, str], Path] = {}
+cluster_plots: dict[tuple[int, str], Path] = {}
+n_selected: dict[tuple[int, str], int] = {}
+
+def choose_n_auto(
+    cm,
+    method: str,
+    candidate_ns: list[int],
+) -> int:
+    """Auto-select the cluster count. With < 2 candidates the elbow/IC line
+    fit is undefined, so fall back to the single (or smallest) candidate."""
+    if len(candidate_ns) < 2:
+        return candidate_ns[0]
+    if method == "gmm":
+        best = quiet_call(cm.analyze_ic, gmm_ic, filename=None)
+        plt.close("all")
+        return int(best["n_components"])
+    best = quiet_call(cm.analyze_elbow_method, filename=None)
+    plt.close("all")
+    return int(best["n_clusters"])
+
+if enough:
+    from engens.core.ClustEn import clusterings
+
+    # At most n_frames-1 clusters (need >= 1 point per cluster with slack).
+    upper = max(2, min(max_clusters, n_frames - 1))
+    candidate_ns = list(range(2, upper + 1))
+
+    for feat_idx, feat_name, slug in zip(feat_indices, feat_names, feat_slugs):
+        engen.chosen_feat_index = feat_idx
+        engen.dimred_data = umap_by_feat[feat_idx]
+        engen.data = umap_by_feat[feat_idx]
+
+        for method in clustering:
+            method_key = engens_method_key.get(method, method.upper())
+            if method_key not in clusterings:
+                log.warning(
+                    "Unknown clustering method '%s' (EnGens key '%s') - skipping",
+                    method, method_key,
+                )
+                continue
+
+            if method == "gmm":
+                cm = clusterings[method_key](engen, type_ic=gmm_ic, n_rep=2)
+                params = [{"n_components": i} for i in candidate_ns]
+            else:
+                cm = clusterings[method_key](engen, n_rep=2)
+                params = [{"n_clusters": i} for i in candidate_ns]
+            quiet_call(cm.cluster_multiple_params, params)
+
+            n_sel = choose_n_auto(cm, method, candidate_ns)
+            cm.choose_n(n_sel)
+
+            n_png = plots_dir / f"{slug}_{method}_n_select.png"
+            redraw_n_select_plot(cm, method, n_sel, n_png)
+
+            cluster_png = plots_dir / f"{slug}_{method}_clusters.png"
+            quiet_call(cm.choose_conformations, mode="center", filename=None)
+            plt.title(
+                f"{method_key} clusters on UMAP - {target_id} - [{feat_idx}] {feat_name}"
+            )
+            plt.savefig(cluster_png, dpi=150, bbox_inches="tight")
+            plt.close("all")
+
+            weights = cm.cluster_weights(cm.chosen_index)
+            reps = []
+            for i, frame in enumerate(cm.chosen_frames):
+                cluster_id = cm.chosen_cluster_ids[i]
+                label, src_path = kept[int(frame)]
+                reps.append((cluster_id, int(frame), label, src_path))
+                summary_rows.append({
+                    "featurizer_index": feat_idx,
+                    "featurizer": feat_name,
+                    "method": method_key,
+                    "cluster": int(cluster_id),
+                    "weight": round(float(weights[cluster_id]), 4),
+                    "representative_frame": int(frame),
+                    "representative_structure": label,
+                })
+
+            key = (feat_idx, method)
+            representatives[key] = reps
+            n_select_plots[key] = n_png
+            cluster_plots[key] = cluster_png
+            n_selected[key] = n_sel
+```
+
+```{python}
+#| label: n-select-plots
+if enough and n_select_plots:
+    for feat_idx, feat_name in zip(feat_indices, feat_names):
+        for method in clustering:
+            key = (feat_idx, method)
+            if key not in n_select_plots:
+                continue
+            path = n_select_plots[key]
+            n_sel = n_selected.get(key)
+            if method == "gmm":
+                cap = (
+                    f"GMM {gmm_ic.upper()} vs components — "
+                    f"[{feat_idx}] `{feat_name}`"
+                    + (f" (chosen n = {n_sel})" if n_sel is not None else "")
+                )
+            else:
+                cap = (
+                    f"KMeans elbow vs clusters — "
+                    f"[{feat_idx}] `{feat_name}`"
+                    + (f" (chosen n = {n_sel})" if n_sel is not None else "")
+                )
+            if path.exists():
+                show_png(path, cap)
+```
+
+# Clustering
+
+Clustering using a Gaussian Mixture Model (GMM) (or K-means when selected)
+assigns each UMAP-projected structure to a conformational cluster. Points are
+coloured by cluster membership; cluster centres are shown in red and the
+chosen representative frames in yellow.
+
+```{python}
+#| label: cluster-umap-plots
+if enough and cluster_plots:
+    for feat_idx, feat_name in zip(feat_indices, feat_names):
+        for method in clustering:
+            key = (feat_idx, method)
+            if key not in cluster_plots:
+                continue
+            method_key = engens_method_key.get(method, method.upper())
+            show_png(
+                cluster_plots[key],
+                f"{method_key} clusters on UMAP — [{feat_idx}] `{feat_name}`",
+            )
+```
+
+```{python}
+#| label: extract-representatives
+# Copy originals into clustering/<featurizer>/<method>/conformations/.
+rep_paths: dict[tuple[int, str], list[tuple[int, Path]]] = {}
+if enough:
+    root = Path(conformations_root)
+    for (feat_idx, method), reps in representatives.items():
+        slug = feat_slugs[feat_idx]
+        out_dir = root / "clustering" / slug / method / "conformations"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        written: list[tuple[int, Path]] = []
+        for cluster_id, frame, label, src_path in reps:
+            dest = out_dir / f"rep_cluster_{cluster_id}_{label}{src_path.suffix}"
+            # resolve() so staged symlinks become real files under publishDir.
+            shutil.copyfile(src_path.resolve(), dest)
+            written.append((int(cluster_id), dest))
+        rep_paths[(feat_idx, method)] = written
+```
+
+# Cluster representatives
+
+Cluster representatives (the structure closest to each cluster centre) are
+superimposed on Cα atoms and shown overlaid in one Mol* viewer, each cluster a
+different colour. Matching files are written under
+`clustering/<featurizer>/<method>/conformations/`.
+
+```{python}
+#| label: view-representatives
+if enough and rep_paths:
+    for feat_idx, feat_name, slug in zip(feat_indices, feat_names, feat_slugs):
+        for method in clustering:
+            key = (feat_idx, method)
+            if key not in rep_paths:
+                continue
+            method_key = engens_method_key.get(method, method.upper())
+            written = rep_paths[key]
+            display(Markdown(
+                f"### Cluster representatives\n\n"
+                f"Featurizer [{feat_idx}] `{feat_name}` ({method_key})."
+            ))
+            written_sorted = sorted(written, key=lambda x: x[0])
+            aligned = superpose_structures(
+                [dest for _, dest in written_sorted],
+                plots_dir / f"overlay_{slug}_{method}",
+            )
+            entries = []
+            for (cluster_id, dest), aligned_path in zip(written_sorted, aligned):
+                color = CLUSTER_COLORS[int(cluster_id) % len(CLUSTER_COLORS)]
+                pred = predictor_from_label(dest.stem)
+                entries.append(
+                    (f"cluster {cluster_id} ({pred})", aligned_path, color)
+                )
+            show_structures_overlay(
+                entries,
+                "",
+                viewer_key=f"{slug}_{method}",
+            )
+else:
+    print("No representative structures to display.")
+```
+
+# Summary
+
+Summary of selected clusters, weights, and representative structure filenames
+for each featurizer and clustering method.
+
+```{python}
+#| label: summary-table
+if enough and summary_rows:
+    df = pd.DataFrame(summary_rows).sort_values(
+        ["featurizer_index", "method", "cluster"]
+    ).reset_index(drop=True)
+    df
+else:
+    print("No clustering summary available.")
+```

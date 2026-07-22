@@ -28,38 +28,84 @@ params.outdir = 'results'
 params.methods = 'af2'
 params.msa_method = 'jackhmmer_af2'
 
+// Total predicted structures per input, per method. Split across GPU jobs by
+// each method's --*_batch_size (samples per invocation). When --n_predictions is
+// set but the method's batch size is unset, all N land in ONE job (amortize
+// model load). AF2 has no --af2_batch_size (generation batch is fixed at 5;
+// see --af2_keep_models).
+params.n_predictions = false
+
+// Seeds are left UNSET by default: each engine draws its own fresh random seed
+// when no seed is passed, so repeated runs already explore different stochastic
+// trajectories without us injecting anything. Injecting a random int here
+// instead would break -resume - every re-parse would draw a new value, change
+// the task command, and bust the cache. Pin any of them (--protenix_seeds /
+// --boltz_seed / --rf3_seed / --af2_random_seed) on the CLI for
+// reproducibility.
+
 // --- AF2 (monomer-verified route: jackhmmer MSA -> ALPHAFOLD2 predict) ---
-params.alphafold2_db_path = '/mnt/datasets/alphafold/alphafold_20240229'
-params.alphafold2_model_preset = 'monomer_ptm' // monomer|monomer_ptm|monomer_casp14|multimer
-params.alphafold2_db_preset = 'full_dbs'
-params.alphafold2_max_template_date = '2024-01-01'
-params.alphafold2_random_seed = false
-params.alphafold2_num_predictions_per_model = 1 // multimer only
-params.alphafold2_models_to_relax = 'best' // all|best|none
+params.af2_db_path = '/mnt/datasets/alphafold/alphafold_20240229'
+params.af2_model_preset = 'monomer_ptm' // monomer|monomer_ptm|monomer_casp14|multimer
+params.af2_db_preset = 'full_dbs'
+params.af2_max_template_date = '2024-01-01'
+params.af2_random_seed = false
+params.af2_num_predictions_per_model = 1 // multimer only
+// AF2 has no in-invocation sampling knob (a monomer run always emits its 5
+// trained models). --af2_keep_models chooses which of those 5 we retain, which
+// also sets the effective kept-per-run used to meet --n_predictions:
+//   all  = keep all 5 models/run  -> ceil(n_predictions / 5) runs
+//   best = keep only the top-ranked -> n_predictions runs (5x more GPU work)
+// There is no --af2_batch_size: the generation batch is fixed at 5.
+// --models_to_relax follows keep_models (relax best or all) unless --af2_no_relax.
+params.af2_keep_models = 'all' // all|best
+params.af2_no_relax = false // skip Amber relax; publish unrelaxed into fold/predictions/
+
+// Gather every engine's per-sample mmCIF prediction into a single flat
+// <outdir>/fold/predictions/ dir with a tool prefix (af2_ / boltz_ / rf3_ /
+// protenix_). BOLTZ's shared module gates that second publishDir on step_name
+// starting with 'fold/' (fold.nf passes 'fold/boltz').
+params.fold_predictions_dir = "${params.outdir}/fold/predictions"
+// ColabFold MSA publish subdir name under workflow_publish_dir. fold.nf leaves
+// the on-disk 'result/' name (published at fold/msa/mmseqs2_colabfold/result/);
+// boltz_pulldown also uses 'result' via nextflow.config.
+params.colabfold_msa_publish_name = 'result'
 
 // --- Boltz ---
 params.use_msa_server = false // Boltz's own MMseqs2 server, independent of --msa_method
 params.templates = false
 params.boltz_recycling = false // --recycling_steps override (default: boltz's own default, currently 3)
-params.boltz_diffusion_samples = false // --diffusion_samples override (default: 1)
+params.boltz_batch_size = false // samples per Boltz job (--diffusion_samples); unset + --n_predictions => one job of N
 params.boltz_sampling_steps = false // --sampling_steps override (default: 200)
+params.boltz_seed = false // Boltz --seed (unset -> Boltz draws its own random seed; pin for reproducibility)
 
 // --- RF3 (same defaults as workflows/rfd3.nf) ---
 params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
 params.rf3_num_steps = 50 // default for rf3 cli is 200, however 50 is faster with no difference in quality
 params.rf3_n_recycles = 10
-params.rf3_diffusion_batch_size = 5
+// fold.nf meaning: diffusion samples per RF3_FOLD job. Distinct from rfd3.nf's
+// --rf3_batch_size (MPNN designs per binder-design ROSETTAFOLD3 task).
+params.rf3_batch_size = false // unset + --n_predictions => one job of N; else default 5 samples/job
 params.rf3_early_stopping_plddt_threshold = 0.5 // exits early if mean pLDDT < 0.5 after the first recycle
+params.rf3_seed = false // RF3 hydra `seed=` (unset -> RF3 draws its own random seed; pin for reproducibility)
 
 // --- Protenix (defaults confirmed against `protenix pred --help` in
 // protenix:v2.0.0-weights on 2026-07-17 - identical to that build's own CLI
 // defaults) ---
-params.protenix_seeds = '101'
+params.protenix_seeds = false // Comma-separated --seeds (unset -> protenix uses its own default; pin for reproducibility)
 params.protenix_cycle = 10 // pairformer cycles (protenix's own --cycle default)
 params.protenix_step = 200 // diffusion steps (protenix's own --step default)
-params.protenix_sample = 5 // number of diffusion samples (protenix's own --sample default)
+params.protenix_batch_size = false // samples per Protenix job (--sample); unset + --n_predictions => one job of N
 params.protenix_model_name = 'protenix_base_default_v1.0.0' // checkpoint baked into the container at /models/protenix/checkpoint
 params.protenix_use_msa = true // false forces protenix to ignore our a3m and predict MSA-free
+
+// --- EnGens (post-prediction conformational clustering; on by default) ---
+params.skip_engens = false // skip EnGens clustering / report
+params.engens_dimred = 'umap' // umap only for static predicted ensembles
+params.engens_clustering = 'gmm' // gmm (default); km or km,gmm also accepted
+params.engens_min_structures = 3 // skip clustering below this many usable structures
+params.engens_max_clusters = 10 // upper bound for auto cluster-count search
+params.engens_gmm_ic = 'aic' // aic|bic for GMM information-criterion selection
+params.engens_seed = false // optional RNG seed for UMAP / clustering
 
 // --- ColabFold MSA (--msa_method mmseqs2_colabfold) ---
 params.use_remote_server = false // query the ColabFold MMseqs2 API instead of a local DB search
@@ -74,6 +120,7 @@ include { ALPHAFOLD2 } from './subworkflows/local/alphafold2'
 include { BOLTZ_FOLD } from './subworkflows/local/boltz_fold'
 include { ROSETTAFOLD3_FOLD } from './subworkflows/local/rosettafold3_fold'
 include { PROTENIX_FOLD } from './subworkflows/local/protenix_fold'
+include { ENGENS_CLUSTER } from './subworkflows/local/engens'
 
 def VALID_METHODS = ['af2', 'boltz', 'rf3', 'protenix']
 def VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
@@ -103,34 +150,52 @@ workflow {
             --outdir                           Output directory [default: ${params.outdir}]
             --methods                          Comma-separated list of af2,boltz,rf3,protenix [default: ${params.methods}]
             --msa_method                       jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
+            --n_predictions                    Total structures per input, per method. Split across jobs by
+                                                --boltz_batch_size / --rf3_batch_size / --protenix_batch_size
+                                                (AF2 uses --af2_keep_models; generation batch is fixed at 5).
+                                                With no method batch size, all N are one job.
+                                                [default: unset -> each method's own default samples/job]
 
             AlphaFold2 (--methods includes af2):
-            --alphafold2_db_path                AlphaFold2 database directory [default: ${params.alphafold2_db_path}]
-            --alphafold2_model_preset            monomer|monomer_ptm|monomer_casp14|multimer [default: ${params.alphafold2_model_preset}]
-            --alphafold2_db_preset               full_dbs|reduced_dbs [default: ${params.alphafold2_db_preset}]
-            --alphafold2_max_template_date        Maximum template release date [default: ${params.alphafold2_max_template_date}]
-            --alphafold2_random_seed              Fix the data pipeline's random seed [default: unset, randomly generated]
-            --alphafold2_models_to_relax          all|best|none [default: ${params.alphafold2_models_to_relax}]
+            --af2_db_path                       AlphaFold2 database directory [default: ${params.af2_db_path}]
+            --af2_model_preset                  monomer|monomer_ptm|monomer_casp14|multimer [default: ${params.af2_model_preset}]
+            --af2_db_preset                     full_dbs|reduced_dbs [default: ${params.af2_db_preset}]
+            --af2_max_template_date             Maximum template release date [default: ${params.af2_max_template_date}]
+            --af2_random_seed                   Fix the data pipeline's random seed [default: unset -> AF2 draws its own random seed per run]
+            --af2_keep_models                   Which of AF2's 5 models/run to keep toward --n_predictions
+                                                (also which to relax, unless --af2_no_relax):
+                                                'all'  = keep 5/run  -> ceil(N/5) runs;
+                                                'best' = keep 1/run  -> N runs [default: ${params.af2_keep_models}]
+            --af2_no_relax                      Skip Amber relaxation; publish unrelaxed models to
+                                                fold/predictions/ [default: ${params.af2_no_relax}]
 
             Boltz-2 (--methods includes boltz):
             --use_msa_server                   Use Boltz's own MMseqs2 MSA server instead of the shared --msa_method a3m [default: ${params.use_msa_server}]
             --templates                        Templates directory with .cif files [default: ${params.templates}]
             --boltz_recycling                  Boltz --recycling_steps override [default: boltz's own default]
-            --boltz_diffusion_samples          Boltz --diffusion_samples override [default: boltz's own default]
+            --boltz_batch_size                 Samples per Boltz job (--diffusion_samples). With --n_predictions,
+                                                splits into ceil(N/batch) jobs; unset => one job of N.
+                                                Without --n_predictions: default 1 sample/job.
             --boltz_sampling_steps              Boltz --sampling_steps override [default: boltz's own default]
+            --boltz_seed                        Boltz --seed [default: unset -> Boltz draws its own random seed]
 
             RosettaFold3 (--methods includes rf3):
             --rf3_ckpt_path                     RF3 checkpoint path [default: ${params.rf3_ckpt_path}]
             --rf3_num_steps                     [default: ${params.rf3_num_steps}]
             --rf3_n_recycles                    [default: ${params.rf3_n_recycles}]
-            --rf3_diffusion_batch_size           [default: ${params.rf3_diffusion_batch_size}]
+            --rf3_batch_size                    Samples per RF3 job (diffusion_batch_size). With --n_predictions,
+                                                splits into ceil(N/batch) jobs; unset => one job of N.
+                                                Without --n_predictions: default 5 samples/job.
             --rf3_early_stopping_plddt_threshold [default: ${params.rf3_early_stopping_plddt_threshold}]
+            --rf3_seed                          RF3 hydra seed= [default: unset -> RF3 draws its own random seed]
 
             Protenix (--methods includes protenix):
-            --protenix_seeds                    Comma-separated seeds [default: ${params.protenix_seeds}]
+            --protenix_seeds                    Single seed (or comma-separated only when not batching) [default: unset -> protenix's own default]
             --protenix_cycle                    Pairformer cycles [default: ${params.protenix_cycle}]
             --protenix_step                     Diffusion steps [default: ${params.protenix_step}]
-            --protenix_sample                   Number of diffusion samples [default: ${params.protenix_sample}]
+            --protenix_batch_size               Samples per Protenix job (--sample). With --n_predictions,
+                                                splits into ceil(N/batch) jobs; unset => one job of N.
+                                                Without --n_predictions: default 5 samples/job.
             --protenix_model_name               Checkpoint name (baked into the container) [default: ${params.protenix_model_name}]
             --protenix_use_msa                  Feed our shared a3m to Protenix; false predicts MSA-free [default: ${params.protenix_use_msa}]
 
@@ -141,6 +206,17 @@ workflow {
                                                 Note: no M3 default path exists for these local ColabFold DBs
                                                 (see plans/fold-nf-multi-method-folding.md); use --use_remote_server
                                                 true if you haven't set them up yourself.
+
+            EnGens (runs by default after prediction; UMAP + GMM clustering):
+            --skip_engens                       Skip EnGens clustering / clusters.html report [default: ${params.skip_engens}]
+            --engens_clustering                 gmm (default), km, or comma-separated km,gmm [default: ${params.engens_clustering}]
+            --engens_dimred                     Dimensionality reduction (umap) [default: ${params.engens_dimred}]
+            --engens_min_structures             Minimum usable structures before clustering [default: ${params.engens_min_structures}]
+            --engens_max_clusters               Upper bound for auto cluster-count search [default: ${params.engens_max_clusters}]
+            --engens_gmm_ic                     GMM information criterion: aic|bic [default: ${params.engens_gmm_ic}]
+            --engens_seed                       Optional RNG seed for UMAP / clustering [default: unset]
+                                                To cluster an existing folder of .cif/.pdb only (no folding),
+                                                use the standalone engens.nf workflow instead.
 
             --gpu_devices                        GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
             --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
@@ -162,6 +238,53 @@ workflow {
     }
     if (!(params.msa_method in VALID_MSA_METHODS)) {
         error("fold.nf: unknown --msa_method '${params.msa_method}' (valid: ${VALID_MSA_METHODS.join(', ')})")
+    }
+    if ('af2' in methods) {
+        if (!(params.af2_keep_models in ['all', 'best'])) {
+            error("fold.nf: --af2_keep_models must be 'all' or 'best' (got '${params.af2_keep_models}')")
+        }
+        // 'all' keeps 5 models/run, so n_predictions that isn't a multiple of 5
+        // rounds UP to the next multiple (an extra run's worth of models).
+        if (params.n_predictions && params.af2_keep_models == 'all' && (params.n_predictions as int) % 5 != 0) {
+            def n_runs = ((params.n_predictions as int) + 4).intdiv(5)
+            log.warn(
+                "fold.nf: AF2 --af2_keep_models=all emits 5 models per run; --n_predictions " +
+                "${params.n_predictions} is not a multiple of 5, so AF2 will produce ${n_runs * 5} " +
+                "models across ${n_runs} runs (nearest multiple of 5 >= n_predictions)."
+            )
+        }
+    }
+    ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size'].each { pname ->
+        def v = params[pname]
+        // Default false is Boolean; a CLI 0 is Integer/String - do not use Groovy
+        // truthiness (0 == false) or we would silently treat 0 as unset.
+        if (v != null && !(v instanceof Boolean)) {
+            def n = v as int
+            if (n < 1) {
+                error("fold.nf: --${pname} must be >= 1 (got '${v}')")
+            }
+        }
+    }
+    if (params.n_predictions && (params.n_predictions as int) < 1) {
+        error("fold.nf: --n_predictions must be >= 1 (got '${params.n_predictions}')")
+    }
+    def engens_clustering = params.engens_clustering.toString().split(',').collect { it.trim().toLowerCase() }
+    engens_clustering.each { c ->
+        if (!(c in ['gmm', 'km'])) {
+            error("fold.nf: unknown --engens_clustering entry '${c}' (valid: gmm, km)")
+        }
+    }
+    if (!(params.engens_dimred.toString().toLowerCase() in ['umap'])) {
+        error("fold.nf: --engens_dimred must be 'umap' (got '${params.engens_dimred}')")
+    }
+    if (!(params.engens_gmm_ic.toString().toLowerCase() in ['aic', 'bic'])) {
+        error("fold.nf: --engens_gmm_ic must be 'aic' or 'bic' (got '${params.engens_gmm_ic}')")
+    }
+    if ((params.engens_min_structures as int) < 2) {
+        error("fold.nf: --engens_min_structures must be >= 2 (got '${params.engens_min_structures}')")
+    }
+    if ((params.engens_max_clusters as int) < 2) {
+        error("fold.nf: --engens_max_clusters must be >= 2 (got '${params.engens_max_clusters}')")
     }
     if (params.msa_method == 'mmseqs2_colabfold' && !params.use_remote_server && !(params.uniref30 && params.colabfold_envdb)) {
         error(
@@ -211,17 +334,34 @@ workflow {
 
     FOLD_MSA(ch_input, methods, params.msa_method)
 
+    // Collect prediction emits for optional EnGens clustering. Empty channels
+    // from unused methods are fine to mix - they contribute nothing.
+    ch_af2_pred = Channel.empty()
+    ch_boltz_pred = Channel.empty()
+    ch_rf3_pred = Channel.empty()
+    ch_protenix_pred = Channel.empty()
+
     if ('af2' in methods) {
         ALPHAFOLD2(FOLD_MSA.out.af2_msas)
+        ch_af2_pred = ALPHAFOLD2.out.predictions
     }
     if ('boltz' in methods) {
         BOLTZ_FOLD(FOLD_MSA.out.for_boltz)
+        ch_boltz_pred = BOLTZ_FOLD.out.predictions
     }
     if ('rf3' in methods) {
         ROSETTAFOLD3_FOLD(FOLD_MSA.out.for_rf3)
+        ch_rf3_pred = ROSETTAFOLD3_FOLD.out.predictions
     }
     if ('protenix' in methods) {
         PROTENIX_FOLD(FOLD_MSA.out.for_protenix)
+        ch_protenix_pred = PROTENIX_FOLD.out.predictions
+    }
+
+    if (!params.skip_engens) {
+        ch_engens_in = ch_af2_pred
+            .mix(ch_boltz_pred, ch_rf3_pred, ch_protenix_pred)
+        ENGENS_CLUSTER(ch_engens_in)
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -242,7 +382,7 @@ workflow {
             success: workflow.success,
         ]
 
-        def output_file = "${params.outdir}/params.json"
+        def output_file = "${params.outdir}/fold/params.json"
         def json_string = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(fold_params_json))
 
         new File(output_file).parentFile.mkdirs()

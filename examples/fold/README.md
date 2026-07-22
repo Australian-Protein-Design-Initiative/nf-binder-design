@@ -18,14 +18,15 @@ real multimer test case yet.
 
 | Shared | AF2 | Boltz | RF3 | Protenix |
 |---|---|---|---|---|
-| `--input`, `--outdir` | `--alphafold2_db_path` | `--use_msa_server` (Boltz's own MSA server, independent of `--msa_method`) | `--rf3_ckpt_path` | `--protenix_seeds` (`--seeds`) |
-| `--methods` (`af2,boltz,rf3,protenix`) | `--alphafold2_model_preset` | `--templates` | `--rf3_num_steps` | `--protenix_cycle` (`--cycle`) |
-| `--msa_method` (`jackhmmer_af2`\|`mmseqs2_colabfold`) | `--alphafold2_db_preset` | `--boltz_recycling` (`--recycling_steps`) | `--rf3_n_recycles` | `--protenix_step` (`--step`) |
-| `--use_remote_server`, `--uniref30`, `--colabfold_envdb` (ColabFold local/remote MSA) | `--alphafold2_max_template_date` | `--boltz_diffusion_samples` (`--diffusion_samples`) | `--rf3_diffusion_batch_size` | `--protenix_sample` (`--sample`) |
-| `--gpu_devices` | `--alphafold2_random_seed` | `--boltz_sampling_steps` (`--sampling_steps`) | `--rf3_early_stopping_plddt_threshold` | `--protenix_model_name`, `--protenix_use_msa` |
-| | `--alphafold2_models_to_relax` | | | |
+| `--input`, `--outdir` | `--af2_db_path` | `--use_msa_server` (Boltz's own MSA server, independent of `--msa_method`) | `--rf3_ckpt_path` | `--protenix_seeds` (`--seeds`) |
+| `--methods` (`af2,boltz,rf3,protenix`) | `--af2_model_preset` | `--templates` | `--rf3_num_steps` | `--protenix_cycle` (`--cycle`) |
+| `--msa_method` (`jackhmmer_af2`\|`mmseqs2_colabfold`) | `--af2_db_preset` | `--boltz_recycling` (`--recycling_steps`) | `--rf3_n_recycles` | `--protenix_step` (`--step`) |
+| `--use_remote_server`, `--uniref30`, `--colabfold_envdb` (ColabFold local/remote MSA) | `--af2_max_template_date` | `--boltz_batch_size` (`--diffusion_samples` per job) | `--rf3_batch_size` (`diffusion_batch_size` per job) | `--protenix_batch_size` (`--sample` per job) |
+| `--n_predictions` (total structures; split by method batch size) | `--af2_random_seed` | `--boltz_sampling_steps` (`--sampling_steps`) | `--rf3_early_stopping_plddt_threshold` | `--protenix_model_name`, `--protenix_use_msa` |
+| `--gpu_devices` | `--af2_keep_models`, `--af2_no_relax` | `--boltz_seed` | `--rf3_seed` | `--protenix_seeds` |
+| EnGens (default on): `--skip_engens`, `--engens_clustering` (`gmm`\|`km`), `--engens_min_structures`, `--engens_max_clusters` | | | | |
 
-Method-namespaced params (`--af2_*`-equivalent `--alphafold2_*`, `--boltz_*`,
+Method-namespaced params (`--af2_*`, `--boltz_*`,
 `--rf3_*`, `--protenix_*`) are kept explicit rather than unified, since
 recycles/samples mean different things per engine (see `fold.nf --help`).
 
@@ -83,14 +84,21 @@ required unless you have your own `colabfold_search`-format `--uniref30`/
 
 ## Outputs
 
-- `results/af2/msas/pdl1/` (raw MSAs from the CPU jackhmmer/hhblits stage) and
-  `results/af2/predictions/pdl1/` (GPU structure prediction: `ranked_0.pdb`,
-  `ranking_debug.json`, `result_model_*.pkl`, and with `monomer_ptm` per-residue
-  pLDDT / predicted aligned error).
-- `results/boltz/` - `boltz_results_pdl1/predictions/pdl1/pdl1_model_0.pdb`,
-  confidence JSON, ipSAE TSVs, and an aggregated `boltz_fold_scores.tsv`.
-- `results/rf3/pdl1/` - RF3 structures (`one_model_per_file=true`) and
-  `*_summary_confidences.json`.
-- `results/protenix/pdl1/seed_101/predictions/` - `pdl1_sample_{rank}.cif` and
-  `pdl1_summary_confidence_sample_{rank}.json` (one pair per `--protenix_sample`).
-- `results/params.json` written on completion.
+- Shared MSAs under `results/fold/msa/<msa_method>/` (`jackhmmer_af2` or
+  `mmseqs2_colabfold`), including the a3m derived for Boltz/RF3/Protenix.
+- AF2-only `features.pkl` under `results/fold/af2/msas/` (not under `fold/msa/`).
+- Per-method predictions under `results/fold/` and a flat gather of mmCIF
+  structures in `results/fold/predictions/` (tool-prefixed filenames: `af2_`,
+  `boltz_`, `rf3_`, `protenix_`).
+- EnGens (unless `--skip_engens`): `results/engens/<id>/clusters.html` plus
+  representative structures under
+  `results/engens/<id>/clustering/<featurizer>/<gmm|km>/conformations/`
+  (e.g. `residue_mindist`, `backbone_torsions`, `backbone_torsions-residue_mindist`).
+- `results/fold/params.json` written on completion.
+
+To re-cluster an existing folder of structures without re-running prediction:
+
+```bash
+nextflow run engens.nf --input results/fold/predictions/ --id UL119_domain \
+    --outdir results -profile slurm,m3
+```

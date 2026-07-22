@@ -5,7 +5,7 @@
 // `protenix pred` needs no download at predict time, same as rf3's
 // rc-foundry image).
 process PROTENIX_FOLD {
-    tag "${meta.id}"
+    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
 
     container 'oras://ghcr.io/australian-protein-design-initiative/containers/protenix:v2.0.0-weights'
 
@@ -17,13 +17,31 @@ process PROTENIX_FOLD {
     // runner/inference.py's infer_predict(), which uses each JSON job's
     // top-level "name" field as both dump dataset dir and sample_name), so
     // strip only the task-local "output/" prefix to land at
-    // <outdir>/protenix/<meta.id>/... . (Replacing it with "${meta.id}/"
-    // instead would double-nest to <outdir>/protenix/<meta.id>/<meta.id>/...,
-    // the same trap rf3_fold.nf's comment warns about.)
+    // <outdir>/fold/protenix/<meta.id>/... . When fold.nf splits --n_predictions
+    // across jobs, nest under batch_N/ so sample indices do not collide (seed
+    // dirs alone are not enough when seeds are unset and collide).
     publishDir(
-        path: "${params.outdir}/protenix",
+        path: "${params.outdir}/fold/protenix",
         mode: 'copy',
-        saveAs: { filename -> filename.toString().replaceFirst(/^output\//, '') }
+        saveAs: { filename ->
+            def rel = filename.toString().replaceFirst(/^output\//, '')
+            if (meta.fold_namespaced && rel.startsWith("${meta.id}/")) {
+                def tail = rel.substring(meta.id.toString().length() + 1)
+                return "${meta.id}/batch_${meta.fold_batch}/${tail}"
+            }
+            return rel
+        }
+    )
+    // Second publishDir: gather the per-sample mmCIF predictions into the shared
+    // flat <outdir>/fold/predictions/ dir with a protenix_ prefix.
+    publishDir(
+        path: "${params.outdir}/fold/predictions",
+        mode: 'copy',
+        saveAs: { filename ->
+            def bn = filename.toString().replaceFirst(/^.*\//, '')
+            if (!(bn ==~ /.*_sample_\d+\.cif/)) { return null }
+            return meta.fold_namespaced ? "protenix_batch${meta.fold_batch}_${bn}" : "protenix_${bn}"
+        }
     )
 
     input:
@@ -34,6 +52,13 @@ process PROTENIX_FOLD {
     tuple val(meta), path('output/**/*_summary_confidence_sample_*.json'), emit: confidence_json
 
     script:
+    // Per-job sample count from fold fan-out meta, else --protenix_batch_size /
+    // default 5 when neither n_predictions nor batch size set a meta override.
+    def sample = meta.fold_batch_size ?: (params.protenix_batch_size ?: 5)
+    // Seed from meta when fold fans a pinned --protenix_seeds across batches;
+    // else params; unset -> omit (protenix default, -resume-stable).
+    def seeds = meta.protenix_seeds != null ? meta.protenix_seeds : params.protenix_seeds
+    def seeds_arg = seeds ? "--seeds ${seeds}" : ''
     """
     set -euo pipefail
 
@@ -62,10 +87,10 @@ process PROTENIX_FOLD {
     protenix pred \\
         --input ${protenix_input_json} \\
         --out_dir output \\
-        --seeds ${params.protenix_seeds} \\
+        ${seeds_arg} \\
         --cycle ${params.protenix_cycle} \\
         --step ${params.protenix_step} \\
-        --sample ${params.protenix_sample} \\
+        --sample ${sample} \\
         --model_name ${params.protenix_model_name} \\
         --use_msa ${params.protenix_use_msa} \\
         ${task.ext.args ?: ''}

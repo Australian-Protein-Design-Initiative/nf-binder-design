@@ -3,11 +3,11 @@ process COLABFOLD_A3M_TO_AF2_MSAS {
 
     container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
 
-    // Published alongside the native jackhmmer_af2 MSA dirs (same publishDir
-    // pattern/saveAs caveat as ALPHAFOLD2_JACKHMMER_MSA: pattern operates on
-    // the top-level "${meta.id}" directory item, not files nested inside it).
+    // AF2-only bridge (features.pkl + provenance a3m copy). Shared ColabFold
+    // a3m is already published by MMSEQS_COLABFOLDSEARCH under
+    // fold/msa/mmseqs2_colabfold/.
     publishDir(
-        path: "${params.outdir}/af2/msas",
+        path: "${params.outdir}/fold/af2/msas",
         mode: 'copy',
         pattern: "${meta.id}"
     )

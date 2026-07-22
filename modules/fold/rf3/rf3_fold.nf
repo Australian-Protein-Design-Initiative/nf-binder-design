@@ -5,7 +5,7 @@
 // GENERATE_RF3_FOLD_INPUT built (monomer in Phase 1; multimer is Phase 2),
 // with no postprocessing beyond what `rf3 fold` itself emits.
 process RF3_FOLD {
-    tag "${meta.id}"
+    tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
 
     container 'oras://ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.2.0-weights'
 
@@ -15,13 +15,32 @@ process RF3_FOLD {
     // output as "output/**" makes each nested file its own publish item.
     // rf3 fold writes to output/<name>/ where name == meta.id (see
     // generate_rf3_fold_input.nf --name '${meta.id}'), so just strip the
-    // task-local "output/" prefix to land at <outdir>/rf3/<meta.id>/... .
-    // (Replacing it with "${meta.id}/" instead would double-nest to
-    // <outdir>/rf3/<meta.id>/<meta.id>/... .)
+    // task-local "output/" prefix to land at <outdir>/fold/rf3/<meta.id>/... .
+    // When fold.nf splits --n_predictions across jobs, nest under batch_N/ so
+    // sample indices (which restart per job) do not clobber each other.
     publishDir(
-        path: "${params.outdir}/rf3",
+        path: "${params.outdir}/fold/rf3",
         mode: 'copy',
-        saveAs: { filename -> filename.toString().replaceFirst(/^output\//, '') }
+        saveAs: { filename ->
+            def rel = filename.toString().replaceFirst(/^output\//, '')
+            if (meta.fold_namespaced && rel.startsWith("${meta.id}/")) {
+                def tail = rel.substring(meta.id.toString().length() + 1)
+                return "${meta.id}/batch_${meta.fold_batch}/${tail}"
+            }
+            return rel
+        }
+    )
+    // Second publishDir: gather the per-sample mmCIF models into the shared flat
+    // <outdir>/fold/predictions/ dir with an rf3_ prefix. Skip the top-level
+    // merged best-model copy (no sample-N in its name).
+    publishDir(
+        path: "${params.outdir}/fold/predictions",
+        mode: 'copy',
+        saveAs: { filename ->
+            def bn = filename.toString().replaceFirst(/^.*\//, '')
+            if (!(bn ==~ /.*_sample-\d+_model\.cif/)) { return null }
+            return meta.fold_namespaced ? "rf3_batch${meta.fold_batch}_${bn}" : "rf3_${bn}"
+        }
     )
 
     input:
@@ -32,6 +51,15 @@ process RF3_FOLD {
     tuple val(meta), path('output/**/*_summary_confidences.json'), emit: confidence_json
 
     script:
+    // Per-job sample count from BOLTZ-style fan-out meta (fold.nf), else the
+    // fold --rf3_batch_size / legacy default of 5 when neither n_predictions
+    // nor batch size drove a meta override.
+    def diffusion_batch_size = meta.fold_batch_size ?: (params.rf3_batch_size ?: 5)
+    // Seed from meta when fold fans a pinned --rf3_seed across batches
+    // (seed, seed+1, ...); else params; unset -> omit (RF3 draws its own,
+    // task hash stays stable for -resume).
+    def seed = meta.rf3_seed != null ? meta.rf3_seed : params.rf3_seed
+    def seed_arg = seed ? "seed=${seed}" : ''
     """
     set -euo pipefail
 
@@ -63,7 +91,8 @@ process RF3_FOLD {
         ckpt_path=${params.rf3_ckpt_path} \\
         num_steps=${params.rf3_num_steps} \\
         n_recycles=${params.rf3_n_recycles} \\
-        diffusion_batch_size=${params.rf3_diffusion_batch_size} \\
+        diffusion_batch_size=${diffusion_batch_size} \\
+        ${seed_arg} \\
         early_stopping_plddt_threshold=${params.rf3_early_stopping_plddt_threshold} \\
         annotate_b_factor_with_plddt=true \\
         one_model_per_file=true \\

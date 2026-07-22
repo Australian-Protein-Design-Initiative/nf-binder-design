@@ -12,7 +12,10 @@ __pycache__
 __marimo__
 .jupyter_cache
 
-tmp
+.tmp
+
+# Vendored reference clones (not part of the pipeline runtime)
+repos/
 
 .nf-test
 .nf-test.log

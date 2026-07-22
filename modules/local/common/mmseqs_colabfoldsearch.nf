@@ -6,7 +6,12 @@ process MMSEQS_COLABFOLDSEARCH {
     tag "$meta.id"
 
     container "quay.io/nf-core/proteinfold_colabfold:1.1.1"
-    publishDir path: { "${params.outdir}/${workflow_publish_dir ?: 'mmseqs2'}" }, pattern: 'result/**', mode: 'copy'
+    // The on-disk working subdir is always 'result/' (colabfold_search writes
+    // there and the a3m emit globs it). params.colabfold_msa_publish_name renames
+    // only the PUBLISHED subdir (default 'result'). fold.nf publishes under
+    // fold/msa/mmseqs2_colabfold/; boltz_pulldown under boltz_pulldown/mmseqs2/.
+    publishDir path: { "${params.outdir}/${workflow_publish_dir ?: 'mmseqs2'}" }, pattern: 'result/**', mode: 'copy',
+        saveAs: { fn -> params.colabfold_msa_publish_name && params.colabfold_msa_publish_name != 'result' ? fn.replaceFirst(/^result\//, "${params.colabfold_msa_publish_name}/") : fn }
 
     input:
     tuple val(meta), path(fasta)

@@ -3,6 +3,14 @@ process AF2_MSAS_TO_A3M {
 
     container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
 
+    // Shared jackhmmer-derived a3m for Boltz/RF3/Protenix under the same tree as
+    // the native AF2 jackhmmer MSA dirs.
+    publishDir(
+        path: "${params.outdir}/fold/msa/jackhmmer_af2",
+        mode: 'copy',
+        pattern: '*.a3m'
+    )
+
     input:
     tuple val(meta), path(fasta), path(af2_msa_dir)
 

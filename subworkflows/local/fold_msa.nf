@@ -58,7 +58,7 @@ workflow FOLD_MSA {
             params.use_remote_server,
             envdb,
             uniref30_db,
-            'mmseqs2',
+            'fold/msa/mmseqs2_colabfold',
         )
         // MMSEQS_COLABFOLDSEARCH re-emits meta but drops fasta; rejoin it so
         // downstream converters/consumers keep the harmonized (meta, fasta,

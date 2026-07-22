@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--id", required=True, help="Design ID")
     parser.add_argument("--target", help="Target name (optional)")
     parser.add_argument("--binder", help="Binder name (optional)")
+    parser.add_argument("--model", help="Model/sample index (optional); adds a 'model' column")
     parser.add_argument("--merge-ipsae", help="Path to *_ipsae.tsv file to merge (optional)")
 
     args = parser.parse_args()
@@ -78,10 +79,15 @@ def main():
 
     # Add the metadata columns to the beginning of the DataFrame
     df_flat.insert(0, "id", args.id)
+    insert_at = 1
     if args.target:
-        df_flat.insert(1, "target", args.target)
+        df_flat.insert(insert_at, "target", args.target)
+        insert_at += 1
     if args.binder:
-        df_flat.insert(2, "binder", args.binder)
+        df_flat.insert(insert_at, "binder", args.binder)
+        insert_at += 1
+    if args.model is not None:
+        df_flat.insert(insert_at, "model", args.model)
 
     # Write the flattened data to stdout as a TSV
     df_flat.to_csv(sys.stdout, sep="\t", index=False, lineterminator="\n")

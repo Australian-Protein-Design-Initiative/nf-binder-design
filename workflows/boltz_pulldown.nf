@@ -197,7 +197,7 @@ workflow BOLTZ_PULLDOWN {
 
     CREATE_BOLTZ_YAML(ch_pairs, ch_templates)
 
-    BOLTZ(CREATE_BOLTZ_YAML.out, ch_templates, "boltz_pulldown")
+    BOLTZ(CREATE_BOLTZ_YAML.out, ch_templates, "boltz_pulldown", 'pdb')
 
     PARSE_BOLTZ_CONFIDENCE_JSON(BOLTZ.out.confidence_json.join(BOLTZ.out.ipsae_tsv))
 

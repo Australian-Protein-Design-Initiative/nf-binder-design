@@ -3,16 +3,26 @@ process ALPHAFOLD2_JACKHMMER_MSA {
 
     container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
 
-    // Publish the per-target directory (msas/ + features.pkl) as
-    // <outdir>/af2/msas/${meta.id}/... . pattern/saveAs operate on the top-level
-    // output *item* (here the "${meta.id}" directory and the re-emitted input
-    // FASTA), NOT the files nested inside the directory - so "${meta.id}" matches
-    // the directory item (published recursively) while excluding the stray
-    // "${meta.id}.fasta" file item.
+    // Split publish: raw msas/ (shared with a3m conversion) under
+    // fold/msa/jackhmmer_af2/; AF2-only features.pkl under fold/af2/msas/.
+    // Emit "${meta.id}/**" so each nested file is a top-level publish item
+    // (pattern/saveAs cannot see inside a directory output item). The directory
+    // itself stays on the msa channel for AF2 predict / AF2_MSAS_TO_A3M.
     publishDir(
-        path: "${params.outdir}/af2/msas",
+        path: "${params.outdir}/fold/msa/jackhmmer_af2",
         mode: 'copy',
-        pattern: "${meta.id}"
+        saveAs: { filename ->
+            def rel = filename.toString()
+            return rel.startsWith("${meta.id}/msas/") ? rel : null
+        }
+    )
+    publishDir(
+        path: "${params.outdir}/fold/af2/msas",
+        mode: 'copy',
+        saveAs: { filename ->
+            def rel = filename.toString()
+            return rel == "${meta.id}/features.pkl" ? rel : null
+        }
     )
 
     input:
@@ -20,12 +30,13 @@ process ALPHAFOLD2_JACKHMMER_MSA {
 
     output:
     tuple val(meta), path(fasta), path("${meta.id}"), emit: msa
+    path "${meta.id}/**", emit: msa_files
 
     script:
     // All DB flags below are required on both the MSA and predict stages -
     // run_alphafold.py has no defaults for them and fails flag parsing if any
     // are omitted, even though only this (CPU) stage actually reads them.
-    def d = params.alphafold2_db_path
+    def d = params.af2_db_path
     def db_flags = [
         "--data_dir=${d}",
         "--uniref90_database_path=${d}/uniref90/uniref90.fasta",
@@ -35,9 +46,9 @@ process ALPHAFOLD2_JACKHMMER_MSA {
         "--pdb70_database_path=${d}/pdb70/pdb70",
         "--template_mmcif_dir=${d}/pdb_mmcif/mmcif_files",
         "--obsolete_pdbs_path=${d}/pdb_mmcif/obsolete.dat",
-        "--max_template_date=${params.alphafold2_max_template_date}",
-        "--db_preset=${params.alphafold2_db_preset}",
-        "--model_preset=${params.alphafold2_model_preset}",
+        "--max_template_date=${params.af2_max_template_date}",
+        "--db_preset=${params.af2_db_preset}",
+        "--model_preset=${params.af2_model_preset}",
     ].join(' ')
     """
     # AlphaFold names its per-target output directory after the FASTA stem, which

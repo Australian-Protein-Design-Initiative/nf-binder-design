@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `fold.nf`: Folding pipeline with Alphafold2, Boltz-2, RosettaFold3, and Protenix structure predictors, for sampling and ensemble generation. EnGens conformational clustering of predicted ensembles. Also `engens.nf`: standalone EnGens clustering of an existing `.cif`/`.pdb` folder or glob (no structure prediction).
+
 ## [0.3.0] - 2026-07-09
 
 ### Changed
