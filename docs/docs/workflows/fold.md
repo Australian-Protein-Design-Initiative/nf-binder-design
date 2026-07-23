@@ -1,13 +1,14 @@
 # Fold Workflow (`fold.nf`)
 
-Standalone multi-method structure prediction for monomer FASTA inputs. Predicts
-structures with any combination of AlphaFold2, Boltz-2, RosettaFold3 and
-Protenix, sharing one MSA-generation stage, then (by default) clusters the
-ensemble with EnGens.
+Standalone multi-method structure prediction for monomer **and multimer** FASTA
+inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
+RosettaFold3 and Protenix, sharing one MSA-generation stage, then (by default)
+clusters the ensemble with EnGens.
 
-> **Phase 1: monomer inputs only.** A FASTA with more than one record fails
-> fast. Multimer / paired-MSA support is planned for a later phase. See
-> [`examples/fold/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold).
+> **Multimer:** a FASTA with more than one record folds as a protein complex
+> (one record = one chain → chain IDs A, B, C, …; homo-oligomers = repeated
+> records; up to 26 chains). Each engine gets a taxonomically-paired MSA in its
+> native format — see [Multimer complexes](#multimer-complexes) below.
 
 ## Overview
 
@@ -33,9 +34,20 @@ nextflow run /path/to/nf-binder-design/fold.nf \
   -profile slurm,m3
 ```
 
-Each input FASTA is one prediction unit (single sequence). Shared MSAs feed all
-selected predictors; optional MSA subsample and EnGens clustering produce a
-conformational ensemble from the combined predictions.
+Each input FASTA is one prediction unit: a single record folds as a monomer, and
+multiple records fold together as one complex (chains A, B, C, …). Shared MSAs
+feed all selected predictors; optional MSA subsample and EnGens clustering
+produce a conformational ensemble from the combined predictions.
+
+`--n_predictions` sets how many structures each method produces per input, and
+**defaults to `5`** to match the tools' typical out-of-the-box behaviour (AF2's
+five trained models; the diffusion engines' usual sample counts). It is realised
+differently per engine: Boltz, RF3, and Protenix draw N diffusion samples
+(split across jobs by their `--*_batch_size`); AF2 has no in-run sampling knob —
+it always emits its 5 trained models per run and `--af2_keep_models` selects
+which to keep toward N (`all` keeps 5/run → `ceil(N/5)` runs; `best` keeps the
+top-ranked → N runs). Set `--n_predictions 1` for a single quick structure per
+method.
 
 ## Command-line Options
 
@@ -51,7 +63,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design/fold.nf --hel
 | `--outdir` | Output directory (default: `results`) |
 | `--methods` | Comma-separated: `af2`, `boltz`, `rf3`, `protenix` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
-| `--n_predictions` | Total structures per input, per method (split by method batch size) |
+| `--n_predictions` | Total structures per input, per method (split by method batch size; default: `5`, matching the tools' typical out-of-the-box behaviour) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
 | `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
 | `--skip_engens` | Skip post-prediction EnGens clustering |
@@ -135,6 +147,67 @@ than or equal to the MSA sequence count are skipped (they would only shuffle
 the full MSA). For each depth job (including full), `fold/msa_ids/` lists
 `header_line<TAB>id` where `header_line` is the 0-based file line of that
 sequence's `>` header in the original a3m (disambiguates duplicate accessions).
+
+## Multimer complexes
+
+A FASTA with more than one record folds as a **protein complex**: each record is
+one chain, in file order, assigned chain IDs `A, B, C, …` (up to 26). A
+homo-oligomer is expressed as **repeated identical records** (a `count:`
+shorthand is not implemented yet). No ligands / nucleic acids this round —
+protein complexes only.
+
+```bash
+nextflow run /path/to/nf-binder-design/fold.nf \
+  --input input/complex.fasta \
+  --methods af2,boltz,rf3,protenix \
+  --msa_method jackhmmer_af2 \
+  -profile slurm,m3
+```
+
+### Paired MSAs (how each engine differs)
+
+For a complex, co-evolutionary **pairing** across chains is what carries the
+interface signal. Each engine consumes a paired MSA in a *different* native
+format, so `fold.nf` searches each chain independently and then renders each
+engine's format from one canonical taxonomy parse (`bin/msa_taxonomy.py`, unit
+tested in `tests/bin/test_msa_taxonomy.py`):
+
+| Engine | How it pairs | What `fold.nf` feeds it |
+|--------|--------------|--------------------------|
+| **AF2** | Its own native multimer pipeline (jackhmmer + species pairing) | The whole complex + `--model_preset=multimer` against the 2021 DB snapshot |
+| **RF3** | atomworks pairs by numeric `TaxID=<n>` in a3m headers | Per-chain a3m with `TaxID=` annotated headers |
+| **Protenix** | Pairs by species *mnemonic* (`_HUMAN`, `_9BETA`) | Per-chain `pairedMsaPath` (mnemonic headers) + `unpairedMsaPath` |
+| **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`) |
+
+The rendered per-chain files are published under `<outdir>/fold/msa/paired/`, and
+each render logs its paired-row depth per chain.
+
+> **Use `--msa_method jackhmmer_af2` for paired multimers.** Only the jackhmmer
+> route produces the rich UniProt/UniRef headers (`TaxID=`, `RepID=`,
+> `sp|/tr|…_SPECIES`) that taxonomy pairing needs. The ColabFold route emits
+> taxonomy-less headers, so under `mmseqs2_colabfold` the chains fold **unpaired**
+> — for a ColabFold-style multimer use `--use_msa_server true` instead (Boltz
+> fetches and pairs its own MSA; drop `af2` from `--methods`).
+
+### AF2 multimer needs the 2021 DB snapshot
+
+AF2 multimer loads different weights (`--model_preset=multimer`) and a different
+data pipeline that pairs species **internally** against the `uniprot/` all-seqs
+DB + `pdb_seqres/` templates. The default `alphafold_20240229` snapshot is
+monomer-only (no `uniprot/`), so `fold.nf` fails fast if `af2` is requested for a
+multimer without a `uniprot/`-bearing `--af2_db_path`. Point it at the 2021
+snapshot (`/mnt/datasets/alphafold/alphafold_20211129`), whose HHblits DB is
+`uniclust30` rather than `uniref30` — override `--af2_uniref30_subpath` (and
+`--af2_mgnify_subpath`, `--af2_uniprot_subpath`, `--af2_pdb_seqres_subpath`)
+accordingly. The container also loads **multimer_v3** weights, which the 2021
+snapshot lacks (it ships only v1 multimer params), so point `--af2_data_dir`
+(the `params/` source, independent of the genetic-DB paths) at a v3 snapshot
+such as `alphafold_20240229`. See [`examples/fold-multimer/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer)
+(`nextflow.m3.config` + `run-m3.sh`) for a working set of overrides.
+`--num_multimer_predictions_per_model` (`--af2_num_predictions_per_model`)
+applies in multimer mode.
+
+`--msa_subsample` is monomer-only and is rejected for multimer inputs.
 
 ## Example Usage
 
@@ -267,12 +340,15 @@ $AF2_DB_PATH/
   pdb_mmcif/
   uniref30/UniRef30_2021_03*
   uniref90/uniref90.fasta
-  uniprot/             # multimer (future)
-  pdb_seqres/          # multimer (future)
+  uniprot/             # AF2 multimer (2021 snapshot only)
+  pdb_seqres/          # AF2 multimer (2021 snapshot only)
 ```
 
-`fold.nf` currently hardcodes the relative paths used by the DeepMind download
-scripts (e.g. `mgnify/mgy_clusters_2022_05.fa`, `uniref30/UniRef30_2021_03`).
+`fold.nf` defaults the relative paths to the DeepMind download-script layout
+(e.g. `mgnify/mgy_clusters_2022_05.fa`, `uniref30/UniRef30_2021_03`); the
+`--af2_uniref30_subpath`, `--af2_uniprot_subpath` and `--af2_pdb_seqres_subpath`
+params override them (needed for AF2 multimer against the 2021 snapshot, whose
+HHblits DB is `uniclust30`).
 The M3 default is `/mnt/datasets/alphafold/alphafold_20240229` (group
 `alphafold`); bind-mount it in Apptainer `runOptions` when using `-profile m3`
 (see `examples/fold/nextflow.m3.config`).

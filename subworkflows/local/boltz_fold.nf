@@ -1,12 +1,15 @@
 /*
 BOLTZ_FOLD: generic single-target Boltz-2 folding for fold.nf.
 
-Phase 1 scope: monomer only. Multimer (one `protein:` entry per FASTA record,
-each chain's own `msa:`) is Phase 2 work (see plans/
-fold-nf-multi-method-folding.md §5).
+Monomer inputs (meta.n_chains == 1) use FOLD_CREATE_BOLTZ_YAML (one protein
+entry, shared a3m); multimer inputs (n_chains > 1) use
+FOLD_CREATE_BOLTZ_YAML_COMPLEX (one protein entry per chain, each with its own
+key,sequence CSV from FOLD_MSA; see plans/fold-nf-multimer-paired-msa.md). Both
+feed the same BOLTZ predict.
 */
 
 include { FOLD_CREATE_BOLTZ_YAML } from '../../modules/fold/boltz/fold_create_boltz_yaml'
+include { FOLD_CREATE_BOLTZ_YAML_COMPLEX } from '../../modules/fold/boltz/fold_create_boltz_yaml_complex'
 include { BOLTZ } from '../../modules/local/common/boltz'
 include { FOLD_PARSE_BOLTZ_CONFIDENCE } from '../../modules/fold/boltz/fold_parse_boltz_confidence'
 
@@ -31,10 +34,14 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 
 workflow BOLTZ_FOLD {
     take:
-    ch_for_boltz // tuple(meta, fasta, a3m)
+    ch_for_boltz // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [csv...])
 
     main:
-    FOLD_CREATE_BOLTZ_YAML(ch_for_boltz)
+    ch_mono = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
+    ch_multi = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
+    FOLD_CREATE_BOLTZ_YAML(ch_mono)
+    FOLD_CREATE_BOLTZ_YAML_COMPLEX(ch_multi)
+    ch_yaml = FOLD_CREATE_BOLTZ_YAML.out.yaml.mix(FOLD_CREATE_BOLTZ_YAML_COMPLEX.out.yaml)
 
     ch_templates = params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates")
 
@@ -48,7 +55,7 @@ workflow BOLTZ_FOLD {
     def batches = foldPredictionBatches(params.boltz_batch_size, 1, params.n_predictions)
     def base_seed = params.boltz_seed ? (params.boltz_seed as int) : null
 
-    ch_boltz_input = FOLD_CREATE_BOLTZ_YAML.out.yaml.flatMap { meta, yaml, msa ->
+    ch_boltz_input = ch_yaml.flatMap { meta, yaml, msa ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
             ? MsaSubsample.countA3mSequences(msa) : null
         def depth_jobs = MsaSubsample.depthJobs(

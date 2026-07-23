@@ -2,13 +2,15 @@
 PROTENIX_FOLD: generic Protenix (AF3-style) folding for fold.nf, the 4th
 --methods engine (see plans/fold-nf-multi-method-folding.md Phase 3).
 
-Phase 3 scope (still monomer only, consistent with Phase 1): GENERATE_PROTENIX_INPUT /
-PROTENIX_FOLD are written N-chain-generic, but fold.nf itself rejects
-multi-record FASTA before this subworkflow ever runs - see fold.nf's
-monomer-only guard.
+Monomer inputs (meta.n_chains == 1) use GENERATE_PROTENIX_INPUT with a single
+unpairedMsaPath a3m; multimer inputs (n_chains > 1) use
+GENERATE_PROTENIX_INPUT_COMPLEX with per-chain paired + unpaired a3m bundles
+from FOLD_MSA (Protenix pairs by species mnemonic; see
+plans/fold-nf-multimer-paired-msa.md). Both feed the same PROTENIX_FOLD predict.
 */
 
 include { GENERATE_PROTENIX_INPUT } from '../../modules/fold/protenix/generate_protenix_input'
+include { GENERATE_PROTENIX_INPUT_COMPLEX } from '../../modules/fold/protenix/generate_protenix_input_complex'
 include { PROTENIX_FOLD as PROTENIX_FOLD_PROCESS } from '../../modules/fold/protenix/protenix_fold'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
@@ -29,10 +31,14 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 
 workflow PROTENIX_FOLD {
     take:
-    ch_for_protenix // tuple(meta, fasta, a3m)
+    ch_for_protenix // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
 
     main:
-    GENERATE_PROTENIX_INPUT(ch_for_protenix)
+    ch_mono = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
+    ch_multi = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
+    GENERATE_PROTENIX_INPUT(ch_mono)
+    GENERATE_PROTENIX_INPUT_COMPLEX(ch_multi)
+    ch_with_json = GENERATE_PROTENIX_INPUT.out.with_json.mix(GENERATE_PROTENIX_INPUT_COMPLEX.out.with_json)
 
     def batches = foldPredictionBatches(params.protenix_batch_size, 5, params.n_predictions)
 
@@ -51,7 +57,7 @@ workflow PROTENIX_FOLD {
 
     def base_seed = params.protenix_seeds ? (params.protenix_seeds.toString().split(',')[0].trim() as int) : null
 
-    ch_batched = GENERATE_PROTENIX_INPUT.out.with_json.flatMap { meta, fasta, a3m, json ->
+    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
             ? MsaSubsample.countA3mSequences(a3m) : null
         def depth_jobs = MsaSubsample.depthJobs(

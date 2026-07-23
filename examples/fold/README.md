@@ -4,19 +4,13 @@ See the [Fold workflow docs](../../docs/docs/workflows/fold.md) for MSA options,
 EnGens, outputs, and AlphaFold / ColabFold database setup
 (`scripts/download_alphafold_dbs.sh`, `scripts/download_colabfold_dbs.sh`).
 
-**Phase 1 of `plans/fold-nf-multi-method-folding.md`: monomer inputs only.**
-A FASTA file with more than one record (multimer) fails fast with a clear
-error; multimer support (paired MSAs per method) is a later phase.
+Monomer **and multimer** inputs are supported. A single-record FASTA folds as a
+monomer; a multi-record FASTA folds as one complex (chains A, B, C, …) with a
+taxonomically-paired MSA per engine (see the [multimer docs](../../docs/docs/workflows/fold.md#multimer-complexes)).
 
-This example folds human PD-L1 (`input/pdl1.fasta`, reused from
-`examples/pdl1-rfd/input/full/3BIK_B.fasta`) as a single-chain monomer with any
-combination of AlphaFold2, Boltz-2, RosettaFold3 and Protenix, sharing one
-MSA-generation stage selected by `--msa_method`.
-
-`input/complex.fasta` is a 2-record placeholder kept only to exercise (and
-demonstrate) the Phase 1 monomer-only guard - running `fold.nf` against it
-fails fast with a "multimer folding not yet supported" error; it is not a
-real multimer test case yet.
+`input/pdl1.fasta` folds human PD-L1 as a single-chain monomer. For a multimer
+(protein complex) run, see the sibling [`examples/fold-multimer`](../fold-multimer)
+example (2-chain PD-L1 homodimer with per-engine paired MSAs).
 
 ## Param harmonization
 
@@ -37,22 +31,24 @@ recycles/samples mean different things per engine (see `fold.nf --help`).
 
 Protenix's per-chain a3m contract (confirmed against
 `protenix:v2.0.0-weights` on 2026-07-17) is the `unpairedMsaPath` field on a
-`proteinChain` input entry - the shared `--msa_method` a3m is fed there
-directly, same monomer contract as Boltz's `msa:`/RF3's `msa_path`. Weights
+`proteinChain` input entry (monomer), plus `pairedMsaPath` for multimer - same
+per-chain contract as Boltz's `msa:`/RF3's `msa_path`. Weights
 (`protenix_base_default_v1.0.0.pt` etc) are baked into the container under
 `/models/protenix/checkpoint`, so no download happens at predict time.
 
-## Multimer / paired-MSA notes (deferred to Phase 2)
+## Multimer / paired MSAs
 
+- One canonical taxonomy parse (`bin/msa_taxonomy.py`) renders each engine's
+  native paired format: RF3 `TaxID=` a3m, Protenix species-mnemonic
+  paired/unpaired a3m, Boltz `key,sequence` CSV. AF2 uses its own native
+  multimer pipeline. See `plans/fold-nf-multimer-paired-msa.md`.
+- Use `--msa_method jackhmmer_af2`: only its rich headers carry the taxonomy
+  pairing needs. ColabFold headers are taxonomy-less, so ColabFold multimer runs
+  unpaired — use `--use_msa_server true` (Boltz) instead.
 - AF2 multimer needs the 2021 snapshot (`alphafold_20211129`, has
-  `uniprot/`+`pdb_seqres/`) for internal species pairing; the current
-  monomer-only default (`alphafold_20240229`) cannot be used for multimer.
-- Boltz/RF3 multimer will default to `--use_msa_server` (MSA-server-side
-  pairing) rather than local paired ColabFold search, at least initially.
-- Protenix multimer needs each chain's `pairedMsaPath` set alongside
-  `unpairedMsaPath` (see `protenix/data/msa/msa_featurizer.py`); deferred
-  alongside the other engines.
-- See `plans/fold-nf-multi-method-folding.md` §4 for the full strategy.
+  `uniprot/`+`pdb_seqres/`); the monomer-only default (`alphafold_20240229`)
+  cannot be used (fold.nf fails fast). Its HHblits DB is `uniclust30`, so set
+  `--af2_uniref30_subpath` (see [`examples/fold-multimer`](../fold-multimer)).
 
 ## Running
 
@@ -67,6 +63,9 @@ To run locally (e.g. on a GPU workstation):
 ```bash
 ./run-local.sh
 ```
+
+To fold a multimer (protein complex) instead, see the sibling
+[`examples/fold-multimer`](../fold-multimer) example.
 
 Both default to `--methods af2,boltz,rf3,protenix --msa_method jackhmmer_af2`.
 Pass `--methods` to select a subset - e.g. AlphaFold2 only (the native

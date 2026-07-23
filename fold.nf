@@ -11,10 +11,15 @@ prototype for now and is expected to be folded into a renamed/expanded
 boltz_pulldown inside main.nf later (not in this work). See
 plans/fold-nf-multi-method-folding.md for the full design.
 
-*** Phase 1 of that plan: MONOMER INPUTS ONLY. *** A multi-record FASTA
-(multimer) fails fast with a clear error - see §4 of the plan for the
-deferred paired-MSA multimer strategy (Phase 2). Protenix (Phase 3) is
-monomer-only for the same reason.
+Multimer: a multi-record FASTA folds as a protein complex (one record = one
+chain, in file order -> chain IDs A, B, C, ...; homo-oligomers = repeated
+records). Each engine consumes a taxonomically-paired MSA in its own native
+format, built by the shared bin/msa_taxonomy.py renderer - see
+plans/fold-nf-multimer-paired-msa.md. Header-derived pairing needs the
+--msa_method jackhmmer_af2 route (rich UniProt/UniRef headers); the ColabFold
+route emits taxonomy-less headers, so ColabFold multimer should use
+--use_msa_server (Boltz) instead. AF2 multimer needs the 2021 DB snapshot
+(--af2_db_path .../alphafold_20211129, which has uniprot/ + pdb_seqres/).
 
 Usage:
   nextflow run fold.nf --input 'input/*.fasta' --outdir results \
@@ -28,12 +33,13 @@ params.outdir = 'results'
 params.methods = 'af2'
 params.msa_method = 'jackhmmer_af2'
 
-// Total predicted structures per input, per method. Split across GPU jobs by
-// each method's --*_batch_size (samples per invocation). When --n_predictions is
-// set but the method's batch size is unset, all N land in ONE job (amortize
-// model load). AF2 has no --af2_batch_size (generation batch is fixed at 5;
-// see --af2_keep_models).
-params.n_predictions = false
+// Total predicted structures per input, per method. Default 5 matches the
+// typical out-of-the-box behaviour of these tools (AF2's 5 trained models; the
+// diffusion engines' usual sample counts). Split across GPU jobs by each
+// method's --*_batch_size (samples per invocation); when a method's batch size
+// is unset, all N land in ONE job (amortize model load). AF2 has no
+// --af2_batch_size (generation batch is fixed at 5; see --af2_keep_models).
+params.n_predictions = 5
 
 // Seeds are left UNSET by default: each engine draws its own fresh random seed
 // when no seed is passed, so repeated runs already explore different stochastic
@@ -50,6 +56,25 @@ params.af2_db_preset = 'full_dbs'
 params.af2_max_template_date = '2024-01-01'
 params.af2_random_seed = false
 params.af2_num_predictions_per_model = 1 // multimer only
+// DB sub-paths (relative to --af2_db_path). Defaults match the monomer
+// 20240229 layout so the monomer command is byte-identical. AF2 MULTIMER needs
+// the 2021 snapshot (alphafold_20211129), whose HHblits DB is uniclust30 (not
+// uniref30) - override --af2_uniref30_subpath accordingly, e.g.
+// 'uniclust30/uniclust30_2018_08/uniclust30_2018_08'. uniprot/ + pdb_seqres/
+// are multimer-only and present in the 2021 snapshot.
+params.af2_uniref30_subpath = 'uniref30/UniRef30_2021_03'
+params.af2_uniprot_subpath = 'uniprot/uniprot.fasta'
+params.af2_pdb_seqres_subpath = 'pdb_seqres/pdb_seqres.txt'
+// mgnify filename differs by snapshot (20240229: mgy_clusters_2022_05.fa;
+// 2021 snapshot: mgy_clusters_2018_12.fa).
+params.af2_mgnify_subpath = 'mgnify/mgy_clusters_2022_05.fa'
+// AF2 model weights (params/) source. --data_dir only locates params/; the
+// genetic DBs are passed as separate flags. Defaults to --af2_db_path (monomer
+// path unchanged). AF2 MULTIMER needs multimer_v3 weights, which the 2021 DB
+// snapshot lacks (it ships only v1 multimer params) - so for multimer point
+// --af2_data_dir at a v3-params snapshot (e.g. alphafold_20240229) while the DB
+// paths stay on the 2021 snapshot.
+params.af2_data_dir = false
 // AF2 has no in-invocation sampling knob (a monomer run always emits its 5
 // trained models). --af2_keep_models chooses which of those 5 we retain, which
 // also sets the effective kept-per-run used to meet --n_predictions:
@@ -84,7 +109,7 @@ params.rf3_num_steps = 50 // default for rf3 cli is 200, however 50 is faster wi
 params.rf3_n_recycles = 10
 // fold.nf meaning: diffusion samples per RF3_FOLD job. Distinct from rfd3.nf's
 // --rf3_batch_size (MPNN designs per binder-design ROSETTAFOLD3 task).
-params.rf3_batch_size = false // unset + --n_predictions => one job of N; else default 5 samples/job
+params.rf3_batch_size = false // samples per RF3 job (diffusion_batch_size); unset => --n_predictions in one job
 params.rf3_early_stopping_plddt_threshold = 0.5 // exits early if mean pLDDT < 0.5 after the first recycle
 params.rf3_seed = false // RF3 hydra `seed=` (unset -> RF3 draws its own random seed; pin for reproducibility)
 
@@ -142,14 +167,17 @@ workflow {
         AlphaFold2, Boltz-2, RosettaFold3 and Protenix, sharing one
         MSA-generation stage.
 
-        *** Phase 1: MONOMER INPUTS ONLY. *** A FASTA file with more than one
-        record (multimer) will fail fast - multimer support is coming in a
-        later phase (see plans/fold-nf-multi-method-folding.md §4).
+        Multimer: a multi-record FASTA folds as a protein complex (one record
+        = one chain -> chain IDs A, B, C, ...; homo-oligomers = repeated
+        records; up to 26 chains). Header-derived MSA pairing needs
+        --msa_method jackhmmer_af2; ColabFold multimer should use
+        --use_msa_server. AF2 multimer needs the 2021 DB snapshot
+        (see --af2_db_path).
 
         Required arguments:
             --input                            Single FASTA file, glob, or directory of FASTA files.
-                                                Each file is one prediction unit (must be single-record
-                                                in this phase).
+                                                Each file is one prediction unit (multi-record = one
+                                                complex, folded as chains A, B, C, ...).
 
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
@@ -159,7 +187,7 @@ workflow {
                                                 --boltz_batch_size / --rf3_batch_size / --protenix_batch_size
                                                 (AF2 uses --af2_keep_models; generation batch is fixed at 5).
                                                 With no method batch size, all N are one job.
-                                                [default: unset -> each method's own default samples/job]
+                                                [default: ${params.n_predictions}]
 
             AlphaFold2 (--methods includes af2):
             --af2_db_path                       AlphaFold2 database directory [default: ${params.af2_db_path}]
@@ -178,9 +206,8 @@ workflow {
             --use_msa_server                   Use Boltz's own MMseqs2 MSA server instead of the shared --msa_method a3m [default: ${params.use_msa_server}]
             --templates                        Templates directory with .cif files [default: ${params.templates}]
             --boltz_recycling                  Boltz --recycling_steps override [default: boltz's own default]
-            --boltz_batch_size                 Samples per Boltz job (--diffusion_samples). With --n_predictions,
-                                                splits into ceil(N/batch) jobs; unset => one job of N.
-                                                Without --n_predictions: default 1 sample/job.
+            --boltz_batch_size                 Samples per Boltz job (--diffusion_samples). Splits
+                                                --n_predictions into ceil(N/batch) jobs; unset => one job of N.
             --boltz_sampling_steps              Boltz --sampling_steps override [default: boltz's own default]
             --boltz_seed                        Boltz --seed [default: unset -> Boltz draws its own random seed]
 
@@ -188,9 +215,8 @@ workflow {
             --rf3_ckpt_path                     RF3 checkpoint path [default: ${params.rf3_ckpt_path}]
             --rf3_num_steps                     [default: ${params.rf3_num_steps}]
             --rf3_n_recycles                    [default: ${params.rf3_n_recycles}]
-            --rf3_batch_size                    Samples per RF3 job (diffusion_batch_size). With --n_predictions,
-                                                splits into ceil(N/batch) jobs; unset => one job of N.
-                                                Without --n_predictions: default 5 samples/job.
+            --rf3_batch_size                    Samples per RF3 job (diffusion_batch_size). Splits
+                                                --n_predictions into ceil(N/batch) jobs; unset => one job of N.
             --rf3_early_stopping_plddt_threshold [default: ${params.rf3_early_stopping_plddt_threshold}]
             --rf3_seed                          RF3 hydra seed= [default: unset -> RF3 draws its own random seed]
 
@@ -198,9 +224,8 @@ workflow {
             --protenix_seeds                    Single seed (or comma-separated only when not batching) [default: unset -> protenix's own default]
             --protenix_cycle                    Pairformer cycles [default: ${params.protenix_cycle}]
             --protenix_step                     Diffusion steps [default: ${params.protenix_step}]
-            --protenix_batch_size               Samples per Protenix job (--sample). With --n_predictions,
-                                                splits into ceil(N/batch) jobs; unset => one job of N.
-                                                Without --n_predictions: default 5 samples/job.
+            --protenix_batch_size               Samples per Protenix job (--sample). Splits
+                                                --n_predictions into ceil(N/batch) jobs; unset => one job of N.
             --protenix_model_name               Checkpoint name (baked into the container) [default: ${params.protenix_model_name}]
             --protenix_use_msa                  Feed our shared a3m to Protenix; false predicts MSA-free [default: ${params.protenix_use_msa}]
 
@@ -338,7 +363,7 @@ workflow {
     // file = one prediction unit). Resolved
     // synchronously via the `file()` DSL function (which returns a List<Path>
     // for a glob pattern) rather than a lazy Channel.fromPath, so the
-    // monomer-only guard below can fail the whole run up front, before any
+    // chain-count validation below can fail the whole run up front, before any
     // process is scheduled. NOTE: Channel.fromPath(...).toList().getVal()
     // looks equivalent but deadlocks here - the dataflow scheduler isn't
     // pumped yet at this point in workflow-body execution, so avoid it for
@@ -351,25 +376,92 @@ workflow {
         error("fold.nf: no FASTA files found for --input '${p}'")
     }
 
-    // *** Phase 1: monomer only. *** Fail fast (rather than silently
-    // mis-folding) on any multi-record FASTA - see plans/
-    // fold-nf-multi-method-folding.md §4 for the deferred multimer strategy.
+    // One FASTA file = one complex. Each record = one chain (file order ->
+    // chain IDs A, B, C, ...). Validate eagerly (file() already read the paths
+    // synchronously above) so bad inputs fail the whole run before any process
+    // is scheduled, rather than mis-folding.
+    def MAX_CHAINS = 26 // chain IDs A..Z
+    def chain_counts = [:]
     input_paths.each { f ->
-        def n_chains = 0
-        f.eachLine { line -> if (line.startsWith('>')) { n_chains++ } }
-        if (n_chains != 1) {
+        int n_chains = 0
+        int empty_records = 0
+        boolean in_record = false
+        int seq_len = 0
+        f.eachLine { line ->
+            def l = line.trim()
+            if (l.startsWith('>')) {
+                if (in_record && seq_len == 0) {
+                    empty_records += 1
+                }
+                n_chains += 1
+                in_record = true
+                seq_len = 0
+            }
+            else if (in_record) {
+                seq_len += l.length()
+            }
+        }
+        if (in_record && seq_len == 0) {
+            empty_records += 1
+        }
+
+        if (n_chains == 0) {
+            error("fold.nf: ${f} contains no FASTA records.")
+        }
+        if (n_chains > MAX_CHAINS) {
             error(
-                "fold.nf: ${f} has ${n_chains} FASTA records - multimer folding not yet " +
-                "supported in fold.nf (coming in Phase 2; see plans/fold-nf-multi-method-folding.md). " +
-                'Split multi-chain inputs into single-record FASTA files for now.'
+                "fold.nf: ${f} has ${n_chains} FASTA records but at most ${MAX_CHAINS} chains " +
+                "(A-Z) are supported this round. Reduce the chain count."
+            )
+        }
+        if (empty_records > 0) {
+            error("fold.nf: ${f} has ${empty_records} FASTA record(s) with an empty sequence.")
+        }
+        chain_counts[f.toString()] = n_chains
+    }
+
+    def has_multimer = chain_counts.values().any { it > 1 }
+    // --msa_subsample is an AF2/monomer-centric depth sweep that operates on a
+    // single per-target a3m; multimer feeds per-chain MSA bundles instead, so
+    // the two don't combine this round.
+    if (has_multimer && MsaSubsample.isEnabled(params.msa_subsample)) {
+        error("fold.nf: --msa_subsample is not supported for multimer inputs (monomer only).")
+    }
+    // ColabFold a3m headers carry no taxonomy, so cross-chain pairing can't be
+    // derived from them offline (see plans/fold-nf-multimer-paired-msa.md §0).
+    if (has_multimer && params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
+        log.warn(
+            "fold.nf: multimer input with --msa_method mmseqs2_colabfold - ColabFold a3m " +
+            "headers carry no taxonomy, so RF3/Protenix/Boltz will run UNPAIRED. Use " +
+            "--msa_method jackhmmer_af2, or --use_msa_server true (Boltz fetches + pairs itself)."
+        )
+    }
+    // AF2 multimer runs its own native jackhmmer + species-pairing pipeline; the
+    // ColabFold bridge has no multimer feature path, so require jackhmmer_af2.
+    if (has_multimer && 'af2' in methods && params.msa_method != 'jackhmmer_af2') {
+        error(
+            "fold.nf: AF2 multimer requires --msa_method jackhmmer_af2 (AF2's native " +
+            "multimer MSA pipeline). Drop af2 from --methods for ColabFold multimer runs."
+        )
+    }
+    // AF2 multimer needs the 2021 snapshot's uniprot/ all-seqs DB (the default
+    // 20240229 snapshot is monomer-only). Fail fast before scheduling.
+    if (has_multimer && 'af2' in methods) {
+        def uniprot_dir = file("${params.af2_db_path}/uniprot")
+        if (!uniprot_dir.exists()) {
+            error(
+                "fold.nf: AF2 multimer needs a uniprot/ DB under --af2_db_path, absent in " +
+                "'${params.af2_db_path}'. Point --af2_db_path at the 2021 snapshot (e.g. " +
+                "/mnt/datasets/alphafold/alphafold_20211129), which has uniprot/ + pdb_seqres/."
             )
         }
     }
 
     // meta.id is the FASTA stem, matching AF2's own per-target output
     // directory naming - the MSA -> predict wiring in
-    // subworkflows/local/alphafold2.nf relies on that matching.
-    ch_input = Channel.fromList(input_paths).map { f -> [[id: f.baseName, n_chains: 1], f] }
+    // subworkflows/local/alphafold2.nf relies on that matching. meta.n_chains
+    // drives every downstream multimer branch.
+    ch_input = Channel.fromList(input_paths).map { f -> [[id: f.baseName, n_chains: chain_counts[f.toString()]], f] }
 
     FOLD_MSA(ch_input, methods, params.msa_method)
 

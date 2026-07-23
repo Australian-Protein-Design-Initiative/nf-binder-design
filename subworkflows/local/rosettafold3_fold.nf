@@ -2,12 +2,14 @@
 ROSETTAFOLD3_FOLD: generic RF3 folding for fold.nf, decoupled from the
 binder-design-coupled ROSETTAFOLD3 (modules/local/rfd3/rosettafold3.nf).
 
-Phase 1 scope: monomer only (GENERATE_RF3_FOLD_INPUT / RF3_FOLD are written
-generically for N chains, but fold.nf itself rejects multi-record FASTA
-before this subworkflow ever runs - see fold.nf's monomer-only guard).
+Monomer inputs (meta.n_chains == 1) use GENERATE_RF3_FOLD_INPUT with the shared
+single a3m; multimer inputs (n_chains > 1) use GENERATE_RF3_FOLD_INPUT_COMPLEX
+with the per-chain TaxID=-annotated a3m bundle from FOLD_MSA (see
+plans/fold-nf-multimer-paired-msa.md). Both feed the same RF3_FOLD predict.
 */
 
 include { GENERATE_RF3_FOLD_INPUT } from '../../modules/fold/rf3/generate_rf3_fold_input'
+include { GENERATE_RF3_FOLD_INPUT_COMPLEX } from '../../modules/fold/rf3/generate_rf3_fold_input_complex'
 include { RF3_FOLD } from '../../modules/fold/rf3/rf3_fold'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
@@ -28,15 +30,19 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 
 workflow ROSETTAFOLD3_FOLD {
     take:
-    ch_for_rf3 // tuple(meta, fasta, a3m)
+    ch_for_rf3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [a3m...])
 
     main:
-    GENERATE_RF3_FOLD_INPUT(ch_for_rf3)
+    ch_mono = ch_for_rf3.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
+    ch_multi = ch_for_rf3.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
+    GENERATE_RF3_FOLD_INPUT(ch_mono)
+    GENERATE_RF3_FOLD_INPUT_COMPLEX(ch_multi)
+    ch_with_json = GENERATE_RF3_FOLD_INPUT.out.with_json.mix(GENERATE_RF3_FOLD_INPUT_COMPLEX.out.with_json)
 
     def batches = foldPredictionBatches(params.rf3_batch_size, 5, params.n_predictions)
     def base_seed = params.rf3_seed ? (params.rf3_seed as int) : null
 
-    ch_batched = GENERATE_RF3_FOLD_INPUT.out.with_json.flatMap { meta, fasta, a3m, json ->
+    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
             ? MsaSubsample.countA3mSequences(a3m) : null
         def depth_jobs = MsaSubsample.depthJobs(

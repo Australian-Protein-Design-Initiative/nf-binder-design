@@ -36,20 +36,40 @@ process ALPHAFOLD2_JACKHMMER_MSA {
     // All DB flags below are required on both the MSA and predict stages -
     // run_alphafold.py has no defaults for them and fails flag parsing if any
     // are omitted, even though only this (CPU) stage actually reads them.
+    // Multimer (meta.n_chains > 1) swaps the monomer pdb70 template DB for
+    // pdb_seqres + uniprot (all-seqs pairing DB) and sets model_preset=multimer;
+    // run_alphafold.py's _check_flag() ERRORS if pdb70 is set in multimer mode
+    // or pdb_seqres/uniprot in monomer mode, so the set is mutually exclusive.
+    // The monomer branch reproduces the original flag set/order byte-for-byte so
+    // -resume stays valid.
     def d = params.af2_db_path
-    def db_flags = [
-        "--data_dir=${d}",
+    def data_dir = params.af2_data_dir ?: d
+    def is_multimer = (meta.n_chains ?: 1) > 1 || params.af2_model_preset == 'multimer'
+    def model_preset = is_multimer ? 'multimer' : params.af2_model_preset
+    def db_flags_list = [
+        "--data_dir=${data_dir}",
         "--uniref90_database_path=${d}/uniref90/uniref90.fasta",
-        "--mgnify_database_path=${d}/mgnify/mgy_clusters_2022_05.fa",
+        "--mgnify_database_path=${d}/${params.af2_mgnify_subpath}",
         "--bfd_database_path=${d}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
-        "--uniref30_database_path=${d}/uniref30/UniRef30_2021_03",
-        "--pdb70_database_path=${d}/pdb70/pdb70",
+        "--uniref30_database_path=${d}/${params.af2_uniref30_subpath}",
+    ]
+    if (is_multimer) {
+        db_flags_list += [
+            "--uniprot_database_path=${d}/${params.af2_uniprot_subpath}",
+            "--pdb_seqres_database_path=${d}/${params.af2_pdb_seqres_subpath}",
+        ]
+    }
+    else {
+        db_flags_list += ["--pdb70_database_path=${d}/pdb70/pdb70"]
+    }
+    db_flags_list += [
         "--template_mmcif_dir=${d}/pdb_mmcif/mmcif_files",
         "--obsolete_pdbs_path=${d}/pdb_mmcif/obsolete.dat",
         "--max_template_date=${params.af2_max_template_date}",
         "--db_preset=${params.af2_db_preset}",
-        "--model_preset=${params.af2_model_preset}",
-    ].join(' ')
+        "--model_preset=${model_preset}",
+    ]
+    def db_flags = db_flags_list.join(' ')
     """
     # AlphaFold names its per-target output directory after the FASTA stem, which
     # is exactly meta.id (see fold.nf's input channel), so the predict stage can
