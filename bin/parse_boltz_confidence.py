@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--target", help="Target name (optional)")
     parser.add_argument("--binder", help="Binder name (optional)")
     parser.add_argument("--model", help="Model/sample index (optional); adds a 'model' column")
+    parser.add_argument("--original-file", help="Engine-native structure filename (optional); adds 'original_file'")
+    parser.add_argument("--predictions-file", help="Renamed name in fold/predictions/ (optional); adds 'predictions_file'")
     parser.add_argument("--merge-ipsae", help="Path to *_ipsae.tsv file to merge (optional)")
 
     args = parser.parse_args()
@@ -88,6 +90,13 @@ def main():
         insert_at += 1
     if args.model is not None:
         df_flat.insert(insert_at, "model", args.model)
+        insert_at += 1
+    if args.original_file:
+        df_flat.insert(insert_at, "original_file", args.original_file)
+        insert_at += 1
+    if args.predictions_file:
+        df_flat.insert(insert_at, "predictions_file", args.predictions_file)
+        insert_at += 1
 
     # Write the flattened data to stdout as a TSV
     df_flat.to_csv(sys.stdout, sep="\t", index=False, lineterminator="\n")

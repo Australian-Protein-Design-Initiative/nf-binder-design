@@ -41,10 +41,7 @@ process PROTENIX_FOLD {
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
             if (!(bn ==~ /.*_sample_\d+\.cif/)) { return null }
-            def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
-            return meta.fold_namespaced \
-                ? "protenix_batch${meta.fold_batch}${msa_bit}_${bn}" \
-                : "protenix${msa_bit}_${bn}"
+            return "${FoldNaming.flatPrefix('protenix', meta)}${bn}"
         }
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).

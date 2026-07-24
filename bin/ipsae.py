@@ -548,6 +548,11 @@ def main():
             else:
                 with open(pae_file_path, "r") as file:
                     data = json.load(file)
+                # Some AF2 builds (incl. this repo's custom container) wrap the
+                # PAE dict in a single-element list; unwrap so the "pae" /
+                # "predicted_aligned_error" lookups below see a dict.
+                if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict):
+                    data = data[0]
 
             if "iptm" in data:
                 iptm_af2 = float(data["iptm"])

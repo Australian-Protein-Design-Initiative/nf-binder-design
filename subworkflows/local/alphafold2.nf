@@ -13,6 +13,7 @@ features.pkl (templates kept for jackhmmer).
 */
 
 include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/fold/af2/alphafold2'
+include { FOLD_SCORE_AF2 } from '../../modules/fold/af2/fold_score_af2'
 
 workflow ALPHAFOLD2 {
     take:
@@ -71,6 +72,20 @@ workflow ALPHAFOLD2 {
 
     ALPHAFOLD2_PREDICT(ch_runs)
 
+    // Score each run: FoldNaming.af2Prefix(meta) is the exact fold/predictions/
+    // filename prefix the module's saveAs uses, so predictions_file lines up.
+    ch_score_in = ALPHAFOLD2_PREDICT.out.run_dir
+        .map { meta, run_dir -> [meta, run_dir, FoldNaming.af2Prefix(meta)] }
+    FOLD_SCORE_AF2(ch_score_in)
+
+    ch_tsv = FOLD_SCORE_AF2.out.collectFile(
+        name: 'af2_fold_scores.tsv',
+        storeDir: "${params.outdir}/fold/af2",
+        keepHeader: true,
+        skip: 1,
+    )
+
     emit:
     predictions = ALPHAFOLD2_PREDICT.out.predictions
+    tsv = ch_tsv
 }

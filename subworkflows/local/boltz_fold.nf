@@ -108,7 +108,11 @@ workflow BOLTZ_FOLD {
             files.collect { j ->
                 def m = (j.name =~ /_model_(\d+)\.json$/)
                 def idx = m ? m[0][1] : '0'
-                [meta, idx, j]
+                // confidence_<id>_model_N.json -> native <id>_model_N.cif; the
+                // flat-gather name uses the same FoldNaming prefix as the module.
+                def struct = j.name.replaceFirst(/^confidence_/, '').replaceFirst(/\.json$/, '.cif')
+                def pred = "${FoldNaming.flatPrefix('boltz', meta)}${struct}"
+                [meta, idx, struct, pred, j]
             }
         }
 

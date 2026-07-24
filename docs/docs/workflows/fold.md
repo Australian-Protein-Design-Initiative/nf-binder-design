@@ -272,13 +272,35 @@ results/
 ├── fold/
 │   ├── msa/<msa_method>/     # shared MSAs + a3m (jackhmmer_af2 or mmseqs2_colabfold)
 │   ├── af2/msas/             # AF2-only features.pkl (not under fold/msa/)
-│   ├── af2/ … boltz/ … rf3/ … protenix/
+│   ├── af2/ … boltz/ … rf3/ … protenix/    # per-engine predictions + <tool>_fold_scores.tsv
 │   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_* mmCIF
+│   ├── fold_scores.tsv       # master score table: one row per generated structure
 │   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
 │   ├── params.json
 │   └── logs/
 └── engens/<id>/              # clusters.html + representative conformations (HDBSCAN by default)
 ```
+
+### Score table (`fold/fold_scores.tsv`)
+
+One row per generated structure across all engines. Each engine also writes a
+per-tool table (`fold/<tool>/<tool>_fold_scores.tsv`); the master merges them,
+**normalizing column names** for equivalent scores. Provenance columns name the
+`tool`, input `id`, `model`/sample index, the engine-native `original_file`, and
+the renamed `predictions_file` in `fold/predictions/` (unique per structure).
+
+| Column | Meaning | AF2 | Boltz | Protenix | RF3 |
+|--------|---------|-----|-------|----------|-----|
+| `ranking_score` | engine's overall ranking metric | iptm+ptm | confidence_score | ranking_score | ranking_score |
+| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ |
+| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ |
+| `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ |
+| `has_clash` | steric-clash flag | – | – | ✓ | ✓ |
+| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | – | – |
+
+Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
+(e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally
+omitted — only the overall values are reported.
 
 ## Setting up databases
 

@@ -12,6 +12,7 @@ plans/fold-nf-multimer-paired-msa.md). Both feed the same PROTENIX_FOLD predict.
 include { GENERATE_PROTENIX_INPUT } from '../../modules/fold/protenix/generate_protenix_input'
 include { GENERATE_PROTENIX_INPUT_COMPLEX } from '../../modules/fold/protenix/generate_protenix_input_complex'
 include { PROTENIX_FOLD as PROTENIX_FOLD_PROCESS } from '../../modules/fold/protenix/protenix_fold'
+include { FOLD_PARSE_CONFIDENCE } from '../../modules/fold/common/fold_parse_confidence'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -95,7 +96,30 @@ workflow PROTENIX_FOLD {
 
     PROTENIX_FOLD_PROCESS(ch_batched)
 
+    // One score row per Protenix sample. model/struct/predictions_file are
+    // derived from the summary filename (complex_summary_confidence_sample_N.json
+    // -> complex_sample_N.cif); predictions_file uses the same FoldNaming prefix
+    // as the module's flat-gather saveAs.
+    ch_conf = PROTENIX_FOLD_PROCESS.out.confidence_json.flatMap { meta, jsons ->
+        def files = (jsons instanceof List) ? jsons : [jsons]
+        files.collect { j ->
+            def mm = (j.name =~ /_summary_confidence_sample_(\d+)\.json$/)
+            def idx = mm ? mm[0][1] : '0'
+            def struct = j.name.replaceFirst(/_summary_confidence_sample_(\d+)\.json$/, '_sample_$1.cif')
+            def pred = "${FoldNaming.flatPrefix('protenix', meta)}${struct}"
+            [meta, 'protenix', "sample_${idx}", struct, pred, j]
+        }
+    }
+    FOLD_PARSE_CONFIDENCE(ch_conf)
+    ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
+        name: 'protenix_fold_scores.tsv',
+        storeDir: "${params.outdir}/fold/protenix",
+        keepHeader: true,
+        skip: 1,
+    )
+
     emit:
     predictions = PROTENIX_FOLD_PROCESS.out.predictions
     confidence_json = PROTENIX_FOLD_PROCESS.out.confidence_json
+    tsv = ch_tsv
 }

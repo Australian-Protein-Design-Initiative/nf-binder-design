@@ -151,6 +151,7 @@ include { BOLTZ_FOLD } from './subworkflows/local/boltz_fold'
 include { ROSETTAFOLD3_FOLD } from './subworkflows/local/rosettafold3_fold'
 include { PROTENIX_FOLD } from './subworkflows/local/protenix_fold'
 include { ENGENS_CLUSTER } from './subworkflows/local/engens'
+include { FOLD_MERGE_SCORES } from './modules/fold/common/fold_merge_scores'
 
 def VALID_METHODS = ['af2', 'boltz', 'rf3', 'protenix']
 def VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
@@ -472,6 +473,9 @@ workflow {
     ch_rf3_pred = Channel.empty()
     ch_protenix_pred = Channel.empty()
 
+    // Per-tool score TSVs, merged into the master fold_scores.tsv below.
+    ch_scores = Channel.empty()
+
     if ('af2' in methods) {
         // Hybrid: always stage msas_dir (templated features.pkl for full jobs);
         // join real a3m when --msa_subsample is on, else a dummy stub.
@@ -486,19 +490,26 @@ workflow {
         }
         ALPHAFOLD2(ch_af2_in)
         ch_af2_pred = ALPHAFOLD2.out.predictions
+        ch_scores = ch_scores.mix(ALPHAFOLD2.out.tsv)
     }
     if ('boltz' in methods) {
         BOLTZ_FOLD(FOLD_MSA.out.for_boltz)
         ch_boltz_pred = BOLTZ_FOLD.out.predictions
+        ch_scores = ch_scores.mix(BOLTZ_FOLD.out.tsv)
     }
     if ('rf3' in methods) {
         ROSETTAFOLD3_FOLD(FOLD_MSA.out.for_rf3)
         ch_rf3_pred = ROSETTAFOLD3_FOLD.out.predictions
+        ch_scores = ch_scores.mix(ROSETTAFOLD3_FOLD.out.tsv)
     }
     if ('protenix' in methods) {
         PROTENIX_FOLD(FOLD_MSA.out.for_protenix)
         ch_protenix_pred = PROTENIX_FOLD.out.predictions
+        ch_scores = ch_scores.mix(PROTENIX_FOLD.out.tsv)
     }
+
+    // Master table: one row per generated structure across all engines.
+    FOLD_MERGE_SCORES(ch_scores.collect())
 
     if (!params.skip_engens) {
         ch_engens_in = ch_af2_pred

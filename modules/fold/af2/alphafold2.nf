@@ -60,8 +60,7 @@ process ALPHAFOLD2 {
                 match = bn ==~ /relaxed_model_.*\.cif/
             }
             if (!match) { return null }
-            def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
-            return "af2_${meta.id}_run${meta.af2_run}${msa_bit}_${bn}"
+            return "${FoldNaming.af2Prefix(meta)}${bn}"
         }
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
@@ -76,6 +75,9 @@ process ALPHAFOLD2 {
 
     output:
     tuple val(meta), path("out/${meta.id}/**"), emit: predictions
+    // Whole run dir for scoring (FOLD_SCORE_AF2 reads pkl/pae/pdb from it); the
+    // work-dir copy carries every model's files regardless of keep_models.
+    tuple val(meta), path("out/${meta.id}"), emit: run_dir
     path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:

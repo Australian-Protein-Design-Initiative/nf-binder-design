@@ -14,7 +14,7 @@ process FOLD_PARSE_BOLTZ_CONFIDENCE {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
-    tuple val(meta), val(model), path(json_file)
+    tuple val(meta), val(model), val(original_file), val(predictions_file), path(json_file)
 
     output:
     stdout
@@ -27,6 +27,8 @@ process FOLD_PARSE_BOLTZ_CONFIDENCE {
     python3 ${projectDir}/bin/parse_boltz_confidence.py \
         --json "${json_file}" \
         --id "${row_id}" \
-        --model "${model}"
+        --model "${model}" \
+        --original-file "${original_file}" \
+        --predictions-file "${predictions_file}"
     """
 }

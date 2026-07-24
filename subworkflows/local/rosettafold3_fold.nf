@@ -11,6 +11,7 @@ plans/fold-nf-multimer-paired-msa.md). Both feed the same RF3_FOLD predict.
 include { GENERATE_RF3_FOLD_INPUT } from '../../modules/fold/rf3/generate_rf3_fold_input'
 include { GENERATE_RF3_FOLD_INPUT_COMPLEX } from '../../modules/fold/rf3/generate_rf3_fold_input_complex'
 include { RF3_FOLD } from '../../modules/fold/rf3/rf3_fold'
+include { FOLD_PARSE_CONFIDENCE } from '../../modules/fold/common/fold_parse_confidence'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -80,7 +81,32 @@ workflow ROSETTAFOLD3_FOLD {
 
     RF3_FOLD(ch_batched)
 
+    // One score row per diffusion sample. RF3 also writes a top-level
+    // best-model *_summary_confidences.json with no sample index - skip it (it
+    // isn't gathered into fold/predictions/). model/struct/predictions_file are
+    // derived from the summary filename; predictions_file uses the same
+    // FoldNaming prefix as the module's flat-gather saveAs.
+    ch_conf = RF3_FOLD.out.confidence_json.flatMap { meta, jsons ->
+        def files = (jsons instanceof List) ? jsons : [jsons]
+        files.findAll { it.name ==~ /.*_seed-\d+_sample-\d+_summary_confidences\.json/ }
+            .collect { j ->
+                def mm = (j.name =~ /_(seed-\d+_sample-\d+)_summary_confidences\.json$/)
+                def model = mm ? mm[0][1] : j.baseName
+                def struct = j.name.replaceFirst(/_summary_confidences\.json$/, '_model.cif')
+                def pred = "${FoldNaming.flatPrefix('rf3', meta)}${struct}"
+                [meta, 'rf3', model, struct, pred, j]
+            }
+    }
+    FOLD_PARSE_CONFIDENCE(ch_conf)
+    ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
+        name: 'rf3_fold_scores.tsv',
+        storeDir: "${params.outdir}/fold/rf3",
+        keepHeader: true,
+        skip: 1,
+    )
+
     emit:
     predictions = RF3_FOLD.out.predictions
     confidence_json = RF3_FOLD.out.confidence_json
+    tsv = ch_tsv
 }
