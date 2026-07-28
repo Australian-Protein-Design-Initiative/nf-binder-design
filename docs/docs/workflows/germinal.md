@@ -14,7 +14,7 @@ Unlike a single long Germinal run that loops until stopping criteria are met, th
 - Splits work into **parallel batches** (`--germinal_batch_size`)
 - Merges per-batch CSVs and structure folders into a single output tree
 
-If you want a specific number of accepted designs, run a small pilot (`--germinal_n_traj 10`) to estimate acceptance rate, then scale up.
+If you want a specific number of accepted designs, run a small pilot (`--germinal_n_traj 100` or more) to estimate acceptance rate, then scale up. The Germinal documentation and paper detail the specific parameter sweeps you may want to try (via different config files) to improve the acceptance rate.
 
 ## Command-line Options
 
