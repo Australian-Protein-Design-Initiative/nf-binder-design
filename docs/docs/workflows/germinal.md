@@ -86,6 +86,20 @@ results/germinal/
         └── pdl1_vhh/         # per-batch Germinal output (includes final_config.yaml)
 ```
 
+## Hotspot numbering
+
+`target.target_hotspots` in the Germinal config (e.g. `"A37,A39,A41"`) uses **1-indexed positions relative to the start of each target chain** — the Nth residue in that chain as loaded, not arbitrary PDB/mmCIF auth residue numbers.
+
+Germinal's hotspot proximity filter (`find_nearby_residues_from_pdb`) maps each hotspot to pose residue `chain_start + index - 1`. Residue indices must therefore be contiguous from 1 with **no gaps**. If your input PDB is numbered from a non-1 start, has numbering gaps (e.g. missing residues left as holes in the numbering), or otherwise does not match 1…N sequential order, hotspot values will not refer to the residues you intend.
+
+**Recommendation:** renumber the input target PDB so each chain is numbered sequentially from 1 with no gaps, then choose hotspots against that renumbered structure (e.g. in ChimeraX / PyMOL / Mol*). Use `bin/renumber_chains.py`:
+
+```bash
+uv run bin/renumber_chains.py input/target.pdb -o pdbs/target.pdb
+```
+
+After renumbering, set `target_hotspots` (and `hotspot_residue` if used) to match the new 1-based sequential numbers.
+
 ## Notes
 
 - The nanobody scaffold (`nb.pdb`) is copied from the container into `pdb_dir` if missing.
