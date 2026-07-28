@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- M3 platform configs (`m3`, `m3_bdi`): shared SLURM option variables at the top of each file (account, exclude, GPU/CPU presets); all jobs now pass `--exclude=m3t100`.
+
 ## [0.3.0] - 2026-07-09
 
 ### Added
