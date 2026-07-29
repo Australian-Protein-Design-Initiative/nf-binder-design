@@ -9,7 +9,9 @@ process FOLD_SCORE_AF2 {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
-    tuple val(meta), path(run_dir), val(pred_prefix)
+    // run_files is the ALPHAFOLD2 predictions glob (out/<id>/**); Nextflow stages
+    // it flat into this task's work dir, so score_af2_run.py reads --run-dir .
+    tuple val(meta), path(run_files), val(pred_prefix)
 
     output:
     stdout
@@ -20,7 +22,7 @@ process FOLD_SCORE_AF2 {
         : params.af2_no_relax.toString().toBoolean()) ? '--no-relax' : ''
     """
     python3 ${projectDir}/bin/score_af2_run.py \
-        --run-dir "${run_dir}" \
+        --run-dir . \
         --id "${meta.id}" \
         --pred-prefix "${pred_prefix}" \
         --keep-models ${keep} \

@@ -74,8 +74,10 @@ workflow ALPHAFOLD2 {
 
     // Score each run: FoldNaming.af2Prefix(meta) is the exact fold/predictions/
     // filename prefix the module's saveAs uses, so predictions_file lines up.
-    ch_score_in = ALPHAFOLD2_PREDICT.out.run_dir
-        .map { meta, run_dir -> [meta, run_dir, FoldNaming.af2Prefix(meta)] }
+    // The predictions glob stages flat into the scoring task's work dir, so
+    // FOLD_SCORE_AF2 reads it with --run-dir . (see fold_score_af2.nf).
+    ch_score_in = ALPHAFOLD2_PREDICT.out.predictions
+        .map { meta, files -> [meta, files, FoldNaming.af2Prefix(meta)] }
     FOLD_SCORE_AF2(ch_score_in)
 
     ch_tsv = FOLD_SCORE_AF2.out.collectFile(

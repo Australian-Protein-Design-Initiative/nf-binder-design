@@ -74,10 +74,15 @@ process ALPHAFOLD2 {
     tuple val(meta), path(fasta), path(msa_dir), path(a3m)
 
     output:
+    // Recursive glob so each nested file is its own publish item (see the
+    // publishDir comment). This also feeds ENGENS and FOLD_SCORE_AF2, which
+    // both get every model's files (the glob stages flat into their work dir,
+    // so FOLD_SCORE_AF2 reads pkl/pae/pdb with --run-dir .).
+    // NB: do NOT also declare the parent dir (path("out/${meta.id}")) as an
+    // output - a whole-directory output is published as a single unit, which
+    // suppresses the per-file publishing both saveAs blocks below rely on (the
+    // flat fold/predictions/ gather then silently publishes nothing).
     tuple val(meta), path("out/${meta.id}/**"), emit: predictions
-    // Whole run dir for scoring (FOLD_SCORE_AF2 reads pkl/pae/pdb from it); the
-    // work-dir copy carries every model's files regardless of keep_models.
-    tuple val(meta), path("out/${meta.id}"), emit: run_dir
     path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:
