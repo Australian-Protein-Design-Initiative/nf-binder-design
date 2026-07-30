@@ -24,6 +24,7 @@ process ENGENS {
     def min_structures = params.engens_min_structures ?: 3
     def max_clusters = params.engens_max_clusters ?: 10
     def gmm_ic = params.engens_gmm_ic ?: 'aic'
+    def superpose_method = params.engens_superpose_method ?: 'blosum62'
     def seed = (params.engens_seed != null && !(params.engens_seed instanceof Boolean)) \
         ? params.engens_seed : ''
     """
@@ -48,6 +49,10 @@ process ENGENS {
     export ENGENS_GMM_IC="${gmm_ic}"
     export ENGENS_SEED="${seed}"
     export ENGENS_OUTDIR="\${PWD}"
+    # bin/rmsd4all.py is bind-mounted from the host project dir; the qmd calls it
+    # to superimpose each cluster's conformations onto a shared reference.
+    export ENGENS_BIN_DIR="${projectDir}/bin"
+    export ENGENS_SUPERPOSE_METHOD="${superpose_method}"
 
     # Apptainer --cleanenv drops image ENV (MAMBA activate, LD_LIBRARY_PATH)
     # and keeps the host PATH, so conda/python are not visible to Quarto.

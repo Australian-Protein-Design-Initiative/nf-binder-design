@@ -99,6 +99,9 @@ workflow ENGENS_CLUSTER {
         .map { id, paths -> [[id: id], paths] }
 
     ch_qmd = Channel.value(file("${projectDir}/assets/engens/engens-analysis.qmd"))
+    // ENGENS superimposes each conformations group in the report itself
+    // (the qmd calls bin/rmsd4all.py), so the published clustering/ tree and
+    // the overlay viewers already share one frame.
     ENGENS(ch_qmd, ch_grouped)
 
     emit:

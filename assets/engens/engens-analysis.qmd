@@ -23,6 +23,7 @@ jupyter: python3
 # Parameters are passed from the ENGENS Nextflow process via environment
 # variables (robust across Quarto versions - no papermill parameter cell needed).
 import os
+from pathlib import Path
 
 input_dir = os.environ.get("ENGENS_INPUT_DIR", "structures")
 target_id = os.environ.get("ENGENS_TARGET_ID", "target")
@@ -34,6 +35,10 @@ gmm_ic = os.environ.get("ENGENS_GMM_IC", "aic").strip().lower()
 seed_env = os.environ.get("ENGENS_SEED", "").strip()
 seed = int(seed_env) if seed_env else None
 conformations_root = os.environ.get("ENGENS_OUTDIR", "engens_out")
+# bin/ dir (holds rmsd4all.py) and the rmsd4all superposition method, both
+# passed in by the ENGENS process.
+bin_dir = Path(os.environ.get("ENGENS_BIN_DIR", "bin"))
+superpose_method = os.environ.get("ENGENS_SUPERPOSE_METHOD", "blosum62")
 ```
 
 ```{python}
@@ -44,6 +49,8 @@ matplotlib.use("Agg")  # headless; figures are saved to PNG and embedded explici
 import base64
 import sys
 import shutil
+import subprocess
+import tempfile
 import logging
 import warnings
 import io
@@ -213,30 +220,36 @@ def _load_mdtraj(path: Path) -> md.Trajectory:
     tmp = Path("pdb_inputs") / f"_overlay_{path.stem}.pdb"
     return md.load(str(_structure_to_pdb(path, tmp)))
 
-def superpose_structures(paths: list[Path], out_dir: Path) -> list[Path]:
-    """Rigid-body superpose each structure onto the first (CA atoms) and write PDBs."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    # Normalise to PDB first so mdtraj save_pdb does not choke on CIF metadata.
-    pdb_paths = [
-        _structure_to_pdb(p, out_dir / f"_src_{i}_{p.stem}.pdb")
-        for i, p in enumerate(paths)
-    ]
-    trajs = [md.load(str(p)) for p in pdb_paths]
-    ref = trajs[0]
-    ref_ca = ref.top.select("name CA")
-    written: list[Path] = []
-    for i, (path, traj) in enumerate(zip(paths, trajs)):
-        ca = traj.top.select("name CA")
-        n = min(int(ref_ca.size), int(ca.size))
-        if n >= 3:
-            traj.superpose(ref, atom_indices=ca[:n], ref_atom_indices=ref_ca[:n])
-        else:
-            log.warning("Too few CA atoms to superpose %s - leaving unaligned", path.name)
-        out = out_dir / f"aligned_cluster_{i}_{path.stem}.pdb"
-        # force_overwrite: re-runs in the same work dir
-        traj.save_pdb(str(out), force_overwrite=True)
-        written.append(out)
-    return written
+def superpose_group(conf_dir: Path, ordered: list[Path]) -> list[Path]:
+    """Superimpose `ordered` structures (all inside conf_dir) onto the first, in
+    place, via bin/rmsd4all.py (Cα, homolog-aware), so the published files AND
+    the overlay viewer below share one coordinate frame. rmsd4all writes PDB, so
+    .cif inputs become .pdb (originals removed); returns the aligned .pdb paths
+    in the same order. Groups of <2 are returned unchanged (nothing to align)."""
+    if len(ordered) < 2:
+        return ordered
+    ref = ordered[0]
+    with tempfile.TemporaryDirectory() as tmp:
+        # fixed=ref, mobile=dir -> every structure (incl. ref) is transformed
+        # onto ref's frame and written as <stem>_aligned.pdb.
+        subprocess.run(
+            [sys.executable, str(bin_dir / "rmsd4all.py"), str(ref), str(conf_dir),
+             "--output-transformed", tmp, "--method-rmsd", superpose_method],
+            check=True, stdout=subprocess.DEVNULL,
+        )
+        aligned_paths: list[Path] = []
+        for p in ordered:
+            src = Path(tmp) / f"{p.stem}_aligned.pdb"
+            dest = conf_dir / f"{p.stem}.pdb"
+            if src.exists():
+                dest.write_bytes(src.read_bytes())
+                if p.suffix.lower() != ".pdb" and p.exists():
+                    p.unlink()  # original .cif superseded by the superimposed .pdb
+            else:
+                log.warning("No aligned output for %s; leaving original", p.name)
+                dest = p
+            aligned_paths.append(dest)
+    return aligned_paths
 
 def show_structures_overlay(
     entries: list[tuple[str, Path, str]],
@@ -463,9 +476,10 @@ print(
 ```
 
 Analyses below are repeated for each default featurizer. Representative
-structures are written to
-`clustering/<featurizer>/<method>/conformations/` (full original predicted
-structure closest to each cluster centre).
+structures (the full predicted structure closest to each cluster centre) are
+written to `clustering/<featurizer>/<method>/conformations/`, where each group
+is rigid-body superimposed onto a shared reference (Cα, via `rmsd4all.py`) so
+the structures already overlay when opened together.
 
 ```{python}
 #| label: gather-structures
@@ -900,7 +914,9 @@ if enough and cluster_plots:
 
 ```{python}
 #| label: extract-representatives
-# Copy originals into clustering/<featurizer>/<method>/conformations/.
+# Copy originals into clustering/<featurizer>/<method>/conformations/, then
+# superimpose each group in place so the published files (and the overlay
+# viewers below) already share one coordinate frame.
 rep_paths: dict[tuple[int, str], list[tuple[int, Path]]] = {}
 if enough:
     root = Path(conformations_root)
@@ -914,7 +930,13 @@ if enough:
             # resolve() so staged symlinks become real files under publishDir.
             shutil.copyfile(src_path.resolve(), dest)
             written.append((int(cluster_id), dest))
-        rep_paths[(feat_idx, method)] = written
+        # Superimpose this group in place (rmsd4all) so the published files and
+        # the overlay viewer below share one frame; re-point at the aligned PDBs.
+        written.sort(key=lambda x: x[0])
+        aligned = superpose_group(out_dir, [d for _, d in written])
+        rep_paths[(feat_idx, method)] = [
+            (cid, a) for (cid, _), a in zip(written, aligned)
+        ]
 ```
 
 # Cluster representatives
@@ -938,17 +960,14 @@ if enough and rep_paths:
                 f"### Cluster representatives\n\n"
                 f"Featurizer [{feat_idx}] `{feat_name}` ({method_key})."
             ))
+            # rep_paths were already superimposed (rmsd4all) in extract-representatives.
             written_sorted = sorted(written, key=lambda x: x[0])
-            aligned = superpose_structures(
-                [dest for _, dest in written_sorted],
-                plots_dir / f"overlay_{slug}_{method}",
-            )
             entries = []
-            for (cluster_id, dest), aligned_path in zip(written_sorted, aligned):
+            for cluster_id, dest in written_sorted:
                 color = CLUSTER_COLORS[int(cluster_id) % len(CLUSTER_COLORS)]
                 pred = predictor_from_label(dest.stem)
                 entries.append(
-                    (f"cluster {cluster_id} ({pred})", aligned_path, color)
+                    (f"cluster {cluster_id} ({pred})", dest, color)
                 )
             show_structures_overlay(
                 entries,

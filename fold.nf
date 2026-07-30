@@ -136,6 +136,7 @@ params.engens_min_structures = 3 // skip clustering below this many usable struc
 params.engens_max_clusters = 10 // upper bound for auto cluster-count search
 params.engens_gmm_ic = 'aic' // aic|bic for GMM information-criterion selection
 params.engens_seed = false // optional RNG seed for UMAP / clustering
+params.engens_superpose_method = 'blosum62' // rmsd4all superposition of cluster conformations: blosum62|3di|pb
 
 // --- ColabFold MSA (--msa_method mmseqs2_colabfold) ---
 params.use_remote_server = false // query the ColabFold MMseqs2 API instead of a local DB search
