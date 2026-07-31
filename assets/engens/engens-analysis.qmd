@@ -53,16 +53,18 @@ import subprocess
 import tempfile
 import logging
 import warnings
-import io
-from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import mdtraj as md
+from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.spatial.distance import squareform
 from Bio.PDB import MMCIFParser, PDBIO
 from IPython.display import HTML, Image, Markdown, display
+from IPython.utils.capture import capture_output
 
 # PyEMMA 2.5 still reads mdtraj.version.version; mdtraj >=1.10 dropped that
 # attribute (version is now mdtraj.__version__).
@@ -120,8 +122,14 @@ def show_png(path: Path, caption: str | None = None) -> None:
     display(Image(filename=str(path)))
 
 def quiet_call(fn, *args, **kwargs):
-    """Run EnGens/PyEMMA helpers without dumping chatter into the HTML report."""
-    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+    """Run EnGens/PyEMMA helpers without dumping chatter into the HTML report.
+
+    Captures rich display output as well as stdout/stderr: importing EnGens pulls
+    in nglview, whose module-level ColormakerRegistry widget would otherwise be
+    emitted into the report and fail to load ("Failed to load model class
+    'ColormakerRegistryModel' from module 'nglview-js-widgets'").
+    """
+    with capture_output(stdout=True, stderr=True, display=True):
         return fn(*args, **kwargs)
 
 def redraw_n_select_plot(cm, method: str, n_sel: int, plot_path: Path) -> None:
@@ -199,6 +207,150 @@ def plot_umap_by_predictor(
     fig.tight_layout()
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+
+def ca_rmsd_matrix(t: md.Trajectory, frames: list[int] | None = None) -> np.ndarray:
+    """Symmetric pairwise Cα RMSD (Å); every pair is optimally superimposed.
+
+    Slices to Cα up front rather than passing atom_indices= to md.rmsd: mdtraj
+    caches its RMSD traces over *all* atoms, so the atom_indices path returns
+    wrong distances (a frame does not even score 0.0 against itself).
+    """
+    sub = t.atom_slice(t.top.select("name CA"))  # atom_slice copies, so t is untouched
+    if frames is not None:
+        sub = sub[frames]
+    mat = np.zeros((sub.n_frames, sub.n_frames), dtype=float)
+    for i in range(sub.n_frames):
+        mat[i] = md.rmsd(sub, sub, i) * 10.0  # mdtraj works in nm
+    return 0.5 * (mat + mat.T)
+
+def plot_rmsd_heatmap(
+    mat: np.ndarray,
+    labels: list[str],
+    out_path: Path,
+    title: str,
+    strip_colors: list[str] | None = None,
+    strip_legend: list[tuple[str, str]] | None = None,
+    annotate: bool | None = None,
+    cmap: str = "magma_r",
+) -> list[int]:
+    """Cα-RMSD matrix reordered by average-linkage hierarchical clustering.
+
+    The dendrogram sits above the matrix, so blocks on the diagonal are groups of
+    mutually similar structures. The perceptually-uniform `magma_r` ramp maps low
+    RMSD (most similar, incl. the zero diagonal) to the brightest yellow-white and
+    high RMSD to near-black, so similar structures light up. `strip_colors` draws
+    an optional per-structure category band between dendrogram and matrix. Returns
+    the leaf order.
+    """
+    n = len(labels)
+    linkage_matrix = linkage(squareform(mat, checks=False), method="average")
+
+    # Size the figure so heatmap cells come out roughly square.
+    side = float(np.clip(0.30 * n + 2.6, 5.0, 15.0))
+    ratios = [1.5, 0.22, 6.0] if strip_colors else [1.5, 6.0]
+    fig = plt.figure(figsize=(side + 1.0, side * sum(ratios) / ratios[-1]))
+    gs = fig.add_gridspec(
+        len(ratios), 2, height_ratios=ratios, width_ratios=[30, 1],
+        hspace=0.03, wspace=0.03,
+    )
+    ax_dend = fig.add_subplot(gs[0, 0])
+    ax_heat = fig.add_subplot(gs[-1, 0])
+    ax_cbar = fig.add_subplot(gs[-1, 1])
+
+    # color_threshold=0 keeps the tree a recessive grey - cluster identity is
+    # carried by the category band and the axis labels, not by the dendrogram.
+    dend = dendrogram(
+        linkage_matrix, ax=ax_dend, no_labels=True,
+        color_threshold=0, above_threshold_color="#666666",
+    )
+    order = [int(i) for i in dend["leaves"]]
+    # scipy places leaf i at x=10i+5 in [0, 10n]; imshow places cell i at x=i in
+    # [-0.5, n-0.5]. Both are (i+0.5)/n of the axis width, so the columns line up.
+    ax_dend.set_xlim(0, 10 * n)
+    ax_dend.set_xticks([])
+    ax_dend.set_yticks([])
+    for spine in ax_dend.spines.values():
+        spine.set_visible(False)
+    ax_dend.set_title(title, fontsize=11)
+
+    if strip_colors:
+        ax_strip = fig.add_subplot(gs[1, 0])
+        band = np.array([[mcolors.to_rgb(strip_colors[i]) for i in order]])
+        ax_strip.imshow(band, aspect="auto", interpolation="nearest")
+        ax_strip.set_xticks([])
+        ax_strip.set_yticks([])
+        for spine in ax_strip.spines.values():
+            spine.set_visible(False)
+
+    ordered = mat[np.ix_(order, order)]
+    im = ax_heat.imshow(
+        ordered, cmap=cmap, vmin=0.0, aspect="auto", interpolation="nearest",
+    )
+    ax_heat.set_xlim(-0.5, n - 0.5)
+    show_labels = n <= 40
+    if show_labels:
+        fontsize = float(np.clip(140.0 / n, 5.0, 9.0))
+        ticks = list(range(n))
+        ordered_labels = [labels[i] for i in order]
+        ax_heat.set_xticks(ticks)
+        ax_heat.set_xticklabels(ordered_labels, rotation=90, fontsize=fontsize)
+        ax_heat.set_yticks(ticks)
+        ax_heat.set_yticklabels(ordered_labels, fontsize=fontsize)
+    else:
+        ax_heat.set_xticks([])
+        ax_heat.set_yticks([])
+        ax_heat.set_xlabel(f"{n} structures (labels omitted)", fontsize=9)
+    ax_heat.tick_params(length=0)
+    for spine in ax_heat.spines.values():
+        spine.set_visible(False)
+
+    if annotate is None:
+        annotate = n <= 12
+    if annotate:
+        vmax = float(np.nanmax(ordered)) or 1.0
+        # Representatives of neighbouring clusters can sit well under 1 A apart;
+        # one decimal would flatten those differences to the same number.
+        decimals = 2 if vmax < 10.0 else 1
+        for i in range(n):
+            for j in range(n):
+                value = float(ordered[i, j])
+                ax_heat.text(
+                    j, i, f"{value:.{decimals}f}", ha="center", va="center",
+                    fontsize=float(np.clip(90.0 / n, 5.0, 8.5)),
+                    color="#ffffff" if value > 0.6 * vmax else "#333333",
+                )
+
+    cbar = fig.colorbar(im, cax=ax_cbar)
+    cbar.set_label("Cα RMSD (Å)", fontsize=9)
+    cbar.ax.tick_params(labelsize=8, length=2)
+    cbar.outline.set_visible(False)
+
+    if strip_legend:
+        handles = [
+            plt.Line2D(
+                [0], [0], marker="s", linestyle="none", markersize=8,
+                markerfacecolor=color, markeredgecolor="#333333",
+                markeredgewidth=0.4, label=name,
+            )
+            for name, color in strip_legend
+        ]
+        # Sit the legend below the rotated x tick labels. Measure where they
+        # actually end rather than guessing an offset - label length varies a
+        # lot - and let bbox_inches="tight" pull it back into the saved PNG.
+        fig.canvas.draw()
+        heat_bbox = ax_heat.get_tightbbox(fig.canvas.get_renderer()).transformed(
+            fig.transFigure.inverted()
+        )
+        fig.legend(
+            handles=handles, loc="upper center",
+            bbox_to_anchor=(0.5, heat_bbox.y0 - 0.015),
+            bbox_transform=fig.transFigure,
+            ncol=min(len(handles), 5), frameon=False, fontsize=8,
+        )
+
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return order
 
 def _structure_to_pdb(path: Path, out_pdb: Path) -> Path:
     """Ensure a PDB on disk (BioPython for CIF — mdtraj CIF→PDB can break ATOM serials)."""
@@ -446,9 +598,10 @@ def show_structures_overlay(
 # Overview
 
 This report clusters a predicted structural ensemble with
-[EnGens](https://github.com/KavrakiLab/EnGens): structures are featurized,
-projected with UMAP, clustered (Gaussian mixture model by default), and a
-representative conformation is taken from each cluster.
+[EnGens](https://github.com/KavrakiLab/EnGens): all structures are first
+superimposed and compared by Cα RMSD, then featurized, projected with UMAP,
+clustered (Gaussian mixture model by default), and a representative
+conformation is taken from each cluster.
 
 ```{python}
 #| label: overview-params
@@ -588,8 +741,56 @@ if not enough:
     )
 ```
 
+# Ensemble Cα-RMSD
+
+Before any featurization or dimensionality reduction, all predicted structures
+are rigid-body superimposed onto a common reference on their Cα atoms and
+compared pairwise. Rows and columns of the matrix below are ordered by
+average-linkage hierarchical clustering of the Cα RMSD, so blocks along the
+diagonal are groups of mutually similar predictions — a model-free view of the
+ensemble that does not depend on the UMAP/clustering choices made further down.
+The band under the dendrogram marks the structure predictor.
+
+```{python}
+#| label: superpose-all
+# Superimpose the whole ensemble on Ca (frame 0 as reference) and take the
+# all-vs-all Ca RMSD. Each pair is optimally superimposed for its own RMSD, so
+# the matrix is independent of which frame was chosen as the reference.
+kept_labels = [label for label, _ in kept]
+all_rmsd = None
+
+if enough:
+    traj.superpose(traj, frame=0, atom_indices=traj.top.select("name CA"))
+    all_rmsd = ca_rmsd_matrix(traj)
+    print(
+        f"Superimposed {traj.n_frames} structures; "
+        f"Cα RMSD spans {all_rmsd.max():.2f} Å."
+    )
+```
+
+```{python}
+#| label: all-rmsd-heatmap
+if enough and all_rmsd is not None and len(kept_labels) > 1:
+    preds = [predictor_from_label(label) for label in kept_labels]
+    heatmap_png = plots_dir / "all_structures_ca_rmsd_heatmap.png"
+    plot_rmsd_heatmap(
+        all_rmsd,
+        kept_labels,
+        heatmap_png,
+        f"Pairwise Cα RMSD of all predicted structures — {target_id}",
+        strip_colors=[PREDICTOR_COLORS[p] for p in preds],
+        strip_legend=[
+            (f"{pred} (n={preds.count(pred)})", PREDICTOR_COLORS[pred])
+            for pred in ("af2", "boltz", "rf3", "protenix", "other")
+            if pred in preds
+        ],
+    )
+    show_png(heatmap_png)
+```
+
 ```{python}
 #| label: engen-featurize
+#| output: false
 engen = None
 feat_indices: list[int] = []
 feat_names: list[str] = []
@@ -604,7 +805,11 @@ def feat_slug(name: str) -> str:
     return name.replace("&", "-").replace(" ", "_")
 
 if enough:
-    from engens.core.EnGens import EnGen
+    # EnGens imports nglview, which emits a ColormakerRegistry widget on import.
+    # That widget cannot load in static HTML ("Failed to load model class
+    # 'ColormakerRegistryModel'"), so swallow it here (and via output: false).
+    with capture_output(stdout=True, stderr=True, display=True):
+        from engens.core.EnGens import EnGen
 
     logging.getLogger("pyemma").setLevel(logging.ERROR)
     logging.getLogger("pyemma.coordinates").setLevel(logging.ERROR)
@@ -634,7 +839,6 @@ Points are coloured by the structure predictor inferred from the filename prefix
 # Free-energy UMAP looks poor on small discrete predicted ensembles; use a
 # scatter coloured by structure predictor instead. Run once per featurizer.
 umap_by_feat: dict[int, np.ndarray] = {}
-kept_labels = [label for label, _ in kept]
 
 if enough:
     from engens.core.DimReduction import UMAPReducer
@@ -942,7 +1146,8 @@ if enough:
 # Cluster representatives
 
 Cluster representatives (the structure closest to each cluster centre) are
-superimposed on Cα atoms and shown overlaid in one Mol* viewer, each cluster a
+superimposed on Cα atoms, compared pairwise by Cα RMSD (hierarchically clustered
+heatmap, as above), then shown overlaid in one Mol* viewer, each cluster a
 different colour. Matching files are written under
 `clustering/<featurizer>/<method>/conformations/`.
 
@@ -969,6 +1174,31 @@ if enough and rep_paths:
                 entries.append(
                     (f"cluster {cluster_id} ({pred})", dest, color)
                 )
+
+            # How distinct are the representatives from each other? Same Ca RMSD
+            # metric as the whole-ensemble matrix above, restricted to the rep
+            # frames - each pair optimally superimposed, so these numbers do not
+            # depend on the shared frame rmsd4all put the published files in.
+            frame_by_cluster = {
+                int(cid): int(frame) for cid, frame, _, _ in representatives[key]
+            }
+            rep_frames = [frame_by_cluster[int(cid)] for cid, _ in written_sorted]
+            if len(rep_frames) > 1:
+                rep_heatmap_png = (
+                    plots_dir / f"{slug}_{method}_representatives_ca_rmsd_heatmap.png"
+                )
+                plot_rmsd_heatmap(
+                    ca_rmsd_matrix(traj, rep_frames),
+                    [label for label, _, _ in entries],
+                    rep_heatmap_png,
+                    f"Pairwise Cα RMSD of cluster representatives — "
+                    f"[{feat_idx}] {feat_name} ({method_key})",
+                    strip_colors=[color for _, _, color in entries],
+                )
+                show_png(rep_heatmap_png)
+            else:
+                print("Only one representative - no pairwise RMSD to show.")
+
             show_structures_overlay(
                 entries,
                 "",
