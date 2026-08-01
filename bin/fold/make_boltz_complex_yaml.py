@@ -18,7 +18,7 @@ complex path stays a clean N-record loop.
 MSA pairing (ground truth, plans/fold-nf-multimer-paired-msa.md §0b): Boltz
 dispatches the `msa:` file by extension (boltz/main.py:615) - a `.csv` with
 columns exactly `key,sequence` (key == taxonomy id) is the offline-pairable
-form, so bin/msa_taxonomy.py --tool boltz renders one CSV per chain and we point
+form, so bin/fold/msa_taxonomy.py --tool boltz renders one CSV per chain and we point
 each chain's `msa:` at its CSV. With --use_msa_server, `msa:` is omitted
 entirely and Boltz fetches + pairs its own MSA.
 

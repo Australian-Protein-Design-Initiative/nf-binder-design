@@ -21,13 +21,13 @@ process COLABFOLD_A3M_TO_AF2_MSAS {
     script:
     """
     # The ALPHAFOLD2 predict module only reads features.pkl under
-    # --use_precomputed_msas=true (see bin/colabfold_a3m_to_af2_msas.py's
+    # --use_precomputed_msas=true (see bin/fold/colabfold_a3m_to_af2_msas.py's
     # docstring for the ground-truth investigation) - the msas/ copy of the
     # raw a3m here is for provenance/debugging only, not read by AF2 itself.
     mkdir -p "${meta.id}/msas"
     cp "${a3m}" "${meta.id}/msas/colabfold.a3m"
 
-    python ${projectDir}/bin/colabfold_a3m_to_af2_msas.py \
+    python ${projectDir}/bin/fold/colabfold_a3m_to_af2_msas.py \
         --fasta ${fasta} \
         --a3m ${a3m} \
         --output-dir "${meta.id}"

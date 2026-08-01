@@ -1,5 +1,5 @@
 // Generic per-structure confidence parser for fold.nf's RF3 and Protenix
-// engines: bin/parse_fold_confidence.py flattens one summary JSON into a single
+// engines: bin/fold/parse_fold_confidence.py flattens one summary JSON into a single
 // normalized TSV row (header + row) on stdout. The RF3/Protenix subworkflows fan
 // this out one call per sample and collectFile the rows into
 // <tool>_fold_scores.tsv. AF2 has its own FOLD_SCORE_AF2 (adds ipSAE); Boltz has
@@ -17,7 +17,7 @@ process FOLD_PARSE_CONFIDENCE {
 
     script:
     """
-    python3 ${projectDir}/bin/parse_fold_confidence.py \
+    python3 ${projectDir}/bin/fold/parse_fold_confidence.py \
         --tool "${tool}" \
         --id "${meta.id}" \
         --model "${model}" \

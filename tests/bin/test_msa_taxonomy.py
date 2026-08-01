@@ -5,7 +5,7 @@
 # ///
 
 """
-Pure-python unit tests for bin/msa_taxonomy.py - the single source of taxonomy
+Pure-python unit tests for bin/fold/msa_taxonomy.py - the single source of taxonomy
 truth for multimer paired MSAs (fold.nf Phase 2).
 
 Run from the repo root with uv (host python has no pytest):
@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-# Load bin/msa_taxonomy.py by path (it is a standalone PEP-723 script, not a package).
-_MODPATH = Path(__file__).resolve().parents[2] / "bin" / "msa_taxonomy.py"
+# Load bin/fold/msa_taxonomy.py by path (it is a standalone PEP-723 script, not a package).
+_MODPATH = Path(__file__).resolve().parents[2] / "bin" / "fold" / "msa_taxonomy.py"
 _spec = importlib.util.spec_from_file_location("msa_taxonomy", _MODPATH)
 mt = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(mt)

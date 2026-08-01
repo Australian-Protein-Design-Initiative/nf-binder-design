@@ -9,7 +9,7 @@
 """
 Score one AlphaFold2 run for fold.nf: for each structure the run publishes to
 fold/predictions/, run ipSAE (bin/ipsae.py) and emit a normalized TSV row (via
-bin/parse_fold_confidence.py). Rows for all kept models are concatenated to
+bin/fold/parse_fold_confidence.py). Rows for all kept models are concatenated to
 stdout (header once), ready for collectFile into af2_fold_scores.tsv.
 
 Which structures are "published" mirrors modules/fold/af2/alphafold2.nf's flat
@@ -30,6 +30,10 @@ import sys
 import tempfile
 
 BIN = os.path.dirname(os.path.abspath(__file__))
+# ipsae.py is a shared (non-fold) tool that stays in the top-level bin/, one
+# level up from this fold-specific script (bin/fold/); parse_fold_confidence.py
+# lives alongside this file in bin/fold/.
+REPO_BIN = os.path.dirname(BIN)
 
 
 def _suffix_from_model_pdb(name):
@@ -73,7 +77,7 @@ def _run_ipsae(pae, pdb, pae_cut, dist_cut):
     shutil.copy(pae, lp)
     shutil.copy(pdb, lpdb)
     r = subprocess.run(
-        [sys.executable, os.path.join(BIN, "ipsae.py"), os.path.basename(pae),
+        [sys.executable, os.path.join(REPO_BIN, "ipsae.py"), os.path.basename(pae),
          os.path.basename(pdb), str(pae_cut), str(dist_cut)],
         cwd=tmp, capture_output=True, text=True,
     )

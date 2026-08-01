@@ -93,7 +93,7 @@ process BOLTZ {
 
     # Optional CF-random-style MSA subsample (overwrite staged binder a3m in place)
     if [[ "${do_subsample}" == "true" ]]; then
-        python3 ${projectDir}/bin/subsample_a3m.py \
+        python3 ${projectDir}/bin/fold/subsample_a3m.py \
             --a3m "${binder_msa}" \
             --max-seq ${meta.msa_max_seq} \
             --max-extra-seq ${meta.msa_max_extra_seq} \
@@ -103,7 +103,7 @@ process BOLTZ {
         rm -f "${binder_msa}"
         mv subsampled.a3m "${binder_msa}"
     elif [[ "${write_msa_ids}" == "true" ]]; then
-        python3 ${projectDir}/bin/subsample_a3m.py \
+        python3 ${projectDir}/bin/fold/subsample_a3m.py \
             --a3m "${binder_msa}" \
             --ids-only \
             --ids-output "${msa_ids_file}"

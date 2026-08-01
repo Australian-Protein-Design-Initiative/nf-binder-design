@@ -7,7 +7,7 @@
 Merge per-tool fold score TSVs into the master fold_scores.tsv.
 
 AF2/RF3/Protenix per-tool tables are already in the canonical schema (produced
-by bin/parse_fold_confidence.py) and are concatenated as-is. Boltz keeps its own
+by bin/fold/parse_fold_confidence.py) and are concatenated as-is. Boltz keeps its own
 native boltz_fold_scores.tsv (from bin/parse_boltz_confidence.py, shared with
 boltz_pulldown.nf), so its columns are mapped onto the canonical schema here.
 

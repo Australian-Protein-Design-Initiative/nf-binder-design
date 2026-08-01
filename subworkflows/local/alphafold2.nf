@@ -76,8 +76,18 @@ workflow ALPHAFOLD2 {
     // filename prefix the module's saveAs uses, so predictions_file lines up.
     // The predictions glob stages flat into the scoring task's work dir, so
     // FOLD_SCORE_AF2 reads it with --run-dir . (see fold_score_af2.nf).
+    // Drop the MSA intermediates first: AF2 multimer writes per-chain
+    // msas/<chain>/*.sto (+ .a3m) with identical basenames across chains, which
+    // collide when the predictions glob stages flat. score_af2_run.py only needs
+    // the top-level structures + ranking_debug.json / pae_model_*.json /
+    // result_model_*.pkl, so excluding msas/ is safe (and tidier for monomer too).
     ch_score_in = ALPHAFOLD2_PREDICT.out.predictions
-        .map { meta, files -> [meta, files, FoldNaming.af2Prefix(meta)] }
+        .map { meta, files ->
+            def scoring = (files instanceof List ? files : [files]).findAll {
+                !it.toString().contains('/msas/')
+            }
+            [meta, scoring, FoldNaming.af2Prefix(meta)]
+        }
     FOLD_SCORE_AF2(ch_score_in)
 
     ch_tsv = FOLD_SCORE_AF2.out.collectFile(

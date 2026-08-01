@@ -1,5 +1,5 @@
 // Multimer Protenix input JSON for fold.nf: one proteinChain per chain, each
-// with its own unpairedMsaPath + pairedMsaPath (rendered by bin/msa_taxonomy.py
+// with its own unpairedMsaPath + pairedMsaPath (rendered by bin/fold/msa_taxonomy.py
 // --tool protenix). Protenix pairs chains internally by species *mnemonic*, not
 // numeric TaxID=. The a3m bundle arrives as a combined list of per-chain
 // *.protenix_paired.a3m + *.protenix_unpaired.a3m; split by suffix and sort by
@@ -22,7 +22,7 @@ process GENERATE_PROTENIX_INPUT_COMPLEX {
     def paired_arg = paired.collect { it.name }.join(' ')
     def unpaired_arg = unpaired.collect { it.name }.join(' ')
     """
-    python ${projectDir}/bin/make_protenix_input.py \
+    python ${projectDir}/bin/fold/make_protenix_input.py \
         --fasta ${fasta} \
         --name '${meta.id}' \
         --a3m ${unpaired_arg} \

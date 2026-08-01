@@ -3,7 +3,7 @@ name: MSA subsample fold
 overview: Add optional ColabFold-style MSA subsampling as a per-task step at the start of each fold.nf structure predictor, with AF2 keeping jackhmmer features.pkl (templates) when not subsampling and switching to subsampled a3m → empty-template features.pkl when subsampling; plus optional HDBSCAN in EnGens.
 todos:
   - id: subsample-script
-    content: Add bin/subsample_a3m.py (ColabFold monomer sample_msa + crop_extra_msa algorithm)
+    content: Add bin/fold/subsample_a3m.py (ColabFold monomer sample_msa + crop_extra_msa algorithm)
     status: pending
   - id: af2-hybrid-path
     content: AF2 hybrid - reuse features.pkl when not subsampling; a3m→empty-template pkl when subsampling (pass both a3m and msas_dir into predict)
@@ -44,7 +44,7 @@ Fully unifying AF2 on a3m→`features.pkl` would drop jackhmmer template hits. T
 | Mode | AF2 input used | Templates |
 |------|----------------|-----------|
 | `--msa_subsample` off (default) | Existing precomputed `features.pkl` from jackhmmer MSA stage (or ColabFold→AF2 bridge) | Kept (jackhmmer); empty for ColabFold bridge as today |
-| `--msa_subsample` on | Subsample shared a3m in-task → rebuild `features.pkl` via [bin/colabfold_a3m_to_af2_msas.py](bin/colabfold_a3m_to_af2_msas.py) | Empty (CF-random-style; a3m cannot carry `.hhr` templates) |
+| `--msa_subsample` on | Subsample shared a3m in-task → rebuild `features.pkl` via [bin/fold/colabfold_a3m_to_af2_msas.py](bin/fold/colabfold_a3m_to_af2_msas.py) | Empty (CF-random-style; a3m cannot carry `.hhr` templates) |
 | `--msa_subsample_include_full` full-depth jobs under subsample mode | Prefer original `features.pkl` (templates) for that full job; shallow jobs use a3m→pkl | Full = templates; shallow = none |
 
 Boltz / RF3 / Protenix always take a3m; subsample only rewrites the staged a3m (no template concept there).
@@ -70,7 +70,7 @@ flowchart LR
   AF2 -->|"subsample off"| af2msas
 ```
 
-## 1. `bin/subsample_a3m.py`
+## 1. `bin/fold/subsample_a3m.py`
 
 New CLI script (PEP 722 header, argparse, logging to stderr):
 
@@ -123,8 +123,8 @@ At the **start of each predict process script**:
 | Process | File | Notes |
 |---------|------|--------|
 | BOLTZ | [modules/local/common/boltz.nf](modules/local/common/boltz.nf) | Overwrite/replace staged a3m |
-| RF3_FOLD | [modules/fold/rf3/rf3_fold.nf](modules/fold/rf3/rf3_fold.nf) | Spec currently bakes absolute `msa_path` — switch [bin/make_rf3_fold_spec.py](bin/make_rf3_fold_spec.py) to **basename** so in-place a3m replace works |
-| PROTENIX_FOLD | [modules/fold/protenix/protenix_fold.nf](modules/fold/protenix/protenix_fold.nf) | Same basename fix in [bin/make_protenix_input.py](bin/make_protenix_input.py) |
+| RF3_FOLD | [modules/fold/rf3/rf3_fold.nf](modules/fold/rf3/rf3_fold.nf) | Spec currently bakes absolute `msa_path` — switch [bin/fold/make_rf3_fold_spec.py](bin/fold/make_rf3_fold_spec.py) to **basename** so in-place a3m replace works |
+| PROTENIX_FOLD | [modules/fold/protenix/protenix_fold.nf](modules/fold/protenix/protenix_fold.nf) | Same basename fix in [bin/fold/make_protenix_input.py](bin/fold/make_protenix_input.py) |
 | ALPHAFOLD2 | [modules/fold/af2/alphafold2.nf](modules/fold/af2/alphafold2.nf) | Hybrid branch above |
 
 **Fan-out for depth × batch:** when `--msa_subsample` lists multiple depths, flatMap in each fold subworkflow so each `(batch, depth)` is a separate task (extreme: `--*_batch_size 1` ⇒ different random MSA per sample). Include full-depth job when `--msa_subsample_include_full`.

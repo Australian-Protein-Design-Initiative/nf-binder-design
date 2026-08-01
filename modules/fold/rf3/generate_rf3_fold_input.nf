@@ -11,7 +11,7 @@ process GENERATE_RF3_FOLD_INPUT {
 
     script:
     """
-    python ${projectDir}/bin/make_rf3_fold_spec.py \
+    python ${projectDir}/bin/fold/make_rf3_fold_spec.py \
         --fasta ${fasta} \
         --name '${meta.id}' \
         --a3m ${a3m} \

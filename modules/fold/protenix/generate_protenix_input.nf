@@ -11,7 +11,7 @@ process GENERATE_PROTENIX_INPUT {
 
     script:
     """
-    python ${projectDir}/bin/make_protenix_input.py \
+    python ${projectDir}/bin/fold/make_protenix_input.py \
         --fasta ${fasta} \
         --name '${meta.id}' \
         --a3m ${a3m} \

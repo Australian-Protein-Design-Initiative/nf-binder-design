@@ -19,7 +19,7 @@ human/mouse fold are archived under `results.human-mouse/`.
 ## How multimer pairing works here
 
 One FASTA → per-chain MSA search → one canonical taxonomy parse
-(`bin/msa_taxonomy.py`) renders each engine's native paired-MSA format:
+(`bin/fold/msa_taxonomy.py`) renders each engine's native paired-MSA format:
 
 | Engine | Pairing key | Fed |
 |--------|-------------|-----|

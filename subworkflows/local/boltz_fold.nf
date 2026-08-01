@@ -52,7 +52,9 @@ workflow BOLTZ_FOLD {
     // field is what boltz predict actually reads). fold.nf has one MSA, so
     // the unused "target" slot gets the same empty-placeholder file
     // boltz_pulldown.nf uses for its own target-msa-less branches.
-    def batches = foldPredictionBatches(params.boltz_batch_size, 1, params.n_predictions)
+    // default_batch = 5: with --n_predictions unset, emit 5 samples like RF3 /
+    // Protenix (Boltz's own native default is 1; we lift it for cross-engine parity).
+    def batches = foldPredictionBatches(params.boltz_batch_size, 5, params.n_predictions)
     def base_seed = params.boltz_seed ? (params.boltz_seed as int) : null
 
     ch_boltz_input = ch_yaml.flatMap { meta, yaml, msa ->

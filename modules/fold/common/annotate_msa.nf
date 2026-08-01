@@ -1,5 +1,5 @@
 // Render one per-chain unpaired a3m into each engine's native paired-MSA format
-// via the shared bin/msa_taxonomy.py (the single source of taxonomy truth; see
+// via the shared bin/fold/msa_taxonomy.py (the single source of taxonomy truth; see
 // plans/fold-nf-multimer-paired-msa.md §4). Runs once per chain; the grouped
 // per-complex bundle is assembled downstream in FOLD_MSA.
 //
@@ -29,11 +29,11 @@ process ANNOTATE_MSA {
     px_unpaired = "${stem}.protenix_unpaired.a3m"
     boltz_csv = "${stem}.boltz.csv"
     """
-    python ${projectDir}/bin/msa_taxonomy.py --a3m ${a3m} --tool rf3 \
+    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m ${a3m} --tool rf3 \
         --out ${rf3_a3m} --chain-id '${chain}'
-    python ${projectDir}/bin/msa_taxonomy.py --a3m ${a3m} --tool protenix \
+    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m ${a3m} --tool protenix \
         --paired-out ${px_paired} --unpaired-out ${px_unpaired} --chain-id '${chain}'
-    python ${projectDir}/bin/msa_taxonomy.py --a3m ${a3m} --tool boltz \
+    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m ${a3m} --tool boltz \
         --out ${boltz_csv} --chain-id '${chain}'
     """
 }

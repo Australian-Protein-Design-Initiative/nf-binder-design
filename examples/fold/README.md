@@ -38,7 +38,7 @@ per-chain contract as Boltz's `msa:`/RF3's `msa_path`. Weights
 
 ## Multimer / paired MSAs
 
-- One canonical taxonomy parse (`bin/msa_taxonomy.py`) renders each engine's
+- One canonical taxonomy parse (`bin/fold/msa_taxonomy.py`) renders each engine's
   native paired format: RF3 `TaxID=` a3m, Protenix species-mnemonic
   paired/unpaired a3m, Boltz `key,sequence` CSV. AF2 uses its own native
   multimer pipeline. See `plans/fold-nf-multimer-paired-msa.md`.

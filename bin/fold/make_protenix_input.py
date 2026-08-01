@@ -30,7 +30,7 @@ Multimer: pass one --a3m (unpairedMsaPath) per chain in record order, and one
 --paired-a3m (pairedMsaPath) per chain. Protenix pairs chains internally by
 species *mnemonic* (_HUMAN, _9BETA via MSAPairingEngine.get_species_ids), NOT
 numeric TaxID=, so the paired a3m headers must carry the mnemonic
-(bin/msa_taxonomy.py --tool protenix renders both files). A single --a3m with a
+(bin/fold/msa_taxonomy.py --tool protenix renders both files). A single --a3m with a
 single-record FASTA is the monomer case (unpaired only; single chains don't
 pair).
 """

@@ -39,15 +39,18 @@ multiple records fold together as one complex (chains A, B, C, …). Shared MSAs
 feed all selected predictors; optional MSA subsample and EnGens clustering
 produce a conformational ensemble from the combined predictions.
 
-`--n_predictions` sets how many structures each method produces per input, and
-**defaults to `5`** to match the tools' typical out-of-the-box behaviour (AF2's
-five trained models; the diffusion engines' usual sample counts). It is realised
-differently per engine: Boltz, RF3, and Protenix draw N diffusion samples
-(split across jobs by their `--*_batch_size`); AF2 has no in-run sampling knob —
-it always emits its 5 trained models per run and `--af2_keep_models` selects
-which to keep toward N (`all` keeps 5/run → `ceil(N/5)` runs; `best` keeps the
-top-ranked → N runs). Set `--n_predictions 1` for a single quick structure per
-method.
+`--n_predictions` sets how many structures each method produces per input. It is
+**unset by default**, in which case each engine uses its own default: Boltz, RF3,
+and Protenix each emit **5** diffusion samples (Boltz is lifted from its native
+default of 1 for cross-engine parity), while AF2 does a single run and keeps per
+`--af2_keep_models` (default `best` → one structure). Set `--n_predictions N` to
+pin every diffusion engine to exactly N (e.g. `--n_predictions 1` for a single
+quick structure per method). It is realised differently per engine: Boltz, RF3,
+and Protenix draw N diffusion samples (split across jobs by their
+`--*_batch_size`); AF2 has no in-run sampling knob — it always emits its 5
+trained models per run and `--af2_keep_models` selects which to keep toward N
+(`best` keeps the top-ranked → N runs, the default; `all` keeps 5/run →
+`ceil(N/5)` runs).
 
 ## Command-line Options
 
@@ -63,7 +66,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design/fold.nf --hel
 | `--outdir` | Output directory (default: `results`) |
 | `--methods` | Comma-separated: `af2`, `boltz`, `rf3`, `protenix` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
-| `--n_predictions` | Total structures per input, per method (split by method batch size; default: `5`, matching the tools' typical out-of-the-box behaviour) |
+| `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
 | `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
 | `--skip_engens` | Skip post-prediction EnGens clustering |
@@ -169,7 +172,7 @@ nextflow run /path/to/nf-binder-design/fold.nf \
 For a complex, co-evolutionary **pairing** across chains is what carries the
 interface signal. Each engine consumes a paired MSA in a *different* native
 format, so `fold.nf` searches each chain independently and then renders each
-engine's format from one canonical taxonomy parse (`bin/msa_taxonomy.py`, unit
+engine's format from one canonical taxonomy parse (`bin/fold/msa_taxonomy.py`, unit
 tested in `tests/bin/test_msa_taxonomy.py`):
 
 | Engine | How it pairs | What `fold.nf` feeds it |

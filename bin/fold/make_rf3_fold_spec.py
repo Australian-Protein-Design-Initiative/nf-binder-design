@@ -22,7 +22,7 @@ target/binder-specific logic at all).
 Multimer: pass one --a3m per chain in record order (chain A, B, C, ...); each
 becomes that component's msa_path. RF3 (atomworks) pairs chains internally by
 matching TaxID=<n> parsed from the a3m hit headers, so the per-chain a3m must
-be TaxID=-annotated (bin/msa_taxonomy.py --tool rf3 does this). A single --a3m
+be TaxID=-annotated (bin/fold/msa_taxonomy.py --tool rf3 does this). A single --a3m
 with a single-record FASTA is the monomer case (unchanged).
 """
 
@@ -67,7 +67,7 @@ def make_rf3_fold_spec(fasta_path: Path, name: str, a3m_paths: Optional[List[Pat
         raise ValueError(f"{fasta_path} has more than {len(chain_ids)} chains; not supported")
 
     # a3m paths are matched to chains by position (record order): exactly one
-    # per chain (a monomer is just the n==1 case). bin/msa_taxonomy.py renders
+    # per chain (a monomer is just the n==1 case). bin/fold/msa_taxonomy.py renders
     # the per-chain TaxID=-annotated a3m.
     if a3m_paths and len(a3m_paths) != len(sequences):
         raise ValueError(

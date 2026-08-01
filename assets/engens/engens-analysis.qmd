@@ -600,7 +600,7 @@ def show_structures_overlay(
 This report clusters a predicted structural ensemble with
 [EnGens](https://github.com/KavrakiLab/EnGens): all structures are first
 superimposed and compared by Cα RMSD, then featurized, projected with UMAP,
-clustered (Gaussian mixture model by default), and a representative
+clustered usng HDBSCAN (default), with a representative
 conformation is taken from each cluster.
 
 ```{python}

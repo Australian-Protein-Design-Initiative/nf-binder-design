@@ -163,7 +163,7 @@ process ALPHAFOLD2 {
 
     mkdir -p out
     if [[ "${do_subsample}" == "true" ]]; then
-        python3 ${projectDir}/bin/subsample_a3m.py \
+        python3 ${projectDir}/bin/fold/subsample_a3m.py \
             --a3m "${a3m}" \
             --max-seq ${meta.msa_max_seq} \
             --max-extra-seq ${meta.msa_max_extra_seq} \
@@ -172,7 +172,7 @@ process ALPHAFOLD2 {
             --ids-output "${msa_ids_file}"
         mkdir -p "out/${meta.id}/msas"
         cp subsampled.a3m "out/${meta.id}/msas/subsampled.a3m"
-        python ${projectDir}/bin/colabfold_a3m_to_af2_msas.py \
+        python ${projectDir}/bin/fold/colabfold_a3m_to_af2_msas.py \
             --fasta ${fasta} \
             --a3m subsampled.a3m \
             --output-dir "out/${meta.id}"
@@ -182,7 +182,7 @@ process ALPHAFOLD2 {
         # outputs alongside it, which fails/corrupts -resume caching against a symlink.
         cp -rL "${msa_dir}" "out/${meta.id}"
         if [[ "${write_msa_ids}" == "true" ]]; then
-            python3 ${projectDir}/bin/subsample_a3m.py \
+            python3 ${projectDir}/bin/fold/subsample_a3m.py \
                 --a3m "${a3m}" \
                 --ids-only \
                 --ids-output "${msa_ids_file}"

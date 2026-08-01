@@ -19,7 +19,7 @@ process AF2_MSAS_TO_A3M {
 
     script:
     """
-    python ${projectDir}/bin/af2_msas_to_a3m.py \
+    python ${projectDir}/bin/fold/af2_msas_to_a3m.py \
         --msas-dir "${af2_msa_dir}/msas" \
         --output "${meta.id}.a3m"
     """

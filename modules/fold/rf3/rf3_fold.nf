@@ -79,7 +79,7 @@ process RF3_FOLD {
 
     # Optional CF-random-style MSA subsample (JSON uses a3m basename)
     if [[ "${do_subsample}" == "true" ]]; then
-        python3 ${projectDir}/bin/subsample_a3m.py \
+        python3 ${projectDir}/bin/fold/subsample_a3m.py \
             --a3m "${a3m}" \
             --max-seq ${meta.msa_max_seq} \
             --max-extra-seq ${meta.msa_max_extra_seq} \
@@ -89,7 +89,7 @@ process RF3_FOLD {
         rm -f "${a3m}"
         mv subsampled.a3m "${a3m}"
     elif [[ "${write_msa_ids}" == "true" ]]; then
-        python3 ${projectDir}/bin/subsample_a3m.py \
+        python3 ${projectDir}/bin/fold/subsample_a3m.py \
             --a3m "${a3m}" \
             --ids-only \
             --ids-output "${msa_ids_file}"

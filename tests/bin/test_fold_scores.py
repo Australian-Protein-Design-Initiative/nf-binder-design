@@ -6,8 +6,8 @@
 
 """
 Unit tests for the fold.nf score-TSV pipeline:
-  bin/parse_fold_confidence.py  (rf3 / protenix / af2 -> normalized row)
-  bin/merge_fold_scores.py      (per-tool TSVs -> master, boltz mapped)
+  bin/fold/parse_fold_confidence.py  (rf3 / protenix / af2 -> normalized row)
+  bin/fold/merge_fold_scores.py      (per-tool TSVs -> master, boltz mapped)
 
 Run from the repo root (host python has no pytest):
 
@@ -26,7 +26,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-BIN = Path(__file__).resolve().parents[2] / "bin"
+BIN = Path(__file__).resolve().parents[2] / "bin" / "fold"
 CANON = [
     "tool", "id", "model", "original_file", "predictions_file",
     "ranking_score", "ptm", "iptm", "plddt", "pae", "pde", "has_clash",

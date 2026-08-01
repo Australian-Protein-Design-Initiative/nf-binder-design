@@ -1,6 +1,6 @@
-// Score one AF2 run for fold.nf: bin/score_af2_run.py runs ipSAE (bin/ipsae.py)
+// Score one AF2 run for fold.nf: bin/fold/score_af2_run.py runs ipSAE (bin/ipsae.py)
 // on each structure the run publishes to fold/predictions/ and emits normalized
-// TSV rows (via bin/parse_fold_confidence.py). One process per AF2 run; rows for
+// TSV rows (via bin/fold/parse_fold_confidence.py). One process per AF2 run; rows for
 // all kept models go to stdout, collected into af2_fold_scores.tsv by the
 // ALPHAFOLD2 subworkflow. CPU-only (ipSAE is numpy); runs on the local executor.
 process FOLD_SCORE_AF2 {
@@ -21,7 +21,7 @@ process FOLD_SCORE_AF2 {
     def no_relax = (params.af2_no_relax instanceof Boolean ? params.af2_no_relax
         : params.af2_no_relax.toString().toBoolean()) ? '--no-relax' : ''
     """
-    python3 ${projectDir}/bin/score_af2_run.py \
+    python3 ${projectDir}/bin/fold/score_af2_run.py \
         --run-dir . \
         --id "${meta.id}" \
         --pred-prefix "${pred_prefix}" \

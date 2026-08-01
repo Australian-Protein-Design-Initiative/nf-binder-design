@@ -14,7 +14,7 @@ plans/fold-nf-multi-method-folding.md for the full design.
 Multimer: a multi-record FASTA folds as a protein complex (one record = one
 chain, in file order -> chain IDs A, B, C, ...; homo-oligomers = repeated
 records). Each engine consumes a taxonomically-paired MSA in its own native
-format, built by the shared bin/msa_taxonomy.py renderer - see
+format, built by the shared bin/fold/msa_taxonomy.py renderer - see
 plans/fold-nf-multimer-paired-msa.md. Header-derived pairing needs the
 --msa_method jackhmmer_af2 route (rich UniProt/UniRef headers); the ColabFold
 route emits taxonomy-less headers, so ColabFold multimer should use
@@ -33,13 +33,16 @@ params.outdir = 'results'
 params.methods = 'af2'
 params.msa_method = 'jackhmmer_af2'
 
-// Total predicted structures per input, per method. Default 5 matches the
-// typical out-of-the-box behaviour of these tools (AF2's 5 trained models; the
-// diffusion engines' usual sample counts). Split across GPU jobs by each
-// method's --*_batch_size (samples per invocation); when a method's batch size
-// is unset, all N land in ONE job (amortize model load). AF2 has no
-// --af2_batch_size (generation batch is fixed at 5; see --af2_keep_models).
-params.n_predictions = 5
+// Total predicted structures per input, per method. Left UNSET by default so
+// each method falls back to its own per-fold default: Boltz-2, RF3 and Protenix
+// each emit 5 samples (Boltz is forced to 5 for parity - its native default is
+// 1), while AF2 does a single run and keeps per --af2_keep_models (best -> 1
+// structure). Set --n_predictions N to pin every diffusion engine to exactly N
+// (e.g. --n_predictions 1 => one model each); N is split across GPU jobs by each
+// method's --*_batch_size (samples per invocation), and with no batch size all N
+// land in ONE job (amortize model load). AF2 has no --af2_batch_size (generation
+// batch is fixed at 5; see --af2_keep_models).
+params.n_predictions = false
 
 // Seeds are left UNSET by default: each engine draws its own fresh random seed
 // when no seed is passed, so repeated runs already explore different stochastic
@@ -78,11 +81,12 @@ params.af2_data_dir = false
 // AF2 has no in-invocation sampling knob (a monomer run always emits its 5
 // trained models). --af2_keep_models chooses which of those 5 we retain, which
 // also sets the effective kept-per-run used to meet --n_predictions:
+//   best = keep only the top-ranked -> n_predictions runs (default; 1 structure
+//          when --n_predictions is unset, matching AF2's usual "output best")
 //   all  = keep all 5 models/run  -> ceil(n_predictions / 5) runs
-//   best = keep only the top-ranked -> n_predictions runs (5x more GPU work)
 // There is no --af2_batch_size: the generation batch is fixed at 5.
 // --models_to_relax follows keep_models (relax best or all) unless --af2_no_relax.
-params.af2_keep_models = 'all' // all|best
+params.af2_keep_models = 'best' // all|best
 params.af2_no_relax = false // skip Amber relax; publish unrelaxed into fold/predictions/
 
 // Gather every engine's per-sample mmCIF prediction into a single flat
@@ -185,11 +189,14 @@ workflow {
             --outdir                           Output directory [default: ${params.outdir}]
             --methods                          Comma-separated list of af2,boltz,rf3,protenix [default: ${params.methods}]
             --msa_method                       jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
-            --n_predictions                    Total structures per input, per method. Split across jobs by
-                                                --boltz_batch_size / --rf3_batch_size / --protenix_batch_size
-                                                (AF2 uses --af2_keep_models; generation batch is fixed at 5).
-                                                With no method batch size, all N are one job.
-                                                [default: ${params.n_predictions}]
+            --n_predictions                    Total structures per input, per method. Unset (default) => each
+                                                engine uses its own default: Boltz/RF3/Protenix emit 5 each,
+                                                AF2 does one run keeping per --af2_keep_models. Set N to pin
+                                                every diffusion engine to N (e.g. 1 => one model each), split
+                                                across jobs by --boltz_batch_size / --rf3_batch_size /
+                                                --protenix_batch_size (AF2 uses --af2_keep_models; generation
+                                                batch fixed at 5). With no method batch size, all N are one job.
+                                                [default: unset]
 
             AlphaFold2 (--methods includes af2):
             --af2_db_path                       AlphaFold2 database directory [default: ${params.af2_db_path}]

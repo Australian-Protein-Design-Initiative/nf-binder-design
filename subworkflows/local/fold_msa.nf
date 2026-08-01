@@ -10,7 +10,7 @@ shared by Boltz/RF3/Protenix, plus AF2's native msas dir.
 Multimer path (meta.n_chains > 1, plans/fold-nf-multimer-paired-msa.md §4):
   - Boltz/RF3/Protenix: split the complex into per-chain FASTAs, run the
     per-chain MSA search, then ANNOTATE_MSA renders each engine's native paired
-    format via bin/msa_taxonomy.py. The per-chain rendered files are grouped
+    format via bin/fold/msa_taxonomy.py. The per-chain rendered files are grouped
     back per complex (chain order) into per-tool bundles.
   - AF2: fed the WHOLE complex to its native multimer MSA pipeline (jackhmmer +
     internal species pairing against the 2021 uniprot DB); no bespoke pairing.
