@@ -12,11 +12,9 @@ process BINDCRAFT {
     )
 
     input:
-    path input_pdb
-    path settings_json
+    tuple val(batch_id), path(input_pdb), path(settings_json)
     val advanced_settings_preset
     val filters_preset
-    val batch_id
     val compress_html
     val compress_pdb
 
@@ -42,6 +40,7 @@ process BINDCRAFT {
     def filters_filename = filters_preset ? "/app/BindCraft/settings_filters/${filters_preset}.json" : '/app/BindCraft/settings_filters/default_filters.json'
     def modified_filters_filename = "./${file(filters_filename).getName()}"
     """
+    set -euo pipefail
 
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
@@ -95,6 +94,11 @@ with open("${modified_advanced_settings_filename}", "w") as f:
         --advanced ${modified_advanced_settings_filename} \
         --filters ${modified_filters_filename} \
         ${task.ext.args ?: ''} 2>&1 | tee bindcraft.log
+
+    # Tag per-batch stats CSVs with the input structure filename (incl. extension)
+    /opt/conda/envs/BindCraft/bin/python ${baseDir}/bin/bindcraft/add_bindcraft_target_column.py \
+        --target "${input_pdb.name}" \
+        --results-dir results
 
     if [[ ${compress_html} == "true" ]]; then
         find ./results -type f -name '*.html' -exec gzip -9 {} +

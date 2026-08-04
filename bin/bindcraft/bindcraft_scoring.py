@@ -16,7 +16,7 @@
 
 # Run using a container like:
 #  apptainer exec /scratch/projects/apdi/containers/bindcraft-nv-cuda12.sif \
-#    /opt/conda/envs/BindCraft/bin/python bin/bindcraft_scoring.py \
+#    /opt/conda/envs/BindCraft/bin/python bin/bindcraft/bindcraft_scoring.py \
 #    /path/to/my_binder.pdb \
 #    --binder-chain A \
 #    --omit-aas CX \

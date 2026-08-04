@@ -1,0 +1,39 @@
+nextflow_function {
+
+    name "Test Function makeBindcraftBatchId"
+    script "modules/local/bindcraft/bindcraft_utils.nf"
+    function "makeBindcraftBatchId"
+
+    tag "bindcraft"
+    tag "bindcraft_utils"
+
+    test("simple basename and index") {
+        when {
+            function {
+                """
+                input[0] = file("${projectDir}/tests/data/bindcraft/single/targetA.pdb")
+                input[1] = 0
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == "targetA_0"
+        }
+    }
+
+    test("sanitises non-alphanumeric characters") {
+        when {
+            function {
+                """
+                input[0] = file("${projectDir}/tests/data/bindcraft/single/target-with spaces.pdb")
+                input[1] = 3
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == "target_with_spaces_3"
+        }
+    }
+}

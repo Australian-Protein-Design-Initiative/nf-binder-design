@@ -1,0 +1,96 @@
+nextflow_function {
+
+    name "Test Function resolveInputPdbs"
+    script "modules/local/bindcraft/bindcraft_utils.nf"
+    function "resolveInputPdbs"
+
+    tag "bindcraft"
+    tag "bindcraft_utils"
+
+    test("single file returns one PDB") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bindcraft/single/targetA.pdb"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 1
+            assert function.result[0].toString().tokenize('/').last() == "targetA.pdb"
+        }
+    }
+
+    test("directory returns all PDBs sorted by name") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bindcraft/multi"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 2
+            assert function.result.collect { it.toString().tokenize('/').last() } == ["targetA.pdb", "targetB.pdb"]
+        }
+    }
+
+    test("glob returns matching PDBs") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bindcraft/multi/*.pdb"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 2
+            assert function.result.collect { it.toString().tokenize('/').last() } == ["targetA.pdb", "targetB.pdb"]
+        }
+    }
+
+    test("empty directory fails") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bindcraft/empty"
+                """
+            }
+        }
+        then {
+            assert function.failed
+            assert function.stdout.toString().contains("No PDB files found")
+        }
+    }
+
+    test("missing path fails") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bindcraft/does_not_exist.pdb"
+                """
+            }
+        }
+        then {
+            assert function.failed
+            assert function.stdout.toString().contains("No PDB files found")
+        }
+    }
+
+    test("duplicate basenames fail") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bindcraft/dupes/*/*.pdb"
+                """
+            }
+        }
+        then {
+            assert function.failed
+            assert function.stdout.toString().contains("Duplicate input PDB basenames")
+        }
+    }
+}

@@ -63,4 +63,38 @@ nextflow_pipeline {
             assert workflow.success
         }
     }
+
+    test("bindcraft method compiles (single PDB)") {
+        options "-preview"
+        when {
+            params {
+                method = "bindcraft"
+                input_pdb = "${projectDir}/tests/data/bindcraft/single/targetA.pdb"
+                target_chains = "A"
+                bindcraft_n_traj = 2
+                bindcraft_batch_size = 1
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("bindcraft method compiles (multi PDB glob)") {
+        options "-preview"
+        when {
+            params {
+                method = "bindcraft"
+                input_pdb = "${projectDir}/tests/data/bindcraft/multi/*.pdb"
+                target_chains = "A"
+                bindcraft_n_traj = 2
+                bindcraft_batch_size = 1
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
 }

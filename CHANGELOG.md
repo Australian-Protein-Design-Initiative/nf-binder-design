@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.
+
 ### Changed
+- BindCraft batch directories and design names use `<pdbName>_<batchIndex>` (e.g. `batches/PDL1_0/`) instead of a bare integer batch index. BindCraft output CSVs include a `Target` column with the input structure filename.
+- BindCraft helper scripts moved to `bin/bindcraft/` (`create_bindcraft_settings.py`, `bindcraft_scoring.py`, `add_bindcraft_target_column.py`).
 - M3 platform configs (`m3`, `m3_bdi`): shared SLURM option variables at the top of each file (account, exclude, GPU/CPU presets); all jobs now pass `--exclude=m3t100`.
+- BindCraft report headline accept rate collapses MPNN duplicates (unique trajectories with ≥1 accepted design ÷ total trajectories); rate including all accepted MPNN sequences is shown alongside.
+
+### Fixed
+- BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.
+- BindCraft: process now fails (non-zero exit) when `bindcraft.py` crashes; previously `| tee bindcraft.log` masked the Python exit code so Nextflow marked the task COMPLETED.
 
 ## [0.3.0] - 2026-07-09
 

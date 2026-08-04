@@ -80,41 +80,142 @@ trajectory_df = safe_load_csv("trajectory_stats.csv", "Trajectory statistics")
 
 from IPython.display import HTML
 from pathlib import Path
-import glob
+import re
+from collections import defaultdict
 
-# Calculate acceptance rate from CSV data
-total_trajectories = len(trajectory_df) if trajectory_df is not None else 0
-accepted_count = len(final_design_df) if final_design_df is not None else 0
+def target_display_name(name) -> str:
+    """Strip filename extensions for report display; CSVs keep the full filename."""
+    if name is None or (isinstance(name, float) and np.isnan(name)):
+        return ""
+    return str(name).strip().split(".", 1)[0]
 
 
-# Count PDB files in different directories
 def count_pdb_files(directory_pattern):
-    """Count .pdb/.pdb.gz files in directories matching the pattern"""
+    """Count .pdb/.pdb.gz files in directories matching the pattern."""
     count = 0
     for path in Path(".").glob(directory_pattern):
         if path.is_dir():
-            # The glob pattern "*.{pdb,pdb.gz}" is not valid in Python's pathlib/glob.
-            # Instead, count both .pdb and .pdb.gz files separately:
             count += len(list(path.glob("*.pdb")))
             count += len(list(path.glob("*.pdb.gz")))
     return count
 
 
-# Count files in different categories
-rejected_count = count_pdb_files("./batches/*/results/Rejected")
+def design_trajectory_id(name: str) -> str:
+    """Collapse MPNN/model suffixes so multiple accepted sequences from one trajectory count once."""
+    stem = Path(name).name
+    for suffix in (".pdb.gz", ".pdb"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    stem = re.sub(r"_model\d+$", "", stem)
+    stem = re.sub(r"_mpnn\d+$", "", stem)
+    return stem
+
+
+def list_pdb_files(directory_pattern):
+    files = []
+    for path in Path(".").glob(directory_pattern):
+        if path.is_dir():
+            files.extend(path.glob("*.pdb"))
+            files.extend(path.glob("*.pdb.gz"))
+    return files
+
+
+def count_unique_trajectories(directory_pattern):
+    return len({design_trajectory_id(p.name) for p in list_pdb_files(directory_pattern)})
+
+
+def resolve_batch_target(batch_path: Path):
+    results = batch_path / "results" if (batch_path / "results").is_dir() else batch_path
+    target_file = results / "target.txt"
+    if target_file.exists():
+        value = target_file.read_text(encoding="utf-8").strip()
+        return value or None
+    for csv_name in ("final_design_stats.csv", "trajectory_stats.csv", "mpnn_design_stats.csv"):
+        csv_path = results / csv_name
+        if not csv_path.exists():
+            continue
+        try:
+            df = pd.read_csv(csv_path, nrows=1)
+        except Exception:
+            continue
+        if "Target" in df.columns and len(df) > 0 and pd.notna(df["Target"].iloc[0]):
+            return str(df["Target"].iloc[0])
+    return None
+
+
+def count_pdbs_in(results_dir: Path, relative: str) -> int:
+    path = results_dir / relative
+    if not path.is_dir():
+        return 0
+    return len(list(path.glob("*.pdb"))) + len(list(path.glob("*.pdb.gz")))
+
+
+def unique_accepted_in(results_dir: Path) -> int:
+    accepted = results_dir / "Accepted"
+    if not accepted.is_dir():
+        return 0
+    keys = set()
+    for p in list(accepted.glob("*.pdb")) + list(accepted.glob("*.pdb.gz")):
+        keys.add(design_trajectory_id(p.name))
+    return len(keys)
+
+
+# Trajectory outcomes are mutually exclusive (one PDB per trajectory).
+# Rejected/Accepted under results/ are MPNN designs derived from Relaxed
+# trajectories — multiple per trajectory — so they must not be summed into
+# the trajectory total.
 relaxed_count = count_pdb_files("./batches/*/results/Trajectory/Relaxed")
 lowconf_count = count_pdb_files("./batches/*/results/Trajectory/LowConfidence")
 clashing_count = count_pdb_files("./batches/*/results/Trajectory/Clashing")
+total_trajectories = relaxed_count + lowconf_count + clashing_count
+if total_trajectories == 0 and trajectory_df is not None:
+    total_trajectories = len(trajectory_df)
 
-# Calculate total from directory counts
-total_from_dirs = relaxed_count + lowconf_count + clashing_count + rejected_count
+accepted_all_count = count_pdb_files("./batches/*/results/Accepted")
+if accepted_all_count == 0 and final_design_df is not None:
+    accepted_all_count = len(final_design_df)
 
-# Use directory counts if available, otherwise fall back to CSV data
-if total_from_dirs > 0:
-    total_trajectories = total_from_dirs
+accepted_unique_count = count_unique_trajectories("./batches/*/results/Accepted")
+if accepted_unique_count == 0 and final_design_df is not None and "Design" in final_design_df.columns:
+    accepted_unique_count = final_design_df["Design"].map(design_trajectory_id).nunique()
 
-if relaxed_count > 0:
-    acceptance_rate = (accepted_count / relaxed_count) * 100
+rejected_count = count_pdb_files("./batches/*/results/Rejected")
+
+# Per-target tallies from batch directories (for multi-PDB runs)
+target_stats = defaultdict(
+    lambda: {
+        "relaxed": 0,
+        "lowconf": 0,
+        "clashing": 0,
+        "accepted_all": 0,
+        "accepted_unique": 0,
+        "rejected": 0,
+    }
+)
+for batch_path in sorted(Path("batches").glob("*")):
+    if not batch_path.is_dir():
+        continue
+    results = batch_path / "results" if (batch_path / "results").is_dir() else batch_path
+    target = resolve_batch_target(batch_path)
+    if target is None:
+        continue
+    target_stats[target]["relaxed"] += count_pdbs_in(results, "Trajectory/Relaxed")
+    target_stats[target]["lowconf"] += count_pdbs_in(results, "Trajectory/LowConfidence")
+    target_stats[target]["clashing"] += count_pdbs_in(results, "Trajectory/Clashing")
+    target_stats[target]["accepted_all"] += count_pdbs_in(results, "Accepted")
+    target_stats[target]["accepted_unique"] += unique_accepted_in(results)
+    target_stats[target]["rejected"] += count_pdbs_in(results, "Rejected")
+
+has_multiple_targets = len(target_stats) > 1
+for _df in (final_design_df, trajectory_df, mpnn_design_df):
+    if _df is not None and "Target" in _df.columns and _df["Target"].nunique(dropna=True) > 1:
+        has_multiple_targets = True
+        break
+
+if total_trajectories > 0:
+    rate_unique = (accepted_unique_count / total_trajectories) * 100
+    rate_all = (accepted_all_count / total_trajectories) * 100
     html_content = f"""
     <div style="
         border: 2px solid #3498db;
@@ -124,34 +225,54 @@ if relaxed_count > 0:
         background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     ">
-        <h2 style="text-align: center; font-size: 28px; color: #2c3e50; margin: 0 0 20px 0;">
-            Accept rate: {acceptance_rate:.1f}% ({accepted_count} / {relaxed_count})
+        <h2 style="text-align: center; font-size: 28px; color: #2c3e50; margin: 0 0 8px 0;">
+            Accept rate: {rate_unique:.1f}% ({accepted_unique_count} unique / {total_trajectories} trajectories)
         </h2>
+        <p style="text-align: center; color: #5d6d7e; margin: 0 0 4px 0; font-size: 14px;">
+            Headline rate collapses MPNN duplicates (multiple accepted sequences from the same trajectory count once).
+        </p>
+        <p style="text-align: center; color: #5d6d7e; margin: 0 0 16px 0; font-size: 14px;">
+            Including MPNN duplicates: {rate_all:.1f}% ({accepted_all_count} accepted / {total_trajectories} trajectories)
+        </p>
         <table style="
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         ">
+            <tr style="background-color: #d6eaf8;">
+                <td colspan="2" style="padding: 10px 12px; border: 1px solid #bdc3c7; font-weight: bold;">Trajectory outcomes</td>
+            </tr>
             <tr style="background-color: #f8f9fa;">
-                <td style="padding: 12px; border: 1px solid #bdc3c7;">Relaxed</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Relaxed (passed trajectory filters)</td>
                 <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{relaxed_count}</td>
             </tr>
             <tr style="background-color: #ffffff;">
-                <td style="padding: 12px; border: 1px solid #bdc3c7;">Rejected</td>
-                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{rejected_count}</td>
-            </tr>
-            <tr style="background-color: {'#ffebee' if lowconf_count > relaxed_count else '#f8f9fa'};">
                 <td style="padding: 12px; border: 1px solid #bdc3c7;">LowConfidence</td>
                 <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{lowconf_count}</td>
             </tr>
-            <tr style="background-color: {'#ffebee' if clashing_count > relaxed_count else '#ffffff'};">
+            <tr style="background-color: #f8f9fa;">
                 <td style="padding: 12px; border: 1px solid #bdc3c7;">Clashing</td>
                 <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{clashing_count}</td>
             </tr>
             <tr style="background-color: #ffffff;">
-                <td style="padding: 12px; border-top: 3px solid #2c3e50; border-left: 1px solid #bdc3c7; border-right: 1px solid #bdc3c7; border-bottom: 1px solid #bdc3c7; font-weight: bold;">Total Trajectories</td>
+                <td style="padding: 12px; border-top: 3px solid #2c3e50; border-left: 1px solid #bdc3c7; border-right: 1px solid #bdc3c7; border-bottom: 1px solid #bdc3c7; font-weight: bold;">Total trajectories</td>
                 <td style="padding: 12px; border-top: 3px solid #2c3e50; border-left: 1px solid #bdc3c7; border-right: 1px solid #bdc3c7; border-bottom: 1px solid #bdc3c7; text-align: center; font-weight: bold;">{total_trajectories}</td>
+            </tr>
+            <tr style="background-color: #d5f5e3;">
+                <td colspan="2" style="padding: 10px 12px; border: 1px solid #bdc3c7; font-weight: bold;">MPNN designs (from Relaxed trajectories)</td>
+            </tr>
+            <tr style="background-color: #f8f9fa;">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Accepted (unique trajectories)</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{accepted_unique_count}</td>
+            </tr>
+            <tr style="background-color: #ffffff;">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Accepted (all MPNN sequences)</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{accepted_all_count}</td>
+            </tr>
+            <tr style="background-color: #f8f9fa;">
+                <td style="padding: 12px; border: 1px solid #bdc3c7;">Rejected</td>
+                <td style="padding: 12px; border: 1px solid #bdc3c7; text-align: center;">{rejected_count}</td>
             </tr>
         </table>
     </div>
@@ -173,6 +294,313 @@ else:
     </div>
     """
     display(HTML(html_content))
+```
+
+```{python}
+# | label: target-accept-breakdown
+# | message: false
+
+if has_multiple_targets and target_stats:
+    rows_html = []
+    for target in sorted(target_stats.keys()):
+        s = target_stats[target]
+        total = s["relaxed"] + s["lowconf"] + s["clashing"]
+        rate_u = (s["accepted_unique"] / total * 100) if total else 0.0
+        rate_a = (s["accepted_all"] / total * 100) if total else 0.0
+        rows_html.append(
+            f"""
+            <tr>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7;">{target_display_name(target)}</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{total}</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{s["accepted_unique"]}</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{s["accepted_all"]}</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{rate_u:.1f}%</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{rate_a:.1f}%</td>
+            </tr>
+            """
+        )
+    html_content = f"""
+    <div style="margin: 20px 0;">
+        <h3 style="color: #2c3e50;">Accept rate by Target</h3>
+        <p style="color: #5d6d7e; font-size: 14px;">
+            Unique accept rate collapses MPNN duplicates per target PDB.
+        </p>
+        <table style="
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        ">
+            <tr style="background-color: #d6eaf8;">
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: left;">Target</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Trajectories</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accepted (unique)</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accepted (all MPNN)</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accept rate (unique)</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accept rate (all)</th>
+            </tr>
+            {"".join(rows_html)}
+        </table>
+    </div>
+    """
+    display(HTML(html_content))
+```
+
+> Note that the total number of attempted trajectories is often > `--bindcraft_n_traj` because this value represents the number of desired _relaxed_ trajectories, and some tasks make multiple trajectory attempts due to clashing or low confidence ones being rejected.
+
+```{python}
+# | label: target-metric-boxplots
+# | fig-width: 10
+# | fig-height: 6
+# | message: false
+
+from itertools import combinations
+from scipy import stats as scipy_stats
+
+try:
+    from statsmodels.stats.multitest import multipletests
+except ImportError:
+    multipletests = None
+
+
+def _format_pvalue(p: float) -> str:
+    if p is None or (isinstance(p, float) and np.isnan(p)):
+        return "n/a"
+    if p < 0.001:
+        return "p<0.001"
+    return f"p={p:.3g}"
+
+
+def _holm_adjust(pvalues):
+    """Holm step-down adjustment (fallback if statsmodels is unavailable)."""
+    n = len(pvalues)
+    if n == 0:
+        return []
+    order = np.argsort(pvalues)
+    adjusted = np.empty(n, dtype=float)
+    running_max = 0.0
+    for rank, idx in enumerate(order):
+        adj = (n - rank) * pvalues[idx]
+        running_max = max(running_max, adj)
+        adjusted[idx] = min(running_max, 1.0)
+    return adjusted.tolist()
+
+
+def _adjust_pvalues(pvalues):
+    if not pvalues:
+        return []
+    if multipletests is not None:
+        _, p_adj, _, _ = multipletests(pvalues, alpha=0.05, method="holm")
+        return p_adj.tolist()
+    return _holm_adjust(pvalues)
+
+
+def _group_metric_data(df, metric, targets):
+    plot_data = []
+    labels = []
+    for target in targets:
+        data = df.loc[df["Target"] == target, metric].dropna().astype(float)
+        if len(data) > 0:
+            plot_data.append(data.values)
+            labels.append(target_display_name(target))
+    return plot_data, labels
+
+
+def _kruskal_wallis(plot_data):
+    """Overall non-parametric test across >=2 target groups."""
+    usable = [d for d in plot_data if len(d) >= 1]
+    if len(usable) < 2:
+        return None, None, "need >=2 groups"
+    if sum(len(d) for d in usable) < 3 or max(len(d) for d in usable) < 2:
+        return None, None, "n too small"
+    try:
+        stat, p = scipy_stats.kruskal(*usable)
+        return float(stat), float(p), None
+    except ValueError as exc:
+        return None, None, str(exc)
+
+
+def _pairwise_mannwhitney(plot_data, labels):
+    """Pairwise Mann-Whitney U tests (two-sided) with Holm-adjusted p-values."""
+    rows = []
+    raw_p = []
+    for (i, label_a), (j, label_b) in combinations(enumerate(labels), 2):
+        a, b = plot_data[i], plot_data[j]
+        if len(a) == 0 or len(b) == 0:
+            continue
+        try:
+            stat, p = scipy_stats.mannwhitneyu(a, b, alternative="two-sided")
+        except ValueError:
+            continue
+        rows.append(
+            {
+                "Comparison": f"{label_a} vs {label_b}",
+                "n_a": len(a),
+                "n_b": len(b),
+                "U": float(stat),
+                "P-value": float(p),
+            }
+        )
+        raw_p.append(float(p))
+    if not rows:
+        return pd.DataFrame()
+    for row, p_adj in zip(rows, _adjust_pvalues(raw_p)):
+        row["P-adj (Holm)"] = p_adj
+        row["Significant"] = p_adj < 0.05
+    return pd.DataFrame(rows)
+
+
+def _boxplot_metrics_by_target(df, metric_candidates, title, min_targets=2):
+    """Boxplots + stats by Target. Returns (shown, skip_reason)."""
+    if df is None or len(df) == 0:
+        return False, "no rows available"
+    if "Target" not in df.columns:
+        return False, "no Target column"
+    available_metrics = [m for m in metric_candidates if m in df.columns]
+    if not available_metrics:
+        return False, "none of the requested metrics are present"
+
+    counts = df["Target"].dropna().value_counts()
+    targets = sorted(counts.index.tolist())
+    if len(targets) < min_targets:
+        count_txt = ", ".join(f"{target_display_name(t)} n={int(counts[t])}" for t in targets)
+        return (
+            False,
+            f"only {len(targets)} target(s) with data ({count_txt}); "
+            f"need ≥{min_targets} targets for comparison",
+        )
+
+    n_metrics = len(available_metrics)
+    cols = min(3, n_metrics)
+    rows = (n_metrics + cols - 1) // cols
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3.8 * rows), squeeze=False)
+    pairwise_sections = []
+
+    for i, metric in enumerate(available_metrics):
+        ax = axes[i // cols][i % cols]
+        plot_data, labels = _group_metric_data(df, metric, targets)
+        if len(plot_data) < min_targets:
+            ax.set_visible(False)
+            continue
+
+        bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+        colors = plt.cm.Set2(np.linspace(0, 1, len(plot_data)))
+        for patch, color in zip(bp["boxes"], colors):
+            patch.set_facecolor(color)
+        for median in bp["medians"]:
+            median.set_color("black")
+        for j, data in enumerate(plot_data):
+            jitter = np.random.normal(0, boxplot_jitter, len(data))
+            ax.plot(
+                np.ones(len(data)) * (j + 1) + jitter,
+                data,
+                "o",
+                color="black",
+                alpha=0.5,
+                markersize=4,
+            )
+
+        _kw_stat, kw_p, kw_note = _kruskal_wallis(plot_data)
+        if kw_p is not None:
+            subtitle = f"Kruskal-Wallis {_format_pvalue(kw_p)}"
+            if kw_p < 0.05:
+                subtitle += " *"
+        else:
+            subtitle = f"Kruskal-Wallis n/a ({kw_note})"
+        ax.set_title(f"{metric}\n{subtitle}", fontsize=10, fontweight="bold")
+        ax.tick_params(axis="x", rotation=30)
+        ax.grid(True, axis="y", alpha=0.3)
+
+        pair_df = _pairwise_mannwhitney(plot_data, labels)
+        if not pair_df.empty:
+            pair_df.insert(0, "Metric", metric)
+            pairwise_sections.append(pair_df)
+
+    for i in range(n_metrics, rows * cols):
+        axes[i // cols][i % cols].set_visible(False)
+
+    fig.suptitle(
+        f"{title}\n(Kruskal-Wallis overall; pairwise Mann-Whitney U with Holm adjustment)",
+        fontsize=13,
+        fontweight="bold",
+    )
+    plt.tight_layout()
+    plt.show()
+
+    if pairwise_sections:
+        all_pairs = pd.concat(pairwise_sections, ignore_index=True)
+        display_cols = [
+            "Metric",
+            "Comparison",
+            "n_a",
+            "n_b",
+            "U",
+            "P-value",
+            "P-adj (Holm)",
+            "Significant",
+        ]
+        print(f"\n{title} — pairwise target comparisons:")
+        styled = (
+            all_pairs[display_cols]
+            .style.format(
+                {
+                    "U": "{:.1f}",
+                    "P-value": "{:.4g}",
+                    "P-adj (Holm)": "{:.4g}",
+                }
+            )
+            .hide(axis="index")
+        )
+        display(styled)
+        n_sig = int(all_pairs["Significant"].sum())
+        print(
+            "Significant pairwise differences after Holm correction (p_adj < 0.05): "
+            f"{n_sig} / {len(all_pairs)}"
+        )
+    return True, None
+
+
+def _show_target_comparison_skip(title, reason):
+    html_content = f"""
+    <div style="
+        border: 1px solid #f0b429;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin: 12px 0 20px 0;
+        background: #fff8e8;
+        color: #5d6d7e;
+        font-size: 14px;
+    ">
+        <strong style="color: #2c3e50;">{title}</strong>
+        — skipped: {reason}
+    </div>
+    """
+    display(HTML(html_content))
+
+
+if has_multiple_targets:
+    # Accepted designs first (may be skipped when only one target has accepts)
+    accepted_shown, accepted_reason = _boxplot_metrics_by_target(
+        final_design_df,
+        [
+            "Average_pLDDT",
+            "Average_i_pTM",
+            "Average_i_pAE",
+            "Average_Target_RMSD",
+            "Average_ShapeComplementarity",
+            "Average_dG",
+        ],
+        "Accepted design metrics by Target",
+    )
+    if not accepted_shown:
+        _show_target_comparison_skip("Accepted design metrics by Target", accepted_reason)
+
+    traj_shown, traj_reason = _boxplot_metrics_by_target(
+        trajectory_df,
+        ["pLDDT", "i_pTM", "i_pAE", "Target_RMSD", "ShapeComplementarity", "dG"],
+        "Trajectory metrics by Target",
+    )
+    if not traj_shown:
+        _show_target_comparison_skip("Trajectory metrics by Target", traj_reason)
 ```
 
 # Design Attrition Summary
@@ -438,6 +866,7 @@ Summary of all the design trajectories, accepted and rejected.
 if trajectory_df is not None and len(trajectory_df) > 0:
     # Define columns to show in the table
     table_cols = [
+        "Target",
         "Design",
         "i_pTM",
         "i_pAE",
@@ -480,10 +909,12 @@ if trajectory_df is not None and len(trajectory_df) > 0:
 
         # Display top 20 designs (or less if fewer available)
         print("\nTop 20 Trajectory Designs (ranked by i_pTM):")
-        display_df = ranking_df.head(20)
+        display_df = ranking_df.head(20).copy()
+        if "Target" in display_df.columns:
+            display_df["Target"] = display_df["Target"].map(target_display_name)
 
         # Format numeric columns - Length as integer, others as float
-        numeric_cols = [col for col in available_table_cols if col != "Design"]
+        numeric_cols = [col for col in available_table_cols if col not in ("Design", "Target")]
         format_dict = {}
         for col in numeric_cols:
             if col == "Length":
@@ -583,7 +1014,7 @@ Summary of scores for designs after sequence generation with ProteinMPNN.
 
 if mpnn_design_df is not None and len(mpnn_design_df) > 0:
     # Define columns to show in the table
-    table_cols = ['Design', 'Average_i_pTM', 'Average_i_pAE', 'Average_pLDDT', 'Average_pTM', 
+    table_cols = ['Target', 'Design', 'Average_i_pTM', 'Average_i_pAE', 'Average_pLDDT', 'Average_pTM',
                   'Average_dG', 'Average_ShapeComplementarity', 'Length']
     available_table_cols = [col for col in table_cols if col in mpnn_design_df.columns]
     
@@ -594,10 +1025,12 @@ if mpnn_design_df is not None and len(mpnn_design_df) > 0:
         
         # Display top 20 designs
         print("\nTop MPNN Designs (ranked by Average_i_pTM):")
-        display_df = ranking_df.head(20)
+        display_df = ranking_df.head(20).copy()
+        if "Target" in display_df.columns:
+            display_df["Target"] = display_df["Target"].map(target_display_name)
         
         # Format numeric columns - Length as integer, others as float
-        numeric_cols = [col for col in available_table_cols if col != 'Design']
+        numeric_cols = [col for col in available_table_cols if col not in ('Design', 'Target')]
         format_dict = {}
         for col in numeric_cols:
             if col == 'Length':
@@ -905,6 +1338,7 @@ if final_design_df is not None and len(final_design_df) > 0:
 if final_design_df is not None and len(final_design_df) > 0:
     # Define columns to show in the table
     table_cols = [
+        "Target",
         "Design",
         "Average_i_pTM",
         "Average_i_pAE",
@@ -948,10 +1382,12 @@ if final_design_df is not None and len(final_design_df) > 0:
 
         # Display all accepted designs (or less if fewer available)
         print("\nFinal Accepted Designs (ranked by Average_i_pTM):")
-        display_df = ranking_df
+        display_df = ranking_df.copy()
+        if "Target" in display_df.columns:
+            display_df["Target"] = display_df["Target"].map(target_display_name)
 
         # Format numeric columns - Length as integer, others as float
-        numeric_cols = [col for col in available_table_cols if col != "Design"]
+        numeric_cols = [col for col in available_table_cols if col not in ("Design", "Target")]
         format_dict = {}
         for col in numeric_cols:
             if col == "Length":

@@ -12,12 +12,14 @@ The `--method bindcraft` workflow runs [BindCraft](https://github.com/martinpace
 
 Unlike a 'vanilla' BindCraft run which runs on a single GPU indefinitely until finding `N` accepted designs, this pipeline:
 
-- Runs a **fixed number of trajectories** (`--bindcraft_n_traj`)
+- Runs a **fixed number of relaxed trajectories** (`--bindcraft_n_traj` per input PDB)
 - Stops when complete (predictable runtime)
 - Parallelizes across available GPUs
 - Outputs an HTML summary report
 
-If you want to generate a specific number of accepted designs, we suggest running a small number of trajectories (`--bindcraft_n_traj 100` or `--bindcraft_n_traj 300`) to assess the acceptance rate, then knowing the ratio of accepted designs to total trajectories, do a larger run to generate (approximately) the desired number of accepted designs.
+`--input_pdb` accepts a single file, a directory of PDB files, or a quoted glob (e.g. `'input/*.pdb'`). Shared settings (`--target_chains`, `--hotspot_res`, `--contigs`) apply to every input PDB. Batch directories and design names use `<pdbName>_<batchIndex>` (e.g. `batches/PDL1_0/`). Merged stats CSVs (`final_design_stats.csv`, `trajectory_stats.csv`, `mpnn_design_stats.csv`) include a `Target` column with the input structure filename including extension (e.g. `PDL1.pdb`) so multi-PDB runs can be compared; the HTML report displays Target without the extension.
+
+If you want to generate a specific number of accepted designs, we suggest running a small number of trajectories (`--bindcraft_n_traj 100` or `--bindcraft_n_traj 300`) to assess the acceptance rate, then knowing the ratio of accepted designs to total trajectories, do a larger run to generate (approximately) the desired number of accepted designs. The HTML report headline accept rate collapses MPNN duplicates (multiple accepted sequences from the same trajectory count once); the rate including all accepted MPNN sequences is shown as well. Multi-PDB runs also get per-target accept rates and metric comparisons.
 
 ## Command-line Options
 
@@ -59,12 +61,12 @@ For running on SLURM, you can use the `-profile slurm` flag instead of `-profile
 
 | Flag | Description |
 |------|-------------|
-| `--input_pdb` | Target protein structure |
+| `--input_pdb` | Target PDB file, directory of PDBs, or quoted glob (e.g. `'input/*.pdb'`). `--bindcraft_n_traj` is run per input PDB |
 | `--target_chains` | Target chain IDs (comma-separated) |
 | `--hotspot_res` | Hotspot residues (comma-separated) |
 | `--hotspot_subsample` | Random proportion of hotspot residues per design (explores hotspot selection) |
 | `--binder_length_range` | Range of binder lengths to design |
-| `--bindcraft_n_traj` | Number of trajectories to run |
+| `--bindcraft_n_traj` | Number of trajectories to run per input PDB |
 | `--bindcraft_batch_size` | Number of trajectories per batch |
 | `--gpu_devices` | Specify multiple GPUs, e.g., `--gpu_devices=0,1` — use only for `-profile local` |
 
@@ -96,14 +98,14 @@ Results are saved to `--outdir` in the `bindcraft/` subdirectory:
 │   │           ├── bindcraft_design_1_l57_s942028_mpnn6_model1.pdb
 │   │           └── bindcraft_design_1_l57_s942028_mpnn8_model2.pdb
 │   ├── batches
-│   │   ├── 0
+│   │   ├── PDL1_0
 │   │   │   └── results
 │   │   │       ├── failure_csv.csv
 │   │   │       ├── final_design_stats.csv
 │   │   │       ├── mpnn_design_stats.csv
 │   │   │       ├── Trajectory
 │   │   │       └── trajectory_stats.csv
-│   │   └── 1
+│   │   └── PDL1_1
 │   │       └── results
 │   │           ├── Accepted
 │   │           ├── failure_csv.csv

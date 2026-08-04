@@ -42,6 +42,7 @@ include { TRIM_TO_CONTIGS } from '../modules/local/common/trim_to_contigs'
 include { BINDCRAFT_CREATE_SETTINGS } from '../modules/local/bindcraft/bindcraft_create_settings'
 include { BINDCRAFT as BINDCRAFT_PROCESS } from '../modules/local/bindcraft/bindcraft'
 include { BINDCRAFT_REPORTING } from '../modules/local/bindcraft/bindcraft_reporting'
+include { resolveInputPdbs; makeBindcraftBatchId } from '../modules/local/bindcraft/bindcraft_utils'
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 
@@ -192,17 +193,19 @@ workflow BINDCRAFT {
         ==================================================================
 
         Required arguments:
-            --input_pdb                        The input PDB file
+            --input_pdb                        Input PDB file, a directory of PDB files, or a quoted glob (e.g. 'input/*.pdb').
+                                               --bindcraft_n_traj trajectories are run per input PDB.
 
         Optional arguments:
             --outdir                  Output directory [default: ${params.outdir}]
-            --design_name             Name of the design, used for output file prefixes [default: ${params.design_name}]
+            --design_name             Name of the design, used for output file prefixes.
+                                      Batch IDs are <pdbName>_<batchIndex> [default: ${params.design_name}]
             --target_chains           Target chain(s) for binder design, "A" or "A,B" (mutually exclusive with --contigs) [default: ${params.target_chains}]
             --hotspot_res             Optional. Hotspot residues, eg "A473,A995,A411,A421" (chain ID per residue). Omit or pass "" for no hotspots.
             --contigs                 Contigs to trim input PDB to, eg "[F2-23/F84-175/F205-267/0 G91-171/G209-263/0]" (mutually exclusive with --target_chains, automatically extracts target chains)
             --binder_length_range     Dash-separated min and max length for binders [default: ${params.binder_length_range}]
             --hotspot_subsample       Fraction of hotspot residues to randomly subsample (0.0-1.0) [default: ${params.hotspot_subsample}]
-            --bindcraft_n_traj        Total number of designs attempts (trajectories) to generate [default: ${params.bindcraft_n_traj}]
+            --bindcraft_n_traj        Number of design attempts (trajectories) per input PDB [default: ${params.bindcraft_n_traj}]
             --bindcraft_batch_size    Number of designs to generate per batch [default: ${params.bindcraft_batch_size}]
             --bindcraft_advanced_settings_preset
                                       Preset for advanced settings [default: ${params.bindcraft_advanced_settings_preset}]
@@ -276,13 +279,11 @@ workflow BINDCRAFT {
         validateChainConsistency(hotspot_res.split(','), target_chains)
 }
 
-    ch_input_pdb = Channel.fromPath(params.input_pdb).first()
-    def design_indices = 0..(params.bindcraft_n_traj - 1)
-    def batches = design_indices.collate(params.bindcraft_batch_size)
+    def input_pdbs = resolveInputPdbs(params.input_pdb)
+    def batches = (0..(params.bindcraft_n_traj - 1)).collate(params.bindcraft_batch_size)
+    log.info "BindCraft: ${input_pdbs.size()} input PDB(s) x ${params.bindcraft_n_traj} trajectories = ${input_pdbs.size() * params.bindcraft_n_traj} total, in ${input_pdbs.size() * batches.size()} batch task(s)"
 
-    // Create batch info channel
-    ch_batch_info = Channel.from(batches.withIndex())
-        .map { batch, index -> [index, batch.size()] }
+    ch_input_pdb = Channel.fromList(input_pdbs)
 
     if (params.contigs) {
         TRIM_TO_CONTIGS(
@@ -292,9 +293,16 @@ workflow BINDCRAFT {
         ch_input_pdb = TRIM_TO_CONTIGS.out.pdb
     }
 
+    ch_batch_info = Channel.fromList(batches.withIndex().collect { batch, index -> [index, batch.size()] })
+
+    ch_jobs = ch_input_pdb
+        .combine(ch_batch_info)
+        .map { pdb, index, n_designs ->
+            tuple(makeBindcraftBatchId(pdb, index), n_designs, pdb)
+        }
+
     BINDCRAFT_CREATE_SETTINGS(
-        ch_batch_info,
-        ch_input_pdb,
+        ch_jobs,
         hotspot_res,
         target_chains,
         params.binder_length_range,
@@ -302,12 +310,14 @@ workflow BINDCRAFT {
         params.hotspot_subsample
     )
 
+    ch_bindcraft_in = ch_jobs
+        .map { batch_id, _n_designs, pdb -> [batch_id, pdb] }
+        .join(BINDCRAFT_CREATE_SETTINGS.out.settings)
+
     BINDCRAFT_PROCESS(
-        ch_input_pdb,
-        BINDCRAFT_CREATE_SETTINGS.out.settings_json,
+        ch_bindcraft_in,
         params.bindcraft_advanced_settings_preset,
         params.bindcraft_filters_preset,
-        BINDCRAFT_CREATE_SETTINGS.out.batch_id,
         params.bindcraft_compress_html,
         params.bindcraft_compress_pdb
     )

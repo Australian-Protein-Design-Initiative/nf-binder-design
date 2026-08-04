@@ -1,0 +1,46 @@
+nextflow_process {
+
+    name "Test Process BINDCRAFT_CREATE_SETTINGS"
+    script "modules/local/bindcraft/bindcraft_create_settings.nf"
+    process "BINDCRAFT_CREATE_SETTINGS"
+
+    tag "bindcraft"
+    tag "bindcraft_create_settings"
+
+    test("writes settings.json keyed by batch_id") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+            }
+            process {
+                """
+                input[0] = tuple('targetA_0', 2, file("\${projectDir}/tests/data/bindcraft/single/targetA.pdb"))
+                input[1] = "A56"
+                input[2] = "A"
+                input[3] = "55-120"
+                input[4] = "bindcraft_design"
+                input[5] = 1.0
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.settings.size() == 1
+
+            def batch_id = process.out.settings.get(0)[0]
+            def settings_path = path(process.out.settings.get(0)[1])
+            assert batch_id == "targetA_0"
+            assert settings_path.exists()
+
+            def settings = new groovy.json.JsonSlurper().parseText(settings_path.text)
+            assert settings.binder_name == "bindcraft_design_targetA_0"
+            assert settings.starting_pdb.contains("targetA.pdb")
+            assert settings.number_of_final_designs == 2
+            assert settings.chains == "A"
+            assert settings.target_hotspot_residues == "A56"
+            assert settings.lengths == [55, 120]
+        }
+    }
+}
