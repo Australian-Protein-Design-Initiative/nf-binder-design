@@ -96,29 +96,33 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#unreleased">[Unreleased]</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#030-2026-07-09">[0.3.0] - 2026-07-09</a>
-        <ul>
     <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#020-2026-05-06">[0.2.0] - 2026-05-06</a>
+    <li class="toctree-l2"><a class="reference internal" href="#030-2026-07-09">[0.3.0] - 2026-07-09</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#added_1">Added</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#020-2026-05-06">[0.2.0] - 2026-05-06</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#removed">Removed</a>
     </li>
@@ -126,17 +130,17 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#015-2026-01-28">[0.1.5] - 2026-01-28</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#014-2025-08-12">[0.1.4] - 2025-08-12</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_4">Changed</a>
     </li>
@@ -144,21 +148,21 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#013-2025-07-11">[0.1.3] - 2025-07-11</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_5">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#012-2025-06-19">[0.1.2] - 2025-06-19</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_6">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_6">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_6">Fixed</a>
     </li>
         </ul>
     </li>
@@ -170,7 +174,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#01-2025-03-24">[0.1] - 2025-03-24</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_6">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_7">Added</a>
     </li>
         </ul>
     </li>
@@ -206,12 +210,24 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]</h2>
+<h3 id="added">Added</h3>
+<ul>
+<li>BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.</li>
+</ul>
 <h3 id="changed">Changed</h3>
 <ul>
+<li>BindCraft batch directories and design names use <code>&lt;pdbName&gt;_&lt;batchIndex&gt;</code> (e.g. <code>batches/PDL1_0/</code>) instead of a bare integer batch index. BindCraft output CSVs include a <code>Target</code> column with the input structure filename.</li>
+<li>BindCraft helper scripts moved to <code>bin/bindcraft/</code> (<code>create_bindcraft_settings.py</code>, <code>bindcraft_scoring.py</code>, <code>add_bindcraft_target_column.py</code>).</li>
 <li>M3 platform configs (<code>m3</code>, <code>m3_bdi</code>): shared SLURM option variables at the top of each file (account, exclude, GPU/CPU presets); all jobs now pass <code>--exclude=m3t100</code>.</li>
+<li>BindCraft report headline accept rate collapses MPNN duplicates (unique trajectories with ≥1 accepted design ÷ total trajectories); rate including all accepted MPNN sequences is shown alongside.</li>
+</ul>
+<h3 id="fixed">Fixed</h3>
+<ul>
+<li>BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.</li>
+<li>BindCraft: process now fails (non-zero exit) when <code>bindcraft.py</code> crashes; previously <code>| tee bindcraft.log</code> masked the Python exit code so Nextflow marked the task COMPLETED.</li>
 </ul>
 <h2 id="030-2026-07-09">[0.3.0] - 2026-07-09</h2>
-<h3 id="added">Added</h3>
+<h3 id="added_1">Added</h3>
 <ul>
 <li>New <code>--method rfd3</code> workflow for RFDiffusion3-based binder design using <code>RosettaCommons/foundry</code> (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).</li>
 <li>Germinal antibody/nanobody design workflow (<code>--method germinal</code>).</li>
@@ -230,7 +246,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>manifest.nextflowVersion</code> now bounds the supported range to <code>!&gt;=23.04.0, &lt;26.10</code> (hard failure outside this range).</li>
 <li>Set <code>nextflow.enable.configProcessNamesValidation = false</code> to silence the "There's no process matching config selector" warnings printed on every run (only the selected <code>--method</code> workflow is included, so the <code>withName:</code> selectors for other methods' processes match nothing).</li>
 </ul>
-<h3 id="fixed">Fixed</h3>
+<h3 id="fixed_1">Fixed</h3>
 <ul>
 <li><code>germinal</code>: <code>--method germinal</code> no longer crashes with a <code>MissingPropertyException</code> when <code>--germinal_pdb_dir</code> is omitted; the documented default (<code>../pdbs</code> relative to the config) is now inferred correctly (<code>config_path</code> is a <code>Path</code>, which has no <code>.parentFile</code>).</li>
 <li><code>rfd3</code>: legacy <code>--pmpnn_temperature</code>, <code>--pmpnn_augment_eps</code> and <code>--pmpnn_omit_aas</code> flags are now honoured instead of being silently overridden by the modern <code>--mpnn_*</code> defaults. The modern name still takes precedence when both are set; defaults are unchanged (temperature <code>0.1</code>, structure noise <code>0</code>, omit <code>CX</code>, sequences-per-structure <code>1</code>).</li>
@@ -242,14 +258,14 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>combine_scores.sh</code>: updated to the current <code>results/rfd/af2_initial_guess/{pdbs,scores}</code> output layout (was still pointing at the pre-reorg <code>results/af2_initial_guess/...</code>).</li>
 </ul>
 <h2 id="020-2026-05-06">[0.2.0] - 2026-05-06</h2>
-<h3 id="added_1">Added</h3>
+<h3 id="added_2">Added</h3>
 <ul>
 <li>New <code>nci_gadi.config</code> configuration profile for NCI Gadi HPC cluster.</li>
 <li>Initial <a href="https://www.nf-test.com/">nf-test</a> test scaffold (<code>nf-test.config</code>, <code>tests/</code>) with a process test for <code>UNIQUE_ID</code> and <code>RFDIFFUSION</code>; documented in <code>docs/docs/testing.md</code>.</li>
 <li>BoltzGen: support for list-valued <code>entities[].file.path</code> and multiple entities so all referenced files are staged as Nextflow <code>path()</code> inputs. Referenced config YAMLs (<code>.yaml</code>/<code>.yml</code> in <code>entities[].file.path</code>, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.</li>
 <li>Versioned documentation using <a href="https://github.com/jimporter/mike">mike</a>; docs are now deployed for <code>main</code> (alias: <code>latest</code>), <code>develop</code> (alias: <code>dev</code>), and version tags.</li>
 </ul>
-<h3 id="fixed_1">Fixed</h3>
+<h3 id="fixed_2">Fixed</h3>
 <ul>
 <li>Boltz refold RMSD and ipSAE: <code>BOLTZ_COMPARE_COMPLEX</code> and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> now use Boltz complex chain <strong>A</strong> = binder and <strong>B</strong> = target (from <code>create_boltz_yaml.py</code> IDs), while the input design keeps <code>${binder_chain}</code> / <code>${target_chain}</code>. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated <code>rmsd_target_aligned_binder</code> / ruined aligned PDBs; <code>ipsae.py</code> now receives <code>--binder-chain A --target-chain B</code> for Boltz outputs.</li>
 <li>Boltz: <code>BOLTZ</code>, <code>BOLTZ_COMPARE_COMPLEX</code>, and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> tee <code>boltz predict</code> to <code>.boltz_predict_console.log</code> and exit 1 if the log contains <code>ran out of memory, skipping batch</code> (Boltz may otherwise exit 0 and leave outputs missing).</li>
@@ -267,7 +283,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Modules reorganised into <code>modules/local/</code> with workflow-specific subdirectories (<code>rfd/</code>, <code>bindcraft/</code>, <code>boltzgen/</code>, <code>common/</code>).</li>
 <li>Extracted common Boltz-2 refolding and scoring logic into <code>BOLTZ_REFOLD_SCORING</code> subworkflow (<code>subworkflows/local/boltz_refold_scoring.nf</code>).</li>
 </ul>
-<h3 id="fixed_2">Fixed</h3>
+<h3 id="fixed_3">Fixed</h3>
 <ul>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): omitting <code>--hotspot_res</code> no longer fails in <code>validateHotspotRes</code> with <code>Unknown method invocation 'trim' on Boolean type</code>.</li>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): allow explicit <code>--hotspot_res=""</code> to pass through as a no-hotspot BindCraft setting, and normalise empty hotspot list entries before writing settings.</li>
@@ -281,7 +297,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>rmsd4all.py</code>: remove <code>--max-ca-for-tm-score</code> and <code>--pair-timeout</code> options.</li>
 </ul>
 <h2 id="015-2026-01-28">[0.1.5] - 2026-01-28</h2>
-<h3 id="added_2">Added</h3>
+<h3 id="added_3">Added</h3>
 <ul>
 <li>New BoltzGen pipeline.</li>
 <li>Refold binder designs with Boltz, with post-AF2ig filtering and 
@@ -300,12 +316,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Use the <code>nf-binder-design-utils</code> container instead of <code>mdanalysis</code>.</li>
 <li>Update config and docs to use -profile for site-specifc configurations</li>
 </ul>
-<h3 id="fixed_3">Fixed</h3>
+<h3 id="fixed_4">Fixed</h3>
 <ul>
 <li>Fixed Quarto rendering permissions issues (copy Qmd to work folder).</li>
 </ul>
 <h2 id="014-2025-08-12">[0.1.4] - 2025-08-12</h2>
-<h3 id="added_3">Added</h3>
+<h3 id="added_4">Added</h3>
 <ul>
 <li>BindCraft end-to-end workflow with basic HTML report</li>
 <li>GPU allocation heuristics for local multi-GPU workstations.</li>
@@ -318,7 +334,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Minor tweaks to site-specific configs for <code>m3</code> and <code>mlerp</code>.</li>
 </ul>
 <h2 id="013-2025-07-11">[0.1.3] - 2025-07-11</h2>
-<h3 id="added_4">Added</h3>
+<h3 id="added_5">Added</h3>
 <ul>
 <li>A plugin system for filtering designs based on calculated metrics.</li>
 <li><code>--rfd_filters</code> parameter to apply filters to RFDiffusion backbones (e.g., <code>--rfd_filters "rg&lt;25"</code>).</li>
@@ -338,12 +354,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>The score merging script (<code>merge_scores.py</code>) was improved to be more robust and handle an arbitrary number of score files.</li>
 <li>Use more lightweight container for <code>get_contigs.nf</code> and <code>renumber_residues.nf</code> modules.</li>
 </ul>
-<h3 id="fixed_4">Fixed</h3>
+<h3 id="fixed_5">Fixed</h3>
 <ul>
 <li>The <code>gpu_device</code> parameter is now correctly passed to the partial diffusion process, allowing proper GPU selection.</li>
 </ul>
 <h2 id="012-2025-06-19">[0.1.2] - 2025-06-19</h2>
-<h3 id="added_5">Added</h3>
+<h3 id="added_6">Added</h3>
 <ul>
 <li>Added the <code>boltz_pulldown.nf</code> protocol.</li>
 <li>Allow gpu device to be selected.</li>
@@ -355,7 +371,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Change RFDiffusion config handling when unspecified</li>
 <li>Docs: Add APPTAINER_TMPDIR and NXF_APPTAINER_CACHEDIR advice to M3-specific docs</li>
 </ul>
-<h3 id="fixed_5">Fixed</h3>
+<h3 id="fixed_6">Fixed</h3>
 <ul>
 <li>Fix <code>get_contigs</code> for multi-chain targets.</li>
 <li>Fix failure that occurred when using <code>--rfd_batch_size</code> &gt; 1.</li>
@@ -366,7 +382,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Update to use containers from Github package registry</li>
 </ul>
 <h2 id="01-2025-03-24">[0.1] - 2025-03-24</h2>
-<h3 id="added_6">Added</h3>
+<h3 id="added_7">Added</h3>
 <ul>
 <li>Initial version with RFDiffusion-&gt;ProteinMPNN-&gt;af2_initial_guess binder
   design and partial diffusion pipelines.</li>

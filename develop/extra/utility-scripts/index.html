@@ -94,6 +94,8 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#create_bindcraft_settingspy">create_bindcraft_settings.py</a>
     </li>
+    <li class="toctree-l3"><a class="reference internal" href="#add_bindcraft_target_columnpy">add_bindcraft_target_column.py</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#create_boltz_yamlpy">create_boltz_yaml.py</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#filter_designspy">filter_designs.py</a>
@@ -194,7 +196,9 @@ head $OUTDIR/combined_scores.tsv
   model.pdb
 </code></pre>
 <h3 id="create_bindcraft_settingspy">create_bindcraft_settings.py</h3>
-<p>Generates BindCraft configuration files.</p>
+<p><code>bin/bindcraft/create_bindcraft_settings.py</code> — generates BindCraft configuration files.</p>
+<h3 id="add_bindcraft_target_columnpy">add_bindcraft_target_column.py</h3>
+<p><code>bin/bindcraft/add_bindcraft_target_column.py</code> — adds a <code>Target</code> column (input structure filename) to per-batch BindCraft stats CSVs before they are merged.</p>
 <h3 id="create_boltz_yamlpy">create_boltz_yaml.py</h3>
 <p>Creates YAML configuration files for Boltz predictions.</p>
 <h3 id="filter_designspy">filter_designs.py</h3>
@@ -211,7 +215,7 @@ head $OUTDIR/combined_scores.tsv
 <h3 id="trim_to_contigspy">trim_to_contigs.py</h3>
 <p>Trims protein structures to specified contig regions, using the RFdiffusion contig syntax.</p>
 <h3 id="bindcraft_scoringpy">bindcraft_scoring.py</h3>
-<p>Design scoring code extracted from BindCraft - outputs a subset of BindCraft's scores for any set of designs. Required PyRosetta - should be run using the BindCraft container.</p>
+<p><code>bin/bindcraft/bindcraft_scoring.py</code> — design scoring code extracted from BindCraft; outputs a subset of BindCraft's scores for any set of designs. Requires PyRosetta — should be run using the BindCraft container.</p>
 <h2 id="filter-plugins">Filter Plugins</h2>
 <p>Custom filter plugins are located in <code>bin/filters.d/</code>. Any <code>*.py</code> file in this directory will be automatically discovered.</p>
 <h3 id="available-filters">Available Filters</h3>

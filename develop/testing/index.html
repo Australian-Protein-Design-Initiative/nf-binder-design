@@ -307,7 +307,9 @@ Edit the generated file to define the <code>when</code> block (inputs/params) an
 <h2 id="tips">Tips</h2>
 <ul>
 <li>Prefer lightweight, non-GPU processes for fast unit tests (eg <code>UNIQUE_ID</code>,
-  config-generation processes, simple Python helpers).</li>
+  config-generation processes, simple Python helpers). BindCraft utils
+  (<code>resolveInputPdbs</code>, <code>BINDCRAFT_CREATE_SETTINGS</code>) are covered by non-GPU
+  function/process tests under <code>tests/modules/local/bindcraft/</code> (tag <code>bindcraft</code>).</li>
 <li>The <code>RFDIFFUSION</code> process tests (<code>tests/modules/local/rfd/rfdiffusion.nf.test</code>) need a
   visible GPU (<code>require_gpu = true</code> in the test params, matching the pipeline default),
   the rfdiffusion Apptainer image, and an extra minute or so per test. They are

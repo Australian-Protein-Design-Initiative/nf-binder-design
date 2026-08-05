@@ -160,12 +160,13 @@
 <h2 id="key-differences">Key Differences</h2>
 <p>Unlike a 'vanilla' BindCraft run which runs on a single GPU indefinitely until finding <code>N</code> accepted designs, this pipeline:</p>
 <ul>
-<li>Runs a <strong>fixed number of trajectories</strong> (<code>--bindcraft_n_traj</code>)</li>
+<li>Runs a <strong>fixed number of relaxed trajectories</strong> (<code>--bindcraft_n_traj</code> per input PDB)</li>
 <li>Stops when complete (predictable runtime)</li>
 <li>Parallelizes across available GPUs</li>
 <li>Outputs an HTML summary report</li>
 </ul>
-<p>If you want to generate a specific number of accepted designs, we suggest running a small number of trajectories (<code>--bindcraft_n_traj 100</code> or <code>--bindcraft_n_traj 300</code>) to assess the acceptance rate, then knowing the ratio of accepted designs to total trajectories, do a larger run to generate (approximately) the desired number of accepted designs.</p>
+<p><code>--input_pdb</code> accepts a single file, a directory of PDB files, or a quoted glob (e.g. <code>'input/*.pdb'</code>). Shared settings (<code>--target_chains</code>, <code>--hotspot_res</code>, <code>--contigs</code>) apply to every input PDB. Batch directories and design names use <code>&lt;pdbName&gt;_&lt;batchIndex&gt;</code> (e.g. <code>batches/PDL1_0/</code>). Merged stats CSVs (<code>final_design_stats.csv</code>, <code>trajectory_stats.csv</code>, <code>mpnn_design_stats.csv</code>) include a <code>Target</code> column with the input structure filename including extension (e.g. <code>PDL1.pdb</code>) so multi-PDB runs can be compared; the HTML report displays Target without the extension.</p>
+<p>If you want to generate a specific number of accepted designs, we suggest running a small number of trajectories (<code>--bindcraft_n_traj 100</code> or <code>--bindcraft_n_traj 300</code>) to assess the acceptance rate, then knowing the ratio of accepted designs to total trajectories, do a larger run to generate (approximately) the desired number of accepted designs. The HTML report headline accept rate collapses MPNN duplicates (multiple accepted sequences from the same trajectory count once); the rate including all accepted MPNN sequences is shown as well. Multi-PDB runs also get per-target accept rates and metric comparisons.</p>
 <h2 id="command-line-options">Command-line Options</h2>
 <p>See available options with <code>--method bindcraft --help</code>:</p>
 <pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
@@ -205,7 +206,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <tbody>
 <tr>
 <td><code>--input_pdb</code></td>
-<td>Target protein structure</td>
+<td>Target PDB file, directory of PDBs, or quoted glob (e.g. <code>'input/*.pdb'</code>). <code>--bindcraft_n_traj</code> is run per input PDB</td>
 </tr>
 <tr>
 <td><code>--target_chains</code></td>
@@ -225,7 +226,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </tr>
 <tr>
 <td><code>--bindcraft_n_traj</code></td>
-<td>Number of trajectories to run</td>
+<td>Number of trajectories to run per input PDB</td>
 </tr>
 <tr>
 <td><code>--bindcraft_batch_size</code></td>
@@ -280,14 +281,14 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 │   │           ├── bindcraft_design_1_l57_s942028_mpnn6_model1.pdb
 │   │           └── bindcraft_design_1_l57_s942028_mpnn8_model2.pdb
 │   ├── batches
-│   │   ├── 0
+│   │   ├── PDL1_0
 │   │   │   └── results
 │   │   │       ├── failure_csv.csv
 │   │   │       ├── final_design_stats.csv
 │   │   │       ├── mpnn_design_stats.csv
 │   │   │       ├── Trajectory
 │   │   │       └── trajectory_stats.csv
-│   │   └── 1
+│   │   └── PDL1_1
 │   │       └── results
 │   │           ├── Accepted
 │   │           ├── failure_csv.csv
