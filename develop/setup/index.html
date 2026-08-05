@@ -187,12 +187,9 @@ nextflow info
     parser you will get a cryptic <code>Unexpected input: 'include'</code> compilation error
     before the pipeline even starts.</strong> When running with Nextflow <code>26.04+</code>, select
     the legacy parser first:</p>
-<pre><code>```bash
-export NXF_SYNTAX_PARSER=v1
-```
-
-You can also set it inline for a single run, e.g. `NXF_SYNTAX_PARSER=v1 nextflow run ...`.
+<pre><code class="language-bash">export NXF_SYNTAX_PARSER=v1
 </code></pre>
+<p>You can also set it inline for a single run, e.g. <code>NXF_SYNTAX_PARSER=v1 nextflow run ...</code>.</p>
 <h2 id="pull-the-workflow-using-nextflow">Pull the workflow using Nextflow</h2>
 <p>To pre-cache the <code>nf-binder-design</code> repository in <code>~/.nextflow/assets/</code>, run:</p>
 <pre><code class="language-bash">nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
