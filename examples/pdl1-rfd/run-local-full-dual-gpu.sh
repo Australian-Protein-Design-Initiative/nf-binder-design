@@ -28,8 +28,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
   --method rfd \
@@ -53,6 +51,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   # --do_foldseek \
   # --foldseek_af2ig_filters="pae_interaction<=15" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

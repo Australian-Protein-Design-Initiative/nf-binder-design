@@ -6,8 +6,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
   --method rfd_partial \
@@ -27,6 +25,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --refold_use_msa_server=true \
   --gpu_devices=0,1 \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

@@ -278,9 +278,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res "A56" \
   --rfd_n_designs=4 \
   -profile local \
-  -resume \
-  -with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html \
-  -with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
+  -resume
 ```
 
 ### Full Pipeline with Boltz-2 Refolding (Local)
@@ -305,9 +303,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --refold_target_templates='input/full/' \
   --output_rmsd_aligned=true \
   -profile local \
-  -resume \
-  -with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html \
-  -with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
+  -resume
 ```
 
 ### HPC Cluster with SLURM
@@ -330,9 +326,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --refold_max=100 \
   --refold_use_msa_server=true \
   -profile slurm \
-  -resume \
-  -with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html \
-  -with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
+  -resume
 ```
 
 Use `-profile slurm,<site>` for site-specific configs (see `conf/platforms/`).
@@ -366,7 +360,5 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --refold_max=100 \
   --refold_use_msa_server=true \
   -profile local \
-  -resume \
-  -with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html \
-  -with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
+  -resume
 ```

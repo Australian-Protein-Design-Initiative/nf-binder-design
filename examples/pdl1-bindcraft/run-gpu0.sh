@@ -2,8 +2,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
   --method bindcraft \
@@ -18,6 +16,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --gpu_devices=0 \
   # --do_foldseek \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

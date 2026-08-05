@@ -4,8 +4,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   --method rfd3 \
   --design_name pdl1 \
@@ -16,6 +14,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd3_n_designs=3 \
   --rfd3_filters="rg<=20" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

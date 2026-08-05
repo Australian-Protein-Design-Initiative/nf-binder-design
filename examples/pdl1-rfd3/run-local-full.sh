@@ -4,8 +4,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   --method rfd3 \
   --design_name pdl1 \
@@ -35,9 +33,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --foldseek_databases_path="$(pwd)/../databases/foldseek" \
   --output_rmsd_aligned \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 
 #  --rf3_create_target_msa=true \
 #  --rf3_use_msa_server=true \

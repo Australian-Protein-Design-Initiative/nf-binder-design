@@ -6,8 +6,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
   --method bindcraft \
@@ -23,9 +21,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --do_foldseek \
   --foldseek_databases_path "$(pwd)/../databases/foldseek" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 
 # Alternatively, instead of --target_chains you can specify RFDiffusion-style 
 # contigs defining the regions to use, eg:

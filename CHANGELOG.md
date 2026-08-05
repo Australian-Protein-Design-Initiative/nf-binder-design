@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.
+- Automatic datestamped Nextflow report/trace/timeline/dag under `${outdir}/logs/` (no DATESTAMP / `-with-report` / `-with-trace` needed in wrappers).
 
 ### Changed
 - BindCraft batch directories and design names use `<pdbName>_<batchIndex>` (e.g. `batches/PDL1_0/`) instead of a bare integer batch index. BindCraft output CSVs include a `Target` column with the input structure filename.

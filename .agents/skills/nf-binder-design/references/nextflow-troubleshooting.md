@@ -40,17 +40,19 @@ Practical gotchas, monitoring patterns, and failure diagnosis for running `nf-bi
 
 ## Monitoring Pipeline Runs
 
-### Always use `-with-trace` and `-with-report`
+### Trace and report files
 
-Every pipeline launch should include these flags:
+The pipeline automatically writes datestamped Nextflow reports under `${outdir}/logs/`:
+
+- `report_YYYYMMDD_HHMMSS.html`
+- `trace_YYYYMMDD_HHMMSS.txt`
+- `timeline_YYYYMMDD_HHMMSS.html`
+- `dag_YYYYMMDD_HHMMSS.html`
+
+You do not need `-with-report` or `-with-trace` on the command line.
 
 ```bash
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-mkdir -p results/logs
-
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method rfd ... \
-  -with-trace "results/logs/trace_${DATESTAMP}.txt" \
-  -with-report "results/logs/report_${DATESTAMP}.html" \
   -profile local -resume
 ```
 

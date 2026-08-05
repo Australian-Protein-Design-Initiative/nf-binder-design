@@ -30,7 +30,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 ```bash
 #!/bin/bash
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_DIR=/path/to/runs/germinal/test-protenix2
 
 nextflow run /path/to/nf-binder-design-germinal/main.nf \
@@ -42,9 +41,7 @@ nextflow run /path/to/nf-binder-design-germinal/main.nf \
   --germinal_batch_size 1 \
   --outdir "${RUN_DIR}/results/nf-germinal" \
   -profile local \
-  -resume \
-  -with-report "results/logs/report_${DATESTAMP}.html" \
-  -with-trace "results/logs/trace_${DATESTAMP}.txt"
+  -resume
 ```
 
 For SLURM on M3 BDI, use `-profile slurm,m3_bdi` with `--slurm_account=yt41`.

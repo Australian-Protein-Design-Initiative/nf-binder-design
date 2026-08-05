@@ -114,8 +114,6 @@ results/
 ### Local Workstation
 
 ```bash
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
@@ -127,9 +125,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 ```
 
 ### HPC Cluster (SLURM)

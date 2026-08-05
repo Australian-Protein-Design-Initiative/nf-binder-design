@@ -125,10 +125,10 @@ Add `--do_foldseek` to `rfd`, `rfd3`, `bindcraft`, or `boltzgen` to run FoldSeek
 -profile slurm,m3       # SLURM + site-specific (see setup-and-hpc.md)
 -profile nci_gadi       # NCI Gadi (PBS Pro)
 -resume
--with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html
--with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
 -params-file params.json
 ```
+
+Reports are written automatically under `${outdir}/logs/` (`report_*.html`, `trace_*.txt`, `timeline_*.html`, `dag_*.html`) — no `-with-report` / `-with-trace` needed.
 
 **Profiles:** See `references/setup-and-hpc.md` for the full decision tree (local vs SLURM vs PBS vs HyperQueue vs custom `-c` config).
 

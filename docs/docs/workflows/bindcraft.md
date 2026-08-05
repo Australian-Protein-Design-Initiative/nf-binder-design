@@ -35,8 +35,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 ```bash
 #!/bin/bash
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
@@ -50,9 +48,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   --bindcraft_filters_preset "default_filters" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 ```
 
 For running on SLURM, you can use the `-profile slurm` flag instead of `-profile local`, with `--slurm_account=xxYY` and the appropriate `-c` site-specific configuration file (refer to and adapt from the [rfdiffusion example](rfdiffusion.md#parallel-tasks-on-an-hpc-cluster)).
@@ -121,7 +117,9 @@ Results are saved to `--outdir` in the `bindcraft/` subdirectory:
 │   ├── mpnn_design_stats.csv
 │   └── trajectory_stats.csv
 └── logs
+    ├── dag_20250725_084959.html
     ├── report_20250725_084959.html
+    ├── timeline_20250725_084959.html
     ├── trace_20250725_084959.txt
 ```
 

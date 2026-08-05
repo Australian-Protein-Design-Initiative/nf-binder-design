@@ -98,8 +98,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res "A56,A115,A123" \
   --rfd3_n_designs 10 \
   --rfd3_batch_size 1 \
-  -with-report "$OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html" \
-  -with-trace "$OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt" \
   -profile local
 ```
 

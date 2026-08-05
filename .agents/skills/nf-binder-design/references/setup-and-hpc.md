@@ -294,7 +294,6 @@ For SLURM-based HPC clusters, wrap the Nextflow command in an SBATCH script that
 export NXF_APPTAINER_CACHEDIR=/scratch/ab12/${USER}/apptainer_cache
 export APPTAINER_CACHEDIR=$NXF_APPTAINER_CACHEDIR
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p results/logs
 
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
@@ -306,8 +305,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res "A56" \
   --rfd_n_designs=100 \
   --rfd_batch_size=5 \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt \
   -resume \
   -profile slurm
 ```

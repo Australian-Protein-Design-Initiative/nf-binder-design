@@ -1,8 +1,6 @@
 #!/bin/bash
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/boltzgen_filter.nf \
   --run results/boltzgen/merged \
   --budget 2 \
@@ -12,7 +10,5 @@ nextflow run ${PIPELINE_DIR}/boltzgen_filter.nf \
   --metrics_override plip_hbonds_refolded=4 \
   --alpha 0.2 \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 
