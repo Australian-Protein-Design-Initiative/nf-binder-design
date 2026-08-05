@@ -158,7 +158,6 @@
 <h2 id="example-usage">Example Usage</h2>
 <pre><code class="language-bash">#!/bin/bash
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_DIR=/path/to/runs/germinal/test-protenix2
 
 nextflow run /path/to/nf-binder-design-germinal/main.nf \
@@ -170,9 +169,7 @@ nextflow run /path/to/nf-binder-design-germinal/main.nf \
   --germinal_batch_size 1 \
   --outdir &quot;${RUN_DIR}/results/nf-germinal&quot; \
   -profile local \
-  -resume \
-  -with-report &quot;results/logs/report_${DATESTAMP}.html&quot; \
-  -with-trace &quot;results/logs/trace_${DATESTAMP}.txt&quot;
+  -resume
 </code></pre>
 <p>For SLURM on M3 BDI, use <code>-profile slurm,m3_bdi</code> with <code>--slurm_account=yt41</code>.</p>
 <p>Partial configs (e.g. <code>configs/config.yaml</code> with <code>defaults: [run: vhh, target: pdl1, ...]</code>) are supported: the workflow copies built-in Hydra config groups from the container and places your config alongside them.</p>

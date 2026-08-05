@@ -175,8 +175,6 @@
 <h2 id="example-usage">Example Usage</h2>
 <pre><code class="language-bash">#!/bin/bash
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
@@ -190,9 +188,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --bindcraft_advanced_settings_preset &quot;default_4stage_multimer&quot; \
   --bindcraft_filters_preset &quot;default_filters&quot; \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 </code></pre>
 <p>For running on SLURM, you can use the <code>-profile slurm</code> flag instead of <code>-profile local</code>, with <code>--slurm_account=xxYY</code> and the appropriate <code>-c</code> site-specific configuration file (refer to and adapt from the <a href="../rfdiffusion/#parallel-tasks-on-an-hpc-cluster">rfdiffusion example</a>).</p>
 <h2 id="key-parameters">Key Parameters</h2>
@@ -304,7 +300,9 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 │   ├── mpnn_design_stats.csv
 │   └── trajectory_stats.csv
 └── logs
+    ├── dag_20250725_084959.html
     ├── report_20250725_084959.html
+    ├── timeline_20250725_084959.html
     ├── trace_20250725_084959.txt
 </code></pre>
 <p>A summary report is generated as <code>bindcraft_report.html</code>.</p>

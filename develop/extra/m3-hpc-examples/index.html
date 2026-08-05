@@ -175,8 +175,6 @@ export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
 export TMPDIR=${APPTAINER_TMPDIR}
 mkdir -p ${APPTAINER_TMPDIR}
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 mkdir -p results/logs
 
 module load nextflow/24.04.3
@@ -192,8 +190,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --rfd_batch_size=1 \
   --pmpnn_seqs_per_struct=2 \
   --pmpnn_relax_cycles=1 \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt \
   -resume \
   -profile slurm,m3
 
@@ -235,8 +231,6 @@ export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
 export TMPDIR=${APPTAINER_TMPDIR}
 mkdir -p ${APPTAINER_TMPDIR}
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 mkdir -p results/logs
 
 module load nextflow/24.04.3
@@ -252,8 +246,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --bindcraft_n_traj 4 \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset &quot;default_4stage_multimer&quot; \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt \
   -resume \
   -profile slurm,m3
 
