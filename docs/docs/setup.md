@@ -49,11 +49,11 @@ The pipeline is tested against Nextflow `24.04.3` and `25.04.x`, and supports
     before the pipeline even starts.** When running with Nextflow `26.04+`, select
     the legacy parser first:
 
-    ```bash
-    export NXF_SYNTAX_PARSER=v1
-    ```
+```bash
+export NXF_SYNTAX_PARSER=v1
+```
 
-    You can also set it inline for a single run, e.g. `NXF_SYNTAX_PARSER=v1 nextflow run ...`.
+You can also set it inline for a single run, e.g. `NXF_SYNTAX_PARSER=v1 nextflow run ...`.
 
 ## Pull the workflow using Nextflow
 
