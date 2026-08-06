@@ -25,6 +25,7 @@ params.engens_min_structures = 3
 params.engens_max_clusters = 10
 params.engens_gmm_ic = 'aic'
 params.engens_seed = false
+params.engens_featurizers = 'default,3di'
 
 include { ENGENS } from './modules/local/engens/engens_cluster'
 
@@ -57,6 +58,9 @@ workflow {
             --engens_gmm_ic                    GMM information criterion: aic|bic
                                                 [default: ${params.engens_gmm_ic}]
             --engens_seed                      Optional RNG seed for UMAP / clustering [default: unset]
+            --engens_featurizers               Comma-separated featurizers: default (EnGens
+                                                residue_mindist / torsions), 3di, pb
+                                                [default: ${params.engens_featurizers}]
 
         Example:
             nextflow run engens.nf --input results/fold/predictions/ --id UL119_domain \\
@@ -84,6 +88,15 @@ workflow {
     }
     if ((params.engens_max_clusters as int) < 2) {
         error("engens.nf: --engens_max_clusters must be >= 2 (got '${params.engens_max_clusters}')")
+    }
+    def engens_featurizers = params.engens_featurizers.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }
+    if (!engens_featurizers) {
+        error("engens.nf: --engens_featurizers must list at least one of: default, 3di, pb")
+    }
+    engens_featurizers.each { f ->
+        if (!(f in ['default', '3di', 'pb'])) {
+            error("engens.nf: unknown --engens_featurizers entry '${f}' (valid: default, 3di, pb)")
+        }
     }
 
     def input_path = file(params.input)

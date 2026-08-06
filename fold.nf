@@ -141,6 +141,7 @@ params.engens_max_clusters = 10 // upper bound for auto cluster-count search
 params.engens_gmm_ic = 'aic' // aic|bic for GMM information-criterion selection
 params.engens_seed = false // optional RNG seed for UMAP / clustering
 params.engens_superpose_method = 'blosum62' // rmsd4all superposition of cluster conformations: blosum62|3di|pb
+params.engens_featurizers = 'default,3di' // default = EnGens residue_mindist/torsions; also 3di, pb
 
 // --- ColabFold MSA (--msa_method mmseqs2_colabfold) ---
 params.use_remote_server = false // query the ColabFold MMseqs2 API instead of a local DB search
@@ -265,6 +266,9 @@ workflow {
             --engens_max_clusters               Upper bound for auto cluster-count search [default: ${params.engens_max_clusters}]
             --engens_gmm_ic                     GMM information criterion: aic|bic [default: ${params.engens_gmm_ic}]
             --engens_seed                       Optional RNG seed for UMAP / clustering [default: unset]
+            --engens_featurizers                Comma-separated featurizers: default (EnGens
+                                                residue_mindist / torsions), 3di, pb
+                                                [default: ${params.engens_featurizers}]
                                                 To cluster an existing folder of .cif/.pdb only (no folding),
                                                 use the standalone engens.nf workflow instead.
 
@@ -335,6 +339,15 @@ workflow {
     }
     if ((params.engens_max_clusters as int) < 2) {
         error("fold.nf: --engens_max_clusters must be >= 2 (got '${params.engens_max_clusters}')")
+    }
+    def engens_featurizers = params.engens_featurizers.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }
+    if (!engens_featurizers) {
+        error("fold.nf: --engens_featurizers must list at least one of: default, 3di, pb")
+    }
+    engens_featurizers.each { f ->
+        if (!(f in ['default', '3di', 'pb'])) {
+            error("fold.nf: unknown --engens_featurizers entry '${f}' (valid: default, 3di, pb)")
+        }
     }
     // Validate --msa_subsample (false | true | "1:2,4:8,...")
     if (MsaSubsample.isEnabled(params.msa_subsample)) {

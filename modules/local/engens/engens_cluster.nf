@@ -17,6 +17,7 @@ process ENGENS {
     output:
     tuple val(meta), path('clusters.html'), emit: report
     tuple val(meta), path('clustering'), emit: clustering, optional: true
+    tuple val(meta), path('structural_alphabet'), emit: structural_alphabet, optional: true
 
     script:
     def clustering = params.engens_clustering ?: 'hdbscan'
@@ -25,6 +26,7 @@ process ENGENS {
     def max_clusters = params.engens_max_clusters ?: 10
     def gmm_ic = params.engens_gmm_ic ?: 'aic'
     def superpose_method = params.engens_superpose_method ?: 'blosum62'
+    def featurizers = params.engens_featurizers ?: 'default,3di'
     def seed = (params.engens_seed != null && !(params.engens_seed instanceof Boolean)) \
         ? params.engens_seed : ''
     """
@@ -53,6 +55,7 @@ process ENGENS {
     # to superimpose each cluster's conformations onto a shared reference.
     export ENGENS_BIN_DIR="${projectDir}/bin"
     export ENGENS_SUPERPOSE_METHOD="${superpose_method}"
+    export ENGENS_FEATURIZERS="${featurizers}"
 
     # Apptainer --cleanenv drops image ENV (MAMBA activate, LD_LIBRARY_PATH)
     # and keeps the host PATH, so conda/python are not visible to Quarto.

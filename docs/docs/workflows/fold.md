@@ -71,6 +71,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design/fold.nf --hel
 | `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
 | `--skip_engens` | Skip post-prediction EnGens clustering |
 | `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
+| `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
 
 Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`) are
 documented in `--help`. Seeds are unset by default so each engine draws its own
@@ -247,11 +248,19 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).
 
 After prediction, EnGens runs by default (UMAP + HDBSCAN) and writes
 `results/engens/<id>/clusters.html` plus representative conformations.
+With the default `--engens_featurizers default,3di`, the report also encodes
+each structure as a [3Di](https://www.biotite-python.org/latest/apidoc/biotite.structure.alphabet.I3DSequence.html)
+local-structure string (Foldseek alphabet via biotite), shows pairwise 3Di
+identity and per-residue entropy, and runs UMAP/clustering on a 3Di
+substitution-matrix embedding alongside EnGens' geometric featurizers.
+Sequences and entropy tables are published under
+`results/engens/<id>/structural_alphabet/`.
 
 | Flag | Description |
 |------|-------------|
 | `--skip_engens` | Skip clustering |
 | `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
+| `--engens_featurizers` | `default` (EnGens residue_mindist / torsions), `3di`, `pb` (comma-separated; default: `default,3di`) |
 | `--engens_min_structures` | Minimum structures before clustering (default: 3) |
 | `--engens_max_clusters` | Upper bound for auto cluster-count search |
 
@@ -282,6 +291,7 @@ results/
 │   ├── params.json
 │   └── logs/
 └── engens/<id>/              # clusters.html + representative conformations (HDBSCAN by default)
+                              # + structural_alphabet/ (3Di FASTA + entropy when enabled)
 ```
 
 ### Score table (`fold/fold_scores.tsv`)
