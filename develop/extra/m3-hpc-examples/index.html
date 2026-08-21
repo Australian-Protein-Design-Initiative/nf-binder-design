@@ -266,19 +266,19 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
 <h2 id="troubleshooting-failures">Troubleshooting failures</h2>
 <p>If you encounter an error, the <code>.nextflow.log</code> file will report the failing task and the path into the <code>./work</code> directory, like:</p>
 <pre><code>Work dir:
-  /home/harshil/repos/nf-core/fetchngs/work/ab/123456789aabbccddeeff123456789
+  /home/myusername/scratch2/projects/bindcraft/pdl1/work/ab/123456789aabbccddeeff123456789
 </code></pre>
 <p>This directory contains:</p>
 <ul>
-<li><code>command.log</code>: contains both stdout and stderr from the task</li>
-<li><code>exitcode</code>: created when the job ends, with exit code</li>
-<li><code>command.run</code>: wrapper script used to run the job (handles environment setup and job submission)</li>
-<li><code>command.sh</code>: command used for this task</li>
-<li><code>command.trace</code>: logs of compute resource usage</li>
+<li><code>.command.log</code>: contains both stdout and stderr from the task (the combination of <code>.command.out</code> and <code>.command.err</code>)</li>
+<li><code>.exitcode</code>: created when the job ends, with exit code</li>
+<li><code>.command.run</code>: wrapper script used to run the job (handles environment setup and job submission)</li>
+<li><code>.command.sh</code>: command used for this task</li>
+<li><code>.command.trace</code>: logs of compute resource usage</li>
 <li>any input files used for the task (often symlinked from an upstream task)</li>
 <li>any output files generated before the error occurred</li>
 </ul>
-<p>You can diagnose the problem by inspecting the <code>command.log</code> file, the options used in <code>.command.sh</code> and the input and output files.</p>
+<p>You can diagnose the problem by inspecting the <code>.command.log</code> file, the options used in <code>.command.sh</code> and the input and output files.</p>
 <h3 id="common-errors">Common errors</h3>
 <hr />
 <p><strong>Problem/message:</strong></p>
