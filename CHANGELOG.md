@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.
 - BindCraft: process now fails (non-zero exit) when `bindcraft.py` crashes; previously `| tee bindcraft.log` masked the Python exit code so Nextflow marked the task COMPLETED.
+- `bin/ipsae.py` RF3 support: treat RF3 as its own input format (not a nested AF3 mode), read the scalar `iptm` from RF3 summary JSON instead of the AF3-only `chain_pair_iptm` matrix, auto-detect RF3 vs AF3 from summary contents, and index per-atom pLDDT correctly for RF3 mmCIF files (atoms numbered from 0).
 
 ## [0.3.0] - 2026-07-09
 
