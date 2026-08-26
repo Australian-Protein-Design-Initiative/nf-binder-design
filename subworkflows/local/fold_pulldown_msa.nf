@@ -153,13 +153,19 @@ workflow FOLD_PULLDOWN_MSA {
         ch_b_rend = ANNOTATE_MSA_BINDER.out.rendered
             .map { meta, rf3, pp, pu, bc -> [meta.id.toString(), rf3, pp, pu, bc] }
 
+        // combine(by: 0), NOT join(): join() matches each key exactly once and drops
+        // the rest, but this is inherently one-to-many - N_targets x N_binders pairs
+        // share only N_targets rendered target MSAs and N_binders binder MSAs. With
+        // join(), 27 pairs collapsed to 3 (one per target) and then to 1 (one per
+        // binder), so the pulldown silently folded a SINGLE complex regardless of
+        // input size. combine(by: 0) emits every pair whose key matches.
         ch_engine_pairs = ch_pairs_base
             .map { pmeta, fasta, tid, bid -> [tid, pmeta, fasta, bid] }
-            .join(ch_t_rend)
+            .combine(ch_t_rend, by: 0)
             .map { tid, pmeta, fasta, bid, trf3, tpp, tpu, tbc ->
                 [bid, pmeta, fasta, trf3, tpp, tpu, tbc]
             }
-            .join(ch_b_rend)
+            .combine(ch_b_rend, by: 0)
             .map { bid, pmeta, fasta, trf3, tpp, tpu, tbc, brf3, bpp, bpu, bbc ->
                 [pmeta, fasta, trf3, tpp, tpu, tbc, brf3, bpp, bpu, bbc]
             }
@@ -185,9 +191,11 @@ workflow FOLD_PULLDOWN_MSA {
         }
 
         if (params.create_target_msa && msa_method == 'jackhmmer_af2') {
+            // combine(by: 0) not join() - see ch_engine_pairs above; every binder
+            // paired with a given target must reuse that target's MSA.
             ch_assemble_in = ch_pairs_base
                 .map { pmeta, fasta, tid, _bid -> [tid, pmeta, fasta] }
-                .join(ch_target_af2_msas)
+                .combine(ch_target_af2_msas, by: 0)
                 .map { _tid, pmeta, fasta, msas ->
                     [pmeta, fasta, msas, empty_msa]
                 }
@@ -195,7 +203,7 @@ workflow FOLD_PULLDOWN_MSA {
         else if (params.create_target_msa && msa_method == 'mmseqs2_colabfold') {
             ch_assemble_in = ch_pairs_base
                 .map { pmeta, fasta, tid, _bid -> [tid, pmeta, fasta] }
-                .join(ch_target_a3m_by_id)
+                .combine(ch_target_a3m_by_id, by: 0)
                 .map { _tid, pmeta, fasta, a3m ->
                     [pmeta, fasta, empty_msa, a3m]
                 }
