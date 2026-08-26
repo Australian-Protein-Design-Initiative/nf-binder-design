@@ -1,0 +1,224 @@
+---
+title: "Fold Pulldown Analysis Report"
+author: "Australian-Protein-Design-Initiative/nf-binder-design"
+date: last-modified
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+execute:
+  echo: false
+jupyter: python3
+---
+
+# Overview
+
+Multi-model target x binder pulldown. Per-structure scores are in
+`fold_pulldown_scores.tsv`; per-(target, binder, tool) aggregates (with
+within-tool z-scores and cross-tool `consensus_z`) are in
+`fold_pulldown_summary.tsv`. Downstream statistical modelling is left to the user.
+
+```{python}
+#| label: setup
+#| message: false
+#| warning: false
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+import warnings
+warnings.filterwarnings('ignore')
+
+plt.style.use('seaborn-v0_8')
+
+scores = pd.read_csv('fold_pulldown_scores.tsv', sep='\t')
+summary = pd.read_csv('fold_pulldown_summary.tsv', sep='\t')
+
+n_targets = scores['target'].nunique() if 'target' in scores.columns else 0
+n_binders = scores['binder'].nunique() if 'binder' in scores.columns else 0
+tools = sorted(scores['tool'].dropna().unique().tolist()) if 'tool' in scores.columns else []
+
+print(f"Targets: {n_targets}")
+print(f"Binders: {n_binders}")
+print(f"Tools: {', '.join(tools) if tools else '(none)'}")
+print(f"Structures: {len(scores)}")
+print(f"Complex x tool rows: {len(summary)}")
+
+if len(summary):
+    reps = summary.groupby('tool')['n'].describe()
+    display(reps.style.set_caption("Replicates per complex (n) by tool"))
+```
+
+# Score distributions
+
+## ipTM by target (faceted by tool)
+
+```{python}
+#| label: iptm-boxplots
+#| message: false
+
+if scores.empty or 'iptm' not in scores.columns:
+    print("No iptm scores available.")
+else:
+    plot_df = scores.dropna(subset=['iptm', 'target', 'tool'])
+    if plot_df.empty:
+        print("No iptm scores available.")
+    else:
+        g = sns.catplot(
+            data=plot_df, x='target', y='iptm', col='tool',
+            kind='box', sharey=True, height=4, aspect=1.1
+        )
+        for ax in g.axes.flat:
+            ax.tick_params(axis='x', rotation=45)
+            for label in ax.get_xticklabels():
+                label.set_ha('right')
+        g.fig.suptitle('ipTM by target', y=1.02)
+        plt.show()
+```
+
+## ipSAE by target (faceted by tool)
+
+```{python}
+#| label: ipsae-boxplots
+#| message: false
+
+if scores.empty or 'ipsae' not in scores.columns or scores['ipsae'].isna().all():
+    print("No ipsae scores available.")
+else:
+    plot_df = scores.dropna(subset=['ipsae', 'target', 'tool'])
+    if plot_df.empty:
+        print("No ipsae scores available.")
+    else:
+        g = sns.catplot(
+            data=plot_df, x='target', y='ipsae', col='tool',
+            kind='box', sharey=True, height=4, aspect=1.1
+        )
+        for ax in g.axes.flat:
+            ax.tick_params(axis='x', rotation=45)
+            for label in ax.get_xticklabels():
+                label.set_ha('right')
+        g.fig.suptitle('ipSAE by target', y=1.02)
+        plt.show()
+```
+
+# Heatmaps
+
+## Mean ipTM (binder x target) per tool
+
+```{python}
+#| label: iptm-heatmaps
+#| message: false
+
+if summary.empty or n_targets < 1 or n_binders < 1:
+    print("Insufficient data for heatmaps.")
+else:
+    for tool in tools:
+        sub = summary[summary['tool'] == tool]
+        if sub.empty or sub['iptm_mean'].isna().all():
+            print(f"{tool}: no iptm_mean")
+            continue
+        pivot = sub.pivot_table(index='binder', columns='target', values='iptm_mean', aggfunc='mean')
+        fig, ax = plt.subplots(figsize=(max(4, 0.6 * n_targets + 2), max(4, 0.35 * n_binders + 2)))
+        sns.heatmap(pivot, annot=n_targets * n_binders <= 40, fmt='.2f', cmap='viridis', ax=ax)
+        ax.set_title(f'{tool}: mean ipTM')
+        plt.tight_layout()
+        plt.show()
+```
+
+## Consensus z-score heatmap
+
+`consensus_z` is the mean of within-tool z-scores (centred/scaled on `iptm_mean` per tool across all complexes).
+
+```{python}
+#| label: consensus-heatmap
+#| message: false
+
+if summary.empty or n_targets < 1 or n_binders < 1:
+    print("Insufficient data for consensus heatmap.")
+elif summary['consensus_z'].isna().all():
+    print("No consensus_z values.")
+else:
+    cons = summary.drop_duplicates(subset=['target', 'binder'])
+    pivot = cons.pivot_table(index='binder', columns='target', values='consensus_z', aggfunc='mean')
+    fig, ax = plt.subplots(figsize=(max(4, 0.6 * n_targets + 2), max(4, 0.35 * n_binders + 2)))
+    sns.heatmap(pivot, annot=n_targets * n_binders <= 40, fmt='.2f', cmap='coolwarm', center=0, ax=ax)
+    ax.set_title('consensus_z (mean within-tool iptm z)')
+    plt.tight_layout()
+    plt.show()
+```
+
+# Top hits
+
+```{python}
+#| label: top-hits
+#| message: false
+
+if summary.empty:
+    print("No summary rows.")
+else:
+    top_cons = (
+        summary.drop_duplicates(subset=['target', 'binder'])
+        .sort_values('consensus_z', ascending=False)
+        .head(15)[['target', 'binder', 'consensus_z']]
+    )
+    display(top_cons.style.set_caption("Top 15 by consensus_z").format({'consensus_z': '{:.3f}'}).hide(axis='index'))
+
+    for tool in tools:
+        sub = summary[summary['tool'] == tool].sort_values('iptm_mean', ascending=False).head(10)
+        cols = [c for c in ['target', 'binder', 'n', 'iptm_mean', 'iptm_sd', 'ipsae_mean', 'iptm_z'] if c in sub.columns]
+        display(
+            sub[cols].style.set_caption(f"Top 10 by iptm_mean ({tool})")
+            .format({c: '{:.3f}' for c in cols if c not in ('target', 'binder', 'n')})
+            .hide(axis='index')
+        )
+```
+
+# Replicate variability
+
+```{python}
+#| label: replicate-sd
+#| message: false
+
+if summary.empty or 'iptm_sd' not in summary.columns:
+    print("No replicate sd data.")
+else:
+    plot_df = summary.dropna(subset=['iptm_sd', 'tool'])
+    if plot_df.empty:
+        print("No replicate sd data.")
+    else:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.boxplot(data=plot_df, x='tool', y='iptm_sd', ax=ax)
+        ax.set_title('ipTM replicate SD per complex')
+        ax.set_ylabel('iptm_sd')
+        plt.tight_layout()
+        plt.show()
+```
+
+# Cross-tool agreement
+
+Spearman correlation of per-complex mean ipTM between tool pairs (requires ≥2 tools and shared complexes).
+
+```{python}
+#| label: cross-tool
+#| message: false
+
+if len(tools) < 2:
+    print("Need ≥2 tools for cross-tool correlation.")
+else:
+    pivot = summary.pivot_table(index=['target', 'binder'], columns='tool', values='iptm_mean', aggfunc='mean')
+    if pivot.shape[1] < 2:
+        print("Need ≥2 tools with iptm_mean.")
+    else:
+        corr = pivot.corr(method='spearman')
+        fig, ax = plt.subplots(figsize=(4 + 0.5 * len(tools), 4 + 0.5 * len(tools)))
+        sns.heatmap(corr, annot=True, fmt='.2f', cmap='vlag', vmin=-1, vmax=1, ax=ax)
+        ax.set_title('Spearman correlation of mean ipTM across tools')
+        plt.tight_layout()
+        plt.show()
+        display(corr.style.set_caption("Spearman r (iptm_mean)").format('{:.3f}'))
+```

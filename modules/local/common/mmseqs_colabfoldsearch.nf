@@ -6,12 +6,16 @@ process MMSEQS_COLABFOLDSEARCH {
     tag "$meta.id"
 
     container "quay.io/nf-core/proteinfold_colabfold:1.1.1"
-    // The on-disk working subdir is always 'result/' (colabfold_search writes
-    // there and the a3m emit globs it). params.colabfold_msa_publish_name renames
-    // only the PUBLISHED subdir (default 'result'). fold.nf publishes under
-    // fold/msa/mmseqs2_colabfold/; boltz_pulldown under boltz_pulldown/mmseqs2/.
+    // Work dir is always result/; published files are named after meta.id
+    // (PDL1.a3m), flattened out of result/ unless --colabfold_msa_publish_name
+    // is set to something other than the default 'result'.
     publishDir path: { "${params.outdir}/${workflow_publish_dir ?: 'mmseqs2'}" }, pattern: 'result/**', mode: 'copy',
-        saveAs: { fn -> params.colabfold_msa_publish_name && params.colabfold_msa_publish_name != 'result' ? fn.replaceFirst(/^result\//, "${params.colabfold_msa_publish_name}/") : fn }
+        saveAs: { fn ->
+            def name = fn.toString().replaceFirst(/^result\//, '')
+            params.colabfold_msa_publish_name && params.colabfold_msa_publish_name != 'result' \
+                ? "${params.colabfold_msa_publish_name}/${name}" \
+                : name
+        }
 
     input:
     tuple val(meta), path(fasta)
@@ -25,12 +29,21 @@ process MMSEQS_COLABFOLDSEARCH {
 
     script:
     def args = task.ext.args ?: ''
+    def a3m_name = meta.id.toString().replaceAll(/[^a-zA-Z0-9_.-]/, "_")
+    def rename_a3m = """
+        shopt -s nullglob
+        a3m_files=(result/*.a3m)
+        if [[ \${#a3m_files[@]} -eq 1 && "\${a3m_files[0]}" != "result/${a3m_name}.a3m" ]]; then
+            mv "\${a3m_files[0]}" "result/${a3m_name}.a3m"
+        fi
+        """
     if (use_remote_server) {
         """
         mkdir -p result
         python ${projectDir}/bin/colabfold_remote_msa.py \\
             --fasta ${fasta} \\
             -o result/
+        ${rename_a3m}
         """
     } else {
         """
@@ -44,15 +57,7 @@ process MMSEQS_COLABFOLDSEARCH {
             ./db \\
             "result/"
 
-        # Rename primary A3M to match input FASTA basename so multiple targets
-        # produce uniquely named alignments (e.g. PDL1_A.fasta -> PDL1_A.a3m).
-        base=\$(basename "${fasta}")
-        base="\${base%.*}"
-        shopt -s nullglob
-        a3m_files=(result/*.a3m)
-        if [[ \${#a3m_files[@]} -eq 1 ]]; then
-            mv "\${a3m_files[0]}" "result/\${base}.a3m"
-        fi
+        ${rename_a3m}
         """
     }
     /*

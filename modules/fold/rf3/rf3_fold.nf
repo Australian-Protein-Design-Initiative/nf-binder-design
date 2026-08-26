@@ -19,7 +19,7 @@ process RF3_FOLD {
     // When fold.nf splits --n_predictions across jobs, nest under batch_N/ so
     // sample indices (which restart per job) do not clobber each other.
     publishDir(
-        path: "${params.outdir}/fold/rf3",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/rf3",
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^output\//, '')
@@ -35,7 +35,7 @@ process RF3_FOLD {
     // <outdir>/fold/predictions/ dir with an rf3_ prefix. Skip the top-level
     // merged best-model copy (no sample-N in its name).
     publishDir(
-        path: "${params.outdir}/fold/predictions",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/predictions",
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
@@ -45,7 +45,7 @@ process RF3_FOLD {
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
     publishDir(
-        path: "${params.outdir}/fold/msa_ids",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa_ids",
         mode: 'copy',
         pattern: '*_ids.txt'
     )

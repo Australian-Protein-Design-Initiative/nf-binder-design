@@ -113,7 +113,7 @@ workflow PROTENIX_FOLD {
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
         name: 'protenix_fold_scores.tsv',
-        storeDir: "${params.outdir}/fold/protenix",
+        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/protenix",
         keepHeader: true,
         skip: 1,
     )

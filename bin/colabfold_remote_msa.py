@@ -35,6 +35,19 @@ DEFAULT_HOST = "https://api.colabfold.com"
 USER_AGENT = "nf-binder-design/colabfold_remote_msa (Nextflow pipeline)"
 
 
+def fasta_record_id(header_line: str) -> str:
+    """First FASTA header token, sanitised for use as a filename stem."""
+    raw = header_line[1:].strip() if header_line.startswith(">") else header_line.strip()
+    token = raw.split()[0] if raw else "seq"
+    return "".join(c if (c.isalnum() or c in "._-") else "_" for c in token)
+
+
+def unique_a3m_name(seq_id: str, used: Dict[str, int]) -> str:
+    n = used.get(seq_id, 0) + 1
+    used[seq_id] = n
+    return f"{seq_id}.a3m" if n == 1 else f"{seq_id}_{n}.a3m"
+
+
 def read_fasta_sequences(path: Path) -> List[Tuple[str, str]]:
     """Return list of (header_line, sequence) from a FASTA file."""
     pairs: List[Tuple[str, str]] = []
@@ -250,28 +263,22 @@ def main() -> int:
         use_filter=not args.no_filter,
     )
 
-    # Decide base output path. If a directory is given, name the .a3m after the input FASTA
-    # so multiple targets can coexist without clashing (e.g. PDL1_A.fasta -> PDL1_A.a3m).
-    if args.output.suffix == ".a3m":
-        out_path = args.output
-    elif args.output.suffix:
-        out_path = args.output
-    else:
-        base = args.fasta.stem
-        out_path = Path(args.output) / f"{base}.a3m"
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    # Name each .a3m after the FASTA record id (PDL1.a3m), not the input
+    # filename stem (targets.1.a3m from Nextflow splitFasta).
+    out = Path(args.output)
+    if out.suffix and len(a3m_strings) == 1:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(a3m_strings[0])
+        log.info("Wrote %s", out)
+        return 0
 
-    if len(a3m_strings) == 1:
-        with open(out_path, "w") as f:
-            f.write(a3m_strings[0])
-        log.info("Wrote %s", out_path)
-    else:
-        for i, content in enumerate(a3m_strings):
-            p = out_path.parent / f"{out_path.stem}_{i}{out_path.suffix}"
-            with open(p, "w") as f:
-                f.write(content)
-            log.info("Wrote %s", p)
+    dest = out.parent if out.suffix else out
+    dest.mkdir(parents=True, exist_ok=True)
+    used: Dict[str, int] = {}
+    for (header, _), content in zip(pairs, a3m_strings):
+        p = dest / unique_a3m_name(fasta_record_id(header), used)
+        p.write_text(content)
+        log.info("Wrote %s", p)
     return 0
 
 

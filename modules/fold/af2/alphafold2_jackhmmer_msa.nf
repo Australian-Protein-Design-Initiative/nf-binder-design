@@ -9,7 +9,7 @@ process ALPHAFOLD2_JACKHMMER_MSA {
     // (pattern/saveAs cannot see inside a directory output item). The directory
     // itself stays on the msa channel for AF2 predict / AF2_MSAS_TO_A3M.
     publishDir(
-        path: "${params.outdir}/fold/msa/jackhmmer_af2",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa/jackhmmer_af2",
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString()
@@ -17,7 +17,7 @@ process ALPHAFOLD2_JACKHMMER_MSA {
         }
     )
     publishDir(
-        path: "${params.outdir}/fold/af2/msas",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/msas",
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString()
@@ -44,8 +44,13 @@ process ALPHAFOLD2_JACKHMMER_MSA {
     // -resume stays valid.
     def d = params.af2_db_path
     def data_dir = params.af2_data_dir ?: d
-    def is_multimer = (meta.n_chains ?: 1) > 1 || params.af2_model_preset == 'multimer'
-    def model_preset = is_multimer ? 'multimer' : params.af2_model_preset
+    def is_multimer = ((meta.n_chains ?: 1) > 1 || params.af2_model_preset == 'multimer') \
+        && !meta.af2_force_monomer_msa
+    // When forcing a monomer MSA under a multimer-default preset (fold_pulldown
+    // target jackhmmer), fall back to monomer_ptm so DB flags and preset agree.
+    def model_preset = is_multimer \
+        ? 'multimer' \
+        : (meta.af2_force_monomer_msa ? 'monomer_ptm' : params.af2_model_preset)
     def db_flags_list = [
         "--data_dir=${data_dir}",
         "--uniref90_database_path=${d}/uniref90/uniref90.fasta",

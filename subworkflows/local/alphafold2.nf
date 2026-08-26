@@ -92,7 +92,7 @@ workflow ALPHAFOLD2 {
 
     ch_tsv = FOLD_SCORE_AF2.out.collectFile(
         name: 'af2_fold_scores.tsv',
-        storeDir: "${params.outdir}/fold/af2",
+        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2",
         keepHeader: true,
         skip: 1,
     )

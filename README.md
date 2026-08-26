@@ -13,7 +13,8 @@ Nextflow pipelines for _de novo_ protein binder design.
 - Germinal (antibody/nanobody design in parallel across multiple GPUs)
 - BoltzGen (design proteins and peptides binders, in parallel across multiple GPUs)
 - "Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)
-- Fold (`fold.nf`) — multi-method monomer structure prediction (AF2, Boltz-2, RF3, Protenix) with shared MSAs and EnGens clustering
+- Fold (`--method fold`) — multi-method structure prediction (AF2, Boltz-2, RF3, Protenix) with shared MSAs and EnGens clustering
+- Fold Pulldown (`--method fold_pulldown`) — multi-model target × binder co-folding and score summary
 
 ----
 
@@ -106,7 +107,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method rfd --help
 ```
 
-Available methods: `rfd`, `rfd3`, `rfd_partial`, `bindcraft`, `germinal`, `boltzgen`, `boltz_pulldown`, `foldseek`
+Available methods: `rfd`, `rfd3`, `rfd_partial`, `bindcraft`, `germinal`, `boltzgen`, `boltz_pulldown`, `fold`, `fold_pulldown`, `foldseek`
 
 Any `--params` option can alternatively be defined in a `params.json` file and passed with `-params-file params.json`.
 

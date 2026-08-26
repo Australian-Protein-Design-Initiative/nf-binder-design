@@ -1,6 +1,6 @@
-# Fold Workflow (`fold.nf`)
+# Fold Workflow
 
-Standalone multi-method structure prediction for monomer **and multimer** FASTA
+Multi-method structure prediction for monomer **and multimer** FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
 RosettaFold3 and Protenix, sharing one MSA-generation stage, then (by default)
 clusters the ensemble with EnGens.
@@ -12,10 +12,11 @@ clusters the ensemble with EnGens.
 
 ## Overview
 
-`fold.nf` is a **standalone** entry point (not `--method` under `main.nf`):
+Launched via `main.nf` with `--method fold`:
 
 ```bash
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design/fold.nf \
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method fold \
   --input 'input/*.fasta' \
   --outdir results \
   --methods af2,boltz,rf3,protenix \
@@ -26,7 +27,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design/fold.nf \
 From a git clone:
 
 ```bash
-nextflow run /path/to/nf-binder-design/fold.nf \
+nextflow run /path/to/nf-binder-design \
+  --method fold \
   --input UL119_domain.fasta \
   --outdir results \
   --methods af2,boltz,rf3,protenix \
@@ -55,7 +57,7 @@ trained models per run and `--af2_keep_models` selects which to keep toward N
 ## Command-line Options
 
 ```bash
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design/fold.nf --help
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold --help
 ```
 
 ### Key Parameters
@@ -161,7 +163,7 @@ shorthand is not implemented yet). No ligands / nucleic acids this round —
 protein complexes only.
 
 ```bash
-nextflow run /path/to/nf-binder-design/fold.nf \
+nextflow run /path/to/nf-binder-design --method fold \
   --input input/complex.fasta \
   --methods af2,boltz,rf3,protenix \
   --msa_method jackhmmer_af2 \
@@ -172,11 +174,11 @@ nextflow run /path/to/nf-binder-design/fold.nf \
 
 For a complex, co-evolutionary **pairing** across chains is what carries the
 interface signal. Each engine consumes a paired MSA in a *different* native
-format, so `fold.nf` searches each chain independently and then renders each
+format, so the fold workflow searches each chain independently and then renders each
 engine's format from one canonical taxonomy parse (`bin/fold/msa_taxonomy.py`, unit
 tested in `tests/bin/test_msa_taxonomy.py`):
 
-| Engine | How it pairs | What `fold.nf` feeds it |
+| Engine | How it pairs | What the fold workflow feeds it |
 |--------|--------------|--------------------------|
 | **AF2** | Its own native multimer pipeline (jackhmmer + species pairing) | The whole complex + `--model_preset=multimer` against the 2021 DB snapshot |
 | **RF3** | atomworks pairs by numeric `TaxID=<n>` in a3m headers | Per-chain a3m with `TaxID=` annotated headers |
@@ -198,7 +200,7 @@ each render logs its paired-row depth per chain.
 AF2 multimer loads different weights (`--model_preset=multimer`) and a different
 data pipeline that pairs species **internally** against the `uniprot/` all-seqs
 DB + `pdb_seqres/` templates. The default `alphafold_20240229` snapshot is
-monomer-only (no `uniprot/`), so `fold.nf` fails fast if `af2` is requested for a
+monomer-only (no `uniprot/`), so the fold workflow fails fast if `af2` is requested for a
 multimer without a `uniprot/`-bearing `--af2_db_path`. Point it at the 2021
 snapshot (`/mnt/datasets/alphafold/alphafold_20211129`), whose HHblits DB is
 `uniclust30` rather than `uniref30` — override `--af2_uniref30_subpath` (and
@@ -218,7 +220,7 @@ applies in multimer mode.
 Minimal AF2-only run with jackhmmer MSAs:
 
 ```bash
-nextflow run /path/to/nf-binder-design/fold.nf \
+nextflow run /path/to/nf-binder-design --method fold \
   --input input/pdl1.fasta \
   --outdir results \
   --methods af2 \
@@ -230,7 +232,7 @@ nextflow run /path/to/nf-binder-design/fold.nf \
 Multi-method ensemble (25 structures per method) with ColabFold remote MSA:
 
 ```bash
-nextflow run /path/to/nf-binder-design/fold.nf \
+nextflow run /path/to/nf-binder-design --method fold \
   --input UL119_domain.fasta \
   --outdir results \
   --methods af2,boltz,rf3,protenix \
@@ -379,7 +381,7 @@ $AF2_DB_PATH/
   pdb_seqres/          # AF2 multimer (2021 snapshot only)
 ```
 
-`fold.nf` defaults the relative paths to the DeepMind download-script layout
+the fold workflow defaults the relative paths to the DeepMind download-script layout
 (e.g. `mgnify/mgy_clusters_2022_05.fa`, `uniref30/UniRef30_2021_03`); the
 `--af2_uniref30_subpath`, `--af2_uniprot_subpath` and `--af2_pdb_seqres_subpath`
 params override them (needed for AF2 multimer against the 2021 snapshot, whose

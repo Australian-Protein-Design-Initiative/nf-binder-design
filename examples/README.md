@@ -143,3 +143,21 @@ Nanobody binder design (`nanobody-anything`).
 ## Boltz Pulldown (`--method boltz_pulldown`)
 
 No tracked example directory yet. See the [Boltz Pulldown workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltz-pulldown/).
+
+## Fold Pulldown (`--method fold_pulldown`)
+
+### `fold-pulldown`
+
+Mosaic Multispecifics binders × PD-L1 + IL-7Ra; ColabFold remote MSA; all fold engines.
+
+| Script | Description |
+|--------|-------------|
+| `run-m3.sh` | SLURM/M3 run |
+| `run-local.sh` | Local GPU run |
+
+## Fold (`--method fold`)
+
+### `fold` / `fold-multimer`
+
+Multi-method structure prediction (AF2 / Boltz / RF3 / Protenix). See each example's README.
+

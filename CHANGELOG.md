@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `fold.nf`: Folding pipeline with Alphafold2, Boltz-2, RosettaFold3, and Protenix structure predictors, including MSA subsampling and ensemble generation. EnGens conformational clustering of predicted ensembles. Also `engens.nf`: standalone EnGens clustering of an existing `.cif`/`.pdb` folder or glob (no structure prediction).
+- `--method fold_pulldown`: multi-model target × binder pulldown (AF2/Boltz/RF3/Protenix) with per-structure and aggregate score TSVs plus a Quarto report.
+- `--method fold`: multi-method structure folding (AF2, Boltz-2, RosettaFold3, Protenix) with shared MSAs, MSA subsampling, and EnGens clustering (formerly the standalone `fold.nf` entrypoint). Also `engens.nf`: standalone EnGens clustering of an existing `.cif`/`.pdb` folder or glob.
+- `examples/fold-pulldown`: Mosaic Multispecifics binders × PD-L1/IL-7Ra (ColabFold remote MSA, all fold engines).
+- fold_pulldown: AF2 reuses the ColabFold/mmseqs2 target a3m for chain A (binder stays query-only).
+
+### Changed
+- Standalone `fold.nf` entrypoint replaced by `nextflow run main.nf --method fold`.
+- ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
+- fold_pulldown: Boltz raw results publish under `fold_pulldown/boltz/` (was hardcoded to `fold/boltz/`).
 
 ## [0.3.0] - 2026-07-09
 

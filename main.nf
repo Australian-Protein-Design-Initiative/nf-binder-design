@@ -27,6 +27,10 @@ if (params.method == "rfd") {
     include { BOLTZGEN } from './workflows/boltzgen'
 } else if (params.method == "boltz_pulldown") {
     include { BOLTZ_PULLDOWN } from './workflows/boltz_pulldown'
+} else if (params.method == "fold") {
+    include { FOLD } from './workflows/fold'
+} else if (params.method == "fold_pulldown") {
+    include { FOLD_PULLDOWN } from './workflows/fold_pulldown'
 } else if (params.method == "rfd3") {
     include { RFD3 } from './workflows/rfd3'
 } else if (params.method == "foldseek") {
@@ -73,6 +77,8 @@ workflow {
             germinal        Germinal antibody/nanobody design
             boltzgen        BoltzGen binder design
             boltz_pulldown  Boltz pulldown predictions
+            fold            Multi-method structure folding (AF2/Boltz/RF3/Protenix)
+            fold_pulldown   Multi-method target x binder pulldown
             foldseek        FoldSeek structural similarity search
 
         Example:
@@ -98,13 +104,17 @@ workflow {
         BOLTZGEN()
     } else if (params.method == "boltz_pulldown") {
         BOLTZ_PULLDOWN()
+    } else if (params.method == "fold") {
+        FOLD()
+    } else if (params.method == "fold_pulldown") {
+        FOLD_PULLDOWN()
     } else if (params.method == "rfd3") {
         RFD3()
     } else if (params.method == "foldseek") {
         FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, germinal, boltzgen, boltz_pulldown, foldseek")
+        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, germinal, boltzgen, boltz_pulldown, fold, fold_pulldown, foldseek")
         exit(1)
     }
 

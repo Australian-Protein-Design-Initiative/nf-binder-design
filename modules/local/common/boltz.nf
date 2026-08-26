@@ -14,15 +14,15 @@ process BOLTZ {
             return "batch_${meta.fold_batch}${msa_bit}/${filename}"
         }
     )
-    // Second publishDir (fold.nf only): gather per-sample structures into the
-    // shared flat <outdir>/fold/predictions/ dir with a boltz_ prefix. Gated on
-    // step_name (fold.nf passes 'fold/boltz'; boltz_pulldown passes
-    // 'boltz_pulldown').
+    // Second publishDir (fold / fold_pulldown): gather per-sample structures
+    // into the shared flat <outdir>/<fold_publish_dir>/predictions/ dir with a
+    // boltz_ prefix. Gated on step_name ending /boltz so boltz_pulldown
+    // (step_name 'boltz_pulldown') does not also dump here.
     publishDir(
-        path: "${params.outdir}/fold/predictions",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/predictions",
         mode: 'copy',
         saveAs: { filename ->
-            if (!step_name.toString().startsWith('fold/')) { return null }
+            if (!step_name.toString().endsWith('/boltz')) { return null }
             def bn = filename.toString().replaceFirst(/^.*\//, '')
             if (!(bn ==~ /.*_model_\d+\.(cif|pdb)/)) { return null }
             return "${FoldNaming.flatPrefix('boltz', meta)}${bn}"
@@ -30,11 +30,11 @@ process BOLTZ {
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
     publishDir(
-        path: "${params.outdir}/fold/msa_ids",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa_ids",
         mode: 'copy',
         pattern: '*_ids.txt',
         saveAs: { filename ->
-            step_name.toString().startsWith('fold/') ? filename : null
+            step_name.toString().endsWith('/boltz') ? filename : null
         }
     )
 

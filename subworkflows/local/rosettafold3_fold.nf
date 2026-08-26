@@ -100,7 +100,7 @@ workflow ROSETTAFOLD3_FOLD {
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
         name: 'rf3_fold_scores.tsv',
-        storeDir: "${params.outdir}/fold/rf3",
+        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/rf3",
         keepHeader: true,
         skip: 1,
     )

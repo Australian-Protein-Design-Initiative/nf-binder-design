@@ -72,7 +72,7 @@ workflow FOLD_MSA {
             params.use_remote_server,
             envdb,
             uniref30_db,
-            'fold/msa/mmseqs2_colabfold',
+            "${params.fold_publish_dir ?: 'fold'}/msa/mmseqs2_colabfold",
         )
         ch_a3m_mono = ch_mono.join(MMSEQS_COLABFOLDSEARCH.out.a3m).map { meta, fasta, a3m ->
             def files = (a3m instanceof List) ? a3m : [a3m]
@@ -128,7 +128,7 @@ workflow FOLD_MSA {
                 params.use_remote_server,
                 envdb2,
                 uniref30_db2,
-                'fold/msa/mmseqs2_colabfold',
+                "${params.fold_publish_dir ?: 'fold'}/msa/mmseqs2_colabfold",
             )
             ch_chain_a3m = ch_chain.join(MMSEQS_COLABFOLDSEARCH_PERCHAIN.out.a3m).map { meta, fasta, a3m ->
                 def files = (a3m instanceof List) ? a3m : [a3m]

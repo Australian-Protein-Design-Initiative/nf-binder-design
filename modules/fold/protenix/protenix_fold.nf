@@ -21,7 +21,7 @@ process PROTENIX_FOLD {
     // across jobs, nest under batch_N/ so sample indices do not collide (seed
     // dirs alone are not enough when seeds are unset and collide).
     publishDir(
-        path: "${params.outdir}/fold/protenix",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/protenix",
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^output\//, '')
@@ -36,7 +36,7 @@ process PROTENIX_FOLD {
     // Second publishDir: gather the per-sample mmCIF predictions into the shared
     // flat <outdir>/fold/predictions/ dir with a protenix_ prefix.
     publishDir(
-        path: "${params.outdir}/fold/predictions",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/predictions",
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
@@ -46,7 +46,7 @@ process PROTENIX_FOLD {
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
     publishDir(
-        path: "${params.outdir}/fold/msa_ids",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa_ids",
         mode: 'copy',
         pattern: '*_ids.txt'
     )

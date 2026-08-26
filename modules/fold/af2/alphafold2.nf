@@ -18,7 +18,7 @@ process ALPHAFOLD2 {
     // In --af2_keep_models=best mode only the top-ranked model and the ranking
     // table are kept per run; 'all' keeps everything (minus the MSAs/features).
     publishDir(
-        path: "${params.outdir}/fold/af2/predictions",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/predictions",
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^out\//, '')
@@ -45,7 +45,7 @@ process ALPHAFOLD2 {
     // Flat <outdir>/fold/predictions/: relaxed cif when relaxing, unrelaxed
     // (or ranked_0.cif for keep=best) when --af2_no_relax.
     publishDir(
-        path: "${params.outdir}/fold/predictions",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/predictions",
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
@@ -65,7 +65,7 @@ process ALPHAFOLD2 {
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
     publishDir(
-        path: "${params.outdir}/fold/msa_ids",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa_ids",
         mode: 'copy',
         pattern: '*_ids.txt'
     )

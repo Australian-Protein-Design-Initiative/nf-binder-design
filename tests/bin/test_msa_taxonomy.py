@@ -167,5 +167,27 @@ def test_render_boltz_csv_keys_on_taxid():
     assert rows[4].startswith(",")
 
 
+def test_query_only_a3m_renders_for_all_tools():
+    """Pulldown binders often have a query-only a3m; renderers must not crash."""
+    a3m = f">{QUERY_HEADER}\n{QUERY_SEQ}\n"
+    recs = mt.parse_a3m(a3m)
+    assert len(recs) == 1 and recs[0].is_query
+
+    rf3 = mt.render_rf3_a3m(recs)
+    assert rf3.startswith(f">{QUERY_HEADER}")
+    assert QUERY_SEQ in rf3
+
+    paired = mt.render_protenix_paired_a3m(recs)
+    unpaired = mt.render_protenix_unpaired_a3m(recs)
+    assert QUERY_SEQ in paired and QUERY_SEQ in unpaired
+
+    buf = io.StringIO()
+    mt.render_boltz_csv(recs, buf)
+    lines = buf.getvalue().splitlines()
+    assert lines[0] == "key,sequence"
+    assert lines[1].startswith(",")
+    assert lines[1].endswith(QUERY_SEQ)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

@@ -13,7 +13,7 @@ process ANNOTATE_MSA {
 
     // Publish the rendered per-chain paired/unpaired MSAs so pairing depth is
     // inspectable (the msa_taxonomy.py stderr log also reports it per chain).
-    publishDir "${params.outdir}/fold/msa/paired", pattern: "*.{a3m,csv}", mode: 'copy'
+    publishDir "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa/paired", pattern: "*.{a3m,csv}", mode: 'copy'
 
     input:
     tuple val(meta), path(fasta), path(a3m)

@@ -93,12 +93,11 @@ workflow BOLTZ_FOLD {
         jobs
     }
 
-    // step_name is BOLTZ's publishDir subdir under params.outdir; use 'fold/boltz'
-    // so predictions land at <outdir>/fold/boltz/ alongside boltz_fold_scores.tsv
-    // (matching af2's <outdir>/fold/af2/ and rf3's <outdir>/fold/rf3/ layout).
-    // fold.nf always requests mmCIF so fold/predictions/ stays format-uniform
-    // with af2/rf3/protenix (boltz_pulldown hardcodes pdb).
-    BOLTZ(ch_boltz_input, ch_templates, 'fold/boltz', 'cif')
+    // step_name is BOLTZ's publishDir subdir under params.outdir. Honour
+    // fold_publish_dir so fold_pulldown lands at <outdir>/fold_pulldown/boltz/
+    // (fold.nf keeps <outdir>/fold/boltz/). mmCIF so predictions stay
+    // format-uniform with af2/rf3/protenix (boltz_pulldown hardcodes pdb).
+    BOLTZ(ch_boltz_input, ch_templates, "${params.fold_publish_dir ?: 'fold'}/boltz", 'cif')
 
     // Fan out to one row per diffusion sample so all models are scored (not
     // just the top-ranked model_0). The all-samples emit is a list when >1
@@ -122,7 +121,7 @@ workflow BOLTZ_FOLD {
 
     ch_tsv = FOLD_PARSE_BOLTZ_CONFIDENCE.out.collectFile(
         name: 'boltz_fold_scores.tsv',
-        storeDir: "${params.outdir}/fold/boltz",
+        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/boltz",
         keepHeader: true,
         skip: 1,
     )

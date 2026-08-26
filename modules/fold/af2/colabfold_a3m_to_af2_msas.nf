@@ -7,7 +7,7 @@ process COLABFOLD_A3M_TO_AF2_MSAS {
     // a3m is already published by MMSEQS_COLABFOLDSEARCH under
     // fold/msa/mmseqs2_colabfold/.
     publishDir(
-        path: "${params.outdir}/fold/af2/msas",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/msas",
         mode: 'copy',
         pattern: "${meta.id}"
     )

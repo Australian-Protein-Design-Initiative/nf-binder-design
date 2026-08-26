@@ -5,7 +5,8 @@ description: >-
   Covers RFdiffusion (--method rfd), partial diffusion (--method rfd_partial),
   RFdiffusion3 (--method rfd3), BindCraft (--method bindcraft), Germinal
   (--method germinal), BoltzGen (--method boltzgen), Boltz Pulldown
-  (--method boltz_pulldown), and FoldSeek (--method foldseek or --do_foldseek).
+  (--method boltz_pulldown), Fold Pulldown (--method fold_pulldown),
+  Fold (--method fold), and FoldSeek (--method foldseek or --do_foldseek).
   Use when the user wants to design protein binders, nanobodies, or peptides,
   set up or run nf-binder-design, configure HPC/SLURM, or troubleshoot pipeline
   errors.
@@ -104,6 +105,8 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `germinal` | Germinal in parallel | Antibody and nanobody design via Hydra YAML |
 | `boltzgen` | BoltzGen generative model | Protein, peptide, nanobody, or small-molecule binders |
 | `boltz_pulldown` | Boltz-2 multimer predictions | Validate designed binders (AlphaPulldown-like) |
+| `fold_pulldown` | Multi-model target × binder co-fold | Same goal as boltz_pulldown with AF2/Boltz/RF3/Protenix |
+| `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix |
 | `foldseek` | FoldSeek structural search | Annotate designs against CATH/PDB databases |
 
 Add `--do_foldseek` to `rfd`, `rfd3`, `bindcraft`, or `boltzgen` to run FoldSeek on outputs inline.
@@ -113,8 +116,9 @@ Add `--do_foldseek` to `rfd`, `rfd3`, `bindcraft`, or `boltzgen` to run FoldSeek
 1. **New binder from scratch?** → `rfd` (established) or `bindcraft` (end-to-end) or `boltzgen` (protein/peptide/nanobody/small-molecule)
 2. **Antibody or nanobody?** → `germinal` (Hydra YAML) or `boltzgen` with `nanobody-anything`
 3. **Refine existing designs?** → `rfd_partial`
-4. **Validate binder sequences?** → `boltz_pulldown`
-5. **Annotate structural similarity?** → `--do_foldseek` or `--method foldseek`
+4. **Validate binder sequences?** → `fold_pulldown` (multi-model) or `boltz_pulldown` (Boltz-only)
+5. **Fold arbitrary FASTAs?** → `fold`
+6. **Annotate structural similarity?** → `--do_foldseek` or `--method foldseek`
 
 ## Common Flags (All Methods)
 
@@ -235,13 +239,40 @@ Protocols: `protein-anything`, `peptide-anything`, `protein-small_molecule`, `na
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method boltz_pulldown \
-  --input_fasta 'binders/*.fasta' \
-  --target_fasta input/target.fasta \
+  --targets targets.fasta \
+  --binders binders.fasta \
+  --create_target_msa true \
   --outdir results \
   -profile local -resume
 ```
 
 → `references/boltz-pulldown-workflow.md`
+
+### fold_pulldown (multi-model pulldown)
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method fold_pulldown \
+  --targets targets.fasta \
+  --binders binders.fasta \
+  --methods boltz,rf3,protenix \
+  --create_target_msa true \
+  --msa_method jackhmmer_af2 \
+  --outdir results \
+  -profile slurm,m3 -resume
+```
+
+### fold (multi-method structure prediction)
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method fold \
+  --input 'input/*.fasta' \
+  --methods af2,boltz,rf3,protenix \
+  --msa_method jackhmmer_af2 \
+  --outdir results \
+  -profile slurm,m3 -resume
+```
 
 ### foldseek (FoldSeek)
 
@@ -267,6 +298,8 @@ Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.m
 | `germinal` | `germinal/accepted_designs.csv`, `germinal/accepted/structures/` |
 | `boltzgen` | `boltzgen/filtered/final_ranked_designs/`, `boltzgen/merged/` |
 | `boltz_pulldown` | `boltz_pulldown/boltz_pulldown.tsv`, `boltz_pulldown_report.html` |
+| `fold_pulldown` | `fold_pulldown/fold_pulldown_scores.tsv`, `fold_pulldown_summary.tsv`, `fold_pulldown_report.html` |
+| `fold` | `fold/fold_scores.tsv`, `fold/predictions/`, optional `engens/` |
 | `foldseek` | `foldseek_results.tsv`, `foldseek_results_annotated.tsv` (CATH databases) |
 
 ## Critical Gotchas
