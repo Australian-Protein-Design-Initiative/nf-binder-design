@@ -15,6 +15,8 @@
 # Based on: https://github.com/DunbrackLab/IPSAE
 #
 # Modified by Andrew Perry, 2025
+# Added RosettaFold3 (rf3) support: AF3-shaped confidences, but pLDDT on 0-1,
+# mmCIF atoms numbered from 0, and a single scalar iptm instead of chain_pair_iptm.
 #
 # ipsae.py
 # script for calculating the ipSAE score for scoring pairwise protein-protein interactions in AlphaFold2 and AlphaFold3 models
@@ -54,6 +56,106 @@ import numpy as np
 np.set_printoptions(
     threshold=np.inf
 )  # for printing out full numpy arrays for debugging
+
+SUPPORTED_FORMATS = ("af2", "af3", "boltz", "rf3")
+
+
+def unwrap_json_object(data):
+    """Return a dict from JSON that may be wrapped as a one-element list.
+
+    Native AlphaFold2 writes ``pae_model_*.json`` as
+    ``[{predicted_aligned_error: [...], ...}]`` rather than a bare object.
+    """
+    if isinstance(data, list):
+        if len(data) == 1 and isinstance(data[0], dict):
+            return data[0]
+        raise ValueError(
+            "Expected a JSON object or a one-element list of objects, "
+            f"got list of length {len(data)}"
+        )
+    if isinstance(data, dict):
+        return data
+    raise ValueError(f"Expected a JSON object, got {type(data).__name__}")
+
+
+def normalize_token_pae_json(data: dict) -> dict:
+    """Alias Protenix full-data keys onto the AF3/RF3 names ipSAE expects."""
+    out = dict(data)
+    if "atom_plddts" not in out and "atom_plddt" in out:
+        out["atom_plddts"] = out["atom_plddt"]
+    if "pae" not in out and "token_pair_pae" in out:
+        out["pae"] = out["token_pair_pae"]
+    return out
+
+
+def summary_confidences_path(pae_file_path: str) -> str | None:
+    """Map an AF3/RF3 confidences JSON path to its summary_confidences sibling.
+
+    Only the basename is rewritten — parent directories can themselves contain
+    "confidences" (RF3 writes ``<id>_rf3/<id>_rf3_confidences.json``).
+    """
+    directory, name = os.path.split(pae_file_path)
+    if "summary_confidences" in name:
+        summary_name = name
+    elif "full_data" in name:
+        # AF3: full_data -> summary_confidences. Protenix uses the singular
+        # summary_confidence in *_full_data_sample_N.json.
+        af3_name = name.replace("full_data", "summary_confidences")
+        ptx_name = name.replace("full_data", "summary_confidence")
+        if os.path.exists(os.path.join(directory, af3_name)):
+            summary_name = af3_name
+        elif os.path.exists(os.path.join(directory, ptx_name)):
+            summary_name = ptx_name
+        else:
+            summary_name = af3_name
+    elif "confidences" in name:
+        summary_name = name.replace("confidences", "summary_confidences")
+    else:
+        return None
+    return os.path.join(directory, summary_name)
+
+
+def detect_cif_json_format(pae_file_path: str) -> str:
+    """Distinguish RF3 from AF3: both pair an mmCIF model with a confidences JSON.
+
+    AF3 summaries carry a per-chain-pair ``chain_pair_iptm`` matrix; RF3 writes a
+    single interface-wide ``iptm`` scalar alongside chain_pair_pae/pde matrices.
+    """
+    summary_path = summary_confidences_path(pae_file_path)
+    if summary_path is None or not os.path.exists(summary_path):
+        return "af3"
+    try:
+        with open(summary_path, "r") as file:
+            summary = json.load(file)
+    except (OSError, ValueError):
+        return "af3"
+    if "chain_pair_iptm" in summary:
+        return "af3"
+    if "chain_pair_pde" in summary or "overall_pde" in summary:
+        return "rf3"
+    return "af3"
+
+
+def resolve_input_format(input_format: str, struct_name: str, pae_file_path: str) -> str:
+    """Resolve an explicit format request, or guess one from the input files."""
+    if input_format not in ("auto",) + SUPPORTED_FORMATS:
+        raise ValueError(
+            f"Unknown input format {input_format!r}; "
+            f"expected auto or one of {', '.join(SUPPORTED_FORMATS)}"
+        )
+    if input_format != "auto":
+        return input_format
+
+    if pae_file_path.endswith(".npz"):
+        return "boltz"
+    if ".cif" in struct_name and pae_file_path.endswith(".json"):
+        return detect_cif_json_format(pae_file_path)
+    if ".pdb" in struct_name:
+        return "af2"
+    raise ValueError(
+        f"Cannot determine input format from structure {struct_name!r} "
+        f"and PAE file {os.path.basename(pae_file_path)!r}"
+    )
 
 
 def main():
@@ -95,9 +197,13 @@ def main():
     )
     parser.add_argument(
         "--format",
-        choices=("auto", "af2", "af3", "boltz", "rf3"),
+        choices=("auto",) + SUPPORTED_FORMATS,
         default="auto",
-        help="Input format (default: auto from file extensions). Use rf3 for RosettaFold3 confidences JSON.",
+        help=(
+            "Input format (default: auto from file extensions, with af3 vs rf3 "
+            "decided by the summary_confidences contents). Use rf3 for "
+            "RosettaFold3 confidences JSON."
+        ),
     )
     parser.add_argument(
         "--update-summary",
@@ -131,42 +237,28 @@ def main():
 
     # pae_AURKA_TPX2_model_0.npz
 
-    if ".pdb" in pdb_path and pae_file_path.endswith(".npz"):
-        pdb_stem = pdb_path.replace(".pdb", "")
-        path_stem = f'{pdb_path.replace(".pdb", "")}_{pae_string}_{dist_string}'
-        af2 = False
-        af3 = False
-        boltz = True
-        cif = False
-    elif ".cif" in pdb_path and pae_file_path.endswith(".npz"):
-        pdb_stem = pdb_path.replace(".cif", "")
-        path_stem = f'{pdb_path.replace(".cif", "")}_{pae_string}_{dist_string}'
-        af2 = False
-        af3 = False
-        boltz = True
+    struct_name = os.path.basename(pdb_path)
+    out_dir = os.path.dirname(pdb_path)
+
+    if ".cif" in struct_name:
+        name_stem = struct_name.replace(".cif", "")
         cif = True
-    elif ".cif" in pdb_path and pae_file_path.endswith(".json"):
-        pdb_stem = pdb_path.replace(".cif", "")
-        path_stem = f'{pdb_path.replace(".cif", "")}_{pae_string}_{dist_string}'
-        af2 = False
-        af3 = True
-        boltz = False
-        cif = True
-    elif ".pdb" in pdb_path:
-        pdb_stem = pdb_path.replace(".pdb", "")
-        path_stem = f'{pdb_path.replace(".pdb", "")}_{pae_string}_{dist_string}'
-        af2 = True
-        af3 = False
-        boltz = False
+    elif ".pdb" in struct_name:
+        name_stem = struct_name.replace(".pdb", "")
         cif = False
     else:
         print("Wrong PDB or PAE file type ", pdb_path)
         sys.exit()
 
-    rf3 = args.format == "rf3" and af3
-    if args.format == "rf3" and ".cif" in pdb_path and pae_file_path.endswith(".json"):
-        af3 = True
-        rf3 = True
+    pdb_stem = os.path.join(out_dir, name_stem) if out_dir else name_stem
+    path_stem = f"{pdb_stem}_{pae_string}_{dist_string}"
+
+    # One flag per predictor; rf3 is a peer of af2/af3/boltz, not a mode of af3.
+    fmt = resolve_input_format(args.format, struct_name, pae_file_path)
+    af2 = fmt == "af2"
+    af3 = fmt == "af3"
+    boltz = fmt == "boltz"
+    rf3 = fmt == "rf3"
 
     file_path = path_stem + "_ipsae.tsv"
     file2_path = path_stem + "_ipsae_byres.tsv"
@@ -403,6 +495,7 @@ def main():
     residues = []
     cb_residues = []
     chains = []
+    atom_num_base = None  # lowest atom serial in the file; see CA_atom_num below
     atomsitefield_num = 0
     atomsitefield_dict = (
         {}
@@ -462,6 +555,9 @@ def main():
                     token_mask.append(0)
                     continue
 
+                if atom_num_base is None or atom["atom_num"] < atom_num_base:
+                    atom_num_base = atom["atom_num"]
+
                 if atom["atom_name"] == "CA" or "C1" in atom["atom_name"]:
                     token_mask.append(1)
                     residues.append(
@@ -502,12 +598,13 @@ def main():
 
     # Convert structure information to numpy arrays
     numres = len(residues)
-    CA_atom_num = np.array(
-        [res["atom_num"] - 1 for res in residues]
-    )  # for AF3 atom indexing from 0
-    CB_atom_num = np.array(
-        [res["atom_num"] - 1 for res in cb_residues]
-    )  # for AF3 atom indexing from 0
+    # Indices into the atom_plddts array, which is ordered as the file's atoms.
+    # AF3 numbers mmCIF atoms from 1 but RF3 numbers them from 0, so take the
+    # base from the file rather than assuming either.
+    if atom_num_base is None:
+        atom_num_base = 1
+    CA_atom_num = np.array([res["atom_num"] - atom_num_base for res in residues])
+    CB_atom_num = np.array([res["atom_num"] - atom_num_base for res in cb_residues])
     coordinates = np.array([res["coor"] for res in cb_residues])
     chains = np.array(chains)
     unique_chains = np.unique(chains)
@@ -539,7 +636,7 @@ def main():
         )
     )
 
-    # Load AF2, AF3, or BOLTZ1 data and extract plddt and pae_matrix (and ptm_matrix if available)
+    # Load AF2, AF3, RF3, or BOLTZ1 data and extract plddt and pae_matrix (and ptm_matrix if available)
     if af2:
 
         if os.path.exists(pae_file_path):
@@ -548,11 +645,9 @@ def main():
             else:
                 with open(pae_file_path, "r") as file:
                     data = json.load(file)
-                # Some AF2 builds (incl. this repo's custom container) wrap the
-                # PAE dict in a single-element list; unwrap so the "pae" /
-                # "predicted_aligned_error" lookups below see a dict.
-                if isinstance(data, list) and len(data) == 1 and isinstance(data[0], dict):
-                    data = data[0]
+
+            if not isinstance(data, dict):
+                data = unwrap_json_object(data)
 
             if "iptm" in data:
                 iptm_af2 = float(data["iptm"])
@@ -574,6 +669,12 @@ def main():
                 pae_matrix = np.array(data["pae"])
             elif "predicted_aligned_error" in data:
                 pae_matrix = np.array(data["predicted_aligned_error"])
+            else:
+                print(
+                    "no PAE data in AF2 json file "
+                    "(expected 'pae' or 'predicted_aligned_error'); quitting"
+                )
+                sys.exit()
 
         else:
             print("AF2 PAE file does not exist: ", pae_file_path)
@@ -630,7 +731,9 @@ def main():
         else:
             print("Boltz1 summary file does not exist: ", summary_file_path)
 
-    if af3:
+    if af3 or rf3:
+        # RF3 writes AF3-shaped confidences, so the per-atom pLDDT / PAE parsing is
+        # shared; only the summary ipTM (below) and the pLDDT scale differ.
         # Example Alphafold3 server filenames
         #   fold_aurka_0_tpx2_0_full_data_0.json
         #   fold_aurka_0_tpx2_0_summary_confidences_0.json
@@ -639,15 +742,22 @@ def main():
         #   confidences.json
         #   summary_confidences.json
         #   model1.cif
+        # Example RF3 filenames
+        #   <id>_confidences.json
+        #   <id>_summary_confidences.json
+        #   <id>_model.cif
+        label = "RF3" if rf3 else "AF3"
         if os.path.exists(pae_file_path):
             with open(pae_file_path, "r") as file:
                 data = json.load(file)
         else:
-            print("AF3 PAE file does not exist: ", pae_file_path)
+            print(f"{label} PAE file does not exist: ", pae_file_path)
             sys.exit()
 
+        data = normalize_token_pae_json(data)
         atom_plddts = np.array(data["atom_plddts"])
-        if rf3:
+        # RF3 and Protenix report per-atom pLDDT on 0-1; AF3 uses 0-100.
+        if atom_plddts.size and np.nanmax(atom_plddts) <= 1.0:
             atom_plddts = atom_plddts * 100.0
         plddt = atom_plddts[CA_atom_num]  # pull out residue plddts from Calpha atoms
         cb_plddt = atom_plddts[
@@ -658,57 +768,53 @@ def main():
         # Modified residues have separate tokens for each atom, so need to pull out Calpha atom as token
         # Skip ligands
         if "pae" in data:
-            pae_matrix_af3 = np.array(data["pae"])
+            pae_matrix_full = np.array(data["pae"])
         else:
-            print("no PAE data in AF3 json file; quitting")
+            print(f"no PAE data in {label} json file; quitting")
             sys.exit()
 
-        # Set pae_matrix for AF3 from subset of full PAE matrix from json file
+        # Set pae_matrix from subset of full PAE matrix from json file
         token_array = np.array(token_mask)
-        pae_matrix = pae_matrix_af3[
+        pae_matrix = pae_matrix_full[
             np.ix_(token_array.astype(bool), token_array.astype(bool))
         ]
-        # Get iptm matrix from AF3 summary_confidences file
-        iptm_af3 = {
-            chain1: {chain2: 0 for chain2 in unique_chains if chain1 != chain2}
-            for chain1 in unique_chains
-        }
 
-        summary_file_path = None
-        if "confidences" in pae_file_path:
-            summary_file_path = pae_file_path.replace(
-                "confidences", "summary_confidences"
-            )
-        elif "full_data" in pae_file_path:
-            summary_file_path = pae_file_path.replace(
-                "full_data", "summary_confidences"
-            )
+        # Model ipTM from the summary_confidences file. AF3 provides a per-chain-pair
+        # matrix; RF3's ComputeIPTM scores all interchain token pairs at once, so it
+        # only writes one interface-wide scalar, applied to every pair as for AF2.
+        iptm_af3 = init_chainpairdict_zeros(unique_chains)
+        iptm_rf3 = -1.0
+        summary_file_path = summary_confidences_path(pae_file_path)
 
         if summary_file_path is not None and os.path.exists(summary_file_path):
             with open(summary_file_path, "r") as file:
                 data_summary = json.load(file)
-            af3_chain_pair_iptm_data = data_summary.get("chain_pair_iptm")
-            if af3_chain_pair_iptm_data is not None:
-                for chain1 in unique_chains:
-                    nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
-                    for chain2 in unique_chains:
-                        if chain1 == chain2:
-                            continue
-                        nchain2 = ord(chain2) - ord("A")
-                        if nchain1 < len(af3_chain_pair_iptm_data) and nchain2 < len(
-                            af3_chain_pair_iptm_data[nchain1]
-                        ):
-                            iptm_af3[chain1][chain2] = af3_chain_pair_iptm_data[
-                                nchain1
-                            ][nchain2]
-            elif rf3:
-                print(
-                    "Warning: RF3 summary has no chain_pair_iptm; ipTM from summary will be 0",
-                    file=sys.stderr,
-                )
+            if rf3:
+                iptm_value = data_summary.get("iptm")
+                iptm_rf3 = float(iptm_value) if iptm_value is not None else -1.0
+            else:
+                af3_chain_pair_iptm_data = data_summary.get("chain_pair_iptm")
+                if af3_chain_pair_iptm_data is None:
+                    print(
+                        "Warning: AF3 summary has no chain_pair_iptm; "
+                        "ipTM from summary will be 0",
+                        file=sys.stderr,
+                    )
+                else:
+                    for chain1 in unique_chains:
+                        nchain1 = ord(chain1) - ord("A")  # map A,B,C... to 0,1,2...
+                        for chain2 in unique_chains:
+                            if chain1 == chain2:
+                                continue
+                            nchain2 = ord(chain2) - ord("A")
+                            if nchain1 < len(
+                                af3_chain_pair_iptm_data
+                            ) and nchain2 < len(af3_chain_pair_iptm_data[nchain1]):
+                                iptm_af3[chain1][chain2] = af3_chain_pair_iptm_data[
+                                    nchain1
+                                ][nchain2]
         else:
-            if not rf3:
-                print("AF3 summary file does not exist: ", summary_file_path)
+            print(f"{label} summary file does not exist: ", summary_file_path)
 
     # Compute chain-pair-specific interchain PTM and PAE, count valid pairs, and count unique residues
     # First, create dictionaries of appropriate size: top keys are chain1 and chain2 where chain1 != chain2
@@ -1331,6 +1437,8 @@ def main():
                 iptm_af = iptm_af3[chain1][
                     chain2
                 ]  # symmetric value for each chain pair
+            if rf3:
+                iptm_af = iptm_rf3  # same for all chain pairs in entry
             if boltz:
                 iptm_af = iptm_boltz[chain1][chain2]
 
@@ -1487,7 +1595,7 @@ def main():
     PML.close()
     OUT2.close()
 
-    if getattr(args, "update_summary", None) and (af3 or boltz):
+    if getattr(args, "update_summary", None) and (af3 or rf3 or boltz):
         summary_path = args.update_summary
         binder_chain = getattr(args, "binder_chain", "A")
         target_chain = getattr(args, "target_chain", "B")

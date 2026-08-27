@@ -17,6 +17,9 @@ process BOLTZ_PULLDOWN_REPORTING {
     """
     export XDG_CACHE_HOME="./.cache"
     export XDG_DATA_HOME="./.local/share"
+    export JUPYTER_RUNTIME_DIR="./.jupyter"
+    export XDG_RUNTIME_DIR="/tmp"
+    mkdir -p "\${XDG_CACHE_HOME}" "\${XDG_DATA_HOME}/quarto/logs" "\${JUPYTER_RUNTIME_DIR}"
 
     cp ${qmd_file} .
 

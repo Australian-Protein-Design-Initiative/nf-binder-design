@@ -75,7 +75,18 @@ def test_protenix_plddt_rescaled(tmp_path):
     assert r["pde"] == "0.43" and "chain_pair_iptm" not in r
 
 
-def test_merge_maps_boltz_and_concats(tmp_path):
+def test_rf3_ipsae_tsv_merged(tmp_path):
+    payload = {"ranking_score": 0.80, "ptm": 0.78, "iptm": 0.81,
+               "overall_plddt": 0.819, "overall_pae": 9.4, "overall_pde": 2.5,
+               "has_clash": False}
+    ipsae = tmp_path / "model_10_10_ipsae.tsv"
+    ipsae.write_text(
+        "\nChn1 Chn2 PAE Dist Type ipSAE ipSAE_d0chn ipSAE_d0dom pDockQ pDockQ2 LIS\n"
+        "A B 10 10 min 0.42 0.41 0.40 0.3 0.2 0.1\n"
+    )
+    r = _rows(_parse(tmp_path, "rf3", payload, **{"ipsae-tsv": ipsae}))[0]
+    assert r["ipsae"] == "0.42" and r["ipsae_d0chn"] == "0.41"
+    assert r["pdockq2"] == "0.2" and r["lis"] == "0.1"
     # canonical af2/rf3 table
     canon = tmp_path / "rf3_fold_scores.tsv"
     with canon.open("w") as f:

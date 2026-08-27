@@ -14,6 +14,12 @@ process FOLD_PULLDOWN_REPORTING {
     script:
     """
     set -euo pipefail
+    export XDG_CACHE_HOME="./.cache"
+    export XDG_DATA_HOME="./.local/share"
+    export JUPYTER_RUNTIME_DIR="./.jupyter"
+    export XDG_RUNTIME_DIR="/tmp"
+    mkdir -p "\${XDG_CACHE_HOME}" "\${XDG_DATA_HOME}/quarto/logs" "\${JUPYTER_RUNTIME_DIR}"
+
     quarto render fold_pulldown_reporting.qmd --execute-dir \${PWD} --output - >fold_pulldown_report.html
     """
 }

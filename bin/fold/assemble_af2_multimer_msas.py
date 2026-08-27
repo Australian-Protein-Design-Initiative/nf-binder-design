@@ -16,7 +16,8 @@ Required per-chain files (created as query-only when absent):
   uniref90_hits.sto, mgnify_hits.sto, bfd_uniref_hits.a3m (or bfd_uniclust_hits.a3m),
   uniprot_hits.sto, pdb_hits.hhr
 
-features.pkl is deliberately omitted so AF2 rebuilds features for the pair.
+features.pkl is written afterwards by af2_multimer_features_from_msas.py
+(the custom AF2 predict stage loads that pickle and does not rebuild it).
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
@@ -89,8 +90,15 @@ def write_empty_hhr(path: Path, seq_id: str, sequence: str) -> None:
 def a3m_to_stockholm(records: List[Tuple[str, str]]) -> str:
     """Convert a3m records to Stockholm (match columns only: upper-case + '-')."""
     lines = ["# STOCKHOLM 1.0"]
+    seen: Dict[str, int] = {}
     for i, (hdr, seq) in enumerate(records):
-        seq_id = hdr.split()[0] if hdr else f"seq{i}"
+        base = hdr.split()[0] if hdr else f"seq{i}"
+        n = seen.get(base, 0)
+        seen[base] = n + 1
+        # AF2 parse_stockholm concatenates rows that share a name, so duplicate
+        # ColabFold/UniRef hit IDs must be uniquified or the query row is merged
+        # with a later hit and keep_columns overruns every other sequence.
+        seq_id = base if n == 0 else f"{base}_{n + 1}"
         # Drop a3m insertions (lower-case) for Stockholm match columns
         match = "".join(c for c in seq if c.isupper() or c == "-")
         lines.append(f"{seq_id} {match}")

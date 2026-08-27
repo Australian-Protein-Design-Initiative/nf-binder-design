@@ -9,7 +9,11 @@ process FOLD_MERGE_SCORES {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
-    publishDir "${params.outdir}/${params.fold_publish_dir ?: 'fold'}", mode: 'copy'
+    publishDir(
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}",
+        mode: 'copy',
+        enabled: (params.method != 'fold_pulldown' && params.fold_publish_dir != 'fold_pulldown')
+    )
 
     input:
     path(tsvs)

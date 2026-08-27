@@ -29,8 +29,8 @@ structures (plus MSA jobs).
 - Binder MSAs are off (`--create_binder_msa false`): these are designed
   miniproteins with no useful homologs.
 - **AF2** reuses the ColabFold target a3m (materialised into AF2’s per-chain MSA
-  files for chain A); the binder chain stays query-only. Boltz / RF3 / Protenix
-  use the same ColabFold a3ms directly.
+  files for chain A, plus a multimer `features.pkl`); the binder chain stays
+  query-only. Boltz / RF3 / Protenix use the same ColabFold a3ms directly.
 
 To use native jackhmmer MSAs for AF2 (and for the shared a3m route) instead:
 

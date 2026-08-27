@@ -311,7 +311,7 @@ the renamed `predictions_file` in `fold/predictions/` (unique per structure).
 | `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ |
 | `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ |
 | `has_clash` | steric-clash flag | – | – | ✓ | ✓ |
-| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | – | – |
+| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) |
 
 Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally

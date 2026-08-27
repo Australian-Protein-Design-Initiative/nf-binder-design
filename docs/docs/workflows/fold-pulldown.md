@@ -49,7 +49,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 AF2 needs the 2021 DB snapshot with `uniprot/` (default `--af2_db_path` points at
 `alphafold_20211129`). Target MSAs for AF2 are built once (jackhmmer dir, or
 ColabFold/mmseqs2 a3m materialised into AF2 per-chain files) and assembled into a
-multimer tree with a query-only binder chain.
+multimer tree with a query-only binder chain plus a `features.pkl` (the predict
+stage loads that pickle; it does not rebuild features from the raw MSA files).
 
 ## Example
 

@@ -14,9 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fold_pulldown: AF2 reuses the ColabFold/mmseqs2 target a3m for chain A (binder stays query-only).
 
 ### Changed
+- Protenix fold jobs now pass `--need_atom_confidence true` by default (`--protenix_need_atom_confidence`); publishes full-confidence JSON with the token-pair PAE matrix for downstream ipSAE.
 - Standalone `fold.nf` entrypoint replaced by `nextflow run main.nf --method fold`.
 - ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
-- fold_pulldown: Boltz raw results publish under `fold_pulldown/boltz/` (was hardcoded to `fold/boltz/`).
+- fold_pulldown report: ipTM and ipSAE by-target boxplots are one panel coloured by tool (not faceted).
+
+### Fixed
+- fold_pulldown: suppress publishing intermediate `fold_scores.tsv` (only `fold_pulldown_scores.tsv` and `fold_pulldown_summary.tsv` are published).
+- fold_pulldown AF2: write a multimer `features.pkl` from the assembled per-chain MSAs. The custom AF2 container loads that pickle at predict time and does not rebuild features from `msas/*.sto`.
+- Quarto reports (`fold_pulldown`, `boltz_pulldown`): set writable `XDG_*` / Jupyter runtime dirs so rendering works in Apptainer (was failing with `Could create runtime directory for jupyter transport`).
+- fold_pulldown AF2 ipSAE: unwrap list-wrapped native `pae_model_*.json` so ipSAE can read `predicted_aligned_error`.
+- fold: compute ipSAE for RF3 and Protenix (was only Boltz, plus a crashing AF2 path).
 
 ## [0.3.0] - 2026-07-09
 

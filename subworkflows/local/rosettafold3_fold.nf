@@ -85,16 +85,24 @@ workflow ROSETTAFOLD3_FOLD {
     // best-model *_summary_confidences.json with no sample index - skip it (it
     // isn't gathered into fold/predictions/). model/struct/predictions_file are
     // derived from the summary filename; predictions_file uses the same
-    // FoldNaming prefix as the module's flat-gather saveAs.
-    ch_conf = RF3_FOLD.out.confidence_json.flatMap { meta, jsons ->
-        def files = (jsons instanceof List) ? jsons : [jsons]
-        files.findAll { it.name ==~ /.*_seed-\d+_sample-\d+_summary_confidences\.json/ }
+    // FoldNaming prefix as the module's flat-gather saveAs. ipSAE needs the
+    // sibling full *_confidences.json and *_model.cif.
+    ch_conf = RF3_FOLD.out.predictions.flatMap { meta, files ->
+        def all = files instanceof List ? files : [files]
+        def byName = [:]
+        all.each { f -> byName[f.name] = f }
+        all.findAll { it.name ==~ /.*_seed-\d+_sample-\d+_summary_confidences\.json/ }
             .collect { j ->
                 def mm = (j.name =~ /_(seed-\d+_sample-\d+)_summary_confidences\.json$/)
                 def model = mm ? mm[0][1] : j.baseName
-                def struct = j.name.replaceFirst(/_summary_confidences\.json$/, '_model.cif')
+                def stem = j.name.replaceFirst(/_summary_confidences\.json$/, '')
+                def struct = "${stem}_model.cif"
+                def paeName = "${stem}_confidences.json"
+                def pae = byName[paeName]
+                def cif = byName[struct]
+                def doIpsae = (pae != null && cif != null)
                 def pred = "${FoldNaming.flatPrefix('rf3', meta)}${struct}"
-                [meta, 'rf3', model, struct, pred, j]
+                [meta, 'rf3', model, struct, pred, j, doIpsae ? pae : j, doIpsae ? cif : j, doIpsae]
             }
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)

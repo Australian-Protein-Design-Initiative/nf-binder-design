@@ -12,6 +12,7 @@ Usage via main.nf:
       --methods boltz,rf3 --create_target_msa true
 */
 
+params.method = 'fold_pulldown'
 params.targets = false
 params.binders = false
 params.help = false
@@ -64,6 +65,7 @@ params.protenix_step = 200
 params.protenix_batch_size = false
 params.protenix_model_name = 'protenix_base_default_v1.0.0'
 params.protenix_use_msa = true
+params.protenix_need_atom_confidence = true
 
 // --- MSA subsample (not supported for pulldown multimers) ---
 params.msa_subsample = false

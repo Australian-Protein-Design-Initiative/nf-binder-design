@@ -20,7 +20,9 @@ Sources per tool (verified against example fold-multimer results):
   af2      --pkl result_model_N.pkl (ptm, iptm, ranking_confidence, plddt[0-100])
            optional --ipsae-tsv (ipsae.py output; Type==min row)
   rf3      --json *_summary_confidences.json
+           optional --ipsae-tsv from *_confidences.json + *_model.cif
   protenix --json *_summary_confidence_sample_N.json (plddt is 0-100)
+           optional --ipsae-tsv from *_full_data_sample_N.json + *_sample_N.cif
 """
 
 import argparse
@@ -95,7 +97,7 @@ def _read_ipsae_min(path):
 def parse_rf3(args):
     with open(args.json) as f:
         d = json.load(f)
-    return {
+    row = {
         "ranking_score": _num(d.get("ranking_score")),
         "ptm": _num(d.get("ptm")),
         "iptm": _num(d.get("iptm")),
@@ -104,13 +106,16 @@ def parse_rf3(args):
         "pde": _num(d.get("overall_pde")),
         "has_clash": d.get("has_clash"),
     }
+    if args.ipsae_tsv:
+        row.update(_read_ipsae_min(args.ipsae_tsv))
+    return row
 
 
 def parse_protenix(args):
     with open(args.json) as f:
         d = json.load(f)
     plddt = _num(d.get("plddt"))
-    return {
+    row = {
         "ranking_score": _num(d.get("ranking_score")),
         "ptm": _num(d.get("ptm")),
         "iptm": _num(d.get("iptm")),
@@ -118,6 +123,9 @@ def parse_protenix(args):
         "pde": _num(d.get("gpde")),
         "has_clash": d.get("has_clash"),
     }
+    if args.ipsae_tsv:
+        row.update(_read_ipsae_min(args.ipsae_tsv))
+    return row
 
 
 PARSERS = {"af2": parse_af2, "rf3": parse_rf3, "protenix": parse_protenix}
@@ -140,7 +148,7 @@ def main():
     p.add_argument("--predictions-file", default="", help="renamed name in fold/predictions/")
     p.add_argument("--json", help="confidence/summary JSON (rf3, protenix)")
     p.add_argument("--pkl", help="AF2 result_model_N.pkl")
-    p.add_argument("--ipsae-tsv", help="AF2 ipsae.py output TSV (optional)")
+    p.add_argument("--ipsae-tsv", help="ipsae.py output TSV (optional; Type==min row)")
     p.add_argument("--no-header", action="store_true", help="omit the header line (for concatenation)")
     args = p.parse_args()
 

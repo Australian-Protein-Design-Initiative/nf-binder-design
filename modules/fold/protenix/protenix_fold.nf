@@ -125,6 +125,7 @@ process PROTENIX_FOLD {
         --sample ${sample} \\
         --model_name ${params.protenix_model_name} \\
         --use_msa ${params.protenix_use_msa} \\
+        --need_atom_confidence ${params.protenix_need_atom_confidence} \\
         ${task.ext.args ?: ''}
     """
 }

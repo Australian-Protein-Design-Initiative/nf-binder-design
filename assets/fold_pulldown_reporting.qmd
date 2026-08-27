@@ -56,7 +56,7 @@ if len(summary):
 
 # Score distributions
 
-## ipTM by target (faceted by tool)
+## ipTM by target
 
 ```{python}
 #| label: iptm-boxplots
@@ -69,19 +69,18 @@ else:
     if plot_df.empty:
         print("No iptm scores available.")
     else:
-        g = sns.catplot(
-            data=plot_df, x='target', y='iptm', col='tool',
-            kind='box', sharey=True, height=4, aspect=1.1
-        )
-        for ax in g.axes.flat:
-            ax.tick_params(axis='x', rotation=45)
-            for label in ax.get_xticklabels():
-                label.set_ha('right')
-        g.fig.suptitle('ipTM by target', y=1.02)
+        fig, ax = plt.subplots(figsize=(max(6, 1.4 * plot_df['target'].nunique() + 2), 5))
+        sns.boxplot(data=plot_df, x='target', y='iptm', hue='tool', ax=ax)
+        ax.tick_params(axis='x', rotation=45)
+        for label in ax.get_xticklabels():
+            label.set_ha('right')
+        ax.set_title('ipTM by target')
+        ax.legend(title='tool')
+        plt.tight_layout()
         plt.show()
 ```
 
-## ipSAE by target (faceted by tool)
+## ipSAE by target
 
 ```{python}
 #| label: ipsae-boxplots
@@ -94,15 +93,14 @@ else:
     if plot_df.empty:
         print("No ipsae scores available.")
     else:
-        g = sns.catplot(
-            data=plot_df, x='target', y='ipsae', col='tool',
-            kind='box', sharey=True, height=4, aspect=1.1
-        )
-        for ax in g.axes.flat:
-            ax.tick_params(axis='x', rotation=45)
-            for label in ax.get_xticklabels():
-                label.set_ha('right')
-        g.fig.suptitle('ipSAE by target', y=1.02)
+        fig, ax = plt.subplots(figsize=(max(6, 1.4 * plot_df['target'].nunique() + 2), 5))
+        sns.boxplot(data=plot_df, x='target', y='ipsae', hue='tool', ax=ax)
+        ax.tick_params(axis='x', rotation=45)
+        for label in ax.get_xticklabels():
+            label.set_ha('right')
+        ax.set_title('ipSAE by target')
+        ax.legend(title='tool')
+        plt.tight_layout()
         plt.show()
 ```
 

@@ -10,7 +10,7 @@ process ALPHAFOLD2 {
     // (saveAs/pattern only see top-level output items, never files nested inside
     // a directory item). We strip the task-local "out/" prefix, and drop msas/ +
     // features.pkl, which are published once by ALPHAFOLD2_JACKHMMER_MSA /
-    // COLABFOLD_A3M_TO_AF2_MSAS (features.pkl under fold/af2/msas/; raw msas/
+    // COLABFOLD_A3M_TO_AF2_MSAS / FOLD_ASSEMBLE_AF2_MULTIMER_MSAS (features.pkl under fold/af2/msas/; raw msas/
     // under fold/msa/<method>/). The "out/" dir carries a copy only because the
     // precomputed MSAs are staged into it.
     // When --n_predictions / --msa_subsample fans AF2 out (meta.af2_namespaced),
@@ -186,6 +186,14 @@ process ALPHAFOLD2 {
                 --a3m "${a3m}" \
                 --ids-only \
                 --ids-output "${msa_ids_file}"
+        fi
+        # fold_pulldown assemble used to omit features.pkl (expecting AF2 to
+        # rebuild it). This container's predict_structure() loads the pickle
+        # and never re-reads msas/, so build it here if the MSA stage did not.
+        if [[ ! -f "out/${meta.id}/features.pkl" ]]; then
+            python ${projectDir}/bin/fold/af2_multimer_features_from_msas.py \
+                --fasta ${fasta} \
+                --msas-dir "out/${meta.id}"
         fi
     fi
 

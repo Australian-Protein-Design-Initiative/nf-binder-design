@@ -12,6 +12,7 @@ Usage via main.nf:
       --methods af2,boltz,rf3,protenix --msa_method jackhmmer_af2 -profile slurm,m3
 */
 
+params.method = 'fold'
 params.input = false
 params.help = false
 params.outdir = 'results'
@@ -63,6 +64,7 @@ params.protenix_step = 200
 params.protenix_batch_size = false
 params.protenix_model_name = 'protenix_base_default_v1.0.0'
 params.protenix_use_msa = true
+params.protenix_need_atom_confidence = true
 
 // --- MSA subsample ---
 params.msa_subsample = false
@@ -158,6 +160,7 @@ workflow FOLD {
             --protenix_batch_size               Samples per Protenix job (--sample)
             --protenix_model_name               Checkpoint name [default: ${params.protenix_model_name}]
             --protenix_use_msa                  Feed shared a3m to Protenix [default: ${params.protenix_use_msa}]
+            --protenix_need_atom_confidence     Write full-confidence JSON (PAE matrix) per sample [default: ${params.protenix_need_atom_confidence}]
 
             MSA subsample:
             --msa_subsample                     false (default), true (CF-random depths), or custom list

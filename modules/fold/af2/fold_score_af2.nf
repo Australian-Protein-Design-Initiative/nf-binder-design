@@ -26,6 +26,8 @@ process FOLD_SCORE_AF2 {
         --id "${meta.id}" \
         --pred-prefix "${pred_prefix}" \
         --keep-models ${keep} \
+        --pae-cutoff 10 \
+        --dist-cutoff 10 \
         ${no_relax}
     """
 }

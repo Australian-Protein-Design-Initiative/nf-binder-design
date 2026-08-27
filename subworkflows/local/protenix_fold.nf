@@ -99,16 +99,24 @@ workflow PROTENIX_FOLD {
     // One score row per Protenix sample. model/struct/predictions_file are
     // derived from the summary filename (complex_summary_confidence_sample_N.json
     // -> complex_sample_N.cif); predictions_file uses the same FoldNaming prefix
-    // as the module's flat-gather saveAs.
-    ch_conf = PROTENIX_FOLD_PROCESS.out.confidence_json.flatMap { meta, jsons ->
-        def files = (jsons instanceof List) ? jsons : [jsons]
-        files.collect { j ->
-            def mm = (j.name =~ /_summary_confidence_sample_(\d+)\.json$/)
-            def idx = mm ? mm[0][1] : '0'
-            def struct = j.name.replaceFirst(/_summary_confidence_sample_(\d+)\.json$/, '_sample_$1.cif')
-            def pred = "${FoldNaming.flatPrefix('protenix', meta)}${struct}"
-            [meta, 'protenix', "sample_${idx}", struct, pred, j]
-        }
+    // as the module's flat-gather saveAs. ipSAE needs the sibling
+    // *_full_data_sample_N.json (token-pair PAE) and the mmCIF.
+    ch_conf = PROTENIX_FOLD_PROCESS.out.predictions.flatMap { meta, files ->
+        def all = files instanceof List ? files : [files]
+        def byName = [:]
+        all.each { f -> byName[f.name] = f }
+        all.findAll { it.name ==~ /.*_summary_confidence_sample_\d+\.json$/ }
+            .collect { j ->
+                def mm = (j.name =~ /_summary_confidence_sample_(\d+)\.json$/)
+                def idx = mm ? mm[0][1] : '0'
+                def struct = j.name.replaceFirst(/_summary_confidence_sample_(\d+)\.json$/, '_sample_$1.cif')
+                def paeName = j.name.replaceFirst(/_summary_confidence_sample_(\d+)\.json$/, '_full_data_sample_$1.json')
+                def pae = byName[paeName]
+                def cif = byName[struct]
+                def doIpsae = (pae != null && cif != null)
+                def pred = "${FoldNaming.flatPrefix('protenix', meta)}${struct}"
+                [meta, 'protenix', "sample_${idx}", struct, pred, j, doIpsae ? pae : j, doIpsae ? cif : j, doIpsae]
+            }
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
