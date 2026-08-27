@@ -60,6 +60,34 @@ np.set_printoptions(
 SUPPORTED_FORMATS = ("af2", "af3", "boltz", "rf3")
 
 
+def unwrap_json_object(data):
+    """Return a dict from JSON that may be wrapped as a one-element list.
+
+    Native AlphaFold2 writes ``pae_model_*.json`` as
+    ``[{predicted_aligned_error: [...], ...}]`` rather than a bare object.
+    """
+    if isinstance(data, list):
+        if len(data) == 1 and isinstance(data[0], dict):
+            return data[0]
+        raise ValueError(
+            "Expected a JSON object or a one-element list of objects, "
+            f"got list of length {len(data)}"
+        )
+    if isinstance(data, dict):
+        return data
+    raise ValueError(f"Expected a JSON object, got {type(data).__name__}")
+
+
+def normalize_token_pae_json(data: dict) -> dict:
+    """Alias Protenix full-data keys onto the AF3/RF3 names ipSAE expects."""
+    out = dict(data)
+    if "atom_plddts" not in out and "atom_plddt" in out:
+        out["atom_plddts"] = out["atom_plddt"]
+    if "pae" not in out and "token_pair_pae" in out:
+        out["pae"] = out["token_pair_pae"]
+    return out
+
+
 def summary_confidences_path(pae_file_path: str) -> str | None:
     """Map an AF3/RF3 confidences JSON path to its summary_confidences sibling.
 
@@ -70,7 +98,16 @@ def summary_confidences_path(pae_file_path: str) -> str | None:
     if "summary_confidences" in name:
         summary_name = name
     elif "full_data" in name:
-        summary_name = name.replace("full_data", "summary_confidences")
+        # AF3: full_data -> summary_confidences. Protenix uses the singular
+        # summary_confidence in *_full_data_sample_N.json.
+        af3_name = name.replace("full_data", "summary_confidences")
+        ptx_name = name.replace("full_data", "summary_confidence")
+        if os.path.exists(os.path.join(directory, af3_name)):
+            summary_name = af3_name
+        elif os.path.exists(os.path.join(directory, ptx_name)):
+            summary_name = ptx_name
+        else:
+            summary_name = af3_name
     elif "confidences" in name:
         summary_name = name.replace("confidences", "summary_confidences")
     else:
@@ -609,6 +646,9 @@ def main():
                 with open(pae_file_path, "r") as file:
                     data = json.load(file)
 
+            if not isinstance(data, dict):
+                data = unwrap_json_object(data)
+
             if "iptm" in data:
                 iptm_af2 = float(data["iptm"])
             else:
@@ -629,6 +669,12 @@ def main():
                 pae_matrix = np.array(data["pae"])
             elif "predicted_aligned_error" in data:
                 pae_matrix = np.array(data["predicted_aligned_error"])
+            else:
+                print(
+                    "no PAE data in AF2 json file "
+                    "(expected 'pae' or 'predicted_aligned_error'); quitting"
+                )
+                sys.exit()
 
         else:
             print("AF2 PAE file does not exist: ", pae_file_path)
@@ -708,9 +754,11 @@ def main():
             print(f"{label} PAE file does not exist: ", pae_file_path)
             sys.exit()
 
+        data = normalize_token_pae_json(data)
         atom_plddts = np.array(data["atom_plddts"])
-        if rf3:
-            atom_plddts = atom_plddts * 100.0  # RF3 reports pLDDT on 0-1, AF3 on 0-100
+        # RF3 and Protenix report per-atom pLDDT on 0-1; AF3 uses 0-100.
+        if atom_plddts.size and np.nanmax(atom_plddts) <= 1.0:
+            atom_plddts = atom_plddts * 100.0
         plddt = atom_plddts[CA_atom_num]  # pull out residue plddts from Calpha atoms
         cb_plddt = atom_plddts[
             CB_atom_num
