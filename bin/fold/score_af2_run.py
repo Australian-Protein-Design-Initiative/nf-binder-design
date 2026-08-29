@@ -94,6 +94,8 @@ def main():
     p = argparse.ArgumentParser(description="Score one AF2 run into normalized TSV rows")
     p.add_argument("--run-dir", required=True, help="AF2 out/<id> directory")
     p.add_argument("--id", required=True)
+    p.add_argument("--tool", default="af2", choices=("af2", "af2_mono"),
+                   help="tool tag for the TSV: af2 (multimer) or af2_mono (chain break)")
     p.add_argument("--pred-prefix", required=True, help="FoldNaming.af2Prefix(meta)")
     p.add_argument("--keep-models", default="all", choices=("all", "best"))
     p.add_argument("--no-relax", action="store_true")
@@ -111,7 +113,7 @@ def main():
             ipsae_tsv, tmp = _run_ipsae(pae, pdb, args.pae_cutoff, args.dist_cutoff)
         cmd = [
             sys.executable, os.path.join(BIN, "parse_fold_confidence.py"),
-            "--tool", "af2", "--id", args.id, "--model", str(model_n),
+            "--tool", args.tool, "--id", args.id, "--model", str(model_n),
             "--original-file", cif, "--predictions-file", f"{args.pred_prefix}{cif}",
             "--pkl", pkl,
         ]

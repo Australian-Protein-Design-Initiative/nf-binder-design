@@ -4,7 +4,7 @@
 // all kept models go to stdout, collected into af2_fold_scores.tsv by the
 // ALPHAFOLD2 subworkflow. CPU-only (ipSAE is numpy); runs on the local executor.
 process FOLD_SCORE_AF2 {
-    tag "${meta.id} run${meta.af2_run}"
+    tag "${meta.af2_tool ?: 'af2'} ${meta.id} run${meta.af2_run}"
 
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
@@ -24,6 +24,7 @@ process FOLD_SCORE_AF2 {
     python3 ${projectDir}/bin/fold/score_af2_run.py \
         --run-dir . \
         --id "${meta.id}" \
+        --tool "${meta.af2_tool ?: 'af2'}" \
         --pred-prefix "${pred_prefix}" \
         --keep-models ${keep} \
         --pae-cutoff 10 \

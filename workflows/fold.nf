@@ -35,9 +35,18 @@ params.af2_uniref30_subpath = 'uniref30/UniRef30_2021_03'
 params.af2_uniprot_subpath = 'uniprot/uniprot.fasta'
 params.af2_pdb_seqres_subpath = 'pdb_seqres/pdb_seqres.txt'
 params.af2_mgnify_subpath = 'mgnify/mgy_clusters_2022_05.fa'
+// pdb70 is reached only by the monomer presets (--methods af2_mono): multimer
+// template search uses hmmsearch over pdb_seqres instead of hhsearch over pdb70.
+params.af2_pdb70_subpath = 'pdb70/pdb70'
 // See fold_pulldown.nf: alphafold2:2.3.2-custom bundles the model parameters
 // and exposes them at /app/alphafold/params, so no host params dir is needed.
 params.af2_data_dir = '/app/alphafold'
+// --- AF2 monomer chain-break mode (--methods af2_mono) ---
+// Fold a complex with the monomer weights: chains concatenated, separated only by a
+// jump in residue_index. AF2 clips relative positions at 32, so any offset above that
+// reads as "not covalently connected"; 200 is the dl_binder_design convention.
+params.af2_monomer_model_preset = 'monomer_ptm'
+params.af2_chain_break_offset = 200
 params.af2_keep_models = 'best'
 params.af2_no_relax = false
 
@@ -119,7 +128,15 @@ workflow FOLD {
 
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
-            --methods                          Comma-separated list of af2,boltz,rf3,protenix [default: ${params.methods}]
+            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix [default: ${params.methods}]
+                                                af2      = AlphaFold2-multimer.
+                                                af2_mono = AF2 MONOMER weights on a concatenated complex,
+                                                           chains separated only by a residue_index jump.
+                                                           Shares af2's MSAs; only features.pkl differs.
+                                                           See --af2_chain_break_offset. Without an initial
+                                                           guess the monomer models often fail to dock at
+                                                           all, and only ranking separates the good pose,
+                                                           so pair it with --af2_keep_models best.
             --msa_method                       jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --n_predictions                    Total structures per input, per method. Unset (default) => each
                                                 engine uses its own default: Boltz/RF3/Protenix emit 5 each,
@@ -138,6 +155,13 @@ workflow FOLD {
                                                 'all'  = keep 5/run  -> ceil(N/5) runs;
                                                 'best' = keep 1/run  -> N runs [default: ${params.af2_keep_models}]
             --af2_no_relax                      Skip Amber relaxation [default: ${params.af2_no_relax}]
+            --af2_pdb70_subpath                 pdb70 prefix under --af2_db_path; monomer presets only
+                                                [default: ${params.af2_pdb70_subpath}]
+
+            AF2 monomer chain-break (--methods includes af2_mono):
+            --af2_monomer_model_preset          monomer|monomer_ptm|monomer_casp14 [default: ${params.af2_monomer_model_preset}]
+            --af2_chain_break_offset            residue_index jump at each chain break; must exceed AF2's
+                                                relative-position clip of 32 [default: ${params.af2_chain_break_offset}]
 
             Boltz-2 (--methods includes boltz):
             --use_msa_server                   Use Boltz's own MMseqs2 MSA server [default: ${params.use_msa_server}]

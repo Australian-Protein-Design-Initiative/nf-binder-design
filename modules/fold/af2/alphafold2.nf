@@ -1,5 +1,5 @@
 process ALPHAFOLD2 {
-    tag "${meta.id} run${meta.af2_run}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
+    tag "${meta.af2_tool ?: 'af2'} ${meta.id} run${meta.af2_run}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
     container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
 
@@ -18,7 +18,7 @@ process ALPHAFOLD2 {
     // In --af2_keep_models=best mode only the top-ranked model and the ranking
     // table are kept per run; 'all' keeps everything (minus the MSAs/features).
     publishDir(
-        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/predictions",
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${meta.af2_tool ?: 'af2'}/predictions",
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^out\//, '')
@@ -91,8 +91,17 @@ process ALPHAFOLD2 {
     // pdb70 for pdb_seqres + uniprot and sets model_preset=multimer.
     def d = params.af2_db_path
     def data_dir = params.af2_data_dir ?: d
-    def is_multimer = (meta.n_chains ?: 1) > 1 || params.af2_model_preset == 'multimer'
-    def model_preset = is_multimer ? 'multimer' : params.af2_model_preset
+    def tool = meta.af2_tool ?: 'af2'
+    // 'chainbreak' folds a complex with the MONOMER weights: the chains are
+    // concatenated and separated only by an af2_chain_break_offset jump in
+    // residue_index (see af2_monomer_features_from_msas.py). So a multi-chain input
+    // is deliberately NOT multimer here, and it takes the monomer DB flags (pdb70 /
+    // hhsearch) rather than the multimer ones (pdb_seqres + uniprot / hmmsearch).
+    def chainbreak = meta.af2_complex_mode == 'chainbreak'
+    def is_multimer = !chainbreak && ((meta.n_chains ?: 1) > 1 || params.af2_model_preset == 'multimer')
+    def model_preset = is_multimer \
+        ? 'multimer' \
+        : (chainbreak ? params.af2_monomer_model_preset : params.af2_model_preset)
     def db_flags_list = [
         "--data_dir=${data_dir}",
         "--uniref90_database_path=${d}/uniref90/uniref90.fasta",
@@ -107,7 +116,9 @@ process ALPHAFOLD2 {
         ]
     }
     else {
-        db_flags_list += ["--pdb70_database_path=${d}/pdb70/pdb70"]
+        // hhsearch.py:61 globs "<path>_*" - the monomer-only existence check that the
+        // multimer path (hmmsearch) never reaches.
+        db_flags_list += ["--pdb70_database_path=${d}/${params.af2_pdb70_subpath}"]
     }
     db_flags_list += [
         "--template_mmcif_dir=${d}/pdb_mmcif/mmcif_files",
@@ -190,11 +201,22 @@ process ALPHAFOLD2 {
         # fold_pulldown assemble used to omit features.pkl (expecting AF2 to
         # rebuild it). This container's predict_structure() loads the pickle
         # and never re-reads msas/, so build it here if the MSA stage did not.
-        if [[ ! -f "out/${meta.id}/features.pkl" ]]; then
+        if [[ ! -f "out/${meta.id}/features.pkl" && "${chainbreak}" != "true" ]]; then
             python ${projectDir}/bin/fold/af2_multimer_features_from_msas.py \
                 --fasta ${fasta} \
                 --msas-dir "out/${meta.id}"
         fi
+    fi
+
+    # Monomer chain-break mode always rebuilds features.pkl: anything staged here is
+    # multimer-format (paired + block-diagonal), and the monomer models cannot read it.
+    if [[ "${chainbreak}" == "true" ]]; then
+        rm -f "out/${meta.id}/features.pkl"
+        python ${projectDir}/bin/fold/af2_monomer_features_from_msas.py \
+            --fasta ${fasta} \
+            --msas-dir "out/${meta.id}" \
+            --chain-break-offset ${params.af2_chain_break_offset} \
+            --layout-out chain_layout.json
     fi
 
     python /app/alphafold/run_alphafold.py \
@@ -207,5 +229,15 @@ process ALPHAFOLD2 {
         ${models_to_relax_flag} \
         ${num_multimer_predictions_flag} \
         ${db_flags}
+
+    # The monomer models emit one chain with our +offset numbering still in it. Split
+    # it back into real chains before anything downstream (FOLD_SCORE_AF2 -> ipsae,
+    # and every consumer of fold/predictions/) tries to select by chain.
+    if [[ "${chainbreak}" == "true" ]]; then
+        python ${projectDir}/bin/fold/af2_split_chainbreak.py \
+            --layout chain_layout.json \
+            --also-mmcif \
+            "out/${meta.id}"/*.pdb
+    fi
     """
 }

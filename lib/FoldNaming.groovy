@@ -28,8 +28,10 @@ class FoldNaming {
     }
 
     // AF2 prefix (append the native structure basename). AF2 always encodes its
-    // per-run index; depth jobs add the msa bit.
+    // per-run index; depth jobs add the msa bit. meta.af2_tool distinguishes the
+    // multimer engine ('af2') from the monomer chain-break one ('af2_mono') so the
+    // two can be selected together without colliding in fold/predictions/.
     static String af2Prefix(Map meta) {
-        "af2_${meta.id}_run${meta.af2_run}${msaBit(meta)}_"
+        "${meta.af2_tool ?: 'af2'}_${meta.id}_run${meta.af2_run}${msaBit(meta)}_"
     }
 }

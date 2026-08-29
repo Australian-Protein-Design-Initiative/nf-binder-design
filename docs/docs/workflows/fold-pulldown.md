@@ -39,7 +39,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--methods` | `boltz` | Comma-separated: `af2`, `boltz`, `rf3`, `protenix` |
+| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix` |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
 | `--create_target_msa` | `false` | Build MSA for each target |
 | `--create_binder_msa` | `false` | Build MSA for each binder (usually leave off for de novo binders) |

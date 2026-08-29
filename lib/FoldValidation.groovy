@@ -3,7 +3,10 @@ Shared fold / fold_pulldown parameter validation. Returns [errors, warnings]
 lists so callers can raise them via error()/log.warn() (Groovy classes cannot).
 */
 class FoldValidation {
-    static final List VALID_METHODS = ['af2', 'boltz', 'rf3', 'protenix']
+    // 'af2'      - AlphaFold2-multimer.
+    // 'af2_mono' - AF2 monomer weights on a concatenated complex, chains separated
+    //              only by an --af2_chain_break_offset jump in residue_index.
+    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix']
     static final List VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
 
     static List parseMethods(methodsParam) {
@@ -33,7 +36,26 @@ class FoldValidation {
             errors << "unknown --msa_method '${params.msa_method}' (valid: ${VALID_MSA_METHODS.join(', ')})"
         }
 
-        if ('af2' in methods) {
+        if ('af2_mono' in methods) {
+            if ((params.af2_chain_break_offset as int) < 33) {
+                errors << (
+                    "--af2_chain_break_offset must be > 32 (got '${params.af2_chain_break_offset}'): " +
+                    "AF2 clips relative positions at 32, so a smaller jump does not read " +
+                    "as a chain break and the chains are modelled as covalently joined."
+                )
+            }
+            if (params.af2_keep_models != 'best') {
+                warnings << (
+                    "--methods af2_mono with --af2_keep_models=${params.af2_keep_models}: without an " +
+                    "initial guess the monomer models frequently fail to dock the chains at all, and " +
+                    "only ranking separates the good pose from the failures (ranking_confidence for " +
+                    "monomer presets is mean pLDDT). Prefer --af2_keep_models best, or filter on " +
+                    "interface pLDDT before using af2_mono poses in any consensus."
+                )
+            }
+        }
+
+        if ('af2' in methods || 'af2_mono' in methods) {
             if (!(params.af2_keep_models in ['all', 'best'])) {
                 errors << "--af2_keep_models must be 'all' or 'best' (got '${params.af2_keep_models}')"
             }
@@ -121,6 +143,10 @@ class FoldValidation {
             )
         }
 
+        // NB: the two af2 gates below are deliberately 'af2' only, not af2_mono.
+        // af2_mono uses the monomer weights and never pairs, so it needs neither the
+        // uniprot/ all-seqs DB nor the native jackhmmer multimer MSA pipeline -
+        // ColabFold MSAs are exactly what it wants. Do not widen these to af2_mono.
         if (hasMultimer == true) {
             if (MsaSubsample.isEnabled(params.msa_subsample)) {
                 errors << "--msa_subsample is not supported for multimer inputs (monomer only)."

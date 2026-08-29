@@ -20,8 +20,13 @@ workflow ALPHAFOLD2 {
     // tuple(meta, fasta, msas_dir, a3m)
     // a3m may be a dummy stub when --msa_subsample is off.
     ch_af2_input
+    // 'af2' (multimer) or 'af2_mono' (monomer weights + residue_index chain break).
+    // Both engines can run in the same pipeline; the tag keeps their published
+    // predictions, score TSVs and FoldNaming prefixes apart.
+    tool
 
     main:
+    def complex_mode = (tool == 'af2_mono') ? 'chainbreak' : 'multimer'
     // AF2 always generates its 5 trained models per predict. --af2_keep_models
     // chooses which we retain toward --n_predictions (no free --af2_batch_size):
     //   all : keep all 5/run -> ceil(n_predictions / 5) runs
@@ -50,7 +55,9 @@ workflow ALPHAFOLD2 {
         def jobs = []
         seeds.withIndex().each { seed, i ->
             depth_jobs.each { depth ->
-                def m = meta + [af2_run: i + 1, af2_keep_models: keep_models, af2_namespaced: namespaced]
+                def m = meta + [af2_run: i + 1, af2_keep_models: keep_models,
+                                af2_namespaced: namespaced,
+                                af2_tool: tool, af2_complex_mode: complex_mode]
                 if (seed != null) { m = m + [af2_seed: seed] }
                 if (depth != null) {
                     def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
@@ -91,8 +98,8 @@ workflow ALPHAFOLD2 {
     FOLD_SCORE_AF2(ch_score_in)
 
     ch_tsv = FOLD_SCORE_AF2.out.collectFile(
-        name: 'af2_fold_scores.tsv',
-        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2",
+        name: "${tool}_fold_scores.tsv",
+        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${tool}",
         keepHeader: true,
         skip: 1,
     )

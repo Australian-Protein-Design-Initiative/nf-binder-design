@@ -36,6 +36,9 @@ params.af2_uniref30_subpath = 'uniclust30/uniclust30_2018_08/uniclust30_2018_08'
 params.af2_uniprot_subpath = 'uniprot/uniprot.fasta'
 params.af2_pdb_seqres_subpath = 'pdb_seqres/pdb_seqres.txt'
 params.af2_mgnify_subpath = 'mgnify/mgy_clusters_2018_12.fa'
+// pdb70 is reached only by the monomer presets (--methods af2_mono): multimer
+// template search uses hmmsearch over pdb_seqres instead of hhsearch over pdb70.
+params.af2_pdb70_subpath = 'pdb70/pdb70'
 // AF2 model parameters. The alphafold2:2.3.2-custom container bundles them at
 // /models/alphafold2, exposed as /app/alphafold/params by symlink, and
 // alphafold/model/data.py resolves `<data_dir>/params/params_<model>.npz` - so
@@ -44,6 +47,12 @@ params.af2_mgnify_subpath = 'mgnify/mgy_clusters_2018_12.fa'
 params.af2_data_dir = '/app/alphafold'
 params.af2_keep_models = 'best'
 params.af2_no_relax = false
+// --- AF2 monomer chain-break mode (--methods af2_mono) ---
+// Fold a complex with the monomer weights: chains concatenated, separated only by a
+// jump in residue_index. AF2 clips relative positions at 32, so any offset above that
+// reads as "not covalently connected"; 200 is the dl_binder_design convention.
+params.af2_monomer_model_preset = 'monomer_ptm'
+params.af2_chain_break_offset = 200
 
 params.colabfold_msa_publish_name = 'result'
 
@@ -117,7 +126,17 @@ workflow FOLD_PULLDOWN {
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
-            --methods             Comma-separated af2,boltz,rf3,protenix [default: ${params.methods}]
+            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix [default: ${params.methods}]
+                                   af2      = AlphaFold2-multimer.
+                                   af2_mono = AF2 MONOMER weights on a concatenated complex, chains
+                                              separated only by a residue_index jump. Shares af2's
+                                              MSAs; only features.pkl differs. Without an initial
+                                              guess the monomer models often fail to dock at all and
+                                              only ranking separates the good pose, so pair it with
+                                              --af2_keep_models best. Not an independent engine:
+                                              it shares weights lineage with af2.
+            --af2_chain_break_offset  residue_index jump per chain break, must exceed AF2's
+                                   relative-position clip of 32 [default: ${params.af2_chain_break_offset}]
             --msa_method          jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --create_target_msa   Build MSA for each target [default: ${params.create_target_msa}]
             --create_binder_msa   Build MSA for each binder [default: ${params.create_binder_msa}]

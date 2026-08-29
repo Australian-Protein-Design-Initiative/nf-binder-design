@@ -66,7 +66,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold
 |------|-------------|
 | `--input` | Single FASTA, glob, or directory of FASTA files (required) |
 | `--outdir` | Output directory (default: `results`) |
-| `--methods` | Comma-separated: `af2`, `boltz`, `rf3`, `protenix` (default: `af2`) |
+| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
 | `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
@@ -212,6 +212,49 @@ such as `alphafold_20240229`. See [`examples/fold-multimer/`](https://github.com
 (`nextflow.m3.config` + `run-m3.sh`) for a working set of overrides.
 `--num_multimer_predictions_per_model` (`--af2_num_predictions_per_model`)
 applies in multimer mode.
+
+### `af2_mono`: AF2 monomer weights on a complex (chain break)
+
+`--methods af2_mono` folds a complex with the **monomer** weights
+(`--af2_monomer_model_preset`, default `monomer_ptm`): the chains are concatenated
+into one sequence and separated only by a jump of `--af2_chain_break_offset`
+(default 200) in `residue_index`. AF2 clips relative positions at 32, so anything
+above that reads as "not covalently connected". The MSA is block diagonal — each
+chain's own hits, gapped outside that chain's columns. Output is split back into
+real chains automatically, renumbered `1..L` per chain, so it feeds ipSAE and
+everything else exactly like the other engines.
+
+It reuses the same per-chain MSAs as `af2`; only `features.pkl` differs. You can
+run both in one pipeline — their predictions, score TSVs (`tool` column `af2` vs
+`af2_mono`) and `fold/predictions/` filenames are kept separate.
+
+**When this is worth reaching for.** AF2-multimer pairs MSA rows across chains by
+taxonomy. If one chain has no homologs — a de novo designed binder, say — there is
+nothing to pair, so the merged MSA is block diagonal anyway. (This is not a
+violation of multimer's assumptions: partial pairing is explicit in
+`msa_pairing.pad_features`, whose padding row "will be selected as a 'paired' row
+in the case of partial alignment". Species present in only one chain are skipped
+from pairing by design.) `af2_mono` carries the same information without the
+multimer head, as a controlled contrast.
+
+**Two things to know before using it.**
+
+1. **Pair it with `--af2_keep_models best`.** Without an initial guess the monomer
+   models have no reason to dock the chains, and frequently don't. In a
+   73 + 104-residue test, one of three models docked (interface pLDDT 92.1, 0.5 Å
+   from the AF2-multimer pose — tighter than four independent engines agree with
+   each other) while the other two placed the binder 47 and 53 Å away. Ranking
+   separates them (`ranking_confidence` for monomer presets is mean pLDDT: 92.1 vs
+   85.1/85.0; interface pLDDT separates them far harder), so `ranked_0` is sound
+   but `all` would inject failed poses into any downstream consensus. The workflow
+   warns if you select `af2_mono` without `best`.
+2. **It is not an independent engine.** `monomer_ptm` and `multimer` share an
+   architecture family and a training corpus. Treat it as a second opinion from the
+   same lineage, never as another vote alongside Boltz / RF3 / Protenix.
+
+Monomer presets do template search with hhsearch over `pdb70` rather than hmmsearch
+over `pdb_seqres`, so `--af2_pdb70_subpath` must resolve under `--af2_db_path`
+(this is the one existence check the multimer path never reaches).
 
 `--msa_subsample` is monomer-only and is rejected for multimer inputs.
 
