@@ -35,7 +35,9 @@ params.af2_uniref30_subpath = 'uniref30/UniRef30_2021_03'
 params.af2_uniprot_subpath = 'uniprot/uniprot.fasta'
 params.af2_pdb_seqres_subpath = 'pdb_seqres/pdb_seqres.txt'
 params.af2_mgnify_subpath = 'mgnify/mgy_clusters_2022_05.fa'
-params.af2_data_dir = false
+// See fold_pulldown.nf: alphafold2:2.3.2-custom bundles the model parameters
+// and exposes them at /app/alphafold/params, so no host params dir is needed.
+params.af2_data_dir = '/app/alphafold'
 params.af2_keep_models = 'best'
 params.af2_no_relax = false
 

@@ -1,7 +1,7 @@
 process ALPHAFOLD2 {
     tag "${meta.id} run${meta.af2_run}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
-    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
+    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
 
     // Predictions land under "out/${meta.id}/" (the "out/" wrapper avoids
     // colliding with the precomputed-MSA dir that stages in as "${meta.id}").

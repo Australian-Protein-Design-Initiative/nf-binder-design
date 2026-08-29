@@ -36,7 +36,12 @@ params.af2_uniref30_subpath = 'uniclust30/uniclust30_2018_08/uniclust30_2018_08'
 params.af2_uniprot_subpath = 'uniprot/uniprot.fasta'
 params.af2_pdb_seqres_subpath = 'pdb_seqres/pdb_seqres.txt'
 params.af2_mgnify_subpath = 'mgnify/mgy_clusters_2018_12.fa'
-params.af2_data_dir = false
+// AF2 model parameters. The alphafold2:2.3.2-custom container bundles them at
+// /models/alphafold2, exposed as /app/alphafold/params by symlink, and
+// alphafold/model/data.py resolves `<data_dir>/params/params_<model>.npz` - so
+// the in-container default needs no host params dir. Point this at a host
+// AlphaFold download to override. (Falls back to af2_db_path if set false.)
+params.af2_data_dir = '/app/alphafold'
 params.af2_keep_models = 'best'
 params.af2_no_relax = false
 

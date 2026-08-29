@@ -1,7 +1,7 @@
 process ALPHAFOLD2_JACKHMMER_MSA {
     tag "${meta.id}"
 
-    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
+    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
 
     // Split publish: raw msas/ (shared with a3m conversion) under
     // fold/msa/jackhmmer_af2/; AF2-only features.pkl under fold/af2/msas/.

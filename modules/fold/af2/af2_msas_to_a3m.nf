@@ -1,7 +1,7 @@
 process AF2_MSAS_TO_A3M {
     tag "${meta.id}"
 
-    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
+    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
 
     // Shared jackhmmer-derived a3m for Boltz/RF3/Protenix under the same tree as
     // the native AF2 jackhmmer MSA dirs.

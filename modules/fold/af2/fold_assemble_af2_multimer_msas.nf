@@ -6,7 +6,7 @@
 process FOLD_ASSEMBLE_AF2_MULTIMER_MSAS {
     tag "${meta.id}"
 
-    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/alphafold_cuda12_upstream-c77e5d2_custom-57618c5.sif'
+    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
 
     publishDir(
         path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/msas",
