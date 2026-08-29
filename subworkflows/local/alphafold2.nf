@@ -56,8 +56,12 @@ workflow ALPHAFOLD2 {
         seeds.withIndex().each { seed, i ->
             depth_jobs.each { depth ->
                 def m = meta + [af2_run: i + 1, af2_keep_models: keep_models,
-                                af2_namespaced: namespaced,
-                                af2_tool: tool, af2_complex_mode: complex_mode]
+                                af2_namespaced: namespaced]
+                // Only tagged for the non-default engine. meta is a hashed process
+                // input, so adding keys unconditionally would break -resume for every
+                // existing af2 run. Every consumer reads `meta.af2_tool ?: 'af2'`, so
+                // absence already means multimer.
+                if (tool != 'af2') { m = m + [af2_tool: tool, af2_complex_mode: complex_mode] }
                 if (seed != null) { m = m + [af2_seed: seed] }
                 if (depth != null) {
                     def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])

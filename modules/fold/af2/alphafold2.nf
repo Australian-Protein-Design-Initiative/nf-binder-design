@@ -154,6 +154,41 @@ process ALPHAFOLD2 {
     def msa_ids_file = write_msa_ids \
         ? "af2_${meta.id}_run${meta.af2_run}_msa${meta.msa_depth_tag}_ids.txt" \
         : ''
+
+    // The three chain-break stanzas below are assembled in Groovy rather than emitted
+    // as `if [[ "${chainbreak}" == "true" ]]` shell blocks, so that when af2_mono is
+    // NOT in play the rendered command is byte-for-byte what it was before this engine
+    // existed. Nextflow hashes the rendered script, so any always-present shell guard -
+    // even a dead one - would invalidate the -resume cache of every prior af2 run.
+    // Adding an opt-in engine must not cost existing users their caches.
+    def build_multimer_features = chainbreak ? '' : """        # fold_pulldown assemble used to omit features.pkl (expecting AF2 to
+        # rebuild it). This container's predict_structure() loads the pickle
+        # and never re-reads msas/, so build it here if the MSA stage did not.
+        if [[ ! -f "out/${meta.id}/features.pkl" ]]; then
+            python ${projectDir}/bin/fold/af2_multimer_features_from_msas.py \\
+                --fasta ${fasta} \\
+                --msas-dir "out/${meta.id}"
+        fi
+"""
+    // Anything staged here is multimer-format (paired + block diagonal); the monomer
+    // models cannot read it, so chain-break mode always rebuilds features.pkl.
+    def chainbreak_features = !chainbreak ? '' : """
+    rm -f "out/${meta.id}/features.pkl"
+    python ${projectDir}/bin/fold/af2_monomer_features_from_msas.py \\
+        --fasta ${fasta} \\
+        --msas-dir "out/${meta.id}" \\
+        --chain-break-offset ${params.af2_chain_break_offset} \\
+        --layout-out chain_layout.json
+"""
+    // The monomer models emit one chain with our +offset numbering still in it. Split
+    // it back into real chains before anything downstream (FOLD_SCORE_AF2 -> ipsae, and
+    // every consumer of fold/predictions/) tries to select by chain.
+    def split_chainbreak = !chainbreak ? '' : """
+
+    python ${projectDir}/bin/fold/af2_split_chainbreak.py \\
+        --layout chain_layout.json \\
+        --also-mmcif \\
+        "out/${meta.id}"/*.pdb"""
     """
     set -euo pipefail
 
@@ -198,27 +233,8 @@ process ALPHAFOLD2 {
                 --ids-only \
                 --ids-output "${msa_ids_file}"
         fi
-        # fold_pulldown assemble used to omit features.pkl (expecting AF2 to
-        # rebuild it). This container's predict_structure() loads the pickle
-        # and never re-reads msas/, so build it here if the MSA stage did not.
-        if [[ ! -f "out/${meta.id}/features.pkl" && "${chainbreak}" != "true" ]]; then
-            python ${projectDir}/bin/fold/af2_multimer_features_from_msas.py \
-                --fasta ${fasta} \
-                --msas-dir "out/${meta.id}"
-        fi
-    fi
-
-    # Monomer chain-break mode always rebuilds features.pkl: anything staged here is
-    # multimer-format (paired + block-diagonal), and the monomer models cannot read it.
-    if [[ "${chainbreak}" == "true" ]]; then
-        rm -f "out/${meta.id}/features.pkl"
-        python ${projectDir}/bin/fold/af2_monomer_features_from_msas.py \
-            --fasta ${fasta} \
-            --msas-dir "out/${meta.id}" \
-            --chain-break-offset ${params.af2_chain_break_offset} \
-            --layout-out chain_layout.json
-    fi
-
+${build_multimer_features}    fi
+${chainbreak_features}
     python /app/alphafold/run_alphafold.py \
         --fasta_paths=${fasta} \
         --output_dir=\$PWD/out \
@@ -228,16 +244,6 @@ process ALPHAFOLD2 {
         ${random_seed_flag} \
         ${models_to_relax_flag} \
         ${num_multimer_predictions_flag} \
-        ${db_flags}
-
-    # The monomer models emit one chain with our +offset numbering still in it. Split
-    # it back into real chains before anything downstream (FOLD_SCORE_AF2 -> ipsae,
-    # and every consumer of fold/predictions/) tries to select by chain.
-    if [[ "${chainbreak}" == "true" ]]; then
-        python ${projectDir}/bin/fold/af2_split_chainbreak.py \
-            --layout chain_layout.json \
-            --also-mmcif \
-            "out/${meta.id}"/*.pdb
-    fi
+        ${db_flags}${split_chainbreak}
     """
 }
