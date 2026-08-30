@@ -37,7 +37,11 @@ workflow FOLD_PULLDOWN_MSA {
     msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
 
     main:
-    def need_af2 = 'af2' in methods
+    // af2_mono consumes exactly the same assembled AF2 input as af2 - it differs only in
+    // how features.pkl is built inside the task - so it must switch this on too. Gating on
+    // 'af2' alone made `--methods af2_mono` (without af2) skip FOLD_ASSEMBLE_AF, leaving
+    // ALPHAFOLD2_MONO with an empty channel: zero predictions, exit 0, no warning.
+    def need_af2 = ('af2' in methods) || ('af2_mono' in methods)
     def need_annotate = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods)
     def pub = "${params.fold_publish_dir ?: 'fold'}/msa"
     def empty_msa = file("${projectDir}/assets/dummy_files/empty")

@@ -18,7 +18,7 @@ workflow FOLD {
     FOLD_MSA(ch_input, methods, msa_method)
 
     def a3m_stub = file("${projectDir}/assets/dummy_files/empty")
-    if ('af2' in methods) {
+    if (('af2' in methods) || ('af2_mono' in methods)) {
         if (MsaSubsample.isEnabled(params.msa_subsample)) {
             ch_af2_in = FOLD_MSA.out.af2_msas
                 .join(FOLD_MSA.out.a3m.map { meta, fasta, a3m -> [meta, a3m] })

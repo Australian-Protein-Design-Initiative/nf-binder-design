@@ -38,7 +38,9 @@ workflow FOLD_MSA {
     msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
 
     main:
-    def need_af2_msas = 'af2' in methods
+    // af2_mono consumes the same per-chain AF2 msas dir as af2; only the in-task
+    // features.pkl assembly differs. See FOLD_PULLDOWN_MSA for the same gate.
+    def need_af2_msas = ('af2' in methods) || ('af2_mono' in methods)
     // a3m needed for Boltz/RF3/Protenix, and for AF2 when --msa_subsample is on
     // (shallow jobs rebuild features.pkl from a subsampled a3m).
     def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) \
