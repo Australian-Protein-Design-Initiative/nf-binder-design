@@ -60,6 +60,51 @@ result stays compatible with parsers prior to 25.10.
 `nextflow lint` always parses with the strict syntax; `NXF_SYNTAX_PARSER=v1` has
 no effect on it (that variable only changes `nextflow run`).
 
+## Releasing
+
+The version number appears in three files, and there is no single source of truth --
+bump all three together:
+
+| File | Field |
+| --- | --- |
+| `nextflow.config` | `manifest.version` |
+| `CITATION.cff` | `version`, `date-released`, and the `repository-code` tree URL |
+| `CHANGELOG.md` | a new `## [X.Y.Z] - YYYY-MM-DD` heading below `## [Unreleased]` |
+
+`docs/docs/changelog.md` is a symlink to the top-level `CHANGELOG.md`, so it updates
+itself. Leave `doi:` in `CITATION.cff` alone -- it is the Zenodo *concept* DOI that
+resolves to all versions; the per-version DOI is minted by Zenodo when the GitHub
+release is published.
+
+To cut a release:
+
+```bash
+# 1. Condense the [Unreleased] entries, then close the section as the new version
+#    and bump nextflow.config + CITATION.cff.
+$EDITOR CHANGELOG.md nextflow.config CITATION.cff
+
+# 2. Commit the bump
+git commit -am "Prepare 0.3.1 release: <summary>"
+
+# 3. Tag with UNPREFIXED semver -- 0.3.1, not v0.3.1
+git tag -a 0.3.1 -m "nf-binder-design 0.3.1"
+
+# 4. Keep main and develop at the same commit, then push both plus the tag
+git push origin develop
+git push origin main
+git push origin 0.3.1
+
+# 5. Publish the release, using the new CHANGELOG section as the body
+gh release create 0.3.1 --title "0.3.1" --notes-file <(...)
+```
+
+Tags must be unprefixed semver: `.github/workflows/docs.yml` builds the versioned
+documentation from tags matching `v*` or `[0-9]+.[0-9]+.[0-9]+`, and every existing tag
+in the repository is unprefixed (`0.3.0`, `0.2.0`, ...). Pushing the tag is what
+publishes the immutable `/X.Y.Z/` docs; pushes to `main` and `develop` update the
+floating docs for those branches.
+
+
 ## License
 
 The `nf-binder-design` pipeline code is licensed under the MIT License.

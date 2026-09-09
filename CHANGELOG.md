@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-09-09
+
 ### Added
 - BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.
 - Automatic datestamped Nextflow report/trace/timeline/dag under `${outdir}/logs/` (no DATESTAMP / `-with-report` / `-with-trace` needed in wrappers).
@@ -20,11 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.
 - BindCraft: process now fails (non-zero exit) when `bindcraft.py` crashes; previously `| tee bindcraft.log` masked the Python exit code so Nextflow marked the task COMPLETED.
-- `bin/ipsae.py` RF3 support: treat RF3 as its own input format (not a nested AF3 mode), read the scalar `iptm` from RF3 summary JSON instead of the AF3-only `chain_pair_iptm` matrix, auto-detect RF3 vs AF3 from summary contents, and index per-atom pLDDT correctly for RF3 mmCIF files (atoms numbered from 0).
-- `bin/ipsae.py`: detect the structure format from the real file extension rather than a substring match. The rfd3 workflow carries the RFdiffusion3 backbone filename into the design id, so Boltz writes files like `<design>_model_0.cif_b0_d1_model_0.pdb` — a PDB whose name contains `.cif`. Those were parsed as mmCIF, leaving `atomsitefield_dict` empty and failing with `KeyError: 'id'`.
+- `bin/ipsae.py`: score RF3, native AF2 and Protenix predictions correctly. RF3 is now its own input format (scalar `iptm`, 0-indexed per-atom pLDDT) rather than an AF3 variant; list-wrapped AF2 `pae_model_*.json` and Protenix full-data JSON are accepted; and the structure format is detected from the real file extension, fixing `KeyError: 'id'` on rfd3/Boltz outputs whose `.pdb` filename embeds `.cif`.
 - rfd3 modules pull `rc-foundry:0.2.0-weights` as an ordinary container image instead of `oras://`. The image was rebuilt as a multi-layer OCI image, so an `oras://` pull now fails with `ORAS SIF image should have a single layer, found 20`.
-- `bin/ipsae.py`: unwrap list-wrapped native AF2 `pae_model_*.json` so ipSAE can read `predicted_aligned_error`.
-- `bin/ipsae.py`: accept Protenix full-data JSON (`token_pair_pae`, `atom_plddt`, `*_summary_confidence_sample_N.json`) and scale 0–1 pLDDT like RF3.
 
 ## [0.3.0] - 2026-07-09
 
