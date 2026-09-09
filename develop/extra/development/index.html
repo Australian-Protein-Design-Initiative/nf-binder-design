@@ -84,6 +84,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#linting">Linting</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#releasing">Releasing</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#license">License</a>
     </li>
     </ul>
@@ -168,6 +170,59 @@ strict syntax; if you need to reformat, run it with <code>NXF_VER=25.04.7</code>
 result stays compatible with parsers prior to 25.10.</p>
 <p><code>nextflow lint</code> always parses with the strict syntax; <code>NXF_SYNTAX_PARSER=v1</code> has
 no effect on it (that variable only changes <code>nextflow run</code>).</p>
+<h2 id="releasing">Releasing</h2>
+<p>The version number appears in three files, and there is no single source of truth --
+bump all three together:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Field</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nextflow.config</code></td>
+<td><code>manifest.version</code></td>
+</tr>
+<tr>
+<td><code>CITATION.cff</code></td>
+<td><code>version</code>, <code>date-released</code>, and the <code>repository-code</code> tree URL</td>
+</tr>
+<tr>
+<td><code>CHANGELOG.md</code></td>
+<td>a new <code>## [X.Y.Z] - YYYY-MM-DD</code> heading below <code>## [Unreleased]</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>docs/docs/changelog.md</code> is a symlink to the top-level <code>CHANGELOG.md</code>, so it updates
+itself. Leave <code>doi:</code> in <code>CITATION.cff</code> alone -- it is the Zenodo <em>concept</em> DOI that
+resolves to all versions; the per-version DOI is minted by Zenodo when the GitHub
+release is published.</p>
+<p>To cut a release:</p>
+<pre><code class="language-bash"># 1. Condense the [Unreleased] entries, then close the section as the new version
+#    and bump nextflow.config + CITATION.cff.
+$EDITOR CHANGELOG.md nextflow.config CITATION.cff
+
+# 2. Commit the bump
+git commit -am &quot;Prepare 0.3.1 release: &lt;summary&gt;&quot;
+
+# 3. Tag with UNPREFIXED semver -- 0.3.1, not v0.3.1
+git tag -a 0.3.1 -m &quot;nf-binder-design 0.3.1&quot;
+
+# 4. Keep main and develop at the same commit, then push both plus the tag
+git push origin develop
+git push origin main
+git push origin 0.3.1
+
+# 5. Publish the release, using the new CHANGELOG section as the body
+gh release create 0.3.1 --title &quot;0.3.1&quot; --notes-file &lt;(...)
+</code></pre>
+<p>Tags must be unprefixed semver: <code>.github/workflows/docs.yml</code> builds the versioned
+documentation from tags matching <code>v*</code> or <code>[0-9]+.[0-9]+.[0-9]+</code>, and every existing tag
+in the repository is unprefixed (<code>0.3.0</code>, <code>0.2.0</code>, ...). Pushing the tag is what
+publishes the immutable <code>/X.Y.Z/</code> docs; pushes to <code>main</code> and <code>develop</code> update the
+floating docs for those branches.</p>
 <h2 id="license">License</h2>
 <p>The <code>nf-binder-design</code> pipeline code is licensed under the MIT License.</p>
 <blockquote>
