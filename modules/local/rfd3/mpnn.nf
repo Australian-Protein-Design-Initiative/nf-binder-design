@@ -1,5 +1,5 @@
 process MPNN {
-    container 'oras://ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.2.0-weights'
+    container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.2.0-weights'
 
     publishDir path: "${params.outdir}/rfd3/mpnn", pattern: 'output/*.cif', mode: 'copy'
     publishDir path: "${params.outdir}/rfd3/mpnn", pattern: 'output/*.fa', mode: 'copy'
