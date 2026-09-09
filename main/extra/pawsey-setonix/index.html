@@ -164,7 +164,6 @@ export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
 export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
 mkdir -p &quot;${SINGULARITY_TMPDIR}&quot;
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p results/logs
 
 nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
@@ -178,9 +177,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res &quot;A56&quot; \
   --rfd_n_designs=4 \
   -profile pawsey_setonix \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 </code></pre>
 <h2 id="details">Details</h2>
 <p>To run the pipeline on Setonix using <code>-profile pawsey_setonix</code>, you need to load the correct modules, set (or unset) some environment variables, and use the correct SLURM account.</p>

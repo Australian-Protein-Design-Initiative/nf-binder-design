@@ -293,16 +293,12 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --hotspot_res &quot;A473,A995,A411,A421&quot; \
     --rfd_n_designs=10 \
     --rfd_batch_size 1 \
-    -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
-    -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
     -resume \
     -profile local
 </code></pre>
 <h3 id="parallel-tasks-on-an-hpc-cluster">Parallel tasks on an HPC Cluster</h3>
 <p>Here's a more complex 'kitchen sink' example using <code>-profile slurm,m3</code> for the M3 HPC cluster:</p>
 <pre><code class="language-bash">#!/bin/bash
-
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Ensure tmp directory has enough space
 export TMPDIR=$(realpath ./tmp)
@@ -339,9 +335,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --refold_target_fasta='input/full/target.fasta' \
     --refold_target_templates='input/full/' \
     -profile slurm,m3 \
-    -resume \
-    -with-report results/logs/report_${DATESTAMP}.html \
-    -with-trace results/logs/trace_${DATESTAMP}.txt
+    -resume
 </code></pre>
 <h3 id="key-parameters">Key Parameters</h3>
 <table>
@@ -497,8 +491,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --rfd_batch_size=5 \
     --hotspot_res &quot;A473,A995,A411,A421&quot; \
     --rfd_partial_T=2,5,10,20 \
-    -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
-    -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
     -profile local
 </code></pre>
 <p>The other <code>--refold_</code> parameters, as used above for the <code>--method rfd</code> workflow, can also be used here if you'd like to refold the best designs with Boltz-2.</p>
