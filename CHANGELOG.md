@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.
 - BindCraft: process now fails (non-zero exit) when `bindcraft.py` crashes; previously `| tee bindcraft.log` masked the Python exit code so Nextflow marked the task COMPLETED.
 - `bin/ipsae.py` RF3 support: treat RF3 as its own input format (not a nested AF3 mode), read the scalar `iptm` from RF3 summary JSON instead of the AF3-only `chain_pair_iptm` matrix, auto-detect RF3 vs AF3 from summary contents, and index per-atom pLDDT correctly for RF3 mmCIF files (atoms numbered from 0).
+- `bin/ipsae.py`: detect the structure format from the real file extension rather than a substring match. The rfd3 workflow carries the RFdiffusion3 backbone filename into the design id, so Boltz writes files like `<design>_model_0.cif_b0_d1_model_0.pdb` — a PDB whose name contains `.cif`. Those were parsed as mmCIF, leaving `atomsitefield_dict` empty and failing with `KeyError: 'id'`.
 - `bin/ipsae.py`: unwrap list-wrapped native AF2 `pae_model_*.json` so ipSAE can read `predicted_aligned_error`.
 - `bin/ipsae.py`: accept Protenix full-data JSON (`token_pair_pae`, `atom_plddt`, `*_summary_confidence_sample_N.json`) and scale 0–1 pLDDT like RF3.
 
