@@ -104,6 +104,11 @@ in the repository is unprefixed (`0.3.0`, `0.2.0`, ...). Pushing the tag is what
 publishes the immutable `/X.Y.Z/` docs; pushes to `main` and `develop` update the
 floating docs for those branches.
 
+Steps 4 and 5 above trigger the `docs` workflow up to three times at once, and each run
+deploys to the same `gh-pages` branch. A `docs-deploy` concurrency group serialises them
+and a rejected push is retried, so they queue rather than clobber each other -- but they
+run one at a time, so give them a few minutes before checking that `/X.Y.Z/` is live.
+
 
 ## License
 
