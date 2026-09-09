@@ -4,7 +4,8 @@
 # dependencies = ["pytest", "numpy"]
 # ///
 
-"""Tests for bin/ipsae.py helpers (AF2 list-wrapped PAE JSON, Protenix key aliases)."""
+"""Tests for bin/ipsae.py helpers (structure extension detection, AF2 list-wrapped
+PAE JSON, Protenix key aliases)."""
 
 import importlib.util
 from pathlib import Path
@@ -37,3 +38,24 @@ def test_summary_confidences_path_protenix(tmp_path):
     summary.write_text("{}")
     got = ipsae.summary_confidences_path(str(pae))
     assert Path(got).name == "cx_summary_confidence_sample_0.json"
+
+
+def test_split_structure_name_uses_real_extension():
+    assert ipsae.split_structure_name("model_0.cif") == ("model_0", True)
+    assert ipsae.split_structure_name("model_0.pdb") == ("model_0", False)
+    assert ipsae.split_structure_name("model_0.npz") is None
+
+
+def test_split_structure_name_ignores_embedded_extension():
+    # rfd3 -> Boltz names carry the RFdiffusion3 backbone filename, extension and
+    # all, in the middle of the design id. This must still read as a PDB.
+    name = "epea_tipfix_0_model_0.cif_b0_d1_model_0.pdb"
+    assert ipsae.split_structure_name(name) == (
+        "epea_tipfix_0_model_0.cif_b0_d1_model_0",
+        False,
+    )
+
+
+def test_resolve_input_format_embedded_cif_in_pdb_name():
+    name = "epea_tipfix_0_model_0.cif_b0_d1_model_0.pdb"
+    assert ipsae.resolve_input_format("auto", name, "whatever_pae.json") == "af2"
