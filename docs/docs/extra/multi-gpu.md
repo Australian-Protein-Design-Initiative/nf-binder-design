@@ -95,6 +95,8 @@ scheduling -- see the throughput notes below.
 | `--gpu_slots_per_device` | `1` | Concurrent tasks allowed per GPU. Override per process with `ext.gpu_slots`. |
 | `--gpu_lock_timeout` | `14400` | Seconds a task waits for a free GPU before failing. |
 | `--gpu_lock_dir` | `<workDir>/.gpu_locks` | Where lock files live. Must be shared by all tasks and visible inside containers. |
+| `--gpu_trace_dir` | `<workDir>/.gpu_trace` | Where per-task GPU records are written before aggregation. Same constraints as `--gpu_lock_dir`. |
+| `--gpu_trace_file` | `<outdir>/logs/gpu_trace_<datestamp>.txt` | Aggregated GPU trace for the run. |
 
 Every process that runs a model claims a GPU, including MPNN. That matters
 because MPNN's inference engine falls back to `torch.device("cuda")`, i.e. the
@@ -147,6 +149,71 @@ against 3.4 GB of VRAM, so a 26 GB executor budget already caps concurrency at
 two heavy tasks whatever the slot count says. Declare process `memory` honestly
 -- under-declaring lets Nextflow dispatch more tasks than fit and the machine
 swaps, which costs far more than an idle GPU.
+
+## Recording which GPU ran what
+
+Nextflow's `trace_*.txt` records what every task cost, but never which device it
+ran on, and there is no way to add that as a trace column: trace observers run
+in the head process, while the device is chosen inside the container. So each
+task records it itself.
+
+Every GPU task writes one row to `<outdir>/logs/gpu_trace_<datestamp>.txt`,
+which shares its datestamp with the `trace_`, `report_` and `timeline_` files
+from the same run:
+
+```
+timestamp             hash       process            hostname  n_gpus  gpu_index  gpu_uuid        gpu_name                 driver_version  memory_total_mib  cuda_visible_devices
+2026-09-10T07:04:27Z  92/031dcb  RFD3:ROSETTAFOLD3  vrboxen   1       0          GPU-7f0d2332..  NVIDIA GeForce RTX 3060  580.173.02      12288             0
+2026-09-10T07:04:27Z  92/235fbd  RFD3:MPNN          vrboxen   1       1          GPU-86d6fdb2..  NVIDIA GeForce RTX 3060  580.173.02      12288             1
+```
+
+The `hash` column is the same short hash Nextflow prints and puts in the trace
+file, so the two join directly:
+
+```bash
+join -1 1 -2 2 -t $'\t' \
+  <(tail -n +2 results/logs/trace_*.txt     | sort -k2,2 | awk -F'\t' -v OFS='\t' '{print $2,$4,$9}') \
+  <(tail -n +2 results/logs/gpu_trace_*.txt | sort -k2,2)
+```
+
+Notes on how it behaves:
+
+- **It records regardless of who chose the device.** The row is written whether
+  the GPU came from the lock, from SLURM, or from nothing at all. On a
+  heterogeneous cluster that is the point -- the model of card a task landed on
+  explains a lot of otherwise puzzling variance in `realtime`.
+- **`cuda_visible_devices` is `-` when nothing set it.** The task could see
+  every GPU on the node and PyTorch picked one unsupervised, so `gpu_index`
+  lists them all and `n_gpus` counts them all. A column of `-` under
+  `-profile local` means `--gpu_devices` was never passed.
+- **`-resume` keeps the history.** Records live in the work directory, one file
+  per task hash, so a resumed run still reports the GPU its cached tasks ran on
+  when they actually executed. A re-run task overwrites only its own record.
+- **It cannot fail a task or a run.** This is diagnostic output, so every
+  failure degrades to a missing row. The recording call is `|| true`, which in
+  bash also suspends `set -e` for the whole function body, so nothing inside it
+  can abort the script. Tested: `nvidia-smi` absent, returning garbage, exiting
+  non-zero, or hanging forever; a bogus `CUDA_VISIBLE_DEVICES`; an unwritable,
+  missing or non-directory trace path; and no `hostname` command. In each case
+  the task ran to completion.
+
+    A wedged driver is the one worth calling out. `nvidia-smi` can block
+    indefinitely, and a task hanging forever while holding a Nextflow slot is
+    worse than one that skips a row, so the call is wrapped in `timeout 10`.
+
+    Aggregation is equally contained. An exception escaping
+    `workflow.onComplete` is reported as `Failed to invoke workflow.onComplete
+    event handler`, which makes a successful run look failed, so the whole
+    handler is wrapped and degrades to a warning. Records that cannot be read
+    are skipped individually, and rows whose column count does not match the
+    header are dropped rather than written into the output.
+
+!!! warning "One thing here is deliberately fatal"
+
+    If `--gpu_devices` is set and `bin/gpu_lock.sh` cannot be sourced, the task
+    fails. A GPU claim was asked for and could not be made, and running anyway
+    would put tasks on the same card. Only the recording is optional; the
+    allocation is not.
 
 ## Why not detect busy GPUs with `nvidia-smi`?
 
