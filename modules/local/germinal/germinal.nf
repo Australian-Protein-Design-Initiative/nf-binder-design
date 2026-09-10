@@ -60,10 +60,10 @@ process GERMINAL {
         nvidia-smi
     fi
 
+    # Claim a GPU for this task's lifetime (bin/gpu_lock.sh).
     if [[ -n "${params.gpu_devices}" ]]; then
-        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.germinal_gpu_allocation_detect_process_regex}" --random-wait 2)
-        export CUDA_VISIBLE_DEVICES="\$free_gpu"
-        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+        source ${projectDir}/bin/gpu_lock.sh
+        nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
     fi
 
     export XLA_PYTHON_CLIENT_PREALLOCATE=false

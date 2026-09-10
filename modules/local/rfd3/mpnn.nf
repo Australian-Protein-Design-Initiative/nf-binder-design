@@ -16,6 +16,12 @@ process MPNN {
     """
     set -euo pipefail
 
+    # Claim a GPU for this task's lifetime (bin/gpu_lock.sh).
+    if [[ -n "${params.gpu_devices}" ]]; then
+        source ${projectDir}/bin/gpu_lock.sh
+        nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
+    fi
+
     mkdir -p output
 
     mpnn \

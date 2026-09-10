@@ -26,7 +26,8 @@ params.bindcraft_compress_html = true
 params.bindcraft_compress_pdb = true
 params.require_gpu = true
 params.gpu_devices = ''
-params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
+params.gpu_slots_per_device = 1
+params.gpu_lock_timeout = 14400
 
 params.do_foldseek = false
 params.foldseek_database = 'CATH50'
@@ -218,7 +219,8 @@ workflow BINDCRAFT {
 
             --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
             --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
-            --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+            --gpu_slots_per_device  Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
+            --gpu_lock_timeout      Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
         FoldSeek (optional, enabled with --do_foldseek):
             --do_foldseek                 Enable FoldSeek structural similarity search on accepted designs
