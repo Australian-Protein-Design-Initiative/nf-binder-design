@@ -176,12 +176,31 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   -resume
 ```
 
-For multi-GPU workstations, base the configuration on `examples/*/nextflow.dual-gpu.config` (e.g. `examples/pdl1-rfd3/nextflow.dual-gpu.config`). Pass it with `-c nextflow.dual-gpu.config` and set `--gpu_devices=0,1` (or similar). The config must:
+### Multi-GPU workstations
 
-- Set a slower than default `submitRateLimit` (e.g. `'1/10sec'` or `'1/2sec'`) to reduce race conditions in the busy-GPU detection preamble for each task.
-- Set `maxForks` on GPU processes to the number of available GPUs (see the example configs for `RFDIFFUSION3`, `ROSETTAFOLD3`, `BOLTZ_COMPARE_*`, etc.).
+Pass `--gpu_devices=0,1` (or `all`) and base the configuration on `examples/*/nextflow.dual-gpu.config`, e.g.:
 
-**However**, local multi-GPU execution remains unreliable — race conditions in GPU allocation are common even with tuning. **Prefer single-GPU execution** (`--gpu_devices 0`) with sequential runs unless you are on a SLURM cluster where the scheduler handles GPU assignment. Do not use `--gpu_devices=0,1` with SLURM — the scheduler assigns GPUs.
+```bash
+nextflow run main.nf --method rfd3 --gpu_devices 0,1 \
+  -profile local -c nextflow.dual-gpu.config -resume
+```
+
+Each GPU task sources `bin/gpu_lock.sh` and claims a `flock`-backed slot for its lifetime. The claim is atomic and the kernel releases it when the task exits (including on SIGKILL), so tasks cannot collide on a card and there are no stale locks to clean up. Slots fill breadth-first, so an idle card is always preferred over a second slot on a busy one.
+
+Do **not** pass `--gpu_devices` under SLURM: the scheduler assigns GPUs and sets `CUDA_VISIBLE_DEVICES` itself. Leaving it unset (the default) disables the in-pipeline allocator.
+
+Key points when writing a local multi-GPU config:
+
+- **Do not set `submitRateLimit`.** It throttles dispatch regardless of GPU availability. It only ever existed to space out the old `nvidia-smi` VRAM probe, which no longer exists.
+- **Keep `pollInterval` short** (1-2 s). It is the delay between a task finishing and the next being dispatched onto the card that just freed.
+- **`gpu_slots_per_device` defaults to 1**, one task per card. Override per process with `ext.gpu_slots` for processes with VRAM headroom (RFDIFFUSION3 and MPNN peak around 3.4 GB and 3 GB), and raise that process's `maxForks` to `gpu_slots × nGPU` to match. Raising `maxForks` beyond the total slot count just makes tasks block on the lock while holding a memory reservation.
+- **Declare process `memory` honestly.** Host RAM is usually the binding constraint, not VRAM: a RosettaFold3 task peaks around 11.5 GB of host RAM against 3.4 GB of VRAM. Under-declaring lets Nextflow overcommit and the machine swaps.
+
+**Throughput: batch sizes matter more than GPU scheduling.** Roughly 25 s of every RosettaFold3 task is Python imports and checkpoint loading before any GPU work starts, paid once per task. `--rf3_batch_size` and `--mpnn_batch_size` amortise that with no cost to design diversity. `--rfd3_batch_size` also amortises it, **but every design in an RFdiffusion3 batch is sampled at the same length**, so raising it trades binder length diversity for speed - `--rfd3_batch_size 2` over 100 designs gives 50 independent length draws, not 100.
+
+**Which GPU ran what** is recorded to `<outdir>/logs/gpu_trace_<datestamp>.txt`, one row per GPU task: hostname, `n_gpus`, and the GPU index, UUID, model, driver version and memory. It shares its datestamp with `trace_<datestamp>.txt` and joins to it on the `hash` column. This happens automatically, under SLURM as well as locally. It is strictly diagnostic and cannot fail a task: a missing, broken or hung `nvidia-smi`, an unwritable trace directory, or an unreadable record all degrade to a missing row. The one deliberate exception is that if `--gpu_devices` is set and `bin/gpu_lock.sh` cannot be sourced, the task fails, because a requested GPU claim could not be made.
+
+See `docs/docs/extra/multi-gpu.md` for the full explanation, including why `nvidia-smi` cannot be used to detect busy GPUs under containers, and how this compares to HyperQueue.
 
 ---
 

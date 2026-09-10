@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. Nextflow's own trace cannot carry this, because trace observers run in the head process while the device is chosen inside the container. The `hash` column is the short hash Nextflow prints, so the file joins directly to `trace_<datestamp>.txt`. Records are kept per task in the work directory, so `-resume` still reports the GPU a cached task originally ran on. The recording is strictly diagnostic and cannot fail a task or a run: a missing, broken or hung `nvidia-smi` (bounded by `timeout 10`), an unwritable trace directory, an unreadable record, or a malformed row all degrade to a missing row, and the aggregation step cannot escape `workflow.onComplete` as an error. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
+
+### Changed
+- Local multi-GPU allocation is now enforced with per-GPU `flock` locks (`bin/gpu_lock.sh`) instead of probing `nvidia-smi`. A task claims a GPU atomically and holds it for its lifetime; the kernel releases the claim when the task exits, so there are no stale locks even after a kill or crash. Slots fill breadth-first, so an idle card always wins over a second slot on a busy one. Measured on a dual RTX 3060 with only the allocation mechanism changed: time with both GPUs working rose from 15.9% to 27.0%, time with one card stacked while the other idled fell from 15.7% to 3.9%, at unchanged wall clock. New parameters: `--gpu_slots_per_device` (default 1, one task per card), `--gpu_lock_timeout`, `--gpu_lock_dir`. Individual processes can be given more slots with `ext.gpu_slots` where their VRAM footprint leaves headroom. See [Multiple GPUs](https://australian-protein-design-initiative.github.io/nf-binder-design/extra/multi-gpu/).
+- Local multi-GPU example configs drop `submitRateLimit` and shorten `pollInterval`. Both existed to work around the old allocation race and cost throughput directly: `'1/10sec'` capped dispatch at six tasks a minute, and a 30 s poll interval left a freed GPU idle for up to 30 s.
+
+### Removed
+- `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection could never work under containers: Apptainer runs with `--pid`, so `nvidia-smi --query-compute-apps` inside the container reports no processes regardless of load (measured: 250 of 250 task logs), leaving only a racy lowest-`memory.used` heuristic. Set `--gpu_devices` to enable the lock-based allocator instead.
+
 ### Fixed
+- Local multi-GPU runs no longer stack tasks on one card while another sits idle ([#14](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/issues/14)).
 - docs workflow: `main`, `develop` and tag pushes no longer race each other deploying to `gh-pages`. A release triggered all three at once and two failed with `cannot lock ref 'refs/heads/gh-pages'`, so the versioned docs were never published. Runs are now serialised and a rejected push is retried.
 
 ## [0.3.1] - 2026-09-09

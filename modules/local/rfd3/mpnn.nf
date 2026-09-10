@@ -16,6 +16,19 @@ process MPNN {
     """
     set -euo pipefail
 
+    # Claim a GPU for this task's lifetime, then record which card we got
+    # (bin/gpu_lock.sh). The claim is required, and fails the task if it cannot
+    # be made. The recording is diagnostic, and must never fail the task -- the
+    # `|| true` also suspends `set -e` for the whole function body, so nothing
+    # inside it can abort the script either.
+    if [[ -n "${params.gpu_devices}" ]]; then
+        source ${projectDir}/bin/gpu_lock.sh
+        nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
+    else
+        source ${projectDir}/bin/gpu_lock.sh || true
+    fi
+    nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
+
     mkdir -p output
 
     mpnn \
