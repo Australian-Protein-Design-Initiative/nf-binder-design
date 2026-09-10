@@ -112,6 +112,37 @@ def design_trajectory_id(name: str) -> str:
     return stem
 
 
+def wilson_ci(k, n, conf=0.95):
+    """Wilson score interval for a binomial proportion (k successes / n trials)."""
+    if n <= 0:
+        return (np.nan, np.nan)
+    from scipy.stats import norm
+
+    z = norm.ppf(0.5 + conf / 2)
+    p = k / n
+    denom = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return (max(0.0, center - half), min(1.0, center + half))
+
+
+def fmt_rate_ci(k, n):
+    if n <= 0:
+        return "n/a"
+    lo, hi = wilson_ci(k, n)
+    return f"{k / n * 100:.1f}% (95% CI {lo * 100:.1f}-{hi * 100:.1f}%)"
+
+
+def length_bin_label(length: int) -> str:
+    bin_start = (int(length) // 10) * 10
+    return f"{bin_start}-{bin_start + 9}"
+
+
+def parse_binder_length_from_name(name: str):
+    match = re.search(r"_l(\d+)_", Path(name).name)
+    return int(match.group(1)) if match else None
+
+
 def list_pdb_files(directory_pattern):
     files = []
     for path in Path(".").glob(directory_pattern):
@@ -216,6 +247,13 @@ for _df in (final_design_df, trajectory_df, mpnn_design_df):
 if total_trajectories > 0:
     rate_unique = (accepted_unique_count / total_trajectories) * 100
     rate_all = (accepted_all_count / total_trajectories) * 100
+    ci_unique_lo, ci_unique_hi = wilson_ci(accepted_unique_count, total_trajectories)
+    ci_all_lo, ci_all_hi = wilson_ci(accepted_all_count, total_trajectories)
+    multi_target_note = (
+        " Total trajectories sum across all input structures (multi-PDB runs)."
+        if has_multiple_targets
+        else ""
+    )
     html_content = f"""
     <div style="
         border: 2px solid #3498db;
@@ -226,13 +264,13 @@ if total_trajectories > 0:
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     ">
         <h2 style="text-align: center; font-size: 28px; color: #2c3e50; margin: 0 0 8px 0;">
-            Accept rate: {rate_unique:.1f}% ({accepted_unique_count} unique / {total_trajectories} trajectories)
+            Accept rate: {rate_unique:.1f}% (95% CI {ci_unique_lo * 100:.1f}-{ci_unique_hi * 100:.1f}%) ({accepted_unique_count} unique / {total_trajectories} trajectories)
         </h2>
         <p style="text-align: center; color: #5d6d7e; margin: 0 0 4px 0; font-size: 14px;">
-            Headline rate collapses MPNN duplicates (multiple accepted sequences from the same trajectory count once).
+            Headline rate collapses MPNN duplicates (multiple accepted sequences from the same trajectory count once). Wilson 95% CI assumes independent Bernoulli trials.{multi_target_note}
         </p>
         <p style="text-align: center; color: #5d6d7e; margin: 0 0 16px 0; font-size: 14px;">
-            Including MPNN duplicates: {rate_all:.1f}% ({accepted_all_count} accepted / {total_trajectories} trajectories)
+            Including MPNN duplicates: {rate_all:.1f}% (95% CI {ci_all_lo * 100:.1f}-{ci_all_hi * 100:.1f}%) ({accepted_all_count} accepted / {total_trajectories} trajectories)
         </p>
         <table style="
             width: 100%;
@@ -307,6 +345,8 @@ if has_multiple_targets and target_stats:
         total = s["relaxed"] + s["lowconf"] + s["clashing"]
         rate_u = (s["accepted_unique"] / total * 100) if total else 0.0
         rate_a = (s["accepted_all"] / total * 100) if total else 0.0
+        ci_u = fmt_rate_ci(s["accepted_unique"], total)
+        ci_a = fmt_rate_ci(s["accepted_all"], total)
         rows_html.append(
             f"""
             <tr>
@@ -316,6 +356,8 @@ if has_multiple_targets and target_stats:
                 <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{s["accepted_all"]}</td>
                 <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{rate_u:.1f}%</td>
                 <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{rate_a:.1f}%</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{ci_u}</td>
+                <td style="padding: 10px 12px; border: 1px solid #bdc3c7; text-align: center;">{ci_a}</td>
             </tr>
             """
         )
@@ -337,6 +379,8 @@ if has_multiple_targets and target_stats:
                 <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accepted (all MPNN)</th>
                 <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accept rate (unique)</th>
                 <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">Accept rate (all)</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">95% CI (unique)</th>
+                <th style="padding: 10px 12px; border: 1px solid #bdc3c7;">95% CI (all)</th>
             </tr>
             {"".join(rows_html)}
         </table>
@@ -348,9 +392,7 @@ if has_multiple_targets and target_stats:
 > Note that the total number of attempted trajectories is often > `--bindcraft_n_traj` because this value represents the number of desired _relaxed_ trajectories, and some tasks make multiple trajectory attempts due to clashing or low confidence ones being rejected.
 
 ```{python}
-# | label: target-metric-boxplots
-# | fig-width: 10
-# | fig-height: 6
+# | label: target-comparison-helpers
 # | message: false
 
 from itertools import combinations
@@ -575,25 +617,230 @@ def _show_target_comparison_skip(title, reason):
     </div>
     """
     display(HTML(html_content))
+```
 
+# Accept Rate by Binder Length
+
+Stratification of trajectory scores and accept rates by binder length (10-residue bins).
+
+```{python}
+# | label: length-stratification
+# | fig-width: 10
+# | fig-height: 6
+# | message: false
+
+trajectory_outcome_dirs = (
+    "./batches/*/results/Trajectory/Relaxed",
+    "./batches/*/results/Trajectory/LowConfidence",
+    "./batches/*/results/Trajectory/Clashing",
+)
+
+trajectory_lengths = []
+for pattern in trajectory_outcome_dirs:
+    for pdb_path in list_pdb_files(pattern):
+        length = parse_binder_length_from_name(pdb_path.name)
+        if length is not None:
+            trajectory_lengths.append(length)
+
+denominator_fallback = False
+if not trajectory_lengths and trajectory_df is not None and "Length" in trajectory_df.columns:
+    trajectory_lengths = trajectory_df["Length"].dropna().astype(int).tolist()
+    denominator_fallback = True
+
+accepted_by_length = defaultdict(set)
+if final_design_df is not None and "Design" in final_design_df.columns and "Length" in final_design_df.columns:
+    for _, row in final_design_df.iterrows():
+        if pd.isna(row["Length"]):
+            continue
+        accepted_by_length[int(row["Length"])].add(design_trajectory_id(row["Design"]))
+else:
+    for pdb_path in list_pdb_files("./batches/*/results/Accepted"):
+        length = parse_binder_length_from_name(pdb_path.name)
+        if length is not None:
+            accepted_by_length[length].add(design_trajectory_id(pdb_path.name))
+
+has_length_data = bool(trajectory_lengths) or bool(accepted_by_length)
+
+if not has_length_data:
+    _show_target_comparison_skip(
+        "Accept rate by binder length",
+        "no binder length data available in trajectory PDBs or stats CSVs",
+    )
+else:
+    if denominator_fallback:
+        print(
+            "Note: trajectory counts per length bin use relaxed trajectories only "
+            "(could not parse lengths from trajectory PDB filenames)."
+        )
+
+    # i_pTM boxplot by length range (relaxed trajectories from trajectory_stats.csv)
+    if (
+        trajectory_df is not None
+        and len(trajectory_df) > 0
+        and "Length" in trajectory_df.columns
+        and "i_pTM" in trajectory_df.columns
+    ):
+        traj_plot_df = trajectory_df[["Length", "i_pTM"]].dropna().copy()
+        traj_plot_df["Length"] = traj_plot_df["Length"].astype(int)
+        traj_plot_df["length_bin"] = traj_plot_df["Length"].map(length_bin_label)
+        bin_order = sorted(
+            traj_plot_df["length_bin"].unique(),
+            key=lambda label: int(label.split("-", 1)[0]),
+        )
+
+        plot_data = []
+        labels = []
+        for label in bin_order:
+            data = traj_plot_df.loc[traj_plot_df["length_bin"] == label, "i_pTM"].astype(float)
+            if len(data) > 0:
+                plot_data.append(data.values)
+                labels.append(label)
+
+        if plot_data:
+            fig, ax = plt.subplots(figsize=(max(8, len(labels) * 0.9), 6))
+            bp = ax.boxplot(plot_data, patch_artist=True, labels=labels)
+            colors = plt.cm.Set3(np.linspace(0, 1, len(plot_data)))
+            for patch, color in zip(bp["boxes"], colors):
+                patch.set_facecolor(color)
+            for median in bp["medians"]:
+                median.set_color("black")
+            for j, data in enumerate(plot_data):
+                jitter = np.random.normal(0, boxplot_jitter, len(data))
+                ax.plot(
+                    np.ones(len(data)) * (j + 1) + jitter,
+                    data,
+                    "o",
+                    color="black",
+                    alpha=0.5,
+                    markersize=4,
+                )
+
+            kw_stat, kw_p, kw_note = _kruskal_wallis(plot_data)
+            if kw_p is not None:
+                subtitle = f"Kruskal-Wallis {_format_pvalue(kw_p)}"
+                if kw_p < 0.05:
+                    subtitle += " *"
+            else:
+                subtitle = f"Kruskal-Wallis n/a ({kw_note})"
+            ax.set_title(
+                f"i_pTM by binder length range (relaxed trajectories)\n{subtitle}",
+                fontsize=12,
+                fontweight="bold",
+            )
+            ax.set_xlabel("Binder length (residues)")
+            ax.set_ylabel("i_pTM")
+            ax.tick_params(axis="x", rotation=30)
+            ax.grid(True, axis="y", alpha=0.3)
+            plt.tight_layout()
+            plt.show()
+
+    # Accept rate per length range with Wilson 95% CIs
+    trials_by_bin = defaultdict(int)
+    for length in trajectory_lengths:
+        trials_by_bin[length_bin_label(length)] += 1
+
+    accepted_by_bin = defaultdict(int)
+    for length, traj_ids in accepted_by_length.items():
+        accepted_by_bin[length_bin_label(length)] += len(traj_ids)
+
+    all_bins = sorted(
+        set(trials_by_bin) | set(accepted_by_bin),
+        key=lambda label: int(label.split("-", 1)[0]),
+    )
+
+    rate_rows = []
+    for label in all_bins:
+        n_trials = trials_by_bin.get(label, 0)
+        n_accepted = accepted_by_bin.get(label, 0)
+        if n_trials == 0:
+            continue
+        lo, hi = wilson_ci(n_accepted, n_trials)
+        rate_rows.append(
+            {
+                "Length range": label,
+                "Trajectories": n_trials,
+                "Accepted (unique)": n_accepted,
+                "Accept rate": n_accepted / n_trials,
+                "CI low": lo,
+                "CI high": hi,
+            }
+        )
+
+    if rate_rows:
+        rate_df = pd.DataFrame(rate_rows)
+        rate_df["Accept rate %"] = rate_df["Accept rate"] * 100
+        rate_df["95% CI"] = rate_df.apply(
+            lambda row: f"{row['CI low'] * 100:.1f}-{row['CI high'] * 100:.1f}%",
+            axis=1,
+        )
+
+        fig, ax = plt.subplots(figsize=(max(8, len(rate_df) * 0.9), 6))
+        x = np.arange(len(rate_df))
+        y = rate_df["Accept rate %"].values
+        yerr = np.vstack(
+            [
+                y - rate_df["CI low"].values * 100,
+                rate_df["CI high"].values * 100 - y,
+            ]
+        )
+        ax.errorbar(
+            x,
+            y,
+            yerr=yerr,
+            fmt="o",
+            color="#2c3e50",
+            ecolor="#7f8c8d",
+            capsize=4,
+            markersize=8,
+        )
+        ax.set_xticks(x)
+        ax.set_xticklabels(rate_df["Length range"], rotation=30)
+        ax.set_xlabel("Binder length (residues)")
+        ax.set_ylabel("Accept rate (%)")
+        ax.set_title(
+            "Accept rate by binder length range\n(Wilson 95% CI; unique accepted trajectories / all trajectory attempts)",
+            fontsize=12,
+            fontweight="bold",
+        )
+        ax.set_ylim(bottom=0)
+        ax.grid(True, axis="y", alpha=0.3)
+        for i, row in rate_df.iterrows():
+            ax.annotate(
+                f"{int(row['Accepted (unique)'])}/{int(row['Trajectories'])}",
+                (i, row["Accept rate %"]),
+                textcoords="offset points",
+                xytext=(0, 8),
+                ha="center",
+                fontsize=8,
+            )
+        plt.tight_layout()
+        plt.show()
+
+        display_table = rate_df[
+            ["Length range", "Trajectories", "Accepted (unique)", "Accept rate %", "95% CI"]
+        ].copy()
+        display_table["Accept rate %"] = display_table["Accept rate %"].map("{:.1f}%".format)
+        display(
+            display_table.style.hide(axis="index")
+        )
+    else:
+        _show_target_comparison_skip(
+            "Accept rate by binder length",
+            "no length bins with trajectory attempts",
+        )
+```
+
+# Trajectory Metrics by Target
+
+Comparison of relaxed trajectory metrics across input structures (multi-PDB runs only).
+
+```{python}
+# | label: trajectory-metrics-by-target
+# | fig-width: 10
+# | fig-height: 6
+# | message: false
 
 if has_multiple_targets:
-    # Accepted designs first (may be skipped when only one target has accepts)
-    accepted_shown, accepted_reason = _boxplot_metrics_by_target(
-        final_design_df,
-        [
-            "Average_pLDDT",
-            "Average_i_pTM",
-            "Average_i_pAE",
-            "Average_Target_RMSD",
-            "Average_ShapeComplementarity",
-            "Average_dG",
-        ],
-        "Accepted design metrics by Target",
-    )
-    if not accepted_shown:
-        _show_target_comparison_skip("Accepted design metrics by Target", accepted_reason)
-
     traj_shown, traj_reason = _boxplot_metrics_by_target(
         trajectory_df,
         ["pLDDT", "i_pTM", "i_pAE", "Target_RMSD", "ShapeComplementarity", "dG"],
@@ -1379,6 +1626,33 @@ if final_design_df is not None and len(final_design_df) > 0:
             .hide(axis="index")
         )
         display(styled_table)
+```
+
+# Accepted Design Metrics by Target
+
+Comparison of accepted design metrics across input structures (multi-PDB runs only).
+
+```{python}
+# | label: accepted-design-metrics-by-target
+# | fig-width: 10
+# | fig-height: 6
+# | message: false
+
+if has_multiple_targets:
+    accepted_shown, accepted_reason = _boxplot_metrics_by_target(
+        final_design_df,
+        [
+            "Average_pLDDT",
+            "Average_i_pTM",
+            "Average_i_pAE",
+            "Average_Target_RMSD",
+            "Average_ShapeComplementarity",
+            "Average_dG",
+        ],
+        "Accepted design metrics by Target",
+    )
+    if not accepted_shown:
+        _show_target_comparison_skip("Accepted design metrics by Target", accepted_reason)
 ```
 
 # Hotspot Analysis

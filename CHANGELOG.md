@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.
+- BindCraft report: Wilson 95% confidence intervals on accept rates (overall, per-target, and per binder-length range); length-stratified i_pTM boxplots and accept-rate plots.
 - Automatic datestamped Nextflow report/trace/timeline/dag under `${outdir}/logs/` (no DATESTAMP / `-with-report` / `-with-trace` needed in wrappers).
 
 ### Changed
