@@ -223,6 +223,10 @@ documentation from tags matching <code>v*</code> or <code>[0-9]+.[0-9]+.[0-9]+</
 in the repository is unprefixed (<code>0.3.0</code>, <code>0.2.0</code>, ...). Pushing the tag is what
 publishes the immutable <code>/X.Y.Z/</code> docs; pushes to <code>main</code> and <code>develop</code> update the
 floating docs for those branches.</p>
+<p>Steps 4 and 5 above trigger the <code>docs</code> workflow up to three times at once, and each run
+deploys to the same <code>gh-pages</code> branch. A <code>docs-deploy</code> concurrency group serialises them
+and a rejected push is retried, so they queue rather than clobber each other -- but they
+run one at a time, so give them a few minutes before checking that <code>/X.Y.Z/</code> is live.</p>
 <h2 id="license">License</h2>
 <p>The <code>nf-binder-design</code> pipeline code is licensed under the MIT License.</p>
 <blockquote>

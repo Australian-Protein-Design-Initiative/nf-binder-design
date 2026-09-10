@@ -95,6 +95,10 @@
                 <li class="toctree-l1 current"><a class="reference internal current" href="#">Release history</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#unreleased">[Unreleased]</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#031-2026-09-09">[0.3.1] - 2026-09-09</a>
         <ul>
@@ -102,7 +106,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
     </li>
         </ul>
     </li>
@@ -112,7 +116,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
     </li>
         </ul>
     </li>
@@ -120,11 +124,11 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#removed">Removed</a>
     </li>
@@ -136,7 +140,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
     </li>
         </ul>
     </li>
@@ -154,7 +158,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_5">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_6">Fixed</a>
     </li>
         </ul>
     </li>
@@ -164,7 +168,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_6">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_6">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_7">Fixed</a>
     </li>
         </ul>
     </li>
@@ -212,6 +216,10 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]</h2>
+<h3 id="fixed">Fixed</h3>
+<ul>
+<li>docs workflow: <code>main</code>, <code>develop</code> and tag pushes no longer race each other deploying to <code>gh-pages</code>. A release triggered all three at once and two failed with <code>cannot lock ref 'refs/heads/gh-pages'</code>, so the versioned docs were never published. Runs are now serialised and a rejected push is retried.</li>
+</ul>
 <h2 id="031-2026-09-09">[0.3.1] - 2026-09-09</h2>
 <h3 id="added">Added</h3>
 <ul>
@@ -225,7 +233,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>M3 platform configs (<code>m3</code>, <code>m3_bdi</code>): shared SLURM option variables at the top of each file (account, exclude, GPU/CPU presets); all jobs now pass <code>--exclude=m3t100</code>.</li>
 <li>BindCraft report headline accept rate collapses MPNN duplicates (unique trajectories with ≥1 accepted design ÷ total trajectories); rate including all accepted MPNN sequences is shown alongside.</li>
 </ul>
-<h3 id="fixed">Fixed</h3>
+<h3 id="fixed_1">Fixed</h3>
 <ul>
 <li>BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.</li>
 <li>BindCraft: process now fails (non-zero exit) when <code>bindcraft.py</code> crashes; previously <code>| tee bindcraft.log</code> masked the Python exit code so Nextflow marked the task COMPLETED.</li>
@@ -252,7 +260,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>manifest.nextflowVersion</code> now bounds the supported range to <code>!&gt;=23.04.0, &lt;26.10</code> (hard failure outside this range).</li>
 <li>Set <code>nextflow.enable.configProcessNamesValidation = false</code> to silence the "There's no process matching config selector" warnings printed on every run (only the selected <code>--method</code> workflow is included, so the <code>withName:</code> selectors for other methods' processes match nothing).</li>
 </ul>
-<h3 id="fixed_1">Fixed</h3>
+<h3 id="fixed_2">Fixed</h3>
 <ul>
 <li><code>germinal</code>: <code>--method germinal</code> no longer crashes with a <code>MissingPropertyException</code> when <code>--germinal_pdb_dir</code> is omitted; the documented default (<code>../pdbs</code> relative to the config) is now inferred correctly (<code>config_path</code> is a <code>Path</code>, which has no <code>.parentFile</code>).</li>
 <li><code>rfd3</code>: legacy <code>--pmpnn_temperature</code>, <code>--pmpnn_augment_eps</code> and <code>--pmpnn_omit_aas</code> flags are now honoured instead of being silently overridden by the modern <code>--mpnn_*</code> defaults. The modern name still takes precedence when both are set; defaults are unchanged (temperature <code>0.1</code>, structure noise <code>0</code>, omit <code>CX</code>, sequences-per-structure <code>1</code>).</li>
@@ -271,7 +279,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>BoltzGen: support for list-valued <code>entities[].file.path</code> and multiple entities so all referenced files are staged as Nextflow <code>path()</code> inputs. Referenced config YAMLs (<code>.yaml</code>/<code>.yml</code> in <code>entities[].file.path</code>, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.</li>
 <li>Versioned documentation using <a href="https://github.com/jimporter/mike">mike</a>; docs are now deployed for <code>main</code> (alias: <code>latest</code>), <code>develop</code> (alias: <code>dev</code>), and version tags.</li>
 </ul>
-<h3 id="fixed_2">Fixed</h3>
+<h3 id="fixed_3">Fixed</h3>
 <ul>
 <li>Boltz refold RMSD and ipSAE: <code>BOLTZ_COMPARE_COMPLEX</code> and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> now use Boltz complex chain <strong>A</strong> = binder and <strong>B</strong> = target (from <code>create_boltz_yaml.py</code> IDs), while the input design keeps <code>${binder_chain}</code> / <code>${target_chain}</code>. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated <code>rmsd_target_aligned_binder</code> / ruined aligned PDBs; <code>ipsae.py</code> now receives <code>--binder-chain A --target-chain B</code> for Boltz outputs.</li>
 <li>Boltz: <code>BOLTZ</code>, <code>BOLTZ_COMPARE_COMPLEX</code>, and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> tee <code>boltz predict</code> to <code>.boltz_predict_console.log</code> and exit 1 if the log contains <code>ran out of memory, skipping batch</code> (Boltz may otherwise exit 0 and leave outputs missing).</li>
@@ -289,7 +297,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Modules reorganised into <code>modules/local/</code> with workflow-specific subdirectories (<code>rfd/</code>, <code>bindcraft/</code>, <code>boltzgen/</code>, <code>common/</code>).</li>
 <li>Extracted common Boltz-2 refolding and scoring logic into <code>BOLTZ_REFOLD_SCORING</code> subworkflow (<code>subworkflows/local/boltz_refold_scoring.nf</code>).</li>
 </ul>
-<h3 id="fixed_3">Fixed</h3>
+<h3 id="fixed_4">Fixed</h3>
 <ul>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): omitting <code>--hotspot_res</code> no longer fails in <code>validateHotspotRes</code> with <code>Unknown method invocation 'trim' on Boolean type</code>.</li>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): allow explicit <code>--hotspot_res=""</code> to pass through as a no-hotspot BindCraft setting, and normalise empty hotspot list entries before writing settings.</li>
@@ -322,7 +330,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Use the <code>nf-binder-design-utils</code> container instead of <code>mdanalysis</code>.</li>
 <li>Update config and docs to use -profile for site-specifc configurations</li>
 </ul>
-<h3 id="fixed_4">Fixed</h3>
+<h3 id="fixed_5">Fixed</h3>
 <ul>
 <li>Fixed Quarto rendering permissions issues (copy Qmd to work folder).</li>
 </ul>
@@ -360,7 +368,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>The score merging script (<code>merge_scores.py</code>) was improved to be more robust and handle an arbitrary number of score files.</li>
 <li>Use more lightweight container for <code>get_contigs.nf</code> and <code>renumber_residues.nf</code> modules.</li>
 </ul>
-<h3 id="fixed_5">Fixed</h3>
+<h3 id="fixed_6">Fixed</h3>
 <ul>
 <li>The <code>gpu_device</code> parameter is now correctly passed to the partial diffusion process, allowing proper GPU selection.</li>
 </ul>
@@ -377,7 +385,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Change RFDiffusion config handling when unspecified</li>
 <li>Docs: Add APPTAINER_TMPDIR and NXF_APPTAINER_CACHEDIR advice to M3-specific docs</li>
 </ul>
-<h3 id="fixed_6">Fixed</h3>
+<h3 id="fixed_7">Fixed</h3>
 <ul>
 <li>Fix <code>get_contigs</code> for multi-chain targets.</li>
 <li>Fix failure that occurred when using <code>--rfd_batch_size</code> &gt; 1.</li>
