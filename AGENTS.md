@@ -81,6 +81,11 @@ Steps:
 `main` and `develop` are kept at the same commit for a release -- fast-forward `main` to
 `develop` rather than merging, so the tag is reachable from both.
 
+A release push fires the `docs` workflow up to three times (`main`, `develop`, the tag).
+They all deploy to the same `gh-pages` branch, so they are serialised by a `docs-deploy`
+concurrency group and retry a rejected push; let them finish before assuming the
+versioned docs are live.
+
 
 ## Python
 
