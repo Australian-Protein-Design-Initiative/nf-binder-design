@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/develop/extra/multi-gpu/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Multiple GPUs - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+        <link href="../../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Multiple GPUs";
+        var mkdocs_page_input_path = "extra/multi-gpu.md";
+        var mkdocs_page_url = "/nf-binder-design/develop/extra/multi-gpu/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Multiple GPUs</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#how-allocation-works">How allocation works</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#what-it-is-worth">What it is worth</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#parameters">Parameters</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#what-gpu_slots_per_device-is-for">What gpu_slots_per_device is for</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#recording-which-gpu-ran-what">Recording which GPU ran what</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#why-not-detect-busy-gpus-with-nvidia-smi">Why not detect busy GPUs with nvidia-smi?</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#throughput-notes">Throughput notes</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#using-hyperqueue-instead">Using HyperQueue instead</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#making-hyperqueue-work">Making HyperQueue work</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pawsey-setonix/">Pawsey Setonix Examples</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Extra</li>
+      <li class="breadcrumb-item active">Multiple GPUs</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/extra/multi-gpu.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="multiple-gpus-on-one-machine">Multiple GPUs on one machine</h1>
+<p>Nextflow has no built-in notion of a GPU as a consumable resource on the <code>local</code>
+executor. If two tasks start at once on a two-GPU workstation, nothing in
+Nextflow stops both from choosing the same card. This page describes how the
+pipeline solves that, and how to configure it.</p>
+<h2 id="quick-start">Quick start</h2>
+<p>Pass the GPUs the pipeline may use, and select a local profile:</p>
+<pre><code class="language-bash">nextflow run main.nf --gpu_devices 0,1 -profile local -c nextflow.dual-gpu.config
+</code></pre>
+<p>That is the whole configuration. Tasks claim a GPU on startup, hold it for their
+lifetime, and release it when they exit.</p>
+<p>Leaving <code>--gpu_devices</code> unset (the default) disables GPU management entirely,
+which is what you want under SLURM or any other scheduler that sets
+<code>CUDA_VISIBLE_DEVICES</code> itself.</p>
+<div class="admonition tip">
+<p class="admonition-title">Spreading work across GPUs is only half the problem</p>
+<p>Roughly 25 seconds of every RosettaFold3 task is Python imports and
+checkpoint loading before any GPU work starts, and that cost is paid once
+per task no matter which card it lands on. On a <code>-profile local</code> multi-GPU
+run, <strong>raising batch sizes buys more throughput than any amount of
+scheduling.</strong></p>
+<ul>
+<li><code>--rf3_batch_size</code> groups already-generated sequences into one <code>rf3 fold</code>
+  call. This is the one to reach for first: it amortises the startup cost
+  with <strong>no effect on design diversity</strong> and no extra VRAM. At batch size 4
+  an rfd3 task spends about 7 s of overhead per design instead of 28 s.</li>
+<li><code>--mpnn_batch_size</code> likewise generates several sequences per backbone in
+  one call.</li>
+<li><code>--rfd3_batch_size</code> batches too, <strong>but costs diversity</strong>: every design in
+  an RFdiffusion3 batch is sampled at the <em>same length</em>, so <code>--rfd3_batch_size 2</code>
+  over 100 designs gives 50 independent length draws rather than 100. Raise
+  it only if you are willing to trade binder length diversity for speed.</li>
+</ul>
+<p>The trade-off to know about: one failing design fails its whole batch.</p>
+</div>
+<h2 id="how-allocation-works">How allocation works</h2>
+<p>Each GPU task sources <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/bin/gpu_lock.sh"><code>bin/gpu_lock.sh</code></a>
+and calls <code>nfbd_acquire_gpu</code>. That function keeps one lock file per GPU slot in
+<code>params.gpu_lock_dir</code> (by default <code>&lt;workDir&gt;/.gpu_locks</code>) and claims one with
+<code>flock</code>.</p>
+<p>Two properties make this reliable where earlier approaches were not:</p>
+<ul>
+<li><strong>The claim is atomic.</strong> <code>flock</code> either grants the lock or it does not, so two
+  tasks starting in the same millisecond cannot both win the same card.</li>
+<li><strong>The kernel owns the release.</strong> The lock lives on an open file descriptor
+  held by the task shell. When the task exits the descriptor closes and the lock
+  drops -- including when the task is killed, or the machine loses power. There
+  are no stale lock files to clean up and no PID bookkeeping to go wrong.</li>
+<li><strong>Slots fill breadth-first.</strong> The scan tries slot 0 of every GPU before slot 1
+  of any of them, so a task always prefers an idle card over a second slot on a
+  busy one. The GPU order is rotated per task so simultaneous starts do not all
+  probe the same card first.</li>
+</ul>
+<p>If every slot is busy the task polls until one frees, up to
+<code>params.gpu_lock_timeout</code> seconds, then fails.</p>
+<h2 id="what-it-is-worth">What it is worth</h2>
+<p>Measured on a dual RTX 3060 workstation, running the same rfd3 workload twice
+with <strong>only the allocation mechanism changed</strong> -- identical <code>maxForks</code>,
+<code>memory</code>, <code>queueSize</code>, <code>pollInterval</code> and <code>submitRateLimit</code>:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>static round-robin</th>
+<th>flock allocation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>wall time</td>
+<td>967 s</td>
+<td>960 s</td>
+</tr>
+<tr>
+<td>both GPUs working</td>
+<td>15.9%</td>
+<td><strong>27.0%</strong></td>
+</tr>
+<tr>
+<td>one card stacked while the other idles</td>
+<td>15.7%</td>
+<td><strong>3.9%</strong></td>
+</tr>
+<tr>
+<td>mean GPU utilisation</td>
+<td>21.3%</td>
+<td>23.1%</td>
+</tr>
+</tbody>
+</table>
+<p>Wall time is unchanged; what changes is that the work is spread properly. The
+benefit grows with how contended the machine is -- on a full 800-design run the
+static round-robin left one card stacked and the other idle for <strong>41% of the
+wall clock</strong>.</p>
+<p>Note the low absolute utilisation in both columns. That is not a scheduling
+failure: roughly 25 s of every ~64 s task is Python imports and checkpoint
+loading before any GPU work starts. Batching is the lever for that, not
+scheduling -- see the throughput notes below.</p>
+<h2 id="parameters">Parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--gpu_devices</code></td>
+<td><code>''</code></td>
+<td>GPUs this pipeline may claim: <code>0,1</code>, or <code>all</code>. Empty disables GPU management.</td>
+</tr>
+<tr>
+<td><code>--gpu_slots_per_device</code></td>
+<td><code>1</code></td>
+<td>Concurrent tasks allowed per GPU. Override per process with <code>ext.gpu_slots</code>.</td>
+</tr>
+<tr>
+<td><code>--gpu_lock_timeout</code></td>
+<td><code>14400</code></td>
+<td>Seconds a task waits for a free GPU before failing.</td>
+</tr>
+<tr>
+<td><code>--gpu_lock_dir</code></td>
+<td><code>&lt;workDir&gt;/.gpu_locks</code></td>
+<td>Where lock files live. Must be shared by all tasks and visible inside containers.</td>
+</tr>
+<tr>
+<td><code>--gpu_trace_dir</code></td>
+<td><code>&lt;workDir&gt;/.gpu_trace</code></td>
+<td>Where per-task GPU records are written before aggregation. Same constraints as <code>--gpu_lock_dir</code>.</td>
+</tr>
+<tr>
+<td><code>--gpu_trace_file</code></td>
+<td><code>&lt;outdir&gt;/logs/gpu_trace_&lt;datestamp&gt;.txt</code></td>
+<td>Aggregated GPU trace for the run.</td>
+</tr>
+</tbody>
+</table>
+<p>Every process that runs a model claims a GPU, including MPNN. That matters
+because MPNN's inference engine falls back to <code>torch.device("cuda")</code>, i.e. the
+first visible device, so without a claim every MPNN task lands on GPU 0
+regardless of what the heavier processes are doing.</p>
+<p>For BoltzGen, note that <code>--devices</code> is a <em>count</em> of GPUs, not an index. A task
+pinned to one card sees exactly one device, so leave <code>--devices</code> at 1 (or
+unset); asking for 2 while the allocator has granted one will fail.</p>
+<h3 id="what-gpu_slots_per_device-is-for">What <code>gpu_slots_per_device</code> is for</h3>
+<p>It decides <strong>how many tasks may share a card</strong>, and it defaults to <code>1</code> so that a
+run can never fail from two tasks competing for VRAM on the same device.</p>
+<p>It is a VRAM cap, not the way to control concurrency. The lock decides <em>where</em> a
+task runs; <code>maxForks</code> and the executor's memory budget decide <em>how many</em> run.
+Conflating the two is the easiest way to make things slower -- if <code>maxForks</code>
+exceeds the total slot count, the surplus tasks are dispatched only to block on
+the lock while holding their memory reservation.</p>
+<p>Raising it is worth doing for processes whose VRAM footprint is small relative
+to the card. A task holds its GPU allocated but idle for roughly 25 s of Python
+imports and checkpoint loading, and a second task can fill that gap. Because
+that headroom is a property of the <em>process</em>, not the run, override it per
+process rather than globally:</p>
+<pre><code class="language-groovy">process {
+    // Measured peak VRAM ~3.4 GB on a 12 GB card, so two fit with room to spare.
+    withName: RFDIFFUSION3 { ext.gpu_slots = 2; maxForks = 4 }
+    withName: MPNN         { ext.gpu_slots = 2; maxForks = 4 }
+}
+</code></pre>
+<p>Raise that process's <code>maxForks</code> alongside it, to <code>gpu_slots x nGPU</code>, or the
+extra slots simply go unused.</p>
+<p>One asymmetry to keep in mind: <strong><code>maxForks</code> is per process, but slots are
+global.</strong> Several GPU processes are usually eligible at once -- RFDIFFUSION3,
+ROSETTAFOLD3 and BOLTZ_COMPARE_<em> all run in the same phase -- so what competes
+for slots is the </em>sum* of their in-flight tasks, not any one <code>maxForks</code>. If that
+sum exceeds the slot count the surplus blocks on the lock. In practice the
+executor's <code>memory</code> budget usually binds first, which is another reason to
+declare process memory accurately.</p>
+<p>Check the VRAM headroom before raising it for a process. Host RAM is usually the
+real ceiling anyway: a RosettaFold3 task peaks around <strong>11.5 GB of host RAM</strong>
+against 3.4 GB of VRAM, so a 26 GB executor budget already caps concurrency at
+two heavy tasks whatever the slot count says. Declare process <code>memory</code> honestly
+-- under-declaring lets Nextflow dispatch more tasks than fit and the machine
+swaps, which costs far more than an idle GPU.</p>
+<h2 id="recording-which-gpu-ran-what">Recording which GPU ran what</h2>
+<p>Nextflow's <code>trace_*.txt</code> records what every task cost, but never which device it
+ran on, and there is no way to add that as a trace column: trace observers run
+in the head process, while the device is chosen inside the container. So each
+task records it itself.</p>
+<p>Every GPU task writes one row to <code>&lt;outdir&gt;/logs/gpu_trace_&lt;datestamp&gt;.txt</code>,
+which shares its datestamp with the <code>trace_</code>, <code>report_</code> and <code>timeline_</code> files
+from the same run:</p>
+<pre><code>timestamp             hash       process            hostname  n_gpus  gpu_index  gpu_uuid        gpu_name                 driver_version  memory_total_mib  cuda_visible_devices
+2026-09-10T07:04:27Z  92/031dcb  RFD3:ROSETTAFOLD3  vrboxen   1       0          GPU-7f0d2332..  NVIDIA GeForce RTX 3060  580.173.02      12288             0
+2026-09-10T07:04:27Z  92/235fbd  RFD3:MPNN          vrboxen   1       1          GPU-86d6fdb2..  NVIDIA GeForce RTX 3060  580.173.02      12288             1
+</code></pre>
+<p>The <code>hash</code> column is the same short hash Nextflow prints and puts in the trace
+file, so the two join directly:</p>
+<pre><code class="language-bash">join -1 1 -2 2 -t $'\t' \
+  &lt;(tail -n +2 results/logs/trace_*.txt     | sort -k2,2 | awk -F'\t' -v OFS='\t' '{print $2,$4,$9}') \
+  &lt;(tail -n +2 results/logs/gpu_trace_*.txt | sort -k2,2)
+</code></pre>
+<p>Notes on how it behaves:</p>
+<ul>
+<li><strong>It records regardless of who chose the device.</strong> The row is written whether
+  the GPU came from the lock, from SLURM, or from nothing at all. On a
+  heterogeneous cluster that is the point -- the model of card a task landed on
+  explains a lot of otherwise puzzling variance in <code>realtime</code>.</li>
+<li><strong><code>cuda_visible_devices</code> is <code>-</code> when nothing set it.</strong> The task could see
+  every GPU on the node and PyTorch picked one unsupervised, so <code>gpu_index</code>
+  lists them all and <code>n_gpus</code> counts them all. A column of <code>-</code> under
+  <code>-profile local</code> means <code>--gpu_devices</code> was never passed.</li>
+<li><strong><code>-resume</code> keeps the history.</strong> Records live in the work directory, one file
+  per task hash, so a resumed run still reports the GPU its cached tasks ran on
+  when they actually executed. A re-run task overwrites only its own record.</li>
+<li>
+<p><strong>It cannot fail a task or a run.</strong> This is diagnostic output, so every
+  failure degrades to a missing row. The recording call is <code>|| true</code>, which in
+  bash also suspends <code>set -e</code> for the whole function body, so nothing inside it
+  can abort the script. Tested: <code>nvidia-smi</code> absent, returning garbage, exiting
+  non-zero, or hanging forever; a bogus <code>CUDA_VISIBLE_DEVICES</code>; an unwritable,
+  missing or non-directory trace path; and no <code>hostname</code> command. In each case
+  the task ran to completion.</p>
+<p>A wedged driver is the one worth calling out. <code>nvidia-smi</code> can block
+indefinitely, and a task hanging forever while holding a Nextflow slot is
+worse than one that skips a row, so the call is wrapped in <code>timeout 10</code>.</p>
+<p>Aggregation is equally contained. An exception escaping
+<code>workflow.onComplete</code> is reported as <code>Failed to invoke workflow.onComplete
+event handler</code>, which makes a successful run look failed, so the whole
+handler is wrapped and degrades to a warning. Records that cannot be read
+are skipped individually, and rows whose column count does not match the
+header are dropped rather than written into the output.</p>
+</li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">One thing here is deliberately fatal</p>
+<p>If <code>--gpu_devices</code> is set and <code>bin/gpu_lock.sh</code> cannot be sourced, the task
+fails. A GPU claim was asked for and could not be made, and running anyway
+would put tasks on the same card. Only the recording is optional; the
+allocation is not.</p>
+</div>
+<h2 id="why-not-detect-busy-gpus-with-nvidia-smi">Why not detect busy GPUs with <code>nvidia-smi</code>?</h2>
+<p>Because under containers it cannot see the tasks. Apptainer is invoked with
+<code>--pid</code>, so each container has its own PID namespace and
+<code>nvidia-smi --query-compute-apps</code> inside it reports <code>No running processes found</code>
+however loaded the card is. Across one 800-design run, 250 of 250 task logs
+reported no processes while the cards each held 3.2 GB.</p>
+<p>Reading <code>memory.used</code> instead does not work either: a task spends roughly 25
+seconds importing Python modules and loading its checkpoint before it allocates
+any VRAM, so every task that starts inside that window sees the same idle card
+and takes it.</p>
+<p>A static round-robin (<code>CUDA_VISIBLE_DEVICES = task.index % nGPU</code>) is worth
+understanding because it looks correct and is not. It assigns by <em>submission</em>
+order, which drifts out of phase with <em>completion</em> order as soon as task
+durations vary: tasks 1 and 2 take GPU 0 and 1, task 1 finishes and task 3 takes
+GPU 0, task 3 finishes and task 4 takes GPU 1 -- where task 2 is still running.
+Measured over a full run, that put two tasks on one card while the other sat
+completely idle for 41% of the wall clock, even though each card received
+exactly the same <em>number</em> of tasks.</p>
+<h2 id="throughput-notes">Throughput notes</h2>
+<p>Anything that delays dispatch is idle GPU time, so the local profiles avoid it:</p>
+<ul>
+<li><strong>No <code>submitRateLimit</code>.</strong> Throttling launches caps dispatch regardless of how
+  free the GPUs are -- at <code>'1/10sec'</code>, six a minute. It was only ever there to
+  space out the old VRAM probe, and the lock has no race to space out.</li>
+<li><strong>Short <code>pollInterval</code>.</strong> This is the delay between a task finishing and the
+  next being dispatched, which lands directly on a card that just went free.
+  The local profiles use 1-2 seconds rather than the 30 seconds some earlier
+  configs used.</li>
+<li><strong><code>maxForks</code> is flow control, not safety.</strong> Exclusivity comes from the lock.
+  <code>maxForks</code> only stops Nextflow dispatching a crowd of tasks that would sit
+  blocked on the lock holding memory reservations. Setting it one above the GPU
+  count lets the next task run its startup while the current one still owns the
+  card, so the GPU is handed over warm.</li>
+<li><strong>Batch sizes matter more than any of this.</strong> See the note at the top of the
+  page -- per-task startup dominates, and batching is the only thing that
+  amortises it.</li>
+</ul>
+<h2 id="using-hyperqueue-instead">Using HyperQueue instead</h2>
+<p><a href="https://it4innovations.github.io/hyperqueue/stable/">HyperQueue</a> looks like the
+right tool for this: it models GPUs as indexed resources, hands each task a
+distinct one, and will not dispatch a task until a GPU is actually free -- so
+unlike the lock, no Nextflow slot ever sits blocked. <code>conf/platforms/hyperqueue.config</code>
+configures it.</p>
+<p>It does allocate correctly. The problem is that <strong>the allocation cannot reach
+the workload</strong>, because it is communicated through the environment and this
+pipeline runs everything in containers. There are two independent barriers:</p>
+<ol>
+<li><code>apptainer.runOptions</code> includes <code>--cleanenv</code>, which strips
+   <code>CUDA_VISIBLE_DEVICES</code> on the way into the container.</li>
+<li>Nextflow's Apptainer launcher wraps the call in <code>env -</code>, wiping the
+   environment down to a fixed allowlist (<code>PATH</code> and a few <code>APPTAINERENV_*</code>
+   variables). So even exporting <code>APPTAINERENV_CUDA_VISIBLE_DEVICES</code> in a
+   <code>beforeScript</code> does not survive to the <code>apptainer exec</code>.</li>
+</ol>
+<p>The result is that HyperQueue assigns GPU 1 to a task, the container never hears
+about it, the task sees both cards and PyTorch takes GPU 0 -- so everything
+piles onto one card even though the scheduler did its job. Nothing in the
+HyperQueue configuration can fix this; the value is discarded downstream of it.</p>
+<p>Two notes on things that are <em>not</em> the problem, since both look suspicious:</p>
+<ul>
+<li>Nextflow's HyperQueue executor does translate the <code>accelerator</code> directive into
+  <code>--resource gpus=N</code>, while HyperQueue's auto-detected resource is named
+  <code>gpus/nvidia</code>. A task asking for <code>gpus</code> waits forever with no error. The
+  configs here already avoid this by setting <code>accelerator = null</code> and requesting
+  the resource through <code>clusterOptions</code> instead, which the executor appends
+  verbatim.</li>
+<li>Nextflow logs <code>The support for HyperQueue is an experimental feature and it
+  may change in a future release</code>. That is expected.</li>
+</ul>
+<h3 id="making-hyperqueue-work">Making HyperQueue work</h3>
+<p>Use HyperQueue for queueing and the lock for device selection. They compose
+cleanly: HyperQueue ensures no more GPU tasks are dispatched than there are
+GPUs, and <code>gpu_lock.sh</code> -- which runs <em>inside</em> the container and so is immune to
+both barriers above -- decides which card each task takes.</p>
+<pre><code class="language-bash">hq server start &amp;
+hq worker start &amp;
+
+nextflow run main.nf -profile hyperqueue --gpu_devices 0,1
+</code></pre>
+<p>Passing <code>--gpu_devices</code> is what enables the in-container allocator. Without it,
+tasks fall back to whatever PyTorch chooses, which is GPU 0 for all of them.</p>
+<p>The lock-based default needs no daemon, no version coordination between server
+and worker, and no second scheduler to reason about, which is why it is the
+default.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../development/" class="btn btn-neutral float-left" title="Development"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../utility-scripts/" class="btn btn-neutral float-right" title="Utility Scripts">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../development/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../utility-scripts/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+      <script src="../../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

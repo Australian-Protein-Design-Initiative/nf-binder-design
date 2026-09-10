@@ -80,6 +80,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../extra/development/">Development</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../extra/multi-gpu/">Multiple GPUs</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../extra/utility-scripts/">Utility Scripts</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../extra/m3-hpc-examples/">M3 HPC Examples</a>
@@ -96,15 +98,21 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#unreleased">[Unreleased]</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#removed">Removed</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#031-2026-09-09">[0.3.1] - 2026-09-09</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_1">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
     </li>
@@ -112,9 +120,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#030-2026-07-09">[0.3.0] - 2026-07-09</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_1">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
     </li>
@@ -122,23 +130,23 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#020-2026-05-06">[0.2.0] - 2026-05-06</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_2">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#removed">Removed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#removed_1">Removed</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#015-2026-01-28">[0.1.5] - 2026-01-28</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_4">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
     </li>
@@ -146,17 +154,17 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#014-2025-08-12">[0.1.4] - 2025-08-12</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_4">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_4">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_5">Changed</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#013-2025-07-11">[0.1.3] - 2025-07-11</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_5">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_6">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_5">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_6">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_6">Fixed</a>
     </li>
@@ -164,9 +172,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#012-2025-06-19">[0.1.2] - 2025-06-19</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_6">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_7">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_6">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_7">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#fixed_7">Fixed</a>
     </li>
@@ -174,13 +182,13 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#011-2025-04-04">[0.1.1] - 2025-04-04</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#changed_7">Changed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#changed_8">Changed</a>
     </li>
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#01-2025-03-24">[0.1] - 2025-03-24</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#added_7">Added</a>
+    <li class="toctree-l3"><a class="reference internal" href="#added_8">Added</a>
     </li>
         </ul>
     </li>
@@ -216,17 +224,31 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]</h2>
+<h3 id="added">Added</h3>
+<ul>
+<li>GPU provenance trace. Every GPU task now records the device it ran on to <code>&lt;outdir&gt;/logs/gpu_trace_&lt;datestamp&gt;.txt</code>: timestamp, task hash, process, hostname, <code>n_gpus</code>, and the GPU index, UUID, model, driver version and total memory. Nextflow's own trace cannot carry this, because trace observers run in the head process while the device is chosen inside the container. The <code>hash</code> column is the short hash Nextflow prints, so the file joins directly to <code>trace_&lt;datestamp&gt;.txt</code>. Records are kept per task in the work directory, so <code>-resume</code> still reports the GPU a cached task originally ran on. The recording is strictly diagnostic and cannot fail a task or a run: a missing, broken or hung <code>nvidia-smi</code> (bounded by <code>timeout 10</code>), an unwritable trace directory, an unreadable record, or a malformed row all degrade to a missing row, and the aggregation step cannot escape <code>workflow.onComplete</code> as an error. New parameters: <code>--gpu_trace_dir</code>, <code>--gpu_trace_file</code>.</li>
+</ul>
+<h3 id="changed">Changed</h3>
+<ul>
+<li>Local multi-GPU allocation is now enforced with per-GPU <code>flock</code> locks (<code>bin/gpu_lock.sh</code>) instead of probing <code>nvidia-smi</code>. A task claims a GPU atomically and holds it for its lifetime; the kernel releases the claim when the task exits, so there are no stale locks even after a kill or crash. Slots fill breadth-first, so an idle card always wins over a second slot on a busy one. Measured on a dual RTX 3060 with only the allocation mechanism changed: time with both GPUs working rose from 15.9% to 27.0%, time with one card stacked while the other idled fell from 15.7% to 3.9%, at unchanged wall clock. New parameters: <code>--gpu_slots_per_device</code> (default 1, one task per card), <code>--gpu_lock_timeout</code>, <code>--gpu_lock_dir</code>. Individual processes can be given more slots with <code>ext.gpu_slots</code> where their VRAM footprint leaves headroom. See <a href="https://australian-protein-design-initiative.github.io/nf-binder-design/extra/multi-gpu/">Multiple GPUs</a>.</li>
+<li>Local multi-GPU example configs drop <code>submitRateLimit</code> and shorten <code>pollInterval</code>. Both existed to work around the old allocation race and cost throughput directly: <code>'1/10sec'</code> capped dispatch at six tasks a minute, and a 30 s poll interval left a freed GPU idle for up to 30 s.</li>
+</ul>
+<h3 id="removed">Removed</h3>
+<ul>
+<li><code>bin/find_available_gpu.py</code> and the <code>--gpu_allocation_detect_process_regex</code> / <code>--germinal_gpu_allocation_detect_process_regex</code> parameters. The script's GPU-busy detection could never work under containers: Apptainer runs with <code>--pid</code>, so <code>nvidia-smi --query-compute-apps</code> inside the container reports no processes regardless of load (measured: 250 of 250 task logs), leaving only a racy lowest-<code>memory.used</code> heuristic. Set <code>--gpu_devices</code> to enable the lock-based allocator instead.</li>
+</ul>
 <h3 id="fixed">Fixed</h3>
 <ul>
+<li>Local multi-GPU runs no longer stack tasks on one card while another sits idle (<a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/issues/14">#14</a>).</li>
 <li>docs workflow: <code>main</code>, <code>develop</code> and tag pushes no longer race each other deploying to <code>gh-pages</code>. A release triggered all three at once and two failed with <code>cannot lock ref 'refs/heads/gh-pages'</code>, so the versioned docs were never published. Runs are now serialised and a rejected push is retried.</li>
 </ul>
 <h2 id="031-2026-09-09">[0.3.1] - 2026-09-09</h2>
-<h3 id="added">Added</h3>
+<h3 id="added_1">Added</h3>
 <ul>
 <li>BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.</li>
 <li>Automatic datestamped Nextflow report/trace/timeline/dag under <code>${outdir}/logs/</code> (no DATESTAMP / <code>-with-report</code> / <code>-with-trace</code> needed in wrappers).</li>
 </ul>
-<h3 id="changed">Changed</h3>
+<h3 id="changed_1">Changed</h3>
 <ul>
 <li>BindCraft batch directories and design names use <code>&lt;pdbName&gt;_&lt;batchIndex&gt;</code> (e.g. <code>batches/PDL1_0/</code>) instead of a bare integer batch index. BindCraft output CSVs include a <code>Target</code> column with the input structure filename.</li>
 <li>BindCraft helper scripts moved to <code>bin/bindcraft/</code> (<code>create_bindcraft_settings.py</code>, <code>bindcraft_scoring.py</code>, <code>add_bindcraft_target_column.py</code>).</li>
@@ -241,7 +263,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>rfd3 modules pull <code>rc-foundry:0.2.0-weights</code> as an ordinary container image instead of <code>oras://</code>. The image was rebuilt as a multi-layer OCI image, so an <code>oras://</code> pull now fails with <code>ORAS SIF image should have a single layer, found 20</code>.</li>
 </ul>
 <h2 id="030-2026-07-09">[0.3.0] - 2026-07-09</h2>
-<h3 id="added_1">Added</h3>
+<h3 id="added_2">Added</h3>
 <ul>
 <li>New <code>--method rfd3</code> workflow for RFDiffusion3-based binder design using <code>RosettaCommons/foundry</code> (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).</li>
 <li>Germinal antibody/nanobody design workflow (<code>--method germinal</code>).</li>
@@ -253,7 +275,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>bin/complex_sasa.py</code>: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and <code>--min-change-percent</code> column pruning.</li>
 <li>nf-test <code>tests/pipeline/compilation.nf.test</code>: launches <code>rfd</code>, <code>rfd_partial</code>, and <code>rfd3</code> in <code>-preview</code> mode to verify every workflow/module compiles; run per Nextflow version with <code>NXF_VER=&lt;version&gt; nf-test ...</code> to guard against version-specific DSL parser regressions.</li>
 </ul>
-<h3 id="changed_1">Changed</h3>
+<h3 id="changed_2">Changed</h3>
 <ul>
 <li>Docs: note Nextflow version compatibility. On Nextflow <code>26.04+</code> (new strict parser default), set <code>NXF_SYNTAX_PARSER=v1</code> to use the legacy parser.</li>
 <li>Trimmed README.md, testing section moved to <code>docs/docs/extra/development.md</code>, general docs cleanup and corrections.</li>
@@ -272,7 +294,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>combine_scores.sh</code>: updated to the current <code>results/rfd/af2_initial_guess/{pdbs,scores}</code> output layout (was still pointing at the pre-reorg <code>results/af2_initial_guess/...</code>).</li>
 </ul>
 <h2 id="020-2026-05-06">[0.2.0] - 2026-05-06</h2>
-<h3 id="added_2">Added</h3>
+<h3 id="added_3">Added</h3>
 <ul>
 <li>New <code>nci_gadi.config</code> configuration profile for NCI Gadi HPC cluster.</li>
 <li>Initial <a href="https://www.nf-test.com/">nf-test</a> test scaffold (<code>nf-test.config</code>, <code>tests/</code>) with a process test for <code>UNIQUE_ID</code> and <code>RFDIFFUSION</code>; documented in <code>docs/docs/testing.md</code>.</li>
@@ -284,7 +306,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Boltz refold RMSD and ipSAE: <code>BOLTZ_COMPARE_COMPLEX</code> and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> now use Boltz complex chain <strong>A</strong> = binder and <strong>B</strong> = target (from <code>create_boltz_yaml.py</code> IDs), while the input design keeps <code>${binder_chain}</code> / <code>${target_chain}</code>. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated <code>rmsd_target_aligned_binder</code> / ruined aligned PDBs; <code>ipsae.py</code> now receives <code>--binder-chain A --target-chain B</code> for Boltz outputs.</li>
 <li>Boltz: <code>BOLTZ</code>, <code>BOLTZ_COMPARE_COMPLEX</code>, and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> tee <code>boltz predict</code> to <code>.boltz_predict_console.log</code> and exit 1 if the log contains <code>ran out of memory, skipping batch</code> (Boltz may otherwise exit 0 and leave outputs missing).</li>
 </ul>
-<h3 id="changed_2">Changed</h3>
+<h3 id="changed_3">Changed</h3>
 <ul>
 <li><code>merge_scores.py</code>: drop from the right any column that exists in the current left before each merge so the result has no <code>_x</code>/<code>_y</code> suffixes; treat <code>.cif</code> as path-like (use basename for merge key) in addition to <code>.pdb</code>.</li>
 <li><code>trim_to_contigs.py</code>: <code>parse_contigs()</code> now supports RFD3 v3 contig format (comma-separated, <code>/0</code> as separate element, e.g. <code>A18-132,/0,65-120</code>) in addition to v1 style.</li>
@@ -306,12 +328,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>rmsd4all.py</code>: add <code>--max-structural-iterations</code> (default 100). Biotite's refinement loop uses <code>max_iterations=inf</code> by default and only stops when anchors stabilize; with 3di the anchor set can fail to converge (oscillate) so the loop never exits. Capping iterations fixes the hang; 0 = no limit.</li>
 <li><code>rmsd4all.py</code>: fix use of <code>array_length</code> (method) as if it were an attribute; use <code>len()</code> for atom counts.</li>
 </ul>
-<h3 id="removed">Removed</h3>
+<h3 id="removed_1">Removed</h3>
 <ul>
 <li><code>rmsd4all.py</code>: remove <code>--max-ca-for-tm-score</code> and <code>--pair-timeout</code> options.</li>
 </ul>
 <h2 id="015-2026-01-28">[0.1.5] - 2026-01-28</h2>
-<h3 id="added_3">Added</h3>
+<h3 id="added_4">Added</h3>
 <ul>
 <li>New BoltzGen pipeline.</li>
 <li>Refold binder designs with Boltz, with post-AF2ig filtering and 
@@ -320,7 +342,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Some parameter validation for <code>bindcraft.nf</code>.</li>
 <li>Write <code>params.json</code> to output directory.</li>
 </ul>
-<h3 id="changed_3">Changed</h3>
+<h3 id="changed_4">Changed</h3>
 <ul>
 <li>Move 'filtering' result folder to 'rfdiffison/filtered'</li>
 <li>Don't output redundant .tsv files to the results directory.</li>
@@ -335,20 +357,20 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fixed Quarto rendering permissions issues (copy Qmd to work folder).</li>
 </ul>
 <h2 id="014-2025-08-12">[0.1.4] - 2025-08-12</h2>
-<h3 id="added_4">Added</h3>
+<h3 id="added_5">Added</h3>
 <ul>
 <li>BindCraft end-to-end workflow with basic HTML report</li>
 <li>GPU allocation heuristics for local multi-GPU workstations.</li>
 <li>HyperMPNN weights download script (<code>models/download_hypermpnn_weights.sh</code>).</li>
 <li>New runnable examples in <code>examples/</code>.</li>
 </ul>
-<h3 id="changed_4">Changed</h3>
+<h3 id="changed_5">Changed</h3>
 <ul>
 <li>RFDiffusion <code>--hotspot_res</code> no longer requires brackets in <code>main.nf</code>.</li>
 <li>Minor tweaks to site-specific configs for <code>m3</code> and <code>mlerp</code>.</li>
 </ul>
 <h2 id="013-2025-07-11">[0.1.3] - 2025-07-11</h2>
-<h3 id="added_5">Added</h3>
+<h3 id="added_6">Added</h3>
 <ul>
 <li>A plugin system for filtering designs based on calculated metrics.</li>
 <li><code>--rfd_filters</code> parameter to apply filters to RFDiffusion backbones (e.g., <code>--rfd_filters "rg&lt;25"</code>).</li>
@@ -362,7 +384,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>--pmpnn_omit_aas</code> flag to exclude certain amino acids from designs (default 'CX').</li>
 <li><code>--rfd_compress_trajectories</code> flag to gzip RFDiffusion traj/*.pdb files (default <code>true</code>).</li>
 </ul>
-<h3 id="changed_5">Changed</h3>
+<h3 id="changed_6">Changed</h3>
 <ul>
 <li>Filtering results are now saved to a subdirectory named after the pipeline step (in <code>filtering/rfdiffusion/</code>).</li>
 <li>The score merging script (<code>merge_scores.py</code>) was improved to be more robust and handle an arbitrary number of score files.</li>
@@ -373,13 +395,13 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>The <code>gpu_device</code> parameter is now correctly passed to the partial diffusion process, allowing proper GPU selection.</li>
 </ul>
 <h2 id="012-2025-06-19">[0.1.2] - 2025-06-19</h2>
-<h3 id="added_6">Added</h3>
+<h3 id="added_7">Added</h3>
 <ul>
 <li>Added the <code>boltz_pulldown.nf</code> protocol.</li>
 <li>Allow gpu device to be selected.</li>
 <li>Support relaxation in ProteinMPNN (<code>pmpnn_relax_cycles</code> can now be non-zero)</li>
 </ul>
-<h3 id="changed_6">Changed</h3>
+<h3 id="changed_7">Changed</h3>
 <ul>
 <li>Change <code>dl_binder_design</code> output filenaming (include "_mpnn{n}" suffix)</li>
 <li>Change RFDiffusion config handling when unspecified</li>
@@ -391,12 +413,12 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Fix failure that occurred when using <code>--rfd_batch_size</code> &gt; 1.</li>
 </ul>
 <h2 id="011-2025-04-04">[0.1.1] - 2025-04-04</h2>
-<h3 id="changed_7">Changed</h3>
+<h3 id="changed_8">Changed</h3>
 <ul>
 <li>Update to use containers from Github package registry</li>
 </ul>
 <h2 id="01-2025-03-24">[0.1] - 2025-03-24</h2>
-<h3 id="added_7">Added</h3>
+<h3 id="added_8">Added</h3>
 <ul>
 <li>Initial version with RFDiffusion-&gt;ProteinMPNN-&gt;af2_initial_guess binder
   design and partial diffusion pipelines.</li>
