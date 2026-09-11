@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/boltz-pulldown/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/fold-pulldown/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>Boltz Pulldown - nf-binder-design</title>
+    <title>Fold Pulldown - nf-binder-design</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
@@ -14,9 +14,9 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "Boltz Pulldown";
-        var mkdocs_page_input_path = "workflows/boltz-pulldown.md";
-        var mkdocs_page_url = "/nf-binder-design/develop/workflows/boltz-pulldown/";
+        var mkdocs_page_name = "Fold Pulldown";
+        var mkdocs_page_input_path = "workflows/fold-pulldown.md";
+        var mkdocs_page_url = "/nf-binder-design/develop/workflows/fold-pulldown/";
       </script>
     
     <!--[if lt IE 9]>
@@ -66,29 +66,27 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Boltz Pulldown</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Fold Pulldown</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#msa-generation-options">MSA Generation Options</a>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line options</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#option-1-remote-server">Option 1: Remote Server</a>
+    <li class="toctree-l3"><a class="reference internal" href="#required">Required</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#option-2-local-databases">Option 2: Local Databases</a>
+    <li class="toctree-l3"><a class="reference internal" href="#common-options">Common options</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#custom-boltz-arguments">Custom Boltz Arguments</a>
+    <li class="toctree-l2"><a class="reference internal" href="#example">Example</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#output">Output</a>
+    <li class="toctree-l2"><a class="reference internal" href="#interpreting-scores">Interpreting scores</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#related">Related</a>
     </li>
     </ul>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../fold-pulldown/">Fold Pulldown</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../fold/">Fold</a>
                   </li>
@@ -136,9 +134,9 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
           <li class="breadcrumb-item">Workflows</li>
-      <li class="breadcrumb-item active">Boltz Pulldown</li>
+      <li class="breadcrumb-item active">Fold Pulldown</li>
     <li class="wy-breadcrumbs-aside">
-          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/boltz-pulldown.md" class="icon icon-github"> Edit on GitHub</a>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/fold-pulldown.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
   </ul>
   <hr/>
@@ -146,17 +144,64 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
             <div class="section" itemprop="articleBody">
               
-                <h1 id="boltz-pulldown">Boltz Pulldown</h1>
-<p>An experimental <a href="https://github.com/KosinskiLab/AlphaPulldown">AlphaPulldown</a>-like protocol using <a href="https://github.com/jwohlwend/boltz">Boltz</a> for multimer predictions.</p>
+                <h1 id="fold-pulldown">Fold Pulldown</h1>
+<p>Multi-model target × binder pulldown, in the spirit of
+<a href="../boltz-pulldown/">Boltz Pulldown</a> but using the shared fold engines
+(AlphaFold2, Boltz-2, RosettaFold3, Protenix).</p>
 <h2 id="overview">Overview</h2>
-<p>Boltz Pulldown runs multimer predictions from sequence for all target-binder pairs, allowing you to assess binding interactions between multiple potential interaciton partners.</p>
-<h2 id="command-line-options">Command-line Options</h2>
-<p>See available options with <code>--method boltz_pulldown --help</code>:</p>
+<p>For every target–binder pair the pipeline co-folds the complex with each
+selected predictor (optionally with multiple seeds / samples per model), then
+writes:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fold_pulldown/fold_pulldown_scores.tsv</code></td>
+<td>One row per predicted structure (canonical fold scores + <code>target</code>, <code>binder</code>)</td>
+</tr>
+<tr>
+<td><code>fold_pulldown/fold_pulldown_summary.tsv</code></td>
+<td>One row per <code>(target, binder, tool)</code> with mean/median/max/sd for <code>iptm</code> and <code>ipsae</code>, within-tool z-scores, and cross-tool <code>consensus_z</code></td>
+</tr>
+<tr>
+<td><code>fold_pulldown/fold_pulldown_report.html</code></td>
+<td>Simple Quarto overview (boxplots, heatmaps, top hits, cross-tool Spearman)</td>
+</tr>
+</tbody>
+</table>
+<p>MSA cost is <strong>O(N_targets + N_binders)</strong>, not O(N × M): each sequence is searched
+once. Binders are treated as having no useful homologs (query-only MSA unless
+<code>--create_binder_msa</code> is set). There is <strong>no cross-chain MSA pairing</strong> — this is
+intentional for designed binders.</p>
+<h2 id="command-line-options">Command-line options</h2>
 <pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
-  --method boltz_pulldown --help
+  --method fold_pulldown --help
 </code></pre>
-<h2 id="multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</h2>
-<p>By default, <strong>no MSAs are used</strong>. To enable:</p>
+<h3 id="required">Required</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--targets</code></td>
+<td>FASTA of target sequences</td>
+</tr>
+<tr>
+<td><code>--binders</code></td>
+<td>FASTA of binder sequences</td>
+</tr>
+</tbody>
+</table>
+<h3 id="common-options">Common options</h3>
 <table>
 <thead>
 <tr>
@@ -167,62 +212,73 @@
 </thead>
 <tbody>
 <tr>
+<td><code>--methods</code></td>
+<td><code>boltz</code></td>
+<td>Comma-separated: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code></td>
+</tr>
+<tr>
+<td><code>--msa_method</code></td>
+<td><code>jackhmmer_af2</code></td>
+<td><code>jackhmmer_af2</code> or <code>mmseqs2_colabfold</code></td>
+</tr>
+<tr>
 <td><code>--create_target_msa</code></td>
 <td><code>false</code></td>
-<td>Generate MSAs for targets</td>
+<td>Build MSA for each target</td>
 </tr>
 <tr>
 <td><code>--create_binder_msa</code></td>
 <td><code>false</code></td>
-<td>Generate MSAs for binders</td>
+<td>Build MSA for each binder (usually leave off for de novo binders)</td>
+</tr>
+<tr>
+<td><code>--n_predictions</code></td>
+<td>unset</td>
+<td>Samples per complex per method (engine defaults if unset)</td>
+</tr>
+<tr>
+<td><code>--skip_engens</code></td>
+<td><code>true</code></td>
+<td>EnGens is off by default (would emit N × M reports)</td>
 </tr>
 </tbody>
 </table>
-<blockquote>
-<p>⚠️ For <em>de novo</em> designed binders, use <code>--create_target_msa=true</code> to improve <em>target</em> prediction accuracy, but skip generating <em>binder</em> MSAs (<code>--create_binder_msa=false</code>, the default) as these are less informative since no homologs exist.</p>
-</blockquote>
-<h2 id="msa-generation-options">MSA Generation Options</h2>
-<h3 id="option-1-remote-server">Option 1: Remote Server</h3>
-<pre><code class="language-bash">--use_msa_server
+<p>AF2 needs the 2021 DB snapshot with <code>uniprot/</code> (default <code>--af2_db_path</code> points at
+<code>alphafold_20211129</code>). Target MSAs for AF2 are built once (jackhmmer dir, or
+ColabFold/mmseqs2 a3m materialised into AF2 per-chain files) and assembled into a
+multimer tree with a query-only binder chain plus a <code>features.pkl</code> (the predict
+stage loads that pickle; it does not rebuild features from the raw MSA files).</p>
+<h2 id="example">Example</h2>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method fold_pulldown \
+  --targets targets.fasta \
+  --binders binders.fasta \
+  --methods boltz,rf3,protenix \
+  --create_target_msa true \
+  --msa_method jackhmmer_af2 \
+  --n_predictions 5 \
+  --outdir results \
+  -profile slurm,m3
 </code></pre>
-<p>Uses the remote ColabFold mmseqs2 server.</p>
-<h3 id="option-2-local-databases">Option 2: Local Databases</h3>
-<p>Download and index databases with
-<a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/scripts/download_colabfold_dbs.sh"><code>scripts/download_colabfold_dbs.sh</code></a>
-(wraps ColabFold
-<a href="https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh">setup_databases.sh</a>),
-then specify paths. Full notes are in the <a href="../fold/#colabfold-mmseqs2-databases">Fold databases</a> section.</p>
-<pre><code class="language-bash">--uniref30 /path/to/colabfold_dbs/uniref30
---colabfold_envdb /path/to/colabfold_dbs/colabfold_envdb
-</code></pre>
-<h2 id="custom-boltz-arguments">Custom Boltz Arguments</h2>
-<p>Add extra Boltz command-line arguments via <code>ext.args</code> in <code>nextflow.config</code>:</p>
-<pre><code class="language-groovy">process {
-    withName: BOLTZ {
-        accelerator = 1
-        time = 2.hours
-        memory = '8g'
-        cpus = 2
-
-        // Example: CPU-only mode
-        ext.args = &quot;--accelerator cpu&quot;
-    }
-}
-</code></pre>
-<h2 id="output">Output</h2>
-<p>Default output directory: <code>results/boltz_pulldown/</code></p>
-<p>Includes:</p>
+<h2 id="interpreting-scores">Interpreting scores</h2>
+<p>Different predictors have different absolute score scales. The summary table
+provides <strong>within-tool z-scores</strong> (<code>iptm_z</code>, <code>ipsae_z</code>) so complexes can be
+compared on a common footing inside each model, and a <strong><code>consensus_z</code></strong>
+(mean of per-tool z for that complex) for a simple cross-model ranking.</p>
+<p>For custom statistics (Mann–Whitney, mixed models, score calibration), use
+<code>fold_pulldown_scores.tsv</code> / <code>fold_pulldown_summary.tsv</code> directly — the HTML
+report stays deliberately simple.</p>
+<h2 id="related">Related</h2>
 <ul>
-<li>Boltz predictions with scores and structures</li>
-<li><code>boltz_pulldown.tsv</code> - summary table</li>
-<li><code>boltz_pulldown_report.html</code> - report with statistics and ipTM score plots</li>
+<li><a href="../boltz-pulldown/">Boltz Pulldown</a> — Boltz-2-only predecessor</li>
+<li><a href="../fold/">Fold</a> — fold individual FASTA complexes (no target × binder fan-out)</li>
 </ul>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../boltzgen/" class="btn btn-neutral float-left" title="BoltzGen"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../fold-pulldown/" class="btn btn-neutral float-right" title="Fold Pulldown">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../boltz-pulldown/" class="btn btn-neutral float-left" title="Boltz Pulldown"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../fold/" class="btn btn-neutral float-right" title="Fold">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -249,10 +305,10 @@ then specify paths. Full notes are in the <a href="../fold/#colabfold-mmseqs2-da
         </span>
     
     
-      <span><a href="../boltzgen/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../boltz-pulldown/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../fold-pulldown/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../fold/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
