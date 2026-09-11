@@ -13,7 +13,7 @@ writes:
 | File | Contents |
 |------|----------|
 | `fold_pulldown/fold_pulldown_scores.tsv` | One row per predicted structure (canonical fold scores + `target`, `binder`) |
-| `fold_pulldown/fold_pulldown_summary.tsv` | One row per `(target, binder, tool)` with mean/median/max/sd for `iptm` and `ipsae`, per-target within-tool z-scores, cross-tool `consensus_z`, and the `z_basis` / `n_pool` provenance of that z |
+| `fold_pulldown/fold_pulldown_summary.tsv` | One row per `(target, binder, tool)` with mean/median/max/sd for `iptm` and `ipsae`, per-target within-tool z-scores, cross-tool `consensus_z`, and the `z_basis` / `n_pool` / `z_pool_small` provenance of that z |
 | `fold_pulldown/fold_pulldown_report.html` | Simple Quarto overview (boxplots, heatmaps, top hits, cross-tool Spearman) |
 
 MSA cost is **O(N_targets + N_binders)**, not O(N × M): each sequence is searched
@@ -48,6 +48,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--consensus_metric` | `ipsae` | `ipsae` or `iptm`; which metric's per-tool z-scores are averaged into `consensus_z` |
 | `--z_stat` | `max` | `max` or `mean`; the per-complex statistic over samples that gets standardised |
 | `--z_scope` | `target` | `target` standardises within `(target, tool)`; `global` pools all targets into one distribution |
+| `--min_pool` | `10` | Pools holding fewer complexes than this are flagged `z_pool_small` in the summary and warned about on stderr |
 
 AF2 needs the 2021 DB snapshot with `uniprot/` (default `--af2_db_path` points at
 `alphafold_20211129`). Target MSAs for AF2 are built once (jackhmmer dir, or
@@ -94,11 +95,14 @@ Three defaults decide that ranking, and each can be reverted:
   partly on which target it was paired with. Pass `--z_scope global` to pool them.
 
 Each summary row records `z_basis` (metric, statistic and scope, e.g.
-`ipsae_max/target`) and `n_pool`, the number of complexes its z-score was computed
-over. Watch `n_pool`: with *k* complexes in a pool the largest possible absolute z
-is (*k*−1)/√*k*, so a two-complex pool can only ever report ±0.707 and the z-score
-carries the ordering and nothing else. The summariser warns on stderr below
-`--min-pool` (default 10).
+`ipsae_max/target`), `n_pool`, the number of complexes its z-score was computed
+over, and `z_pool_small`, `True` where that pool was smaller than `--min_pool`.
+Watch those two: with *k* complexes in a pool the largest possible absolute z is
+(*k*−1)/√*k*, so a two-complex pool can only ever report ±0.707 and the z-score
+carries the ordering and nothing else. A saturated small-pool z looks like a
+mediocre one. The flag is also printed as an stderr warning, but stderr from a
+Nextflow task lands in the work directory, so the column is what a downstream
+consumer should filter on.
 
 For custom statistics (Mann–Whitney, mixed models, score calibration), use
 `fold_pulldown_scores.tsv` / `fold_pulldown_summary.tsv` directly — the HTML

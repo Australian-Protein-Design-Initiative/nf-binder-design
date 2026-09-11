@@ -22,6 +22,7 @@ process FOLD_PULLDOWN_MERGE_SCORES {
         --summary-out fold_pulldown_summary.tsv \
         --consensus-metric '${params.consensus_metric}' \
         --z-stat '${params.z_stat}' \
-        --z-scope '${params.z_scope}'
+        --z-scope '${params.z_scope}' \
+        --min-pool '${params.min_pool}'
     """
 }

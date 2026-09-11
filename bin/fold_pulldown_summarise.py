@@ -26,10 +26,11 @@ Three choices govern the ranking, all overridable:
                      confidence, which ipTM mixes together. Use `iptm` for the
                      old behaviour.
 
-Each row records the basis used (`z_basis`) and the size of the pool its z-score
-was computed over (`n_pool`), because a z-score over a handful of complexes is a
-rank label rather than a distance: with k complexes the largest possible absolute
-z is (k-1)/sqrt(k).
+Each row records the basis used (`z_basis`), the size of the pool its z-score was
+computed over (`n_pool`), and whether that pool was smaller than --min-pool
+(`z_pool_small`), because a z-score over a handful of complexes is a rank label
+rather than a distance: with k complexes the largest possible absolute z is
+(k-1)/sqrt(k).
 """
 
 from __future__ import annotations
@@ -96,7 +97,8 @@ def main() -> int:
     )
     p.add_argument(
         "--min-pool", type=int, default=10,
-        help="Warn when a z-score pool holds fewer than this many complexes [default: 10]",
+        help="Pools holding fewer than this many complexes are flagged z_pool_small "
+             "in the summary and warned about on stderr [default: 10]",
     )
     args = p.parse_args()
 
@@ -186,10 +188,15 @@ def main() -> int:
     for key, rows in sorted(pools.items()):
         add_z(rows, iptm_src, "iptm_z")
         add_z(rows, ipsae_src, "ipsae_z")
+        small = len(rows) < args.min_pool
         for r in rows:
             r["n_pool"] = len(rows)
             r["z_basis"] = z_basis
-        if len(rows) < args.min_pool:
+            # Carried in the table as well as on stderr: a Nextflow task's stderr
+            # ends up in the work directory, where nothing that reads the summary
+            # will see it.
+            r["z_pool_small"] = small
+        if small:
             # With k complexes the largest possible |z| is (k-1)/sqrt(k), so a small
             # pool yields z-scores that carry only the ordering.
             print(
@@ -226,7 +233,7 @@ def main() -> int:
         "target", "binder", "tool", "n",
         "iptm_mean", "iptm_median", "iptm_max", "iptm_sd", "iptm_z",
         "ipsae_mean", "ipsae_median", "ipsae_max", "ipsae_sd", "ipsae_z",
-        "consensus_z", "z_basis", "n_pool",
+        "consensus_z", "z_basis", "n_pool", "z_pool_small",
     ]
     with open(args.summary_out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=sum_cols, delimiter="\t", lineterminator="\n")
@@ -236,6 +243,8 @@ def main() -> int:
             for c in sum_cols:
                 if c in ("n", "n_pool"):
                     out[c] = r[c]
+                elif c == "z_pool_small":
+                    out[c] = "True" if r.get(c) else "False"
                 elif c in ("target", "binder", "tool", "z_basis"):
                     out[c] = r.get(c, "")
                 else:

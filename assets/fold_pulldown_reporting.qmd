@@ -63,6 +63,11 @@ if 'n_pool' in summary.columns and summary['n_pool'].notna().any():
     _smallest = int(summary['n_pool'].min())
     print(f"Smallest z-score pool: {_smallest} complexes "
           f"(|z| <= {(_smallest - 1) / (_smallest ** 0.5):.3f})")
+if 'z_pool_small' in summary.columns:
+    _flagged = summary['z_pool_small'].astype(str).str.lower().eq('true')
+    if _flagged.any():
+        print(f"Rows flagged z_pool_small: {int(_flagged.sum())} of {len(summary)} "
+              "- rank these, do not read the z-score as a distance")
 
 if len(summary):
     reps = summary.groupby('tool')['n'].describe()
@@ -150,6 +155,8 @@ column records what it was built from: the metric, the per-complex statistic ove
 the standardisation pool (`target` means within (target, tool); `global` pools all targets).
 `n_pool` is the number of complexes in that pool - with k complexes the largest possible
 absolute z is (k-1)/sqrt(k), so a small pool gives z-scores that carry only the ordering.
+`z_pool_small` is `True` where that pool held fewer complexes than `--min_pool`, which is
+where a z-score close to its bound should be read as a rank rather than as a strong hit.
 
 ```{python}
 #| label: consensus-heatmap
@@ -178,7 +185,8 @@ else:
 if summary.empty:
     print("No summary rows.")
 else:
-    cons_cols = [c for c in ['target', 'binder', 'consensus_z', 'z_basis', 'n_pool'] if c in summary.columns]
+    cons_cols = [c for c in ['target', 'binder', 'consensus_z', 'z_basis', 'n_pool', 'z_pool_small']
+                 if c in summary.columns]
     top_cons = (
         summary.drop_duplicates(subset=['target', 'binder'])
         .sort_values('consensus_z', ascending=False)

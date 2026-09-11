@@ -172,23 +172,56 @@ def test_z_scope_global_lets_target_difficulty_dominate(tmp_path):
 
 # --- small-pool guard ----------------------------------------------------------
 
+def _pool_of(n, target="T", tool="boltz"):
+    """n complexes against one target, all distinct, as (score rows, pair rows)."""
+    rows, pairs_in = [], []
+    for i in range(n):
+        cid = f"{target}_and_B{i}"
+        rows.append({"id": cid, "tool": tool, "model": "0",
+                     "iptm": f"{0.5 + i / 100:.2f}", "ipsae": f"{0.4 + i / 100:.2f}"})
+        pairs_in.append({"id": cid, "target": target, "binder": f"B{i}"})
+    return rows, pairs_in
+
+
 def test_small_pool_warns_with_the_reachable_bound(tmp_path):
-    _, stderr = _run(tmp_path, *_two_sample_rows())
+    summary, stderr = _run(tmp_path, *_two_sample_rows())
     assert "holds 2 complex(es)" in stderr
     # (k-1)/sqrt(k) for k=2
     assert "0.707" in stderr
+    # The warning has to survive into the table: a Nextflow task's stderr goes to
+    # the work directory, so anything reading the summary would never see it.
+    assert all(r["z_pool_small"] == "True" for r in summary)
 
 
 def test_no_warning_once_the_pool_is_large_enough(tmp_path):
-    rows, pairs_in = [], []
-    for i in range(12):
-        cid = f"T_and_B{i}"
-        rows.append({"id": cid, "tool": "boltz", "model": "0",
-                     "iptm": f"{0.5 + i / 100:.2f}", "ipsae": f"{0.4 + i / 100:.2f}"})
-        pairs_in.append({"id": cid, "target": "T", "binder": f"B{i}"})
+    rows, pairs_in = _pool_of(12)
     summary, stderr = _run(tmp_path, rows, pairs_in)
     assert "Warning" not in stderr
     assert all(r["n_pool"] == "12" for r in summary)
+    assert all(r["z_pool_small"] == "False" for r in summary)
+
+
+def test_z_pool_small_tracks_the_min_pool_threshold(tmp_path):
+    """The column reflects --min-pool, not a hardcoded size."""
+    rows, pairs_in = _pool_of(12)
+    summary, stderr = _run(tmp_path, rows, pairs_in, "--min-pool", "20")
+    assert "holds 12 complex(es)" in stderr
+    assert all(r["z_pool_small"] == "True" for r in summary)
+
+    summary, stderr = _run(tmp_path, *_two_sample_rows(), "--min-pool", "2")
+    assert "Warning" not in stderr
+    assert all(r["z_pool_small"] == "False" for r in summary)
+
+
+def test_z_pool_small_is_per_pool_not_per_run(tmp_path):
+    """A small target and a large one in the same run must be flagged differently."""
+    big_rows, big_pairs = _pool_of(12, target="BIG")
+    small_rows, small_pairs = _pool_of(2, target="SMALL")
+    summary, stderr = _run(tmp_path, big_rows + small_rows, big_pairs + small_pairs)
+    flags = {r["target"]: r["z_pool_small"] for r in summary}
+    assert flags == {"BIG": "False", "SMALL": "True"}
+    assert "SMALL/boltz" in stderr
+    assert "BIG/boltz" not in stderr
 
 
 # --- robustness ----------------------------------------------------------------
