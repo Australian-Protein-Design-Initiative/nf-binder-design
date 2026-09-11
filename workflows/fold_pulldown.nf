@@ -25,6 +25,12 @@ params.create_target_msa = false
 params.create_binder_msa = false
 params.n_predictions = false
 
+// --- Ranking (see bin/fold_pulldown_summarise.py) ---
+params.consensus_metric = 'ipsae'
+params.z_stat = 'max'
+params.z_scope = 'target'
+params.min_pool = 10
+
 // --- AF2 (predict uses meta.n_chains=2 -> multimer; jackhmmer on targets stays monomer) ---
 params.af2_db_path = '/mnt/datasets/alphafold/alphafold_20211129'
 params.af2_model_preset = 'multimer'
@@ -148,6 +154,16 @@ workflow FOLD_PULLDOWN {
             --use_msa_server      Boltz fetches its own MSA [default: ${params.use_msa_server}]
             --templates           Templates directory with .cif files [default: ${params.templates}]
             --skip_engens         Skip EnGens clustering [default: ${params.skip_engens}]
+
+            Ranking (summary table):
+            --consensus_metric    ipsae|iptm; metric averaged into consensus_z [default: ${params.consensus_metric}]
+            --z_stat              max|mean; per-complex statistic over samples that is
+                                   standardised [default: ${params.z_stat}]
+            --z_scope             target|global; standardise within (target, tool) or over all
+                                   targets together [default: ${params.z_scope}]
+            --min_pool            flag z-score pools smaller than this as z_pool_small, since
+                                   over k complexes |z| cannot exceed (k-1)/sqrt(k)
+                                   [default: ${params.min_pool}]
 
             AF2 (--methods includes af2) needs the 2021 DB snapshot with uniprot/:
             --af2_db_path         [default: ${params.af2_db_path}]

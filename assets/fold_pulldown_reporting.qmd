@@ -43,11 +43,31 @@ n_targets = scores['target'].nunique() if 'target' in scores.columns else 0
 n_binders = scores['binder'].nunique() if 'binder' in scores.columns else 0
 tools = sorted(scores['tool'].dropna().unique().tolist()) if 'tool' in scores.columns else []
 
+# What consensus_z was built from. Written by fold_pulldown_summarise.py as
+# "<metric>_<stat>/<scope>"; fall back to the pre-z_basis behaviour for old tables.
+z_basis_label = 'iptm_mean/global'
+if 'z_basis' in summary.columns and summary['z_basis'].notna().any():
+    z_basis_label = str(summary['z_basis'].dropna().iloc[0])
+_metric_stat, _, _scope = z_basis_label.partition('/')
+ranking_metric, _, z_stat = _metric_stat.rpartition('_')
+if not ranking_metric:
+    ranking_metric, z_stat = 'iptm', 'mean'
+
 print(f"Targets: {n_targets}")
 print(f"Binders: {n_binders}")
 print(f"Tools: {', '.join(tools) if tools else '(none)'}")
 print(f"Structures: {len(scores)}")
 print(f"Complex x tool rows: {len(summary)}")
+print(f"Ranking basis: {z_basis_label}")
+if 'n_pool' in summary.columns and summary['n_pool'].notna().any():
+    _smallest = int(summary['n_pool'].min())
+    print(f"Smallest z-score pool: {_smallest} complexes "
+          f"(|z| <= {(_smallest - 1) / (_smallest ** 0.5):.3f})")
+if 'z_pool_small' in summary.columns:
+    _flagged = summary['z_pool_small'].astype(str).str.lower().eq('true')
+    if _flagged.any():
+        print(f"Rows flagged z_pool_small: {int(_flagged.sum())} of {len(summary)} "
+              "- rank these, do not read the z-score as a distance")
 
 if len(summary):
     reps = summary.groupby('tool')['n'].describe()
@@ -130,7 +150,13 @@ else:
 
 ## Consensus z-score heatmap
 
-`consensus_z` is the mean of within-tool z-scores (centred/scaled on `iptm_mean` per tool across all complexes).
+`consensus_z` is the mean over tools of each tool's z-score for that complex. The `z_basis`
+column records what it was built from: the metric, the per-complex statistic over samples, and
+the standardisation pool (`target` means within (target, tool); `global` pools all targets).
+`n_pool` is the number of complexes in that pool - with k complexes the largest possible
+absolute z is (k-1)/sqrt(k), so a small pool gives z-scores that carry only the ordering.
+`z_pool_small` is `True` where that pool held fewer complexes than `--min_pool`, which is
+where a z-score close to its bound should be read as a rank rather than as a strong hit.
 
 ```{python}
 #| label: consensus-heatmap
@@ -145,7 +171,7 @@ else:
     pivot = cons.pivot_table(index='binder', columns='target', values='consensus_z', aggfunc='mean')
     fig, ax = plt.subplots(figsize=(max(4, 0.6 * n_targets + 2), max(4, 0.35 * n_binders + 2)))
     sns.heatmap(pivot, annot=n_targets * n_binders <= 40, fmt='.2f', cmap='coolwarm', center=0, ax=ax)
-    ax.set_title('consensus_z (mean within-tool iptm z)')
+    ax.set_title(f'consensus_z ({z_basis_label})')
     plt.tight_layout()
     plt.show()
 ```
@@ -159,18 +185,27 @@ else:
 if summary.empty:
     print("No summary rows.")
 else:
+    cons_cols = [c for c in ['target', 'binder', 'consensus_z', 'z_basis', 'n_pool', 'z_pool_small']
+                 if c in summary.columns]
     top_cons = (
         summary.drop_duplicates(subset=['target', 'binder'])
         .sort_values('consensus_z', ascending=False)
-        .head(15)[['target', 'binder', 'consensus_z']]
+        .head(15)[cons_cols]
     )
     display(top_cons.style.set_caption("Top 15 by consensus_z").format({'consensus_z': '{:.3f}'}).hide(axis='index'))
 
+    # Rank each tool's table on the same metric consensus_z was built from, so the
+    # per-tool view and the cross-tool view cannot disagree about what "top" means.
+    tool_sort = f'{ranking_metric}_{z_stat}'
+    if tool_sort not in summary.columns:
+        tool_sort = 'iptm_mean'
     for tool in tools:
-        sub = summary[summary['tool'] == tool].sort_values('iptm_mean', ascending=False).head(10)
-        cols = [c for c in ['target', 'binder', 'n', 'iptm_mean', 'iptm_sd', 'ipsae_mean', 'iptm_z'] if c in sub.columns]
+        sub = summary[summary['tool'] == tool].sort_values(tool_sort, ascending=False).head(10)
+        cols = [c for c in ['target', 'binder', 'n', tool_sort, f'{ranking_metric}_sd',
+                            f'{ranking_metric}_z', 'iptm_mean', 'ipsae_mean'] if c in sub.columns]
+        cols = list(dict.fromkeys(cols))
         display(
-            sub[cols].style.set_caption(f"Top 10 by iptm_mean ({tool})")
+            sub[cols].style.set_caption(f"Top 10 by {tool_sort} ({tool})")
             .format({c: '{:.3f}' for c in cols if c not in ('target', 'binder', 'n')})
             .hide(axis='index')
         )
