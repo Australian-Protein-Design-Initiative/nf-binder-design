@@ -1,0 +1,4 @@
+# Placeholder for FOLD_PARSE_CONFIDENCE ipsae_pae when do_ipsae is false.
+# Must be distinct from the summary JSON and the structure placeholder, or
+# Nextflow raises "input file name collision" while staging.
+{}

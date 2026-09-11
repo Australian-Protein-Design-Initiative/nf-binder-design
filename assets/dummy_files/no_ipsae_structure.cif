@@ -1,0 +1,2 @@
+# Placeholder for FOLD_PARSE_CONFIDENCE ipsae_structure when do_ipsae is false.
+data_placeholder
