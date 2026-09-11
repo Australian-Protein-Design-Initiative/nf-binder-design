@@ -19,6 +19,9 @@ process FOLD_PULLDOWN_MERGE_SCORES {
         --scores '${scores_tsv}' \
         --pairs '${pairs_tsv}' \
         --scores-out fold_pulldown_scores.tsv \
-        --summary-out fold_pulldown_summary.tsv
+        --summary-out fold_pulldown_summary.tsv \
+        --consensus-metric '${params.consensus_metric}' \
+        --z-stat '${params.z_stat}' \
+        --z-scope '${params.z_scope}'
     """
 }

@@ -13,7 +13,7 @@ writes:
 | File | Contents |
 |------|----------|
 | `fold_pulldown/fold_pulldown_scores.tsv` | One row per predicted structure (canonical fold scores + `target`, `binder`) |
-| `fold_pulldown/fold_pulldown_summary.tsv` | One row per `(target, binder, tool)` with mean/median/max/sd for `iptm` and `ipsae`, within-tool z-scores, and cross-tool `consensus_z` |
+| `fold_pulldown/fold_pulldown_summary.tsv` | One row per `(target, binder, tool)` with mean/median/max/sd for `iptm` and `ipsae`, per-target within-tool z-scores, cross-tool `consensus_z`, and the `z_basis` / `n_pool` provenance of that z |
 | `fold_pulldown/fold_pulldown_report.html` | Simple Quarto overview (boxplots, heatmaps, top hits, cross-tool Spearman) |
 
 MSA cost is **O(N_targets + N_binders)**, not O(N × M): each sequence is searched
@@ -45,6 +45,9 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--create_binder_msa` | `false` | Build MSA for each binder (usually leave off for de novo binders) |
 | `--n_predictions` | unset | Samples per complex per method (engine defaults if unset) |
 | `--skip_engens` | `true` | EnGens is off by default (would emit N × M reports) |
+| `--consensus_metric` | `ipsae` | `ipsae` or `iptm`; which metric's per-tool z-scores are averaged into `consensus_z` |
+| `--z_stat` | `max` | `max` or `mean`; the per-complex statistic over samples that gets standardised |
+| `--z_scope` | `target` | `target` standardises within `(target, tool)`; `global` pools all targets into one distribution |
 
 AF2 needs the 2021 DB snapshot with `uniprot/` (default `--af2_db_path` points at
 `alphafold_20211129`). Target MSAs for AF2 are built once (jackhmmer dir, or
@@ -71,8 +74,31 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 Different predictors have different absolute score scales. The summary table
 provides **within-tool z-scores** (`iptm_z`, `ipsae_z`) so complexes can be
-compared on a common footing inside each model, and a **`consensus_z`**
-(mean of per-tool z for that complex) for a simple cross-model ranking.
+compared on a common footing inside each model, and a **`consensus_z`** (the mean
+over tools of one metric's per-tool z for that complex) for a cross-model ranking.
+Both z-columns are always written, whichever metric `consensus_z` is built from.
+
+Three defaults decide that ranking, and each can be reverted:
+
+- **`--consensus_metric ipsae`.** ipSAE ([Dunbrack
+  2025](https://doi.org/10.1101/2025.02.10.637595)) normalises by interface size and
+  isolates the interface from whole-complex confidence, which `iptm` and `ptm` mix
+  together. Pass `--consensus_metric iptm` to rank on ipTM instead.
+- **`--z_stat max`.** One diffusion sample per complex is noisy, so the statistic
+  worth standardising is the best of the samples rather than their average. This is
+  also what makes `--n_predictions > 1` pay for itself. Pass `--z_stat mean` for the
+  average.
+- **`--z_scope target`.** Raw co-folding scores are not comparable across targets,
+  and target difficulty generally varies more than design quality does within one
+  target, so pooling several targets into one distribution makes a complex rank
+  partly on which target it was paired with. Pass `--z_scope global` to pool them.
+
+Each summary row records `z_basis` (metric, statistic and scope, e.g.
+`ipsae_max/target`) and `n_pool`, the number of complexes its z-score was computed
+over. Watch `n_pool`: with *k* complexes in a pool the largest possible absolute z
+is (*k*−1)/√*k*, so a two-complex pool can only ever report ±0.707 and the z-score
+carries the ordering and nothing else. The summariser warns on stderr below
+`--min-pool` (default 10).
 
 For custom statistics (Mann–Whitney, mixed models, score calibration), use
 `fold_pulldown_scores.tsv` / `fold_pulldown_summary.tsv` directly — the HTML
