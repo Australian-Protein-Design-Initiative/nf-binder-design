@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
-- `fold_pulldown` ranking defaults. `consensus_z` is now built from ipSAE rather than ipTM, standardises the max over samples rather than the mean, and standardises within `(target, tool)` rather than pooling every target into one distribution. New parameters `--consensus_metric`, `--z_stat` and `--z_scope` restore the previous behaviour with `--consensus_metric iptm --z_stat mean --z_scope global`. The summary table gains `z_basis`, `n_pool` and `z_pool_small` columns recording what each z-score was computed from, over how many complexes, and whether that pool was smaller than `--min_pool` (default 10), which is also warned about on stderr. `fold_pulldown` has not been in a release, so no released behaviour changes.
 - Protenix fold jobs now pass `--need_atom_confidence true` by default (`--protenix_need_atom_confidence`); publishes full-confidence JSON with the token-pair PAE matrix for downstream ipSAE.
 - ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
 
