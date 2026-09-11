@@ -166,7 +166,7 @@ writes:</p>
 </tr>
 <tr>
 <td><code>fold_pulldown/fold_pulldown_summary.tsv</code></td>
-<td>One row per <code>(target, binder, tool)</code> with mean/median/max/sd for <code>iptm</code> and <code>ipsae</code>, within-tool z-scores, and cross-tool <code>consensus_z</code></td>
+<td>One row per <code>(target, binder, tool)</code> with mean/median/max/sd for <code>iptm</code> and <code>ipsae</code>, per-target within-tool z-scores, cross-tool <code>consensus_z</code>, and the <code>z_basis</code> / <code>n_pool</code> / <code>z_pool_small</code> provenance of that z</td>
 </tr>
 <tr>
 <td><code>fold_pulldown/fold_pulldown_report.html</code></td>
@@ -241,6 +241,26 @@ intentional for designed binders.</p>
 <td><code>true</code></td>
 <td>EnGens is off by default (would emit N × M reports)</td>
 </tr>
+<tr>
+<td><code>--consensus_metric</code></td>
+<td><code>ipsae</code></td>
+<td><code>ipsae</code> or <code>iptm</code>; which metric's per-tool z-scores are averaged into <code>consensus_z</code></td>
+</tr>
+<tr>
+<td><code>--z_stat</code></td>
+<td><code>max</code></td>
+<td><code>max</code> or <code>mean</code>; the per-complex statistic over samples that gets standardised</td>
+</tr>
+<tr>
+<td><code>--z_scope</code></td>
+<td><code>target</code></td>
+<td><code>target</code> standardises within <code>(target, tool)</code>; <code>global</code> pools all targets into one distribution</td>
+</tr>
+<tr>
+<td><code>--min_pool</code></td>
+<td><code>10</code></td>
+<td>Pools holding fewer complexes than this are flagged <code>z_pool_small</code> in the summary and warned about on stderr</td>
+</tr>
 </tbody>
 </table>
 <p>AF2 needs the 2021 DB snapshot with <code>uniprot/</code> (default <code>--af2_db_path</code> points at
@@ -263,8 +283,33 @@ stage loads that pickle; it does not rebuild features from the raw MSA files).</
 <h2 id="interpreting-scores">Interpreting scores</h2>
 <p>Different predictors have different absolute score scales. The summary table
 provides <strong>within-tool z-scores</strong> (<code>iptm_z</code>, <code>ipsae_z</code>) so complexes can be
-compared on a common footing inside each model, and a <strong><code>consensus_z</code></strong>
-(mean of per-tool z for that complex) for a simple cross-model ranking.</p>
+compared on a common footing inside each model, and a <strong><code>consensus_z</code></strong> (the mean
+over tools of one metric's per-tool z for that complex) for a cross-model ranking.
+Both z-columns are always written, whichever metric <code>consensus_z</code> is built from.</p>
+<p>Three defaults decide that ranking, and each can be reverted:</p>
+<ul>
+<li><strong><code>--consensus_metric ipsae</code>.</strong> ipSAE (<a href="https://doi.org/10.1101/2025.02.10.637595">Dunbrack
+  2025</a>) normalises by interface size and
+  isolates the interface from whole-complex confidence, which <code>iptm</code> and <code>ptm</code> mix
+  together. Pass <code>--consensus_metric iptm</code> to rank on ipTM instead.</li>
+<li><strong><code>--z_stat max</code>.</strong> One diffusion sample per complex is noisy, so the statistic
+  worth standardising is the best of the samples rather than their average. This is
+  also what makes <code>--n_predictions &gt; 1</code> pay for itself. Pass <code>--z_stat mean</code> for the
+  average.</li>
+<li><strong><code>--z_scope target</code>.</strong> Raw co-folding scores are not comparable across targets,
+  and target difficulty generally varies more than design quality does within one
+  target, so pooling several targets into one distribution makes a complex rank
+  partly on which target it was paired with. Pass <code>--z_scope global</code> to pool them.</li>
+</ul>
+<p>Each summary row records <code>z_basis</code> (metric, statistic and scope, e.g.
+<code>ipsae_max/target</code>), <code>n_pool</code>, the number of complexes its z-score was computed
+over, and <code>z_pool_small</code>, <code>True</code> where that pool was smaller than <code>--min_pool</code>.
+Watch those two: with <em>k</em> complexes in a pool the largest possible absolute z is
+(<em>k</em>−1)/√<em>k</em>, so a two-complex pool can only ever report ±0.707 and the z-score
+carries the ordering and nothing else. A saturated small-pool z looks like a
+mediocre one. The flag is also printed as an stderr warning, but stderr from a
+Nextflow task lands in the work directory, so the column is what a downstream
+consumer should filter on.</p>
 <p>For custom statistics (Mann–Whitney, mixed models, score calibration), use
 <code>fold_pulldown_scores.tsv</code> / <code>fold_pulldown_summary.tsv</code> directly — the HTML
 report stays deliberately simple.</p>
