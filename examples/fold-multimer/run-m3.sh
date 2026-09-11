@@ -4,8 +4,9 @@ set -euo pipefail
 # group so the sbatch-submitted jobs inherit the GID
 if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
-# Pin Nextflow 24.10.0: conf/platforms/m3.config uses `def random_choice(...)`,
-# which Nextflow >=26 fails to parse ("Unexpected input: '('").
+# Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
+# `def`, which Nextflow >=26's default (strict) parser rejects. Use
+# NXF_SYNTAX_PARSER=v1 with Nextflow 26, or pin <26 as here.
 export NXF_VER=24.10.0
 
 PIPELINE_DIR=../..
@@ -17,8 +18,9 @@ DEFAULT_SLURM_ACCOUNT=$(sacctmgr --parsable2 show user -s ${USER} | tail -1 | cu
 # carry the taxonomy bin/fold/msa_taxonomy.py turns into each engine's paired MSA;
 # ColabFold headers are taxonomy-less). AF2 uses the 2021 DB snapshot for its
 # native multimer pairing (see nextflow.m3.config).
-nextflow run ${PIPELINE_DIR}/fold.nf \
+nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.m3.config \
+  --method fold \
   --slurm_account ${DEFAULT_SLURM_ACCOUNT} \
   --input 'input/complex.fasta' \
   --outdir results \

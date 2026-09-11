@@ -3,8 +3,9 @@ set -euo pipefail
 # AF2 DBs at /mnt/datasets/alphafold are group=alphafold, mode 750.
 if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
-# Pin Nextflow 24.10.0: conf/platforms/m3.config uses `def random_choice(...)`,
-# which Nextflow >=26 fails to parse ("Unexpected input: '('").
+# Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
+# `def`, which Nextflow >=26's default (strict) parser rejects. Use
+# NXF_SYNTAX_PARSER=v1 with Nextflow 26, or pin <26 as here.
 export NXF_VER=24.10.0
 
 PIPELINE_DIR=../..

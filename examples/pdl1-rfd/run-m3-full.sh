@@ -26,11 +26,19 @@
 # If --foldseek_af2ig_filters is not set, it falls back to --refold_af2ig_filters:
 #  --foldseek_af2ig_filters="pae_interaction<=15"   # override with broader filters if desired
 
-PIPELINE_DIR=../../software/nf-binder-design
+set -euo pipefail
+
+# Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
+# `def`, which Nextflow >=26's default (strict) parser rejects. Use
+# NXF_SYNTAX_PARSER=v1 with Nextflow 26, or pin <26 as here.
+export NXF_VER=24.10.0
+
+PIPELINE_DIR=../..
 
 DEFAULT_SLURM_ACCOUNT=$(sacctmgr --parsable2 show user -s ${USER} | tail -1 | cut -f 2 -d \|)
 
-nextflow run ${PIPELINE_DIR}/main.nf  \
+nextflow run ${PIPELINE_DIR}/main.nf \
+  --method rfd \
   --slurm_account ${DEFAULT_SLURM_ACCOUNT} \
   --input_pdb 'input/*.pdb' \
   --outdir results \
@@ -48,7 +56,8 @@ nextflow run ${PIPELINE_DIR}/main.nf  \
   --refold_target_fasta='input/full/3BIK_B.fasta' \
   --refold_target_templates='input/full/' \
   --output_rmsd_aligned=true \
-  # --do_foldseek \
-  # --foldseek_af2ig_filters="pae_interaction<=15" \
   -profile slurm,m3 \
   -resume
+
+# --do_foldseek \
+# --foldseek_af2ig_filters="pae_interaction<=15" \

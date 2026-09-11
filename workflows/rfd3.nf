@@ -174,7 +174,8 @@ workflow RFD3 {
         log.warn('Hotspot subsampling < 1.0 only affects design entries in the config that define select_hotspots')
     }
 
-    def rf3_batch_int = params.rf3_batch_size as int
+    // false/null means unset (fold workflows use false as sentinel); default to 1
+    def rf3_batch_int = (params.rf3_batch_size == null || params.rf3_batch_size == false) ? 1 : (params.rf3_batch_size as int)
     if (rf3_batch_int < 1) {
         throw new Exception('--rf3_batch_size must be >= 1')
     }

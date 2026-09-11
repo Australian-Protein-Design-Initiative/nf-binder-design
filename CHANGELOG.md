@@ -8,30 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `--method fold_pulldown`: multi-model target × binder pulldown (AF2/Boltz/RF3/Protenix) with per-structure and aggregate score TSVs plus a Quarto report.
-- `--method fold`: multi-method structure folding (AF2, Boltz-2, RosettaFold3, Protenix) with shared MSAs, MSA subsampling, and EnGens clustering (formerly the standalone `fold.nf` entrypoint). Also `engens.nf`: standalone EnGens clustering of an existing `.cif`/`.pdb` folder or glob.
-- `examples/fold-pulldown`: Mosaic Multispecifics binders × PD-L1/IL-7Ra (ColabFold remote MSA, all fold engines).
-- fold_pulldown: AF2 reuses the ColabFold/mmseqs2 target a3m for chain A (binder stays query-only).
-- GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. Nextflow's own trace cannot carry this, because trace observers run in the head process while the device is chosen inside the container. The `hash` column is the short hash Nextflow prints, so the file joins directly to `trace_<datestamp>.txt`. Records are kept per task in the work directory, so `-resume` still reports the GPU a cached task originally ran on. The recording is strictly diagnostic and cannot fail a task or a run: a missing, broken or hung `nvidia-smi` (bounded by `timeout 10`), an unwritable trace directory, an unreadable record, or a malformed row all degrade to a missing row, and the aggregation step cannot escape `workflow.onComplete` as an error. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
+- `--method fold`: multi-method structure folding (AF2, Boltz-2, RosettaFold3, Protenix) with shared MSAs, MSA subsampling, and EnGens clustering (replaces the standalone `fold.nf` entrypoint). Also `engens.nf` for clustering an existing `.cif`/`.pdb` folder or glob.
+- `--method fold_pulldown`: multi-model target × binder pulldown (AF2/Boltz/RF3/Protenix) with per-structure and aggregate scores plus a Quarto report.
+- GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
 - Protenix fold jobs now pass `--need_atom_confidence true` by default (`--protenix_need_atom_confidence`); publishes full-confidence JSON with the token-pair PAE matrix for downstream ipSAE.
-- Standalone `fold.nf` entrypoint replaced by `nextflow run main.nf --method fold`.
 - ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
-- fold_pulldown report: ipTM and ipSAE by-target boxplots are one panel coloured by tool (not faceted).
-- Local multi-GPU allocation is now enforced with per-GPU `flock` locks (`bin/gpu_lock.sh`) instead of probing `nvidia-smi`. A task claims a GPU atomically and holds it for its lifetime; the kernel releases the claim when the task exits, so there are no stale locks even after a kill or crash. Slots fill breadth-first, so an idle card always wins over a second slot on a busy one. Measured on a dual RTX 3060 with only the allocation mechanism changed: time with both GPUs working rose from 15.9% to 27.0%, time with one card stacked while the other idled fell from 15.7% to 3.9%, at unchanged wall clock. New parameters: `--gpu_slots_per_device` (default 1, one task per card), `--gpu_lock_timeout`, `--gpu_lock_dir`. Individual processes can be given more slots with `ext.gpu_slots` where their VRAM footprint leaves headroom. See [Multiple GPUs](https://australian-protein-design-initiative.github.io/nf-binder-design/extra/multi-gpu/).
-- Local multi-GPU example configs drop `submitRateLimit` and shorten `pollInterval`. Both existed to work around the old allocation race and cost throughput directly: `'1/10sec'` capped dispatch at six tasks a minute, and a 30 s poll interval left a freed GPU idle for up to 30 s.
-- fold / fold_pulldown AF2, RF3 and Protenix processes claim GPUs with `bin/gpu_lock.sh` and write GPU trace records, matching the other methods.
 
 ### Removed
-- `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection could never work under containers: Apptainer runs with `--pid`, so `nvidia-smi --query-compute-apps` inside the container reports no processes regardless of load (measured: 250 of 250 task logs), leaving only a racy lowest-`memory.used` heuristic. Set `--gpu_devices` to enable the lock-based allocator instead.
+- `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection never worked inside Apptainer containers - Set `--gpu_devices` to enable the lock-based allocator instead.
 
 ### Fixed
-- fold_pulldown: suppress publishing intermediate `fold_scores.tsv` (only `fold_pulldown_scores.tsv` and `fold_pulldown_summary.tsv` are published).
-- fold_pulldown AF2: write a multimer `features.pkl` from the assembled per-chain MSAs. The custom AF2 container loads that pickle at predict time and does not rebuild features from `msas/*.sto`.
-- Quarto reports (`fold_pulldown`, `boltz_pulldown`): set writable `XDG_*` / Jupyter runtime dirs so rendering works in Apptainer (was failing with `Could create runtime directory for jupyter transport`).
-- fold_pulldown AF2 ipSAE: unwrap list-wrapped native `pae_model_*.json` so ipSAE can read `predicted_aligned_error`.
-- fold: compute ipSAE for RF3 and Protenix (was only Boltz, plus a crashing AF2 path).
+- rfd3: treat unset/`false` `--rf3_batch_size` as 1 (avoids Boolean→Integer cast failure when a shared config sentinel is present).
+- `examples/pdl1-rfd/run-m3-full.sh` and `examples/pdl1-bindcraft/run-m3.sh`: point at repo `main.nf`, pin `NXF_VER=24.10.0`, and drop mid-command `#` comments that broke the Nextflow invocation.
+- Root `nextflow.config` report/trace timestamps use `params.trace_timestamp` instead of a top-level `def`, so Nextflow >=26 can parse the root config (site profiles such as `m3.config` still use `def` and need `NXF_SYNTAX_PARSER=v1` or Nextflow <26).
+- Remove unused `random_choice` helper from `conf/platforms/m3.config`.
+- Quarto reports: set writable `XDG_*` / Jupyter runtime dirs so rendering works in Apptainer (was failing with `Could create runtime directory for jupyter transport`).
 - Local multi-GPU runs no longer stack tasks on one card while another sits idle ([#14](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/issues/14)).
 - docs workflow: `main`, `develop` and tag pushes no longer race each other deploying to `gh-pages`. A release triggered all three at once and two failed with `cannot lock ref 'refs/heads/gh-pages'`, so the versioned docs were never published. Runs are now serialised and a rejected push is retried.
 

@@ -7,8 +7,9 @@ if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 PIPELINE_DIR=../..
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
-nextflow run ${PIPELINE_DIR}/fold.nf \
+nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.m3.config \
+  --method fold \
   --input 'input/pdl1.fasta' \
   --outdir results \
   --methods af2,boltz,rf3,protenix \
