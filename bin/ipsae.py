@@ -136,6 +136,28 @@ def detect_cif_json_format(pae_file_path: str) -> str:
     return "af3"
 
 
+def split_structure_name(struct_name: str):
+    """Split a structure filename into (stem, is_mmcif) using its real extension.
+
+    Substring tests like ``".cif" in struct_name`` are not safe here, because a
+    filename may carry a structure extension in the middle of its name. The
+    nf-binder-design rfd3 workflow produces exactly that: RFdiffusion3 emits
+    backbones called ``<design>_model_0.cif``, the whole filename becomes the
+    downstream design id, and Boltz then writes
+    ``<design>_model_0.cif_b0_d1_model_0.pdb`` -- a PDB file whose name contains
+    ".cif". A substring test calls that mmCIF, so no "_atom_site." header lines
+    are ever parsed, ``atomsitefield_dict`` stays empty, and
+    ``parse_cif_atom_line`` dies with ``KeyError: 'id'``.
+
+    Returns None if the name has neither extension.
+    """
+    for ext, is_cif in ((".cif", True), (".pdb", False)):
+        if struct_name.endswith(ext):
+            return struct_name[: -len(ext)], is_cif
+    return None
+
+
+
 def resolve_input_format(input_format: str, struct_name: str, pae_file_path: str) -> str:
     """Resolve an explicit format request, or guess one from the input files."""
     if input_format not in ("auto",) + SUPPORTED_FORMATS:
@@ -148,10 +170,13 @@ def resolve_input_format(input_format: str, struct_name: str, pae_file_path: str
 
     if pae_file_path.endswith(".npz"):
         return "boltz"
-    if ".cif" in struct_name and pae_file_path.endswith(".json"):
-        return detect_cif_json_format(pae_file_path)
-    if ".pdb" in struct_name:
-        return "af2"
+    split = split_structure_name(struct_name)
+    if split is not None:
+        _, is_cif = split
+        if is_cif and pae_file_path.endswith(".json"):
+            return detect_cif_json_format(pae_file_path)
+        if not is_cif:
+            return "af2"
     raise ValueError(
         f"Cannot determine input format from structure {struct_name!r} "
         f"and PAE file {os.path.basename(pae_file_path)!r}"
@@ -240,15 +265,11 @@ def main():
     struct_name = os.path.basename(pdb_path)
     out_dir = os.path.dirname(pdb_path)
 
-    if ".cif" in struct_name:
-        name_stem = struct_name.replace(".cif", "")
-        cif = True
-    elif ".pdb" in struct_name:
-        name_stem = struct_name.replace(".pdb", "")
-        cif = False
-    else:
+    split = split_structure_name(struct_name)
+    if split is None:
         print("Wrong PDB or PAE file type ", pdb_path)
         sys.exit()
+    name_stem, cif = split
 
     pdb_stem = os.path.join(out_dir, name_stem) if out_dir else name_stem
     path_stem = f"{pdb_stem}_{pae_string}_{dist_string}"

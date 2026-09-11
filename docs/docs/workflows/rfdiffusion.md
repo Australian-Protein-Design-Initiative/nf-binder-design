@@ -105,8 +105,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --hotspot_res "A473,A995,A411,A421" \
     --rfd_n_designs=10 \
     --rfd_batch_size 1 \
-    -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
-    -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
     -resume \
     -profile local
 ```
@@ -117,8 +115,6 @@ Here's a more complex 'kitchen sink' example using `-profile slurm,m3` for the M
 
 ```bash
 #!/bin/bash
-
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Ensure tmp directory has enough space
 export TMPDIR=$(realpath ./tmp)
@@ -155,9 +151,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --refold_target_fasta='input/full/target.fasta' \
     --refold_target_templates='input/full/' \
     -profile slurm,m3 \
-    -resume \
-    -with-report results/logs/report_${DATESTAMP}.html \
-    -with-trace results/logs/trace_${DATESTAMP}.txt
+    -resume
 ```
 
 ### Key Parameters
@@ -264,8 +258,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
     --rfd_batch_size=5 \
     --hotspot_res "A473,A995,A411,A421" \
     --rfd_partial_T=2,5,10,20 \
-    -with-report $OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html \
-    -with-trace $OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt \
     -profile local
 ```
 

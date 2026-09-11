@@ -149,9 +149,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --batch_size 1 \
   --budget 2 \
   -profile local \
-  -resume \
-  -with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html \
-  -with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
+  -resume
 ```
 
 ### Nanobody Design (nanobody-anything)
@@ -170,9 +168,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --num_workers 2 \
   --alpha 0.2 \
   -profile local \
-  -resume \
-  -with-report results/logs/report_$(date +%Y%m%d_%H%M%S).html \
-  -with-trace results/logs/trace_$(date +%Y%m%d_%H%M%S).txt
+  -resume
 ```
 
 ### HPC Cluster

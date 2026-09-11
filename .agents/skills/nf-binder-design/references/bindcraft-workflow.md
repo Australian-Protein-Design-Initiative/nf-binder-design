@@ -33,7 +33,7 @@ Use `--method bindcraft --help` for the definitive list.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--input_pdb` | Target PDB file (single file, not a glob) | Required |
+| `--input_pdb` | Target PDB file, directory of PDBs, or quoted glob (e.g. `'input/*.pdb'`). `--bindcraft_n_traj` is run per input PDB | Required |
 | `--outdir` | Output directory | `results` |
 
 ### Design Parameters
@@ -52,7 +52,7 @@ You can use either `--target_chains` or `--contigs` to define the target binding
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--bindcraft_n_traj` | Total number of trajectories | Required |
+| `--bindcraft_n_traj` | Number of trajectories per input PDB | Required |
 | `--bindcraft_batch_size` | Trajectories per batch (each batch runs on one GPU) | 1 |
 | `--gpu_devices` | Comma-separated GPU IDs for multi-GPU (local profile only, e.g. `"0,1"`) | Auto |
 
@@ -88,8 +88,10 @@ To maximize success with BindCraft, carefully prepare your target:
 BindCraft acceptance rates vary by target. A suggested approach:
 
 1. Start with a small run (`--bindcraft_n_traj 100`) to assess the acceptance rate
-2. Calculate the ratio of accepted designs to total trajectories
+2. Calculate the ratio of accepted designs to total trajectories (the report headline collapses MPNN duplicates so multiple accepted sequences from one trajectory count once)
 3. Scale up for a larger run to generate approximately the desired number of accepted designs
+
+Multi-PDB runs tag each stats row with a `Target` column (input structure filename including extension, e.g. `PDL1.pdb`; the HTML report strips the extension for display) and the HTML report includes per-target accept rates.
 
 ## Output Structure
 
@@ -112,8 +114,6 @@ results/
 ### Local Workstation
 
 ```bash
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method bindcraft \
   --input_pdb 'input/PDL1.pdb' \
@@ -125,9 +125,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 ```
 
 ### HPC Cluster (SLURM)

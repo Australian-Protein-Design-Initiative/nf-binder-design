@@ -57,8 +57,6 @@ export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
 export TMPDIR=${APPTAINER_TMPDIR}
 mkdir -p ${APPTAINER_TMPDIR}
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 mkdir -p results/logs
 
 module load nextflow/24.04.3
@@ -74,8 +72,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --rfd_batch_size=1 \
   --pmpnn_seqs_per_struct=2 \
   --pmpnn_relax_cycles=1 \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt \
   -resume \
   -profile slurm,m3
 
@@ -126,8 +122,6 @@ export APPTAINER_TMPDIR=/scratch2/${PROJECT_ID}/${USER}/tmp
 export TMPDIR=${APPTAINER_TMPDIR}
 mkdir -p ${APPTAINER_TMPDIR}
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 mkdir -p results/logs
 
 module load nextflow/24.04.3
@@ -143,8 +137,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --bindcraft_n_traj 4 \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt \
   -resume \
   -profile slurm,m3
 
@@ -174,20 +166,20 @@ If you encounter an error, the `.nextflow.log` file will report the failing task
 
 ```
 Work dir:
-  /home/harshil/repos/nf-core/fetchngs/work/ab/123456789aabbccddeeff123456789
+  /home/myusername/scratch2/projects/bindcraft/pdl1/work/ab/123456789aabbccddeeff123456789
 ```
 
 This directory contains:
 
-- `command.log`: contains both stdout and stderr from the task
-- `exitcode`: created when the job ends, with exit code
-- `command.run`: wrapper script used to run the job (handles environment setup and job submission)
-- `command.sh`: command used for this task
-- `command.trace`: logs of compute resource usage
+- `.command.log`: contains both stdout and stderr from the task (the combination of `.command.out` and `.command.err`)
+- `.exitcode`: created when the job ends, with exit code
+- `.command.run`: wrapper script used to run the job (handles environment setup and job submission)
+- `.command.sh`: command used for this task
+- `.command.trace`: logs of compute resource usage
 - any input files used for the task (often symlinked from an upstream task)
 - any output files generated before the error occurred
 
-You can diagnose the problem by inspecting the `command.log` file, the options used in `.command.sh` and the input and output files.
+You can diagnose the problem by inspecting the `.command.log` file, the options used in `.command.sh` and the input and output files.
 
 ### Common errors
 

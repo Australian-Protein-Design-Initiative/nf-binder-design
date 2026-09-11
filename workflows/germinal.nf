@@ -18,9 +18,10 @@ params.germinal_n_traj = 10
 params.germinal_batch_size = 1
 params.germinal_max_passing_designs = 10000
 params.germinal_max_hallucinated_trajectories = 10000
-params.germinal_gpu_allocation_detect_process_regex = '(run_germinal\\.py|protenix|chai)'
 params.require_gpu = true
 params.gpu_devices = ''
+params.gpu_slots_per_device = 1
+params.gpu_lock_timeout = 14400
 
 include { GERMINAL as GERMINAL_PROCESS } from '../modules/local/germinal/germinal'
 include { GERMINAL_MERGE } from '../modules/local/germinal/germinal_merge'
@@ -63,8 +64,8 @@ workflow GERMINAL {
 
             --require_gpu                  Fail if no GPU detected [default: ${params.require_gpu}]
             --gpu_devices                  GPU devices for allocation [default: ${params.gpu_devices}]
-            --germinal_gpu_allocation_detect_process_regex
-                                           Regex for busy GPU process detection [default: ${params.germinal_gpu_allocation_detect_process_regex}]
+            --gpu_slots_per_device         Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
+            --gpu_lock_timeout             Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
         """.stripIndent()
         exit 1

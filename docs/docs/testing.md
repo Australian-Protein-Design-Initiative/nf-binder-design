@@ -204,7 +204,9 @@ Refer to the upstream documentation for details on writing
 ## Tips
 
 - Prefer lightweight, non-GPU processes for fast unit tests (eg `UNIQUE_ID`,
-  config-generation processes, simple Python helpers).
+  config-generation processes, simple Python helpers). BindCraft utils
+  (`resolveInputPdbs`, `BINDCRAFT_CREATE_SETTINGS`) are covered by non-GPU
+  function/process tests under `tests/modules/local/bindcraft/` (tag `bindcraft`).
 - The `RFDIFFUSION` process tests (`tests/modules/local/rfd/rfdiffusion.nf.test`) need a
   visible GPU (`require_gpu = true` in the test params, matching the pipeline default),
   the rfdiffusion Apptainer image, and an extra minute or so per test. They are

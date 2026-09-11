@@ -28,8 +28,6 @@
 
 PIPELINE_DIR=../../software/nf-binder-design
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 DEFAULT_SLURM_ACCOUNT=$(sacctmgr --parsable2 show user -s ${USER} | tail -1 | cut -f 2 -d \|)
 
 nextflow run ${PIPELINE_DIR}/main.nf  \
@@ -53,6 +51,4 @@ nextflow run ${PIPELINE_DIR}/main.nf  \
   # --do_foldseek \
   # --foldseek_af2ig_filters="pae_interaction<=15" \
   -profile slurm,m3 \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

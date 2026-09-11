@@ -64,7 +64,8 @@ params.foldseek_cath_names_path = false
 
 params.require_gpu = true
 params.gpu_devices = ''
-params.gpu_allocation_detect_process_regex = '(python.*/app/dl_binder_design/af2_initial_guess/predict\\.py|python.*/app/BindCraft/bindcraft\\.py|boltz predict|python.*/app/RFdiffusion/scripts/run_inference\\.py)'
+params.gpu_slots_per_device = 1
+params.gpu_lock_timeout = 14400
 
 params.rfd_backbone_models = false
 
@@ -155,10 +156,10 @@ workflow RFD {
                 --foldseek_include_html_output  Include HTML report [default: false]
                 --foldseek_cath_names_path    Path to local cath-names.txt (auto-downloaded if unset)
                                               CATH annotation is automatic when database name starts with "CATH"
-
-                --require_gpu         Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
-                --gpu_devices         GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
-                --gpu_allocation_detect_process_regex  Regex pattern to detect busy GPU processes [default: ${params.gpu_allocation_detect_process_regex}]
+                --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
+                --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
+                --gpu_slots_per_device  Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
+                --gpu_lock_timeout      Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
         """.stripIndent()
         )

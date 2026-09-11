@@ -14,7 +14,7 @@ process BINDCRAFT_SCORING {
 
   script:
   """
-    /opt/conda/envs/BindCraft/bin/python ${projectDir}/bin/bindcraft_scoring.py \
+    /opt/conda/envs/BindCraft/bin/python ${projectDir}/bin/bindcraft/bindcraft_scoring.py \
       --format tsv \
       --output ${pdb_file.simpleName}.tsv \
       --binder-chain ${binder_chain} \

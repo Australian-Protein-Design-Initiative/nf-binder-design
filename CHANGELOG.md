@@ -12,12 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--method fold`: multi-method structure folding (AF2, Boltz-2, RosettaFold3, Protenix) with shared MSAs, MSA subsampling, and EnGens clustering (formerly the standalone `fold.nf` entrypoint). Also `engens.nf`: standalone EnGens clustering of an existing `.cif`/`.pdb` folder or glob.
 - `examples/fold-pulldown`: Mosaic Multispecifics binders × PD-L1/IL-7Ra (ColabFold remote MSA, all fold engines).
 - fold_pulldown: AF2 reuses the ColabFold/mmseqs2 target a3m for chain A (binder stays query-only).
+- GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. Nextflow's own trace cannot carry this, because trace observers run in the head process while the device is chosen inside the container. The `hash` column is the short hash Nextflow prints, so the file joins directly to `trace_<datestamp>.txt`. Records are kept per task in the work directory, so `-resume` still reports the GPU a cached task originally ran on. The recording is strictly diagnostic and cannot fail a task or a run: a missing, broken or hung `nvidia-smi` (bounded by `timeout 10`), an unwritable trace directory, an unreadable record, or a malformed row all degrade to a missing row, and the aggregation step cannot escape `workflow.onComplete` as an error. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
 - Protenix fold jobs now pass `--need_atom_confidence true` by default (`--protenix_need_atom_confidence`); publishes full-confidence JSON with the token-pair PAE matrix for downstream ipSAE.
 - Standalone `fold.nf` entrypoint replaced by `nextflow run main.nf --method fold`.
 - ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
 - fold_pulldown report: ipTM and ipSAE by-target boxplots are one panel coloured by tool (not faceted).
+- Local multi-GPU allocation is now enforced with per-GPU `flock` locks (`bin/gpu_lock.sh`) instead of probing `nvidia-smi`. A task claims a GPU atomically and holds it for its lifetime; the kernel releases the claim when the task exits, so there are no stale locks even after a kill or crash. Slots fill breadth-first, so an idle card always wins over a second slot on a busy one. Measured on a dual RTX 3060 with only the allocation mechanism changed: time with both GPUs working rose from 15.9% to 27.0%, time with one card stacked while the other idled fell from 15.7% to 3.9%, at unchanged wall clock. New parameters: `--gpu_slots_per_device` (default 1, one task per card), `--gpu_lock_timeout`, `--gpu_lock_dir`. Individual processes can be given more slots with `ext.gpu_slots` where their VRAM footprint leaves headroom. See [Multiple GPUs](https://australian-protein-design-initiative.github.io/nf-binder-design/extra/multi-gpu/).
+- Local multi-GPU example configs drop `submitRateLimit` and shorten `pollInterval`. Both existed to work around the old allocation race and cost throughput directly: `'1/10sec'` capped dispatch at six tasks a minute, and a 30 s poll interval left a freed GPU idle for up to 30 s.
+
+### Removed
+- `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection could never work under containers: Apptainer runs with `--pid`, so `nvidia-smi --query-compute-apps` inside the container reports no processes regardless of load (measured: 250 of 250 task logs), leaving only a racy lowest-`memory.used` heuristic. Set `--gpu_devices` to enable the lock-based allocator instead.
 
 ### Fixed
 - fold_pulldown: suppress publishing intermediate `fold_scores.tsv` (only `fold_pulldown_scores.tsv` and `fold_pulldown_summary.tsv` are published).
@@ -25,35 +31,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quarto reports (`fold_pulldown`, `boltz_pulldown`): set writable `XDG_*` / Jupyter runtime dirs so rendering works in Apptainer (was failing with `Could create runtime directory for jupyter transport`).
 - fold_pulldown AF2 ipSAE: unwrap list-wrapped native `pae_model_*.json` so ipSAE can read `predicted_aligned_error`.
 - fold: compute ipSAE for RF3 and Protenix (was only Boltz, plus a crashing AF2 path).
+- Local multi-GPU runs no longer stack tasks on one card while another sits idle ([#14](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/issues/14)).
+- docs workflow: `main`, `develop` and tag pushes no longer race each other deploying to `gh-pages`. A release triggered all three at once and two failed with `cannot lock ref 'refs/heads/gh-pages'`, so the versioned docs were never published. Runs are now serialised and a rejected push is retried.
+
+## [0.3.1] - 2026-09-09
+
+### Added
+- BindCraft: support for multiple input PDBs via directory or glob, with per-PDB trajectories and per-target reporting.
+- BindCraft report: Wilson 95% confidence intervals on accept rates (overall, per-target, and per binder-length range); length-stratified i_pTM boxplots and accept-rate plots.
+- Automatic datestamped Nextflow report/trace/timeline/dag under `${outdir}/logs/` (no DATESTAMP / `-with-report` / `-with-trace` needed in wrappers).
+
+### Changed
+- BindCraft batch directories and design names use `<pdbName>_<batchIndex>` (e.g. `batches/PDL1_0/`) instead of a bare integer batch index. BindCraft output CSVs include a `Target` column with the input structure filename.
+- BindCraft helper scripts moved to `bin/bindcraft/` (`create_bindcraft_settings.py`, `bindcraft_scoring.py`, `add_bindcraft_target_column.py`).
+- M3 platform configs (`m3`, `m3_bdi`): shared SLURM option variables at the top of each file (account, exclude, GPU/CPU presets); all jobs now pass `--exclude=m3t100`.
+- BindCraft report headline accept rate collapses MPNN duplicates (unique trajectories with ≥1 accepted design ÷ total trajectories); rate including all accepted MPNN sequences is shown alongside.
+
+### Fixed
+- BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.
+- BindCraft: process now fails (non-zero exit) when `bindcraft.py` crashes; previously `| tee bindcraft.log` masked the Python exit code so Nextflow marked the task COMPLETED.
+- `bin/ipsae.py`: score RF3, native AF2 and Protenix predictions correctly. RF3 is now its own input format (scalar `iptm`, 0-indexed per-atom pLDDT) rather than an AF3 variant; list-wrapped AF2 `pae_model_*.json` and Protenix full-data JSON are accepted; and the structure format is detected from the real file extension, fixing `KeyError: 'id'` on rfd3/Boltz outputs whose `.pdb` filename embeds `.cif`.
+- rfd3 modules pull `rc-foundry:0.2.0-weights` as an ordinary container image instead of `oras://`. The image was rebuilt as a multi-layer OCI image, so an `oras://` pull now fails with `ORAS SIF image should have a single layer, found 20`.
 
 ## [0.3.0] - 2026-07-09
 
+### Added
+- New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry` (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).
+- Germinal antibody/nanobody design workflow (`--method germinal`).
+- FoldSeek structural search (`--do_foldseek`) for the `rfd`, `bindcraft`, `boltzgen`, and `rfd3` workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.
+- Spartan HPC platform configs `spartan-a100.config` (gpu-a100-short) and `spartan-l40s.config` (gpu-l40s) for University of Melbourne Spartan.
+- `conf/platforms/monash_containers.config`: container URL overrides so the `m3`, `m3_bdi` M3/MASSIVE platform configs pull mirrored containers from a Monash local server instead of `ghcr.io`. Some containers (`SILENT_FROM_PDBS`, `MMSEQS_COLABFOLDSEARCH`, FoldSeek) are not yet mirrored and still pull from their original registries.
+- RFD workflow docs: table of built-in and bind-mounted HyperMPNN `--pmpnn_weights` checkpoints in the `proteinmpnn_dl_binder_design` container.
+- Agent skill at `.agents/skills/nf-binder-design/` for AI-assisted pipeline setup and execution.
+- `bin/complex_sasa.py`: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and `--min-change-percent` column pruning.
+- nf-test `tests/pipeline/compilation.nf.test`: launches `rfd`, `rfd_partial`, and `rfd3` in `-preview` mode to verify every workflow/module compiles; run per Nextflow version with `NXF_VER=<version> nf-test ...` to guard against version-specific DSL parser regressions.
+
 ### Changed
-- Trimmed README.md, testing section moved to `docs/docs/extra/development.md`, general docs cleaunp and corrections.
 - Docs: note Nextflow version compatibility. On Nextflow `26.04+` (new strict parser default), set `NXF_SYNTAX_PARSER=v1` to use the legacy parser.
+- Trimmed README.md, testing section moved to `docs/docs/extra/development.md`, general docs cleanup and corrections.
 - `manifest.nextflowVersion` now bounds the supported range to `!>=23.04.0, <26.10` (hard failure outside this range).
 - Set `nextflow.enable.configProcessNamesValidation = false` to silence the "There's no process matching config selector" warnings printed on every run (only the selected `--method` workflow is included, so the `withName:` selectors for other methods' processes match nothing).
 
 ### Fixed
-- `examples/*/nextflow.dual-gpu.config`: fixed `if (params.gpu_devices) { maxForks = ... }` inside `withName:` blocks, which printed a `WARN: Unknown directive 'params'` on every dual-GPU example run and hard-errored (`Unknown config attribute`) if `--gpu_devices` was not passed. Replaced with a plain ternary assignment and a local `params { gpu_devices = '' }` redeclaration so the overlay file can resolve the param without depending on cross-file config evaluation order.
-
-### Added
-- `conf/platforms/monash_containers.config`: container URL overrides so the `m3`, `m3_bdi` M3/MASSIVE platform configs pull mirrored containers from a Monash local server instead of `ghcr.io`. Some containers (`SILENT_FROM_PDBS`, `MMSEQS_COLABFOLDSEARCH`, FoldSeek) are not yet mirrored and still pull from their original registries.
-- Spartan HPC platform configs `spartan-a100.config` (gpu-a100-short) and `spartan-l40s.config` (gpu-l40s) for University of Melbourne Spartan.
-- Agent skill at `.agents/skills/nf-binder-design/` for AI-assisted pipeline setup and execution.
-- RFD workflow docs: table of built-in and bind-mounted HyperMPNN `--pmpnn_weights` checkpoints in the `proteinmpnn_dl_binder_design` container.
-- New `--method rfd3` workflow for RFDiffusion3-based binder design using `RosettaCommons/foundry` (RF3 batching, Boltz full-refold scoring, optional FoldSeek on refolded designs).
-- Germinal antibody/nanobody design workflow (`--method germinal`).
-- FoldSeek structural search (`--do_foldseek`) for the `rfd`, `bindcraft`, `boltzgen`, and `rfd3` workflows. Searches designed binder chains against structural databases (default: CATH50) to identify known folds and annotate results with CATH hierarchy descriptions. Supports local or remote search, gzip output, and optional HTML reports.
-- `bin/complex_sasa.py`: per-residue delta SASA for target chains when a binder is removed from a complex, with optional site sums, batch PDB input, and `--min-change-percent` column pruning.
-- nf-test `tests/pipeline/compilation.nf.test`: launches `rfd`, `rfd_partial`, and `rfd3` in `-preview` mode to verify every workflow/module compiles; run per Nextflow version with `NXF_VER=<version> nf-test ...` to guard against version-specific DSL parser regressions.
-
-### Fixed
-- Nextflow 24.04.3 compatibility: the `rfd3` workflow and `boltz_refold_core` subworkflow no longer trigger the "Variable already defined in the process scope" DSL parser error on Nextflow 24.04.3 (a bug fixed in the 24.10 parser rewrite). Channel/path local variables use plain assignments instead of `def` in these workflow bodies.
-- `rfd`: configurable `RFDIFFUSION` via `rfd_command` and `rfd_model_directory_path` (Pawsey config overrides in `pawsey_setonix.config`; GPU behaviour uses existing `require_gpu` and `gpu_devices`).
 - `germinal`: `--method germinal` no longer crashes with a `MissingPropertyException` when `--germinal_pdb_dir` is omitted; the documented default (`../pdbs` relative to the config) is now inferred correctly (`config_path` is a `Path`, which has no `.parentFile`).
 - `rfd3`: legacy `--pmpnn_temperature`, `--pmpnn_augment_eps` and `--pmpnn_omit_aas` flags are now honoured instead of being silently overridden by the modern `--mpnn_*` defaults. The modern name still takes precedence when both are set; defaults are unchanged (temperature `0.1`, structure noise `0`, omit `CX`, sequences-per-structure `1`).
+- Nextflow 24.04.3 compatibility: the `rfd3` workflow and `boltz_refold_core` subworkflow no longer trigger the "Variable already defined in the process scope" DSL parser error on Nextflow 24.04.3 (a bug fixed in the 24.10 parser rewrite). Channel/path local variables use plain assignments instead of `def` in these workflow bodies.
 - `foldseek`: database names containing `/` (e.g. `Alphafold/UniProt50`, `Alphafold/Swiss-Prot`) now download and search correctly; the download step creates the nested output prefix directory and the local search resolves prefixes nested one level deep.
+- `examples/*/nextflow.dual-gpu.config`: fixed `if (params.gpu_devices) { maxForks = ... }` inside `withName:` blocks, which printed a `WARN: Unknown directive 'params'` on every dual-GPU example run and hard-errored (`Unknown config attribute`) if `--gpu_devices` was not passed. Replaced with a plain ternary assignment and a local `params { gpu_devices = '' }` redeclaration so the overlay file can resolve the param without depending on cross-file config evaluation order.
+- `rfd`: configurable `RFDIFFUSION` via `rfd_command` and `rfd_model_directory_path` (Pawsey config overrides in `pawsey_setonix.config`; GPU behaviour uses existing `require_gpu` and `gpu_devices`).
 - `rfd3`: `RFDIFFUSION3` and `ROSETTAFOLD3` now fail fast with a clear message when `nvidia-smi` is not installed (previously died with a cryptic `command not found` under `set -e`).
 - `combine_scores.sh`: updated to the current `results/rfd/af2_initial_guess/{pdbs,scores}` output layout (was still pointing at the pre-reorg `results/af2_initial_guess/...`).
 

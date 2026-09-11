@@ -14,7 +14,7 @@ Unlike a single long Germinal run that loops until stopping criteria are met, th
 - Splits work into **parallel batches** (`--germinal_batch_size`)
 - Merges per-batch CSVs and structure folders into a single output tree
 
-If you want a specific number of accepted designs, run a small pilot (`--germinal_n_traj 10`) to estimate acceptance rate, then scale up.
+If you want a specific number of accepted designs, run a small pilot (`--germinal_n_traj 100` or more) to estimate acceptance rate, then scale up. The Germinal documentation and paper detail the specific parameter sweeps you may want to try (via different config files) to improve the acceptance rate.
 
 ## Command-line Options
 
@@ -30,7 +30,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 ```bash
 #!/bin/bash
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 RUN_DIR=/path/to/runs/germinal/test-protenix2
 
 nextflow run /path/to/nf-binder-design-germinal/main.nf \
@@ -42,9 +41,7 @@ nextflow run /path/to/nf-binder-design-germinal/main.nf \
   --germinal_batch_size 1 \
   --outdir "${RUN_DIR}/results/nf-germinal" \
   -profile local \
-  -resume \
-  -with-report "results/logs/report_${DATESTAMP}.html" \
-  -with-trace "results/logs/trace_${DATESTAMP}.txt"
+  -resume
 ```
 
 For SLURM on M3 BDI, use `-profile slurm,m3_bdi` with `--slurm_account=yt41`.

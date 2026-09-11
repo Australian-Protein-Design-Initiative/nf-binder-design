@@ -12,11 +12,9 @@ process BINDCRAFT {
     )
 
     input:
-    path input_pdb
-    path settings_json
+    tuple val(batch_id), path(input_pdb), path(settings_json)
     val advanced_settings_preset
     val filters_preset
-    val batch_id
     val compress_html
     val compress_pdb
 
@@ -42,6 +40,7 @@ process BINDCRAFT {
     def filters_filename = filters_preset ? "/app/BindCraft/settings_filters/${filters_preset}.json" : '/app/BindCraft/settings_filters/default_filters.json'
     def modified_filters_filename = "./${file(filters_filename).getName()}"
     """
+    set -euo pipefail
 
     if [[ ${params.require_gpu} == "true" ]]; then
        if [[ \$(nvidia-smi -L) =~ "No devices found" ]]; then
@@ -52,12 +51,18 @@ process BINDCRAFT {
         nvidia-smi
     fi
 
-    # Find least-used GPU (by active processes and VRAM) and set CUDA_VISIBLE_DEVICES
+    # Claim a GPU for this task's lifetime, then record which card we got
+    # (bin/gpu_lock.sh). The claim is required, and fails the task if it cannot
+    # be made. The recording is diagnostic, and must never fail the task -- the
+    # `|| true` also suspends `set -e` for the whole function body, so nothing
+    # inside it can abort the script either.
     if [[ -n "${params.gpu_devices}" ]]; then
-        free_gpu=\$(${baseDir}/bin/find_available_gpu.py "${params.gpu_devices}" --verbose --exclude "${params.gpu_allocation_detect_process_regex}" --random-wait 2)
-        export CUDA_VISIBLE_DEVICES="\$free_gpu"
-        echo "Set CUDA_VISIBLE_DEVICES=\$free_gpu"
+        source ${projectDir}/bin/gpu_lock.sh
+        nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
+    else
+        source ${projectDir}/bin/gpu_lock.sh || true
     fi
+    nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 
     ##
     # We modify the advanced settings to set the `max_trajectories` to the batch size
@@ -95,6 +100,11 @@ with open("${modified_advanced_settings_filename}", "w") as f:
         --advanced ${modified_advanced_settings_filename} \
         --filters ${modified_filters_filename} \
         ${task.ext.args ?: ''} 2>&1 | tee bindcraft.log
+
+    # Tag per-batch stats CSVs with the input structure filename (incl. extension)
+    /opt/conda/envs/BindCraft/bin/python ${baseDir}/bin/bindcraft/add_bindcraft_target_column.py \
+        --target "${input_pdb.name}" \
+        --results-dir results
 
     if [[ ${compress_html} == "true" ]]; then
         find ./results -type f -name '*.html' -exec gzip -9 {} +

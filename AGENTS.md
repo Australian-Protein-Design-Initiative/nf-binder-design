@@ -51,6 +51,42 @@ If there is a CHANGELOG.md file, update it with any notable features or bug fixe
 - If a new 'process' has been added in `modules/` or elsewhere, ensure `nextflow.config` and site-specific configs in `conf/platforms` have the approriate `withName` configuration for that process.
 - Update `CHANGELOG.md` condensing and summarizing `[Unreleased]` changes where required.
 
+## Releases
+
+The version number is duplicated in three places and they must be changed together --
+there is no single source of truth:
+
+- `nextflow.config` -- `manifest.version`
+- `CITATION.cff` -- `version`, `date-released` (the release date, `YYYY-MM-DD`), and the
+  `repository-code` tree URL (`.../tree/<version>`)
+- `CHANGELOG.md` -- insert `## [X.Y.Z] - YYYY-MM-DD` directly below `## [Unreleased]`,
+  leaving an empty `## [Unreleased]` heading in place above it
+
+`docs/docs/changelog.md` is a symlink to `CHANGELOG.md`, so it needs no separate edit.
+
+Do NOT edit `doi:` in `CITATION.cff`. That is the Zenodo concept DOI covering every
+version; Zenodo mints the per-version DOI when the GitHub release is published.
+
+Steps:
+
+1. Condense and summarise `[Unreleased]` per the CHANGELOG.md rules above, then close it
+   as the new version.
+2. Bump the three files. Commit as `Prepare X.Y.Z release: <summary>`.
+3. Tag with **unprefixed** semver (`0.3.1`, not `v0.3.1`). Every existing tag is
+   unprefixed, and `.github/workflows/docs.yml` publishes the versioned docs from tags
+   matching `v*` or `[0-9]+.[0-9]+.[0-9]+`.
+4. Push the branch and the tag, then create the GitHub release from that tag using the
+   new CHANGELOG section as the release body.
+
+`main` and `develop` are kept at the same commit for a release -- fast-forward `main` to
+`develop` rather than merging, so the tag is reachable from both.
+
+A release push fires the `docs` workflow up to three times (`main`, `develop`, the tag).
+They all deploy to the same `gh-pages` branch, so they are serialised by a `docs-deploy`
+concurrency group and retry a rejected push; let them finish before assuming the
+versioned docs are live.
+
+
 ## Python
 
 - When writing Python code, include type hints where practical.

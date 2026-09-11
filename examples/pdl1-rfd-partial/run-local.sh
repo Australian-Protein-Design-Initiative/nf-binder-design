@@ -2,8 +2,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   --method rfd_partial \
   --input_pdb 'input/*.pdb' \
@@ -21,6 +19,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --refold_max=100 \
   --refold_use_msa_server=true \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

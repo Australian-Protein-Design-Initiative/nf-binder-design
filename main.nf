@@ -143,5 +143,88 @@ workflow {
         new File(output_file).text = json_string
 
         log.info("Pipeline parameters saved to: ${output_file}")
+
+        writeGpuTrace()
     }
+}
+
+// Aggregate the per-task GPU records written by nfbd_record_gpu_trace
+// (bin/gpu_lock.sh) into one file alongside Nextflow's own trace.
+//
+// This exists because Nextflow's trace cannot answer "which GPU ran this?".
+// Its observers run in the head process, while the device is chosen inside the
+// container, so the only place that knows is the task itself.
+//
+// Rows are collected from the work directory rather than accumulated in memory,
+// which means a -resume run still reports the GPU its cached tasks ran on
+// originally, rather than silently dropping them.
+def writeGpuTrace() {
+    // Wrapped whole: an exception escaping workflow.onComplete is reported as
+    // "Failed to invoke `workflow.onComplete` event handler" and turns a
+    // successful run into one that looks failed. A diagnostic file is never
+    // worth that, so every failure degrades to a warning.
+    try {
+        writeGpuTraceUnsafe()
+    }
+    catch (Exception e) {
+        log.warn("Could not write the GPU trace: ${e}")
+    }
+}
+
+def writeGpuTraceUnsafe() {
+    def trace_dir = new File(params.gpu_trace_dir ?: "${workflow.workDir}/.gpu_trace")
+    if (!trace_dir.isDirectory()) {
+        return
+    }
+
+    def columns = [
+        'timestamp',
+        'hash',
+        'process',
+        'hostname',
+        'n_gpus',
+        'gpu_index',
+        'gpu_uuid',
+        'gpu_name',
+        'driver_version',
+        'memory_total_mib',
+        'cuda_visible_devices',
+    ]
+
+    // A row that cannot be read is skipped rather than fatal: the file may have
+    // been removed by a `nextflow clean`, or live on a filesystem that went
+    // away, and one unreadable task must not cost the other several hundred.
+    //
+    // readLines().find is used rather than text.trim(): trim() strips the
+    // trailing tab that delimits an empty final field, which would silently
+    // shorten the row.
+    //
+    // Rows are also checked for width. Anything else in the directory -- a
+    // leftover from an older column layout, a file a user dropped there -- would
+    // otherwise be copied into the output and silently break every reader of it.
+    def rows = (trace_dir.listFiles() ?: [] as File[])
+        .findAll { it.isFile() && it.name.endsWith('.tsv') }
+        .collect { f ->
+            try {
+                f.readLines().find { line -> line }
+            }
+            catch (Exception e) {
+                log.warn("Skipping unreadable GPU trace record ${f.name}: ${e.message}")
+                null
+            }
+        }
+        .findAll { it && it.split('\t', -1).size() == columns.size() }
+        .sort()
+
+    if (!rows) {
+        return
+    }
+
+    def header = columns.join('\t')
+
+    def out = new File(params.gpu_trace_file ?: "${params.outdir}/logs/gpu_trace.txt")
+    out.parentFile?.mkdirs()
+    out.text = ([header] + rows).join('\n') + '\n'
+
+    log.info("GPU trace saved to: ${out} (${rows.size()} tasks)")
 }

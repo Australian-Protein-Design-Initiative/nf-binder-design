@@ -1,5 +1,7 @@
 ## RFDiffusion3 Workflow (`--method rfd3`)
 
+![RFdiffusion3 workflow](../images/rfd3-workflow.png)
+
 RFdiffusion3-based workflow for _de novo_ protein binder design using the [RostettaCommons/foundry](https://github.com/RosettaCommons/foundry) RFDiffusion3 (`rfd3`), MPNN (`mpnn` for ProteinMPNN, SolubleMPNN or LigandMPNN), and RosettaFold3 (`rf3`).
 
 See also: [Official RFDiffusion3 documentation](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
@@ -98,8 +100,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res "A56,A115,A123" \
   --rfd3_n_designs 10 \
   --rfd3_batch_size 1 \
-  -with-report "$OUTDIR/logs/report_$(date +%Y%m%d_%H%M%S).html" \
-  -with-trace "$OUTDIR/logs/trace_$(date +%Y%m%d_%H%M%S).txt" \
   -profile local
 ```
 

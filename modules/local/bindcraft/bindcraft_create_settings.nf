@@ -2,8 +2,7 @@ process BINDCRAFT_CREATE_SETTINGS {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
 
     input:
-    tuple val(batch_id), val(n_designs)
-    path input_pdb
+    tuple val(batch_id), val(n_designs), path(input_pdb)
     val hotspot_res
     val target_chains
     val binder_length_range
@@ -11,12 +10,11 @@ process BINDCRAFT_CREATE_SETTINGS {
     val hotspot_subsample
 
     output:
-    path 'settings.json', emit: settings_json
-    val batch_id,         emit: batch_id
+    tuple val(batch_id), path('settings.json'), emit: settings
 
     script:
     """
-    ${baseDir}/bin/create_bindcraft_settings.py \\
+    ${baseDir}/bin/bindcraft/create_bindcraft_settings.py \\
         --input_pdb ./${input_pdb} \\
         --hotspot_res "${hotspot_res}" \\
         --target_chains "${target_chains}" \\

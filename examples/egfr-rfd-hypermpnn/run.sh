@@ -8,8 +8,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
-
 nextflow run ${PIPELINE_DIR}/main.nf \
   --method rfd \
   --input_pdb 'input/*.pdb' \
@@ -23,6 +21,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd_filters="rg<=20" \
   --pmpnn_weigths="$(realpath ${PIPELINE_DIR}/models/HyperMPNN/retrained_models/v48_020_epoch300_hyper.pt)" \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

@@ -104,6 +104,8 @@ params.foldseek_cath_names_path = false
 
 params.require_gpu = true
 params.gpu_devices = ''
+params.gpu_slots_per_device = 1
+params.gpu_lock_timeout = 14400
 
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 include { RFDIFFUSION3 } from '../modules/local/rfd3/rfdiffusion3'
@@ -268,8 +270,10 @@ workflow RFD3 {
                                           CATH annotation is automatic when database name starts with "CATH"
 
         Other options:
-            --require_gpu         Fail tasks without a GPU [default: ${params.require_gpu}]
-            --gpu_devices         GPU devices to use (comma-separated or 'all') [default: ${params.gpu_devices}]
+            --require_gpu           Fail tasks without a GPU [default: ${params.require_gpu}]
+            --gpu_devices           GPU devices to use (comma-separated or 'all') [default: ${params.gpu_devices}]
+            --gpu_slots_per_device  Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
+            --gpu_lock_timeout      Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
         """.stripIndent()
         )

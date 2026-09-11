@@ -2,7 +2,6 @@
 
 PIPELINE_DIR=../../
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p results/logs
 
 nextflow run ${PIPELINE_DIR}/main.nf \
@@ -14,6 +13,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --germinal_batch_size 1 \
   --outdir results \
   -profile local \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume

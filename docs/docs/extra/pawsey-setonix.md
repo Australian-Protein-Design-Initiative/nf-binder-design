@@ -34,7 +34,6 @@ export SINGULARITY_TMPDIR=/scratch/${PAWSEY_PROJECT}/${USER}/tmp
 export NXF_SINGULARITY_TMPDIR=${SINGULARITY_TMPDIR}
 mkdir -p "${SINGULARITY_TMPDIR}"
 
-DATESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p results/logs
 
 nextflow pull Australian-Protein-Design-Initiative/nf-binder-design || true
@@ -48,9 +47,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res "A56" \
   --rfd_n_designs=4 \
   -profile pawsey_setonix \
-  -resume \
-  -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -resume
 ```
 
 ## Details
