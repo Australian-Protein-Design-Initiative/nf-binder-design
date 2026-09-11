@@ -97,6 +97,10 @@ params.use_remote_server = false
 params.uniref30 = false
 params.colabfold_envdb = false
 
+params.gpu_devices = ''
+params.gpu_slots_per_device = 1
+params.gpu_lock_timeout = 14400
+
 include { FOLD as FOLD_CORE } from '../subworkflows/local/fold'
 
 workflow FOLD {
@@ -208,7 +212,8 @@ workflow FOLD {
             --engens_featurizers                default,3di,pb [default: ${params.engens_featurizers}]
 
             --gpu_devices                        GPU devices [default: ${params.gpu_devices}]
-            --gpu_allocation_detect_process_regex  Busy-GPU detection regex
+            --gpu_slots_per_device               Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
+            --gpu_lock_timeout                    Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
         Example:
             nextflow run main.nf --method fold --input 'input/*.fasta' --outdir results \\
