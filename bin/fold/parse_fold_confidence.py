@@ -17,8 +17,10 @@ and asymmetric per-chain-pair scores are intentionally dropped (only overall /
 "main" values are reported). Columns an engine does not report are left blank.
 
 Sources per tool (verified against example fold-multimer results):
-  af2      --pkl result_model_N.pkl (ptm, iptm, ranking_confidence, plddt[0-100])
+  af2 / af2_mono
+           --pkl result_model_N.pkl (ptm, iptm, ranking_confidence, plddt[0-100])
            optional --ipsae-tsv (ipsae.py output; Type==min row)
+           af2_mono reuses the AF2 pickle parser; the TSV tool column is af2_mono
   rf3      --json *_summary_confidences.json
            optional --ipsae-tsv from *_confidences.json + *_model.cif
   protenix --json *_summary_confidence_sample_N.json (plddt is 0-100)
@@ -128,7 +130,12 @@ def parse_protenix(args):
     return row
 
 
-PARSERS = {"af2": parse_af2, "rf3": parse_rf3, "protenix": parse_protenix}
+PARSERS = {
+    "af2": parse_af2,
+    "af2_mono": parse_af2,  # same pickle schema; distinct tool tag in the TSV
+    "rf3": parse_rf3,
+    "protenix": parse_protenix,
+}
 
 
 def _fmt(v):

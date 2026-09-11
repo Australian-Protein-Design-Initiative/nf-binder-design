@@ -101,6 +101,15 @@ workflow PROTENIX_FOLD {
     // -> complex_sample_N.cif); predictions_file uses the same FoldNaming prefix
     // as the module's flat-gather saveAs. ipSAE needs the sibling
     // *_full_data_sample_N.json (token-pair PAE) and the mmCIF.
+    // When a sample's PAE JSON or mmCIF is missing (e.g. a prediction job was
+    // interrupted mid-write) ipSAE is skipped -- but FOLD_PARSE_CONFIDENCE still
+    // declares three separate path inputs, so they must be three DISTINCT file
+    // names or Nextflow aborts the whole run with "input file name collision".
+    // Passing the summary JSON in all three slots (the old behaviour) crashed the
+    // pipeline on the first incomplete sample.
+    def no_ipsae_pae = file("${projectDir}/assets/dummy_files/no_ipsae_pae.json")
+    def no_ipsae_struct = file("${projectDir}/assets/dummy_files/no_ipsae_structure.cif")
+
     ch_conf = PROTENIX_FOLD_PROCESS.out.predictions.flatMap { meta, files ->
         def all = files instanceof List ? files : [files]
         def byName = [:]
@@ -115,7 +124,7 @@ workflow PROTENIX_FOLD {
                 def cif = byName[struct]
                 def doIpsae = (pae != null && cif != null)
                 def pred = "${FoldNaming.flatPrefix('protenix', meta)}${struct}"
-                [meta, 'protenix', "sample_${idx}", struct, pred, j, doIpsae ? pae : j, doIpsae ? cif : j, doIpsae]
+                [meta, 'protenix', "sample_${idx}", struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)

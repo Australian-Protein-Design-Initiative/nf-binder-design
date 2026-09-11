@@ -6,7 +6,7 @@
 
 """
 Unit tests for the fold.nf score-TSV pipeline:
-  bin/fold/parse_fold_confidence.py  (rf3 / protenix / af2 -> normalized row)
+  bin/fold/parse_fold_confidence.py  (rf3 / protenix / af2 / af2_mono -> normalized row)
   bin/fold/merge_fold_scores.py      (per-tool TSVs -> master, boltz mapped)
 
 Run from the repo root (host python has no pytest):
@@ -22,9 +22,12 @@ per-chain-pair values are dropped.
 import csv
 import io
 import json
+import pickle
 import subprocess
 import sys
 from pathlib import Path
+
+import numpy as np
 
 BIN = Path(__file__).resolve().parents[2] / "bin" / "fold"
 CANON = [
@@ -113,3 +116,26 @@ def test_rf3_ipsae_tsv_merged(tmp_path):
     assert b["pde"] == "0.48" and b["ipsae"] == "0.63"
     assert b["predictions_file"] == "boltz_cm0.cif"
     assert list(rows[0].keys()) == CANON                    # master is canonical
+
+
+def test_af2_mono_uses_af2_parser(tmp_path):
+    pkl = tmp_path / "result_model_1.pkl"
+    with pkl.open("wb") as f:
+        pickle.dump({
+            "ranking_confidence": 0.921,
+            "ptm": 0.81,
+            "plddt": np.array([90.0, 92.0]),
+        }, f)
+    out = _run([
+        str(BIN / "parse_fold_confidence.py"),
+        "--tool", "af2_mono", "--id", "cx", "--model", "1",
+        "--original-file", "relaxed_model_1_ptm_pred_0.cif",
+        "--predictions-file", "af2_mono_cx_run1_relaxed_model_1_ptm_pred_0.cif",
+        "--pkl", str(pkl),
+    ]).stdout
+    r = _rows(out)[0]
+    assert r["tool"] == "af2_mono"
+    assert r["ranking_score"] == "0.921"
+    assert r["ptm"] == "0.81"
+    assert r["iptm"] == ""  # monomer_ptm pickle has no iptm
+    assert abs(float(r["plddt"]) - 0.91) < 1e-9  # mean([90, 92]) / 100

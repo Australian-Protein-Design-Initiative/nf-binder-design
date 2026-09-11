@@ -92,10 +92,20 @@ workflow ALPHAFOLD2 {
     // collide when the predictions glob stages flat. score_af2_run.py only needs
     // the top-level structures + ranking_debug.json / pae_model_*.json /
     // result_model_*.pkl, so excluding msas/ is safe (and tidier for monomer too).
+    //
+    // features.pkl is dropped for the same reason. An interrupted AF2 run that is
+    // retried can re-run inside its own output directory, leaving a nested
+    // out/<id>/<id>/features.pkl beside out/<id>/features.pkl; staged flat those
+    // two collide on one filename and Nextflow aborts the whole run with
+    // "input file name collision" (seen in Experiment 6 as FOLD_SCORE_AF2 (166),
+    // downstream of AF2 tasks that had hit Lustre "Input/output error" retries).
+    // score_af2_run.py never reads features.pkl -- it opens only
+    // ranking_debug.json, pae_model_<model>.json and result_model_<model>.pkl --
+    // so excluding it removes the collision without changing any score.
     ch_score_in = ALPHAFOLD2_PREDICT.out.predictions
         .map { meta, files ->
             def scoring = (files instanceof List ? files : [files]).findAll {
-                !it.toString().contains('/msas/')
+                !it.toString().contains('/msas/') && it.name != 'features.pkl'
             }
             [meta, scoring, FoldNaming.af2Prefix(meta)]
         }
