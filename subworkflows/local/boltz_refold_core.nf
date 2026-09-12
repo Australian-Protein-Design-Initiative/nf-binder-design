@@ -14,6 +14,10 @@ parameters: the RMSD output label (`af2ig` vs `rf3`), the BindCraft publish
 subdirectory, and whether an external target MSA (`refold_alignment`) is used.
 */
 
+// --boltz_refold_batch_size groups designs into a single `boltz predict` call; its default and
+// the measurements behind it are in nextflow.config. Read here as null-safe, so this
+// subworkflow still works if included somewhere that does not set it.
+
 include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_BOLTZ_COMPLEX } from '../../modules/local/rfd/bindcraft_scoring'
 include { PDB_TO_FASTA } from '../../modules/local/common/pdb_to_fasta'
 include { BOLTZ_COMPARE_COMPLEX } from '../../modules/local/common/boltz_compare_complex'
@@ -94,31 +98,85 @@ workflow BOLTZ_REFOLD_CORE {
         }
     }
 
+    def boltz_batch_int = (params.boltz_refold_batch_size == null || params.boltz_refold_batch_size == false)
+        ? 1
+        : (params.boltz_refold_batch_size as int)
+    if (boltz_batch_int < 1) {
+        throw new Exception('--boltz_refold_batch_size must be >= 1')
+    }
+
+    // Group designs into batches, and group the target MSAs the same way so the two stay
+    // paired. The MSA channel is collated rather than joined on meta: the process never
+    // reads the staged MSA path (it is present only so a YAML can reference it by
+    // basename), the MSA belongs to the target and so is the same for every design, and
+    // collating preserves the positional pairing these two channels already relied on.
+    // The extension travels with the batch because the process stages its inputs under
+    // numbered names, which discards it (see BOLTZ_COMPARE_COMPLEX).
+    ch_complex_batches = ch_filtered_for_refold
+        .collate(boltz_batch_int, true)
+        .map { batch ->
+            tuple(
+                batch.collect { it[0] },
+                batch.collect { it[1] },
+                batch.collect { it[1].extension },
+            )
+        }
+
+    ch_target_msa_batches = ch_target_msas
+        .map { meta, target_msa -> target_msa }
+        .collate(boltz_batch_int, true)
+        .map { batch -> batch.first() }
+
     // Run Boltz complex refolding with RMSD analysis
     use_target_msa = refold_create_target_msa || refold_alignment
     BOLTZ_COMPARE_COMPLEX(
-        ch_filtered_for_refold,
+        ch_complex_batches,
         binder_chain,
         target_chain,
         use_target_msa,
         refold_use_msa_server,
-        ch_target_msas.map { meta, target_msa -> target_msa },
+        ch_target_msa_batches,
         file("${projectDir}/assets/dummy_files/empty_binder_msa"),
         file(refold_target_templates ?: "${projectDir}/assets/dummy_files/empty_templates"),
         refold_target_fasta ? file(refold_target_fasta) : "${projectDir}/assets/dummy_files/empty",
     )
 
+    // Split each batch back into per-design channels. Paths are rebuilt from the design id
+    // rather than from output order, so a batch cannot mis-pair a design with another
+    // design's results.
+    def ch_complex_per_design = BOLTZ_COMPARE_COMPLEX.out.per_design_bundle.flatMap { metas, bundle ->
+        def ml = metas instanceof List ? metas : [metas]
+        ml.collect { m -> tuple(m, file("${bundle}/${m.id}")) }
+    }
+    def ch_boltz_complex_pdb = ch_complex_per_design.map { meta, d -> tuple(meta, file("${d}/${meta.id}_complex.pdb")) }
+
     // Run Boltz binder monomer prediction with RMSD analysis
+    ch_monomer_batches = ch_filtered_for_refold
+        .join(ch_boltz_complex_pdb)
+        .collate(boltz_batch_int, true)
+        .map { batch ->
+            tuple(
+                batch.collect { it[0] },
+                batch.collect { it[1] },
+                batch.collect { it[2] },
+                batch.collect { it[1].extension },
+            )
+        }
+
     BOLTZ_COMPARE_BINDER_MONOMER(
-        ch_filtered_for_refold.join(BOLTZ_COMPARE_COMPLEX.out.pdb).map { meta, design_pdb, boltz_pdb ->
-            [meta, design_pdb, boltz_pdb]
-        },
+        ch_monomer_batches,
         binder_chain,
     )
 
+    def ch_monomer_per_design = BOLTZ_COMPARE_BINDER_MONOMER.out.per_design_bundle.flatMap { metas, bundle ->
+        def ml = metas instanceof List ? metas : [metas]
+        ml.collect { m -> tuple(m, file("${bundle}/${m.id}")) }
+    }
+    def ch_boltz_monomer_pdb = ch_monomer_per_design.map { meta, d -> tuple(meta, file("${d}/${meta.id}_monomer.pdb")) }
+
     // Aggregate RMSD outputs
-    ch_target_aligned_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_target_aligned
-        .map { meta, tsv_file -> tsv_file }
+    ch_target_aligned_rmsd = ch_complex_per_design
+        .map { meta, d -> file("${d}/rmsd_target_aligned_binder.tsv") }
         .collectFile(
             name: 'rmsd_target_aligned_binder.tsv',
             storeDir: "${outdir}/boltz_refold/rmsd",
@@ -126,8 +184,8 @@ workflow BOLTZ_REFOLD_CORE {
             skip: 1,
         )
 
-    ch_complex_rmsd = BOLTZ_COMPARE_COMPLEX.out.rmsd_complex
-        .map { meta, tsv_file -> tsv_file }
+    ch_complex_rmsd = ch_complex_per_design
+        .map { meta, d -> file("${d}/rmsd_complex.tsv") }
         .collectFile(
             name: "rmsd_complex_vs_${rmsd_label}.tsv",
             storeDir: "${outdir}/boltz_refold/rmsd",
@@ -135,8 +193,8 @@ workflow BOLTZ_REFOLD_CORE {
             skip: 1,
         )
 
-    ch_monomer_vs_design_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_af2ig
-        .map { meta, tsv_file -> tsv_file }
+    ch_monomer_vs_design_rmsd = ch_monomer_per_design
+        .map { meta, d -> file("${d}/rmsd_monomer_vs_af2ig.tsv") }
         .collectFile(
             name: "rmsd_monomer_vs_${rmsd_label}.tsv",
             storeDir: "${outdir}/boltz_refold/rmsd",
@@ -144,8 +202,8 @@ workflow BOLTZ_REFOLD_CORE {
             skip: 1,
         )
 
-    ch_monomer_vs_complex_rmsd = BOLTZ_COMPARE_BINDER_MONOMER.out.rmsd_monomer_vs_complex
-        .map { meta, tsv_file -> tsv_file }
+    ch_monomer_vs_complex_rmsd = ch_monomer_per_design
+        .map { meta, d -> file("${d}/rmsd_monomer_vs_complex.tsv") }
         .collectFile(
             name: 'rmsd_monomer_vs_complex.tsv',
             storeDir: "${outdir}/boltz_refold/rmsd",
@@ -154,8 +212,8 @@ workflow BOLTZ_REFOLD_CORE {
         )
 
     // Aggregate confidence outputs
-    ch_complex_confidence = BOLTZ_COMPARE_COMPLEX.out.confidence_tsv
-        .map { meta, tsv_file -> tsv_file }
+    ch_complex_confidence = ch_complex_per_design
+        .map { meta, d -> file("${d}/confidence.tsv") }
         .collectFile(
             name: 'boltz_scores_complex.tsv',
             storeDir: "${outdir}/boltz_refold",
@@ -163,8 +221,8 @@ workflow BOLTZ_REFOLD_CORE {
             skip: 1,
         )
 
-    ch_monomer_confidence = BOLTZ_COMPARE_BINDER_MONOMER.out.confidence_tsv
-        .map { meta, tsv_file -> tsv_file }
+    ch_monomer_confidence = ch_monomer_per_design
+        .map { meta, d -> file("${d}/confidence.tsv") }
         .collectFile(
             name: 'boltz_scores_binder_monomer.tsv',
             storeDir: "${outdir}/boltz_refold",
@@ -172,12 +230,12 @@ workflow BOLTZ_REFOLD_CORE {
             skip: 1,
         )
 
-    ch_ipsae_tsv = BOLTZ_COMPARE_COMPLEX.out.ipsae_tsv
-    ch_ipsae_byres_tsv = BOLTZ_COMPARE_COMPLEX.out.ipsae_byres_tsv
+    ch_ipsae_tsv = ch_complex_per_design.map { meta, d -> tuple(meta, file("${d}/ipsae.tsv")) }
+    ch_ipsae_byres_tsv = ch_complex_per_design.map { meta, d -> tuple(meta, file("${d}/ipsae_byres.tsv")) }
 
     // BindCraft-score the Boltz-2 refolded complexes
     BINDCRAFT_SCORING_BOLTZ_COMPLEX(
-        BOLTZ_COMPARE_COMPLEX.out.pdb.map { meta, pdb -> pdb },
+        ch_boltz_complex_pdb.map { meta, pdb -> pdb },
         binder_chain,
         'default_4stage_multimer',
         bindcraft_publish_subdir,
@@ -200,6 +258,6 @@ workflow BOLTZ_REFOLD_CORE {
     boltz_extra_scores = ch_extra_scores
     ipsae_tsv = ch_ipsae_tsv
     ipsae_byres_tsv = ch_ipsae_byres_tsv
-    boltz_complex_pdb = BOLTZ_COMPARE_COMPLEX.out.pdb
-    boltz_monomer_pdb = BOLTZ_COMPARE_BINDER_MONOMER.out.pdb
+    boltz_complex_pdb = ch_boltz_complex_pdb
+    boltz_monomer_pdb = ch_boltz_monomer_pdb
 }
