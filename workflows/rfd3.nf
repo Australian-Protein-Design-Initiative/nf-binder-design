@@ -247,6 +247,7 @@ workflow RFD3 {
         Full refolding options (Boltz-2):
             --full_refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.full_refold_with}]
             --full_refold_max          Maximum designs to refold [default: ${params.full_refold_max}]
+            --boltz_refold_batch_size  Designs per Boltz refold task; >1 amortises Boltz model loading over the batch [default: ${params.boltz_refold_batch_size}]
             --full_refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.full_refold_filter_sort}]
             --full_refold_create_target_msa  Create target MSA for refolding (runs MMseqs2) [default: ${params.full_refold_create_target_msa}]
             --full_refold_alignment    External A3M file for refold target; bypasses MMseqs2 when set [default: ${params.full_refold_alignment}]

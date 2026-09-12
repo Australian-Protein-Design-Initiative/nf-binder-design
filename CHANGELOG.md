@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `--method fold`: multi-method structure folding (AF2, Boltz-2, RosettaFold3, Protenix) with shared MSAs, MSA subsampling, and EnGens clustering (replaces the standalone `fold.nf` entrypoint). Also `engens.nf` for clustering an existing `.cif`/`.pdb` folder or glob.
 - `--method fold_pulldown`: multi-model target × binder pulldown (AF2/Boltz/RF3/Protenix) with per-structure and aggregate scores plus a Quarto report.
+- `--boltz_refold_batch_size`: designs per Boltz refold task, for both complex and binder-monomer refolding. Boltz pays a large fixed cost per invocation (Python and torch startup plus loading the checkpoints) that a one-design-per-task pipeline pays again for every design; passing a directory of YAMLs to a single `boltz predict` amortises it. Measured on a GB10 with Boltz-2 v2.2.1, 8 designs took 476.8 s as 8 invocations against 121.5 s as one (59.6 s against 15.2 s per design). Defaults to 1, which is the previous behaviour exactly; the trade-off in raising it is that a failed task loses every design in its batch. Named to stay distinct from the pre-existing `--boltz_batch_size`, which is `--diffusion_samples` per Boltz job in the `fold` workflows.
 - GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
