@@ -76,11 +76,16 @@ process ALPHAFOLD2_JACKHMMER_MSA {
     ]
     def db_flags = db_flags_list.join(' ')
     """
-    # AlphaFold names its per-target output directory after the FASTA stem, which
-    # is exactly meta.id (see fold.nf's input channel), so the predict stage can
-    # find this directory again with no extra bookkeeping.
+    # AlphaFold names its per-target output directory after the FASTA stem, and the
+    # predict stage expects that stem to equal meta.id. That holds when a single-record
+    # FASTA is staged with its own id as the filename, but fold_pulldown reaches this
+    # process via splitFasta(file:true), which names each per-record file generically
+    # after the source basename (e.g. targets.1.fasta) rather than after the record's
+    # own id. Relink to ${meta.id}.fasta before invoking AlphaFold rather than trust the
+    # incoming filename, so the predict stage can find this directory again either way.
+    ln -sf ${fasta} ${meta.id}.fasta
     python /app/alphafold/run_alphafold.py \
-        --fasta_paths=${fasta} \
+        --fasta_paths=${meta.id}.fasta \
         --output_dir=\$PWD \
         --generate_msas_only=true \
         --use_precomputed_msas=false \
