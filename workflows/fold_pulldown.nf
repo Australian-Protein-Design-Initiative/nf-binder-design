@@ -53,6 +53,13 @@ params.af2_pdb70_subpath = 'pdb70/pdb70'
 params.af2_data_dir = '/app/alphafold'
 params.af2_keep_models = 'best'
 params.af2_no_relax = false
+// AF2's result_model_*.pkl carry the full model output (distogram, MSA and
+// structure-module tensors) at ~90 MB each -- 860 MB per prediction, and by far
+// the largest thing the run writes. ptm/iptm/ranking_confidence appear ONLY in
+// there and nowhere in the published JSON, so they are published by default;
+// set false when the merged scores TSV is enough and disk is the binding
+// constraint. The pickles still exist in the Nextflow work dir either way.
+params.af2_publish_pkl = true
 // --- AF2 monomer chain-break mode (--methods af2_mono) ---
 // Fold a complex with the monomer weights: chains concatenated, separated only by a
 // jump in residue_index. AF2 clips relative positions at 32, so any offset above that

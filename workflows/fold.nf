@@ -49,6 +49,13 @@ params.af2_monomer_model_preset = 'monomer_ptm'
 params.af2_chain_break_offset = 200
 params.af2_keep_models = 'best'
 params.af2_no_relax = false
+// AF2's result_model_*.pkl carry the full model output (distogram, MSA and
+// structure-module tensors) at ~90 MB each -- 860 MB per prediction, and by far
+// the largest thing the run writes. ptm/iptm/ranking_confidence appear ONLY in
+// there and nowhere in the published JSON, so they are published by default;
+// set false when the merged scores TSV is enough and disk is the binding
+// constraint. The pickles still exist in the Nextflow work dir either way.
+params.af2_publish_pkl = true
 
 params.colabfold_msa_publish_name = 'result'
 
@@ -159,6 +166,9 @@ workflow FOLD {
                                                 'all'  = keep 5/run  -> ceil(N/5) runs;
                                                 'best' = keep 1/run  -> N runs [default: ${params.af2_keep_models}]
             --af2_no_relax                      Skip Amber relaxation [default: ${params.af2_no_relax}]
+            --af2_publish_pkl                   Publish AF2's result_model_*.pkl (~90 MB each; the only
+                                                source of ptm/iptm/ranking_confidence)
+                                                [default: ${params.af2_publish_pkl}]
             --af2_pdb70_subpath                 pdb70 prefix under --af2_db_path; monomer presets only
                                                 [default: ${params.af2_pdb70_subpath}]
 

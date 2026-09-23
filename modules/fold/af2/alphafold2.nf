@@ -25,6 +25,15 @@ process ALPHAFOLD2 {
             if (rel.startsWith("${meta.id}/msas/") || rel == "${meta.id}/features.pkl") {
                 return null
             }
+            // The result pickles dominate the published footprint (~90 MB x 5
+            // per prediction). Everything the scoring needs except
+            // ptm/iptm/ranking_confidence is in the published JSON.
+            if (!(params.af2_publish_pkl instanceof Boolean
+                    ? params.af2_publish_pkl
+                    : params.af2_publish_pkl.toString().toBoolean())
+                && rel ==~ /.*\/result_model_.*\.pkl/) {
+                return null
+            }
             if (meta.af2_keep_models == 'best'
                 && rel != "${meta.id}/ranked_0.pdb"
                 && rel != "${meta.id}/ranked_0.cif"
