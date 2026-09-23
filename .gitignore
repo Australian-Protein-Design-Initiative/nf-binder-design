@@ -30,3 +30,6 @@ repos/
 *.orig
 *.tar.gz
 *.zip
+
+# Local planning notes (not part of the pipeline)
+/plans/
