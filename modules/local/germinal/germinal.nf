@@ -2,7 +2,7 @@ process GERMINAL {
     tag "${batch_id}"
 
     // container 'ghcr.io/australian-protein-design-initiative/containers/germinal:018c75f_post-pr67-review'
-    container 'ghcr.io/australian-protein-design-initiative/containers/germinal:20260611-104bbdd7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/germinal:20260611-104bbdd7-af3'
 
     publishDir(
         path: "${params.outdir}/germinal/batches/${batch_id}",
