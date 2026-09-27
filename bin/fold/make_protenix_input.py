@@ -65,6 +65,34 @@ def parse_fasta_records(fasta_path: Path) -> List[str]:
     return records
 
 
+def a3m_query(a3m_path: Path) -> Optional[str]:
+    """First sequence in an a3m (skipping ColabFold '#' lines), gaps removed."""
+    seq: List[str] = []
+    seen_header = False
+    for raw in a3m_path.read_text().replace("\x00", "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(">"):
+            if seen_header:
+                break
+            seen_header = True
+        elif seen_header:
+            seq.append(line)
+    return "".join(seq).replace("-", "").upper() if seen_header else None
+
+
+def _check_query(path: Path, seq: str, chain_index: int) -> None:
+    # A mis-ordered bundle otherwise folds each chain with another chain's MSA
+    # without any error from Protenix.
+    query = a3m_query(path)
+    if query is not None and query != seq.upper():
+        raise ValueError(
+            f"chain {chain_index}: first sequence in {path.name} does not match the FASTA "
+            f"record - MSA files are not in chain order"
+        )
+
+
 def _match_per_chain(paths: Optional[List[Path]], n_seq: int, flag: str) -> Optional[List[Path]]:
     if not paths:
         return None
@@ -97,8 +125,10 @@ def make_protenix_input(
         # subsample) without rewriting this JSON. a3m paths match chains by
         # position (record order); a single file only for a monomer.
         if unpaired:
+            _check_query(unpaired[i], seq, i)
             protein_chain["unpairedMsaPath"] = unpaired[i].name
         if paired:
+            _check_query(paired[i], seq, i)
             protein_chain["pairedMsaPath"] = paired[i].name
         entries.append({"proteinChain": protein_chain})
 
