@@ -21,7 +21,10 @@ process AF2_MSAS_TO_A3M {
     """
     set -euo pipefail
     MSAS="${af2_msa_dir}/msas"
-    if [[ ! -f "\${MSAS}/bfd_uniref_hits.a3m" && ! -f "\${MSAS}/uniref90_hits.sto" ]]; then
+    # One chain of an AF2 multimer MSA run (see FOLD_MSA): msas/<chain>/
+    if [[ -n "${meta.af2_msa_chain ?: ''}" ]]; then
+        MSAS="\${MSAS}/${meta.af2_msa_chain ?: ''}"
+    elif [[ ! -f "\${MSAS}/bfd_uniref_hits.a3m" && ! -f "\${MSAS}/uniref90_hits.sto" ]]; then
         if [[ -d "\${MSAS}/A" ]]; then
             MSAS="\${MSAS}/A"
         fi

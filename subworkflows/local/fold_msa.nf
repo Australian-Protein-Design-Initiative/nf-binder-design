@@ -14,6 +14,9 @@ Multimer path (meta.n_chains > 1, plans/fold-nf-multimer-paired-msa.md §4):
     back per complex (chain order) into per-tool bundles.
   - AF2: fed the WHOLE complex to its native multimer MSA pipeline (jackhmmer +
     internal species pairing against the 2021 uniprot DB); no bespoke pairing.
+    That run already searches every chain against the same DBs, so when AF2 is
+    selected under jackhmmer_af2 the per-chain a3ms are taken from its
+    msas/<chain>/ dirs rather than searching each chain a second time.
 
 The monomer path is kept byte-for-byte identical so -resume caches unchanged;
 the multimer processes sit on separate (aliased) invocations and are inert on
@@ -55,6 +58,7 @@ workflow FOLD_MSA {
     // FoldValidation - only af2_mono reaches this branch.
     def need_af2_colabfold_multi = need_af2_msas && msa_method == 'mmseqs2_colabfold'
     def need_chain_split = need_paired || need_af2_colabfold_multi
+    def af2_complex_search = need_af2_msas && msa_method == 'jackhmmer_af2'
 
     ch_mono = ch_input.filter { meta, fasta -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_input.filter { meta, fasta -> (meta.n_chains ?: 1) > 1 }
@@ -105,6 +109,14 @@ workflow FOLD_MSA {
     ch_boltz_multi = Channel.empty()
     ch_af2_msas_multi = Channel.empty()
 
+    // AF2 multimer uses its own native multimer MSA pipeline on the whole
+    // complex (jackhmmer + internal pairing). fold.nf guarantees af2 multimer
+    // only runs under --msa_method jackhmmer_af2 against a uniprot/-bearing DB.
+    if (af2_complex_search) {
+        JACKHMMER_MSA_COMPLEX(ch_multi)
+        ch_af2_msas_multi = JACKHMMER_MSA_COMPLEX.out.msa
+    }
+
     if (need_chain_split) {
         // 1. Split each complex into per-chain FASTAs, one search unit each.
         SPLIT_COMPLEX_FASTA(ch_multi)
@@ -126,7 +138,25 @@ workflow FOLD_MSA {
 
         // 2. Per-chain MSA search (same route as the monomer path, one query each).
         ch_chain_a3m = Channel.empty()
-        if (msa_method == 'jackhmmer_af2') {
+        if (af2_complex_search) {
+            // Reuse the complex run's per-chain MSAs. AF2 writes msas/<chain>/ only
+            // for the first chain with each sequence, so repeated chains (homomers)
+            // point at that chain's dir (chain_id_map.json maps chain -> sequence).
+            ch_chain_from_complex = ch_chain.map { cm, f -> [cm.base_id, cm, f] }
+                .combine(JACKHMMER_MSA_COMPLEX.out.msa.map { m, _fa, dir -> [m.id, dir] }, by: 0)
+                .map { _id, cm, f, dir ->
+                    def chain_map = new groovy.json.JsonSlurper().parseText(dir.resolve('msas/chain_id_map.json').text)
+                    def seq = chain_map[cm.chain_id]?.sequence
+                    def msa_chain = chain_map.keySet().sort().find { chain_map[it].sequence == seq } ?: cm.chain_id
+                    [cm + [af2_msa_chain: msa_chain], f, dir]
+                }
+            AF2_MSAS_TO_A3M_PERCHAIN(ch_chain_from_complex)
+            ch_chain_a3m = AF2_MSAS_TO_A3M_PERCHAIN.out.a3m.map { cm, f, a3m ->
+                def m = cm.findAll { k, _v -> k != 'af2_msa_chain' }
+                [m, f, a3m]
+            } // tuple(chain_meta, chain_fasta, a3m)
+        }
+        else if (msa_method == 'jackhmmer_af2') {
             JACKHMMER_MSA_PERCHAIN(ch_chain)
             AF2_MSAS_TO_A3M_PERCHAIN(JACKHMMER_MSA_PERCHAIN.out.msa)
             ch_chain_a3m = AF2_MSAS_TO_A3M_PERCHAIN.out.a3m // tuple(chain_meta, chain_fasta, a3m)
@@ -213,13 +243,6 @@ workflow FOLD_MSA {
         }
     }
 
-    // AF2 multimer uses its own native multimer MSA pipeline on the whole
-    // complex (jackhmmer + internal pairing). fold.nf guarantees af2 multimer
-    // only runs under --msa_method jackhmmer_af2 against a uniprot/-bearing DB.
-    if (need_af2_msas && msa_method == 'jackhmmer_af2') {
-        JACKHMMER_MSA_COMPLEX(ch_multi)
-        ch_af2_msas_multi = JACKHMMER_MSA_COMPLEX.out.msa
-    }
 
     emit:
     af2_msas = ch_af2_msas_mono.mix(ch_af2_msas_multi) // tuple(meta, fasta, msas_dir)

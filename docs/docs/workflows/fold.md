@@ -213,7 +213,9 @@ nextflow run /path/to/nf-binder-design --method fold \
 For a complex, co-evolutionary **pairing** across chains is what carries the
 interface signal. Each engine consumes a paired MSA in a *different* native
 format, so the fold workflow searches each chain independently and then renders
-each engine's format from one canonical taxonomy parse (`bin/fold/msa_taxonomy.py`):
+each engine's format from one canonical taxonomy parse. When `af2` or `af2_mono`
+is also selected under `jackhmmer_af2`, the per-chain MSAs come from AF2's own
+multimer search of the complex rather than a second search of each chain:
 
 | Engine | How it pairs | What the fold workflow feeds it |
 |--------|--------------|--------------------------|
