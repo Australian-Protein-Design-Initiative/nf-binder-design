@@ -82,6 +82,18 @@ if len(summary):
 #| label: iptm-boxplots
 #| message: false
 
+def box_with_points(df, x, y, ax, hue=None):
+    """Boxplot with every observation overlaid as a jittered point."""
+    hue_order = sorted(df[hue].unique()) if hue else None
+    sns.boxplot(data=df, x=x, y=y, hue=hue, hue_order=hue_order, showfliers=False, ax=ax)
+    sns.stripplot(data=df, x=x, y=y, hue=hue, hue_order=hue_order, dodge=hue is not None,
+                  jitter=0.2, size=3, alpha=0.6, color='black' if hue is None else None,
+                  palette=['black'] * len(hue_order) if hue else None, ax=ax)
+    if hue:
+        # stripplot repeats the hue legend entries; keep only the boxes'
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[:len(hue_order)], labels[:len(hue_order)], title=hue)
+
 if scores.empty or 'iptm' not in scores.columns:
     print("No iptm scores available.")
 else:
@@ -90,12 +102,11 @@ else:
         print("No iptm scores available.")
     else:
         fig, ax = plt.subplots(figsize=(max(6, 1.4 * plot_df['target'].nunique() + 2), 5))
-        sns.boxplot(data=plot_df, x='target', y='iptm', hue='tool', ax=ax)
+        box_with_points(plot_df, 'target', 'iptm', ax, hue='tool')
         ax.tick_params(axis='x', rotation=45)
         for label in ax.get_xticklabels():
             label.set_ha('right')
         ax.set_title('ipTM by target')
-        ax.legend(title='tool')
         plt.tight_layout()
         plt.show()
 ```
@@ -114,12 +125,11 @@ else:
         print("No ipsae scores available.")
     else:
         fig, ax = plt.subplots(figsize=(max(6, 1.4 * plot_df['target'].nunique() + 2), 5))
-        sns.boxplot(data=plot_df, x='target', y='ipsae', hue='tool', ax=ax)
+        box_with_points(plot_df, 'target', 'ipsae', ax, hue='tool')
         ax.tick_params(axis='x', rotation=45)
         for label in ax.get_xticklabels():
             label.set_ha('right')
         ax.set_title('ipSAE by target')
-        ax.legend(title='tool')
         plt.tight_layout()
         plt.show()
 ```
@@ -225,7 +235,7 @@ else:
         print("No replicate sd data.")
     else:
         fig, ax = plt.subplots(figsize=(8, 4))
-        sns.boxplot(data=plot_df, x='tool', y='iptm_sd', ax=ax)
+        box_with_points(plot_df, 'tool', 'iptm_sd', ax)
         ax.set_title('ipTM replicate SD per complex')
         ax.set_ylabel('iptm_sd')
         plt.tight_layout()
