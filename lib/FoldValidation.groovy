@@ -6,7 +6,7 @@ class FoldValidation {
     // 'af2'      - AlphaFold2-multimer.
     // 'af2_mono' - AF2 monomer weights on a concatenated complex, chains separated
     //              only by an --af2_chain_break_offset jump in residue_index.
-    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix']
+    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3']
     static final List VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
 
     static List parseMethods(methodsParam) {
@@ -69,7 +69,7 @@ class FoldValidation {
             }
         }
 
-        ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size'].each { pname ->
+        ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size'].each { pname ->
             def v = params[pname]
             if (v != null && !(v instanceof Boolean)) {
                 def n = v as int
@@ -78,6 +78,19 @@ class FoldValidation {
                 }
             }
         }
+        if ('af3' in methods) {
+            errors.addAll(af3WeightsErrors(params))
+            if (!(params.af3_flash_attention in ['auto', 'triton', 'cudnn', 'xla'])) {
+                errors << "--af3_flash_attention must be auto, triton, cudnn or xla (got '${params.af3_flash_attention}')"
+            }
+            if (params.af3_seeds && params.af3_seeds.toString().contains(',')) {
+                warnings << (
+                    "--af3_seeds takes a single base seed; only '${params.af3_seeds.toString().split(',')[0].trim()}' " +
+                    "is used (batches use seed, seed+1, ...)."
+                )
+            }
+        }
+
         if (params.n_predictions && (params.n_predictions as int) < 1) {
             errors << "--n_predictions must be >= 1 (got '${params.n_predictions}')"
         }
@@ -154,7 +167,7 @@ class FoldValidation {
             if (params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
                 warnings << (
                     "multimer input with --msa_method mmseqs2_colabfold - ColabFold a3m " +
-                    "headers carry no taxonomy, so RF3/Protenix/Boltz will run UNPAIRED. Use " +
+                    "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3 will run UNPAIRED. Use " +
                     "--msa_method jackhmmer_af2, or --use_msa_server true (Boltz fetches + pairs itself)."
                 )
             }
@@ -177,6 +190,45 @@ class FoldValidation {
         }
 
         return [errors, warnings]
+    }
+
+    /**
+     * AF3 weights are user-supplied (never in the container), so check the model
+     * dir up front rather than failing inside a GPU job. AF3's loader rejects a
+     * directory with more than one matching model file.
+     */
+    static List af3WeightsErrors(params) {
+        def help = (
+            "AlphaFold3 weights are not distributed with the pipeline. After reading the terms " +
+            "(https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md), run " +
+            "models/download_af3_weights.sh, or point --af3_model_dir at a directory containing " +
+            "af3.bin.zst (or af3.bin)."
+        )
+        def dir_param = params.af3_model_dir
+        if (!dir_param) {
+            return ["--methods af3 needs --af3_model_dir. ${help}"]
+        }
+        def dir_str = dir_param.toString()
+        if (dir_str ==~ /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.*/ && !dir_str.startsWith('file://')) {
+            return []
+        }
+        def dir = new File(dir_str.replaceFirst(/^file:\/\//, ''))
+        if (!dir.isDirectory()) {
+            return ["--af3_model_dir '${dir_str}' does not exist or is not a directory. ${help}"]
+        }
+        def models = dir.listFiles().findAll { f ->
+            f.isFile() && (f.name ==~ /.*\.bin(\.zst)?$/ || f.name ==~ /.*\.bin\.zst\.\d+$/)
+        }
+        if (!models) {
+            return ["--af3_model_dir '${dir_str}' contains no AlphaFold3 weights (*.bin or *.bin.zst). ${help}"]
+        }
+        if (models.size() > 1) {
+            return [
+                "--af3_model_dir '${dir_str}' contains ${models.size()} model files " +
+                "(${models*.name.join(', ')}); AlphaFold3 requires exactly one."
+            ]
+        }
+        return []
     }
 
     /**

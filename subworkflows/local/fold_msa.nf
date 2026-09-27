@@ -34,19 +34,19 @@ include { ANNOTATE_MSA } from '../../modules/fold/common/annotate_msa'
 workflow FOLD_MSA {
     take:
     ch_input   // tuple(meta, fasta)
-    methods    // List<String>, subset of ['af2', 'boltz', 'rf3', 'protenix']
+    methods    // List<String>, subset of ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3']
     msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
 
     main:
     // af2_mono consumes the same per-chain AF2 msas dir as af2; only the in-task
     // features.pkl assembly differs. See FOLD_PULLDOWN_MSA for the same gate.
     def need_af2_msas = ('af2' in methods) || ('af2_mono' in methods)
-    // a3m needed for Boltz/RF3/Protenix, and for AF2 when --msa_subsample is on
+    // a3m needed for Boltz/RF3/Protenix/AF3, and for AF2 when --msa_subsample is on
     // (shallow jobs rebuild features.pkl from a subsampled a3m).
-    def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) \
+    def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
         || (need_af2_msas && MsaSubsample.isEnabled(params.msa_subsample))
-    // Boltz/RF3/Protenix need per-chain paired MSAs on the multimer path.
-    def need_paired = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods)
+    // Boltz/RF3/Protenix/AF3 need per-chain paired MSAs on the multimer path.
+    def need_paired = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods)
 
     ch_mono = ch_input.filter { meta, fasta -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_input.filter { meta, fasta -> (meta.n_chains ?: 1) > 1 }
@@ -185,4 +185,5 @@ workflow FOLD_MSA {
     for_boltz = ch_a3m_mono.mix(ch_boltz_multi)        // monomer: (meta,fasta,a3m); multimer: (meta,fasta,[csv...])
     for_rf3 = ch_a3m_mono.mix(ch_rf3_multi)            // multimer: (meta,fasta,[rf3_a3m...])
     for_protenix = ch_a3m_mono.mix(ch_protenix_multi)  // multimer: (meta,fasta,[paired...+unpaired...])
+    for_af3 = ch_a3m_mono.mix(ch_protenix_multi)       // same bundle; AF3 re-renders pairing from the unpaired a3m
 }

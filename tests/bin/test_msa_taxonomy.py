@@ -41,6 +41,10 @@ PROTENIX_UNIPROT_RE = re.compile(
     r"(?:tr|sp)\|[A-Z0-9]{6,10}(?:_\d+)?\|[A-Z0-9]{1,10}_(?P<SpeciesId>[A-Z0-9]{1,5})"
 )
 PROTENIX_UNIREF_RE = re.compile(r"^UniRef100_[^_]+_([^_/]+)")
+# AlphaFold3 data/msa_features._UNIPROT_ENTRY_NAME_REGEX (applied with .match)
+AF3_UNIPROT_RE = re.compile(
+    r"(?:tr|sp)\|(?:[A-Z0-9]{6,10})(?:_\d+)?\|(?:[A-Z0-9]{1,10}_)(?P<SpeciesId>[A-Z0-9]{1,5})"
+)
 
 
 # --- Realistic header samples ---------------------------------------------------
@@ -149,6 +153,29 @@ def test_protenix_paired_accession_has_no_underscore():
     assert "_" not in acc_seg
 
 
+# --- AF3 renderer: paired headers must match AF3's UniProt entry-name regex -----
+
+
+def test_render_af3_paired_matches_af3_uniprot_regex():
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, UNIREF_FULL, UNIPROT_SP, COLABFOLD_BARE))
+    paired = mt.render_af3_paired_a3m(recs)
+    headers = [ln[1:] for ln in paired.splitlines() if ln.startswith(">")]
+    assert headers[0] == QUERY_HEADER
+    hit_headers = headers[1:]
+    assert len(hit_headers) == 3
+    species = [AF3_UNIPROT_RE.match(h).group("SpeciesId") for h in hit_headers]
+    assert species == ["9BETA", "9BETA", "HUMAN"]
+
+
+def test_render_af3_paired_synthesises_invalid_accession():
+    uniparc = "UniRef100_UPI0001234567 Foo n=1 Tax=Homo sapiens TaxID=9606 RepID=UPI0001234567_HUMAN"
+    recs = mt.parse_a3m(build_a3m(uniparc))
+    paired = mt.render_af3_paired_a3m(recs)
+    hit = [ln[1:] for ln in paired.splitlines() if ln.startswith(">")][1]
+    m = AF3_UNIPROT_RE.match(hit)
+    assert m and m.group("SpeciesId") == "HUMAN"
+
+
 # --- Boltz renderer: key,sequence CSV keyed on taxid ----------------------------
 
 
@@ -180,6 +207,9 @@ def test_query_only_a3m_renders_for_all_tools():
     paired = mt.render_protenix_paired_a3m(recs)
     unpaired = mt.render_protenix_unpaired_a3m(recs)
     assert QUERY_SEQ in paired and QUERY_SEQ in unpaired
+
+    af3 = mt.render_af3_paired_a3m(recs)
+    assert af3 == f">{QUERY_HEADER}\n{QUERY_SEQ}\n"
 
     buf = io.StringIO()
     mt.render_boltz_csv(recs, buf)

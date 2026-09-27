@@ -134,7 +134,7 @@ workflow FOLD_PULLDOWN {
         ==================================================================
 
         Co-fold every binder against every target with one or more structure
-        predictors (AF2, Boltz-2, RF3, Protenix), then summarise interface
+        predictors (AF2, Boltz-2, RF3, Protenix, AlphaFold3), then summarise interface
         scores (iptm, ipsae) across replicates and models.
 
         Required arguments:
@@ -143,7 +143,7 @@ workflow FOLD_PULLDOWN {
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
-            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix [default: ${params.methods}]
+            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix,af3 [default: ${params.methods}]
                                    af2      = AlphaFold2-multimer.
                                    af2_mono = AF2 MONOMER weights on a concatenated complex, chains
                                               separated only by a residue_index jump. Shares af2's
@@ -174,6 +174,12 @@ workflow FOLD_PULLDOWN {
 
             AF2 (--methods includes af2) needs the 2021 DB snapshot with uniprot/:
             --af2_db_path         [default: ${params.af2_db_path}]
+
+            AlphaFold3 (--methods includes af3; weights are NOT bundled - see models/download_af3_weights.sh):
+            --af3_model_dir       Directory holding exactly one af3.bin.zst / af3.bin
+                                   [default: ${params.af3_model_dir}]
+            --af3_batch_size / --af3_seeds / --af3_num_recycles / --af3_flash_attention /
+            --af3_jax_cache_dir   As for --method fold (see --method fold --help)
 
             ColabFold MSA (--msa_method mmseqs2_colabfold):
             --use_remote_server   Query ColabFold API [default: ${params.use_remote_server}]
@@ -249,6 +255,7 @@ workflow FOLD_PULLDOWN {
         FOLD_PULLDOWN_MSA.out.for_boltz,
         FOLD_PULLDOWN_MSA.out.for_rf3,
         FOLD_PULLDOWN_MSA.out.for_protenix,
+        FOLD_PULLDOWN_MSA.out.for_af3,
         methods,
     )
 

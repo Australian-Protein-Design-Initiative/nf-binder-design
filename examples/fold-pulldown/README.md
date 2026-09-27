@@ -65,3 +65,14 @@ Under `results/fold_pulldown/`:
 - `fold_pulldown_summary.tsv` — per-(target, binder, tool) aggregates + z-scores
 - `fold_pulldown_report.html` — Quarto overview
 - Per-engine predictions / MSAs under the same publish tree
+
+## AlphaFold3 + Protenix variant
+
+`run-af3-m3.sh` / `run-af3-local.sh` run only `--methods af3,protenix` into
+`results-af3/`. AlphaFold3 weights are not bundled: download them first with
+`../../models/download_af3_weights.sh` (after reading the terms it prints), or
+point `AF3_MODEL_DIR` at an existing weights directory, eg:
+
+```bash
+AF3_MODEL_DIR=/path/to/af3_weights ./run-af3-m3.sh
+```

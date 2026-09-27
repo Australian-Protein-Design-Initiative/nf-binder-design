@@ -78,3 +78,14 @@ and let Boltz pair its own MSA:
 Same layout as `examples/fold` (per-method predictions under `results/fold/`, a
 flat mmCIF gather in `results/fold/predictions/`, `results/fold/params.json`),
 plus the per-chain paired MSAs under `results/fold/msa/paired/`.
+
+## AlphaFold3 + Protenix variant
+
+`run-af3-m3.sh` / `run-af3-local.sh` run only `--methods af3,protenix` into
+`results-af3/`. AlphaFold3 weights are not bundled: download them first with
+`../../models/download_af3_weights.sh` (after reading the terms it prints), or
+point `AF3_MODEL_DIR` at an existing weights directory, eg:
+
+```bash
+AF3_MODEL_DIR=/path/to/af3_weights ./run-af3-m3.sh
+```

@@ -78,6 +78,23 @@ def test_protenix_plddt_rescaled(tmp_path):
     assert r["pde"] == "0.43" and "chain_pair_iptm" not in r
 
 
+def test_af3_summary_and_full_json(tmp_path):
+    payload = {"ranking_score": 0.71, "ptm": 0.66, "iptm": 0.74, "has_clash": 0.0,
+               "fraction_disordered": 0.02, "chain_pair_iptm": [[0.8, 0.74], [0.74, 0.7]]}
+    full = tmp_path / "full.json"
+    full.write_text(json.dumps({"atom_plddts": [80.0, 90.0], "pae": [[1.0, 3.0], [5.0, 7.0]]}))
+    r = _rows(_parse(tmp_path, "af3", payload, **{"full-json": full}))[0]
+    assert r["tool"] == "af3" and r["iptm"] == "0.74"
+    assert abs(float(r["plddt"]) - 0.85) < 1e-9     # 0-100 -> 0-1
+    assert abs(float(r["pae"]) - 4.0) < 1e-9
+    assert r["has_clash"] == "false"
+
+
+def test_af3_without_full_json_leaves_plddt_blank(tmp_path):
+    r = _rows(_parse(tmp_path, "af3", {"ranking_score": 0.5, "ptm": 0.5, "iptm": 0.4, "has_clash": 1.0}))[0]
+    assert r["plddt"] == "" and r["has_clash"] == "true"
+
+
 def test_rf3_ipsae_tsv_merged(tmp_path):
     payload = {"ranking_score": 0.80, "ptm": 0.78, "iptm": 0.81,
                "overall_plddt": 0.819, "overall_pae": 9.4, "overall_pde": 2.5,

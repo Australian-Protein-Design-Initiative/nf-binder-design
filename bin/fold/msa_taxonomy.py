@@ -20,6 +20,10 @@ plans/fold-nf-multimer-paired-msa.md §0):
       NOT the numeric TaxID=.
   - Boltz (data/parse/csv.py): a `key,sequence` CSV where `key` == taxid;
       empty/nan -> -1 (unpaired). Cross-chain rows sharing a key are paired.
+  - AlphaFold3 (data/msa_features.extract_species_ids): the species mnemonic, but
+      ONLY from UniProtKB-style headers (no UniRef form accepted):
+        _UNIPROT_ENTRY_NAME_REGEX = (?:tr|sp)\\|[A-Z0-9]{6,10}(?:_\\d+)?\\|[A-Z0-9]{1,10}_(?P<SpeciesId>[A-Z0-9]{1,5})
+      so the Protenix `UniRef100_ACC_SPECIES` render cannot be reused as-is.
 
 Because RF3 keys on numeric taxid and Protenix on the species mnemonic, no single
 a3m header form feeds both at full coverage - hence one canonical parse + N
@@ -198,6 +202,34 @@ def render_protenix_unpaired_a3m(records: List[MsaRecord]) -> str:
     return "\n".join(lines) + "\n"
 
 
+_AF3_ACC_RE = re.compile(r"^[A-Z0-9]{6,10}$")
+_AF3_SPECIES_RE = re.compile(r"^[A-Z0-9]{1,5}$")
+
+
+def render_af3_paired_a3m(records: List[MsaRecord]) -> str:
+    """a3m whose hit headers match AF3's `_UNIPROT_ENTRY_NAME_REGEX` (`tr|ACC|ACC_SPECIES`).
+
+    Only hits whose species mnemonic fits AF3's `[A-Z0-9]{1,5}` are emitted (AF3
+    pairs on species; anything else contributes nothing to pairing and AF3 still
+    sees it via the unpaired MSA). Accessions that do not fit `[A-Z0-9]{6,10}`
+    (eg UniParc UPI...) get a synthetic one - AF3 only uses the species group.
+    The query is kept first, verbatim.
+    """
+    lines: List[str] = []
+    for i, rec in enumerate(records):
+        if rec.is_query:
+            lines += [f">{rec.header}", rec.sequence]
+            continue
+        species = (rec.species or "").upper()
+        if not _AF3_SPECIES_RE.match(species):
+            continue
+        acc = (rec.accession or "").upper()
+        if not _AF3_ACC_RE.match(acc):
+            acc = f"A{i:09d}"
+        lines += [f">tr|{acc}|{acc}_{species}", rec.sequence]
+    return "\n".join(lines) + "\n"
+
+
 def render_boltz_csv(records: List[MsaRecord], out: TextIO) -> None:
     """Boltz `key,sequence` CSV; key=<tax_id> (blank -> Boltz treats as unpaired).
 
@@ -225,9 +257,9 @@ def main() -> int:
     )
     parser.add_argument("--a3m", required=True, help="Input per-chain a3m (query first).")
     parser.add_argument(
-        "--tool", required=True, choices=["rf3", "protenix", "boltz"], help="Target engine."
+        "--tool", required=True, choices=["rf3", "protenix", "boltz", "af3"], help="Target engine."
     )
-    parser.add_argument("--out", help="Output path (rf3 a3m, or boltz csv).")
+    parser.add_argument("--out", help="Output path (rf3 a3m, boltz csv, or af3 paired a3m).")
     parser.add_argument("--paired-out", help="Protenix pairedMsaPath a3m output.")
     parser.add_argument("--unpaired-out", help="Protenix unpairedMsaPath a3m output.")
     parser.add_argument(
@@ -263,6 +295,13 @@ def main() -> int:
             render_boltz_csv(records, f)
         depth = _count_paired(records, "tax_id")
         log.info("chain %s: Boltz csv %d rows, %d keyed by taxid (pairable)", args.chain_id, len(records), depth)
+    elif args.tool == "af3":
+        if not args.out:
+            parser.error("--tool af3 needs --out")
+        paired = render_af3_paired_a3m(records)
+        Path(args.out).write_text(paired)
+        depth = paired.count(">") - 1
+        log.info("chain %s: AF3 paired a3m %d species-tagged rows (of %d)", args.chain_id, depth, len(records))
 
     return 0
 

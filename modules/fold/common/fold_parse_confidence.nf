@@ -1,4 +1,4 @@
-// Generic per-structure confidence parser for fold.nf's RF3 and Protenix
+// Generic per-structure confidence parser for fold.nf's RF3, Protenix and AF3
 // engines: optionally run bin/ipsae.py on the full PAE JSON + structure, then
 // bin/fold/parse_fold_confidence.py flattens the summary JSON (plus ipSAE TSV)
 // into a single normalized TSV row on stdout. The RF3/Protenix subworkflows fan
@@ -18,6 +18,9 @@ process FOLD_PARSE_CONFIDENCE {
 
     script:
     def ipsae_fmt = tool == 'rf3' ? 'rf3' : 'af3'
+    // AF3's summary JSON carries no pLDDT; the per-atom values are in the full
+    // confidences JSON, which is the file already staged for ipSAE.
+    def full_json_arg = (tool == 'af3' && do_ipsae) ? "--full-json \"${ipsae_pae}\"" : ''
     """
     set -euo pipefail
     ipsae_args=()
@@ -37,6 +40,7 @@ process FOLD_PARSE_CONFIDENCE {
         --original-file "${original_file}" \\
         --predictions-file "${predictions_file}" \\
         --json "${json_file}" \\
+        ${full_json_arg} \\
         "\${ipsae_args[@]}"
     """
 }

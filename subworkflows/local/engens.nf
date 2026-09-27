@@ -38,7 +38,7 @@ def engensStructurePaths(files) {
         if (bn ==~ /.*_model_\d+\.(cif|pdb)/ && !(bn ==~ /.*_sample.*/)) {
             return true
         }
-        // RF3: *_sample-N_model.cif
+        // RF3 / AF3: *_sample-N_model.cif
         if (bn ==~ /.*_sample-\d+_model\.cif/) {
             return true
         }
@@ -66,9 +66,10 @@ def engensUniqueName(meta, path) {
             : "boltz${msa_bit}_${bn}"
     }
     if (bn ==~ /.*_sample-\d+_model\.cif/) {
+        def tool = meta.fold_tool == 'af3' ? 'af3' : 'rf3'
         return meta.fold_namespaced \
-            ? "rf3_batch${meta.fold_batch}${msa_bit}_${bn}" \
-            : "rf3${msa_bit}_${bn}"
+            ? "${tool}_batch${meta.fold_batch}${msa_bit}_${bn}" \
+            : "${tool}${msa_bit}_${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
         return meta.fold_namespaced \

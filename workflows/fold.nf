@@ -139,7 +139,7 @@ workflow FOLD {
 
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
-            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix [default: ${params.methods}]
+            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3 [default: ${params.methods}]
                                                 af2      = AlphaFold2-multimer.
                                                 af2_mono = AF2 MONOMER weights on a concatenated complex,
                                                            chains separated only by a residue_index jump.
@@ -150,7 +150,7 @@ workflow FOLD {
                                                            so pair it with --af2_keep_models best.
             --msa_method                       jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --n_predictions                    Total structures per input, per method. Unset (default) => each
-                                                engine uses its own default: Boltz/RF3/Protenix emit 5 each,
+                                                engine uses its own default: Boltz/RF3/Protenix/AF3 emit 5 each,
                                                 AF2 does one run keeping per --af2_keep_models. Set N to pin
                                                 every diffusion engine to N.
                                                 [default: unset]
@@ -201,6 +201,16 @@ workflow FOLD {
             --protenix_model_name               Checkpoint name [default: ${params.protenix_model_name}]
             --protenix_use_msa                  Feed shared a3m to Protenix [default: ${params.protenix_use_msa}]
             --protenix_need_atom_confidence     Write full-confidence JSON (PAE matrix) per sample [default: ${params.protenix_need_atom_confidence}]
+
+            AlphaFold3 (--methods includes af3; weights are NOT bundled - see models/download_af3_weights.sh):
+            --af3_model_dir                     Directory holding exactly one af3.bin.zst / af3.bin
+                                                [default: ${params.af3_model_dir}]
+            --af3_batch_size                    Samples per AF3 job (--num_diffusion_samples)
+            --af3_seeds                         Base model seed; batch i uses seed+i [default: 1]
+            --af3_num_recycles                  [default: ${params.af3_num_recycles}]
+            --af3_flash_attention               auto|triton|cudnn|xla; auto picks xla (plus the XLA
+                                                workaround) on pre-Ampere GPUs [default: ${params.af3_flash_attention}]
+            --af3_jax_cache_dir                 Persistent JAX compilation cache dir [default: unset]
 
             MSA subsample:
             --msa_subsample                     false (default), true (CF-random depths), or custom list

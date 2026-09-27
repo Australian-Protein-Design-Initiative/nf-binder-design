@@ -2,8 +2,11 @@
 
 Multi-method structure prediction for monomer **and multimer** FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
-RosettaFold3 and Protenix, sharing one MSA-generation stage, then (by default)
-clusters the ensemble with EnGens.
+RosettaFold3, Protenix and AlphaFold3, sharing one MSA-generation stage, then (by
+default) clusters the ensemble with EnGens.
+
+> **AlphaFold3** (`--methods af3`) needs model weights that you download yourself
+> under Google DeepMind's terms of use — see [AlphaFold3 weights](#alphafold3-weights).
 
 > **Multimer:** a FASTA with more than one record folds as a protein complex
 > (one record = one chain → chain IDs A, B, C, …; homo-oligomers = repeated
@@ -66,20 +69,22 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold
 |------|-------------|
 | `--input` | Single FASTA, glob, or directory of FASTA files (required) |
 | `--outdir` | Output directory (default: `results`) |
-| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix` (default: `af2`) |
+| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
-| `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
+| `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix/AF3 emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
 | `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
 | `--skip_engens` | Skip post-prediction EnGens clustering |
 | `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
 | `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
 
-Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`) are
+Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`) are
 documented in `--help`. Seeds are unset by default so each engine draws its own
 random seed (pin `--af2_random_seed` / `--boltz_seed` / `--rf3_seed` /
 `--protenix_seeds` for reproducibility; do not inject a fresh random seed on
-every CLI invocation if you want `-resume` to cache).
+every CLI invocation if you want `-resume` to cache). AlphaFold3 always needs a
+seed in its input, so it defaults to a fixed `--af3_seeds 1` (batch *i* uses
+seed + *i*).
 
 ## Multiple Sequence Alignments (MSAs)
 
@@ -183,6 +188,7 @@ tested in `tests/bin/test_msa_taxonomy.py`):
 | **AF2** | Its own native multimer pipeline (jackhmmer + species pairing) | The whole complex + `--model_preset=multimer` against the 2021 DB snapshot |
 | **RF3** | atomworks pairs by numeric `TaxID=<n>` in a3m headers | Per-chain a3m with `TaxID=` annotated headers |
 | **Protenix** | Pairs by species *mnemonic* (`_HUMAN`, `_9BETA`) | Per-chain `pairedMsaPath` (mnemonic headers) + `unpairedMsaPath` |
+| **AF3** | Pairs by species mnemonic, parsed only from UniProt-style `tr\|ACC\|NAME_SPECIES` headers | Per-chain `pairedMsaPath` re-rendered with `tr\|…_SPECIES` headers + `unpairedMsaPath` (AF3's own data pipeline is never run) |
 | **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`) |
 
 The rendered per-chain files are published under `<outdir>/fold/msa/paired/`, and
@@ -258,6 +264,47 @@ over `pdb_seqres`, so `--af2_pdb70_subpath` must resolve under `--af2_db_path`
 
 `--msa_subsample` is monomer-only and is rejected for multimer inputs.
 
+## AlphaFold3 weights
+
+The AlphaFold3 container (`ghcr.io/australian-protein-design-initiative/containers/alphafold3:3.0.4`)
+does **not** include the model parameters. They are released by Google DeepMind
+under the [AlphaFold3 Model Parameters Terms of Use](https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md)
+and [Prohibited Use Policy](https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_PROHIBITED_USE_POLICY.md).
+In short, they are for **non-commercial use only**, may **not be shared outside your
+organisation**, and AF3 outputs may not be used to train other structure predictors.
+Read the terms in full before downloading.
+
+The pipeline looks for the weights in `--af3_model_dir`, which defaults to
+`models/alphafold3/` in your copy of the pipeline. To download them there:
+
+```bash
+# From a clone of nf-binder-design; prints the terms and asks you to type 'yes'
+./models/download_af3_weights.sh
+
+# Or somewhere else (eg a group-shared location within your organisation)
+./models/download_af3_weights.sh -o /path/to/af3_weights
+# ... then run the pipeline with --af3_model_dir /path/to/af3_weights
+```
+
+Or download `af3.bin.zst` manually and put it in a directory of its own. Notes:
+
+- The directory must contain **exactly one** model file (`af3.bin.zst` or
+  `af3.bin`). AlphaFold3 reads the compressed `.zst` directly, so you don't need
+  to decompress it.
+- The pipeline checks the directory before starting and fails early with
+  instructions if the weights are missing.
+- You don't need any bind-mount configuration. The directory is staged into each
+  AlphaFold3 task as `af3_models/`, which Docker, Apptainer and Singularity mount
+  automatically, and passed to AF3 as `--model_dir=af3_models`.
+- AF3's genetic databases are **not** needed. The pipeline supplies MSAs from its
+  shared MSA stage and runs AF3 with `--run_data_pipeline=false`.
+- Pre-Ampere GPUs (V100, T4; compute capability 7.x) need a workaround, which
+  `--af3_flash_attention auto` (the default) applies: xla flash attention plus
+  `XLA_FLAGS=--xla_disable_hlo_passes=custom-kernel-fusion-rewriter`. Ampere or
+  newer (A100, H100, L40S) uses triton.
+- `--af3_jax_cache_dir /some/shared/dir` keeps JAX compilation results between
+  tasks, which saves several minutes per job for repeated input sizes.
+
 ## Example Usage
 
 Minimal AF2-only run with jackhmmer MSAs:
@@ -329,8 +376,8 @@ results/
 ├── fold/
 │   ├── msa/<msa_method>/     # shared MSAs + a3m (jackhmmer_af2 or mmseqs2_colabfold)
 │   ├── af2/msas/             # AF2-only features.pkl (not under fold/msa/)
-│   ├── af2/ … boltz/ … rf3/ … protenix/    # per-engine predictions + <tool>_fold_scores.tsv
-│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_* mmCIF
+│   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/    # per-engine predictions + <tool>_fold_scores.tsv
+│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
 │   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
 │   ├── params.json
@@ -347,14 +394,14 @@ per-tool table (`fold/<tool>/<tool>_fold_scores.tsv`); the master merges them,
 `tool`, input `id`, `model`/sample index, the engine-native `original_file`, and
 the renamed `predictions_file` in `fold/predictions/` (unique per structure).
 
-| Column | Meaning | AF2 | Boltz | Protenix | RF3 |
-|--------|---------|-----|-------|----------|-----|
-| `ranking_score` | engine's overall ranking metric | iptm+ptm | confidence_score | ranking_score | ranking_score |
-| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ |
-| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ |
-| `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ |
-| `has_clash` | steric-clash flag | – | – | ✓ | ✓ |
-| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) |
+| Column | Meaning | AF2 | Boltz | Protenix | RF3 | AF3 |
+|--------|---------|-----|-------|----------|-----|-----|
+| `ranking_score` | engine's overall ranking metric | iptm+ptm | confidence_score | ranking_score | ranking_score | ranking_score |
+| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ | ✓ |
+| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ | ✓ (mean per-atom) |
+| `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ | pae (mean) |
+| `has_clash` | steric-clash flag | – | – | ✓ | ✓ | ✓ |
+| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) | ✓ (computed) |
 
 Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally

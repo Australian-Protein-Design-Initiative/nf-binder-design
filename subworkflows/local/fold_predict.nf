@@ -2,7 +2,8 @@
 FOLD_PREDICT: run selected structure predictors and merge scores.
 
 Takes per-engine MSA-ready channels from FOLD_MSA (or FOLD_PULLDOWN_MSA) and
-dispatches ALPHAFOLD2 / BOLTZ_FOLD / ROSETTAFOLD3_FOLD / PROTENIX_FOLD, then
+dispatches ALPHAFOLD2 / BOLTZ_FOLD / ROSETTAFOLD3_FOLD / PROTENIX_FOLD /
+ALPHAFOLD3_FOLD, then
 merges per-tool score TSVs into fold_scores.tsv. Optional EnGens clustering.
 */
 
@@ -11,6 +12,7 @@ include { ALPHAFOLD2 as ALPHAFOLD2_MONO } from './alphafold2'
 include { BOLTZ_FOLD } from './boltz_fold'
 include { ROSETTAFOLD3_FOLD } from './rosettafold3_fold'
 include { PROTENIX_FOLD } from './protenix_fold'
+include { ALPHAFOLD3_FOLD } from './alphafold3_fold'
 include { ENGENS_CLUSTER } from './engens'
 include { FOLD_MERGE_SCORES } from '../../modules/fold/common/fold_merge_scores'
 
@@ -20,6 +22,7 @@ workflow FOLD_PREDICT {
     ch_for_boltz   // from FOLD_MSA / FOLD_PULLDOWN_MSA
     ch_for_rf3
     ch_for_protenix
+    ch_for_af3
     methods        // List<String>
 
     main:
@@ -28,6 +31,7 @@ workflow FOLD_PREDICT {
     ch_boltz_pred = Channel.empty()
     ch_rf3_pred = Channel.empty()
     ch_protenix_pred = Channel.empty()
+    ch_af3_pred = Channel.empty()
     ch_scores = Channel.empty()
 
     if ('af2' in methods) {
@@ -57,10 +61,17 @@ workflow FOLD_PREDICT {
         ch_protenix_pred = PROTENIX_FOLD.out.predictions
         ch_scores = ch_scores.mix(PROTENIX_FOLD.out.tsv)
     }
+    if ('af3' in methods) {
+        ALPHAFOLD3_FOLD(ch_for_af3)
+        // AF3 and RF3 share *_seed-S_sample-N_model.cif naming, so tag the tool
+        // for ENGENS_CLUSTER's collision-free renaming.
+        ch_af3_pred = ALPHAFOLD3_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'af3'], files] }
+        ch_scores = ch_scores.mix(ALPHAFOLD3_FOLD.out.tsv)
+    }
 
     FOLD_MERGE_SCORES(ch_scores.collect())
 
-    ch_predictions = ch_af2_pred.mix(ch_af2_mono_pred, ch_boltz_pred, ch_rf3_pred, ch_protenix_pred)
+    ch_predictions = ch_af2_pred.mix(ch_af2_mono_pred, ch_boltz_pred, ch_rf3_pred, ch_protenix_pred, ch_af3_pred)
 
     if (!params.skip_engens) {
         ENGENS_CLUSTER(ch_predictions)
