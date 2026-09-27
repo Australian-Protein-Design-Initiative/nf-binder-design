@@ -44,18 +44,9 @@ multiple records fold together as one complex (chains A, B, C, …). Shared MSAs
 feed all selected predictors; optional MSA subsample and EnGens clustering
 produce a conformational ensemble from the combined predictions.
 
-`--n_predictions` sets how many structures each method produces per input. It is
-**unset by default**, in which case each engine uses its own default: Boltz, RF3,
-and Protenix each emit **5** diffusion samples (Boltz is lifted from its native
-default of 1 for cross-engine parity), while AF2 does a single run and keeps per
-`--af2_keep_models` (default `best` → one structure). Set `--n_predictions N` to
-pin every diffusion engine to exactly N (e.g. `--n_predictions 1` for a single
-quick structure per method). It is realised differently per engine: Boltz, RF3,
-and Protenix draw N diffusion samples (split across jobs by their
-`--*_batch_size`); AF2 has no in-run sampling knob — it always emits its 5
-trained models per run and `--af2_keep_models` selects which to keep toward N
-(`best` keeps the top-ranked → N runs, the default; `all` keeps 5/run →
-`ceil(N/5)` runs).
+`--n_predictions` sets how many structures each method produces per input,
+unset by default. See [Key Parameters](#key-parameters) below for how it maps
+onto each engine's own sampling knobs and batch size.
 
 ## Command-line Options
 
@@ -71,21 +62,56 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold
 | `--outdir` | Output directory (default: `results`) |
 | `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
-| `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix/AF3/OpenFold3 emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
+| `--n_predictions` | Total structures per input, per method (see below) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
 | `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
 | `--skip_engens` | Skip post-prediction EnGens clustering |
 | `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
 | `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
+| `--engens_superpose_method` | Superposition scheme for the geometric featurizers (default: `blosum62`) |
 
 Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`) are
-documented in `--help`. Seeds are unset by default so each engine draws its own
-random seed (pin `--af2_random_seed` / `--boltz_seed` / `--rf3_seed` /
-`--protenix_seeds` for reproducibility; do not inject a fresh random seed on
-every CLI invocation if you want `-resume` to cache). AlphaFold3 always needs a
-seed in its input, so it defaults to a fixed `--af3_seeds 1` (batch *i* uses
-seed + *i*). OpenFold3 uses a fixed seed of 42 unless told otherwise, so
-`--openfold3_seeds` defaults to 42 and batch *i* likewise uses seed + *i*.
+documented in `--help`.
+
+**`--n_predictions`** is **unset by default**, in which case each engine falls
+back to its own default: Boltz, RF3, Protenix, AF3 and OpenFold3 each emit **5**
+diffusion samples in a single job (Boltz is lifted from its native default of 1
+for cross-engine parity), while AF2 does a single run and keeps per
+`--af2_keep_models` (default `best` → one structure). Set `--n_predictions N` to
+pin every diffusion engine to exactly N, split across jobs by that engine's own
+`--*_batch_size` (e.g. `--n_predictions 10 --boltz_batch_size 5` runs Boltz as
+two jobs of 5 samples each; leaving `--*_batch_size` unset runs one job of N).
+AF2 has no in-run sampling knob — it always emits its 5 trained models per run,
+and `--af2_keep_models` decides how many runs that takes to reach N (`best`
+keeps the top-ranked model/run → N runs; `all` keeps all 5/run → `ceil(N/5)`
+runs).
+
+**Seeds** are unset by default so each engine draws its own random seed (pin
+`--af2_random_seed` / `--boltz_seed` / `--rf3_seed` / `--protenix_seeds` for
+reproducibility; do not inject a fresh random seed on every CLI invocation if
+you want `-resume` to cache). AlphaFold3 and OpenFold3 always need a seed in
+their input, so they default to a fixed base seed (`--af3_seeds 1`,
+`--openfold3_seeds 42`); batch *i* uses `seed + i`. `--protenix_seeds` takes the
+same single-base-seed convention.
+
+## Choosing engines
+
+| Engine | Weights | Multimer pairing | GPU per job | Relative cost |
+|--------|---------|-------------------|-------------|----------------|
+| **AF2** (`af2`) | Bundled in the container | Native multimer pipeline (needs the 2021 DB snapshot — see [below](#af2-multimer-needs-the-2021-db-snapshot)) | 1 | Low–medium; 5 models/run regardless of `--n_predictions` |
+| **AF2 monomer** (`af2_mono`) | Bundled in the container | None (chain-break trick, not a real multimer mode) | 1 | Same as AF2; not an independent engine — see [below](#af2_mono-af2-monomer-weights-on-a-complex-chain-break) |
+| **Boltz-2** (`boltz`) | Bundled in the container | Taxid-keyed CSV pairing (or its own MSA server with `--use_msa_server`) | 1 | Low |
+| **RosettaFold3** (`rf3`) | Bundled in the container | `TaxID=` a3m pairing | 1 | Medium |
+| **Protenix** (`protenix`) | Bundled in the container | Species-mnemonic paired/unpaired a3m | 1 | Medium |
+| **AlphaFold3** (`af3`) | You download separately — see [AlphaFold3 weights](#alphafold3-weights) | Species-mnemonic pairing rendered from the shared MSA | 1 | Medium–high |
+| **OpenFold3** (`openfold3`) | Bundled in the container | Online species pairing from `uniprot_hits` | 1 | Medium; JIT-compiles Triton kernels on first use |
+
+Every predict job takes one GPU; concurrency across jobs is governed by
+`--gpu_devices` (comma-separated device list, or `all`), `--gpu_slots_per_device`
+(concurrent tasks per GPU, default 1) and `--gpu_lock_timeout` (seconds a task
+waits for a free slot before failing, default 14400). `af2_mono` is not an
+independent vote alongside the others — see the caveats in its own section
+below before including it in a consensus.
 
 ## Multiple Sequence Alignments (MSAs)
 
@@ -113,9 +139,15 @@ Databases used under `--af2_db_path` (paths are fixed relative to that root):
 | BFD + UniRef30 | HHblits (`full_dbs`) |
 | PDB70 + PDB mmCIF | templates |
 
-Individual DB paths are **not** separate CLI knobs — set the root with
-`--af2_db_path` (or `params.af2_db_path` in a config). See
-[Setting up databases](#setting-up-databases).
+The individual paths default to the layout produced by DeepMind's own download
+script relative to `--af2_db_path` (e.g. `mgnify/mgy_clusters_2022_05.fa`,
+`uniref30/UniRef30_2021_03`); override one with its own
+`--af2_uniref30_subpath` / `--af2_mgnify_subpath` / `--af2_uniprot_subpath` /
+`--af2_pdb_seqres_subpath` / `--af2_pdb70_subpath` flag when a snapshot uses a
+different filename (needed for [AF2 multimer against the 2021
+snapshot](#af2-multimer-needs-the-2021-db-snapshot), whose HHblits DB is
+`uniclust30` rather than `uniref30`). See
+[Setting up databases](fold-databases.md).
 
 ### Option 2: ColabFold MMseqs2 (`mmseqs2_colabfold`)
 
@@ -138,7 +170,7 @@ occasional runs; for heavy use prefer local databases.
 
 `--uniref30` must contain `uniref30_*` MMseqs2 DB files;
 `--colabfold_envdb` must contain `colabfold_envdb*` files (layout produced by
-[`scripts/download_colabfold_dbs.sh`](#colabfold-mmseqs2-databases)).
+[`scripts/download_colabfold_dbs.sh`](fold-databases.md#colabfold-mmseqs2-databases)).
 
 > There is no site-wide default ColabFold DB path on M3 yet — use
 > `--use_remote_server true` or install local DBs yourself.
@@ -180,9 +212,8 @@ nextflow run /path/to/nf-binder-design --method fold \
 
 For a complex, co-evolutionary **pairing** across chains is what carries the
 interface signal. Each engine consumes a paired MSA in a *different* native
-format, so the fold workflow searches each chain independently and then renders each
-engine's format from one canonical taxonomy parse (`bin/fold/msa_taxonomy.py`, unit
-tested in `tests/bin/test_msa_taxonomy.py`):
+format, so the fold workflow searches each chain independently and then renders
+each engine's format from one canonical taxonomy parse (`bin/fold/msa_taxonomy.py`):
 
 | Engine | How it pairs | What the fold workflow feeds it |
 |--------|--------------|--------------------------|
@@ -193,8 +224,11 @@ tested in `tests/bin/test_msa_taxonomy.py`):
 | **OpenFold3** | Pairs online by species, read from the 4th field of `uniprot_hits` headers | Per-chain directory with `colabfold_main.a3m` (unpaired) + `uniprot_hits.a3m` re-rendered as `tr\|ACC\|ACC_SPECIES/1-N` (pairing only) |
 | **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`) |
 
-The rendered per-chain files are published under `<outdir>/fold/msa/paired/`, and
-each render logs its paired-row depth per chain.
+RF3 / Protenix / Boltz's rendered per-chain files are published under
+`<outdir>/fold/msa/paired/`, and each render logs its paired-row depth per
+chain. AF3 and OpenFold3 render their own pairing input inline inside their
+respective predict/input-prep tasks, so their re-rendered a3ms are not
+published under `msa/paired/`.
 
 > **Use `--msa_method jackhmmer_af2` for paired multimers.** Only the jackhmmer
 > route produces the rich UniProt/UniRef headers (`TaxID=`, `RepID=`,
@@ -208,15 +242,17 @@ each render logs its paired-row depth per chain.
 AF2 multimer loads different weights (`--model_preset=multimer`) and a different
 data pipeline that pairs species **internally** against the `uniprot/` all-seqs
 DB + `pdb_seqres/` templates. The default `alphafold_20240229` snapshot is
-monomer-only (no `uniprot/`), so the fold workflow fails fast if `af2` is requested for a
-multimer without a `uniprot/`-bearing `--af2_db_path`. Point it at the 2021
-snapshot (`/mnt/datasets/alphafold/alphafold_20211129`), whose HHblits DB is
+monomer-only (no `uniprot/`), so the fold workflow fails fast if `af2` (or
+`af2_mono` under `jackhmmer_af2`) is requested for a multimer without a
+`uniprot/`-bearing `--af2_db_path`. Point it at the 2021 snapshot
+(`/mnt/datasets/alphafold/alphafold_20211129` on M3), whose HHblits DB is
 `uniclust30` rather than `uniref30` — override `--af2_uniref30_subpath` (and
 `--af2_mgnify_subpath`, `--af2_uniprot_subpath`, `--af2_pdb_seqres_subpath`)
-accordingly. The container also loads **multimer_v3** weights, which the 2021
-snapshot lacks (it ships only v1 multimer params), so point `--af2_data_dir`
-(the `params/` source, independent of the genetic-DB paths) at a v3 snapshot
-such as `alphafold_20240229`. See [`examples/fold-multimer/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer)
+accordingly. The `alphafold2` container bundles **multimer_v3** model weights
+(`params_model_*_multimer_v3.npz`) alongside the monomer/ptm weights, so
+`--af2_data_dir` does not need to be overridden for multimer mode — it only
+needs pointing at a host `params/` directory if you are running without the
+bundled weights. See [`examples/fold-multimer/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer)
 (`nextflow.m3.config` + `run-m3.sh`) for a working set of overrides.
 `--num_multimer_predictions_per_model` (`--af2_num_predictions_per_model`)
 applies in multimer mode.
@@ -234,35 +270,34 @@ everything else exactly like the other engines.
 
 It reuses the same per-chain MSAs as `af2`; only `features.pkl` differs. You can
 run both in one pipeline — their predictions, score TSVs (`tool` column `af2` vs
-`af2_mono`) and `fold/predictions/` filenames are kept separate.
+`af2_mono`) and `fold/predictions/` filenames are kept separate. It works with
+either MSA route (`jackhmmer_af2` or `mmseqs2_colabfold`), with `--msa_subsample`,
+and with homo-oligomer inputs; under `jackhmmer_af2` a multimer still needs a
+`uniprot/`-bearing `--af2_db_path` (same requirement as `af2` itself), because
+`af2_mono`'s per-chain MSAs come from AF2's multimer search even though the
+predict step then uses the monomer weights.
 
-**When this is worth reaching for.** AF2-multimer pairs MSA rows across chains by
-taxonomy. If one chain has no homologs — a de novo designed binder, say — there is
-nothing to pair, so the merged MSA is block diagonal anyway. (This is not a
-violation of multimer's assumptions: partial pairing is explicit in
-`msa_pairing.pad_features`, whose padding row "will be selected as a 'paired' row
-in the case of partial alignment". Species present in only one chain are skipped
-from pairing by design.) `af2_mono` carries the same information without the
-multimer head, as a controlled contrast.
+**When this is worth reaching for.** AF2-multimer pairs MSA rows across chains
+by taxonomy. If one chain has no homologs — a de novo designed binder, say —
+there is nothing to pair, so the merged MSA is block diagonal anyway.
+`af2_mono` carries the same information without the multimer head, as a
+controlled contrast.
 
 **Two things to know before using it.**
 
 1. **Pair it with `--af2_keep_models best`.** Without an initial guess the monomer
-   models have no reason to dock the chains, and frequently don't. In a
-   73 + 104-residue test, one of three models docked (interface pLDDT 92.1, 0.5 Å
-   from the AF2-multimer pose — tighter than four independent engines agree with
-   each other) while the other two placed the binder 47 and 53 Å away. Ranking
-   separates them (`ranking_confidence` for monomer presets is mean pLDDT: 92.1 vs
-   85.1/85.0; interface pLDDT separates them far harder), so `ranked_0` is sound
-   but `all` would inject failed poses into any downstream consensus. The workflow
-   warns if you select `af2_mono` without `best`.
+   models have no reason to dock the chains, and frequently don't — ranking
+   (mean pLDDT for monomer presets) reliably separates a docked pose from a
+   failed one, but `all` would inject the failed poses into any downstream
+   consensus. The workflow warns if you select `af2_mono` without `best`.
 2. **It is not an independent engine.** `monomer_ptm` and `multimer` share an
    architecture family and a training corpus. Treat it as a second opinion from the
    same lineage, never as another vote alongside Boltz / RF3 / Protenix.
 
 Monomer presets do template search with hhsearch over `pdb70` rather than hmmsearch
 over `pdb_seqres`, so `--af2_pdb70_subpath` must resolve under `--af2_db_path`
-(this is the one existence check the multimer path never reaches).
+(this is the one existence check the multimer path never reaches; it is honoured
+by the MSA stage as well as predict).
 
 `--msa_subsample` is monomer-only and is rejected for multimer inputs.
 
@@ -277,7 +312,12 @@ organisation**, and AF3 outputs may not be used to train other structure predict
 Read the terms in full before downloading.
 
 The pipeline looks for the weights in `--af3_model_dir`, which defaults to
-`models/alphafold3/` in your copy of the pipeline. To download them there:
+`models/alphafold3/` in your copy of the pipeline. That default resolves
+relative to the pipeline checkout, so if you launch the pipeline by revision
+(`nextflow run Australian-Protein-Design-Initiative/nf-binder-design ...`)
+rather than from a local clone, pass `--af3_model_dir` explicitly — the
+default would otherwise point inside Nextflow's own cached copy of the
+pipeline under `~/.nextflow/assets/`. To download the weights there:
 
 ```bash
 # From a clone of nf-binder-design; prints the terms and asks you to type 'yes'
@@ -389,19 +429,21 @@ nextflow run /path/to/nf-binder-design/engens.nf \
 
 ## Output
 
-Default layout under `--outdir`:
+Default layout under `--outdir` (`params.json` and `logs/` sit at the outdir
+root, alongside `fold/`, not inside it — they are shared across every
+`--method`):
 
 ```
 results/
+├── params.json
+├── logs/                     # report/trace/timeline/dag + gpu_trace_<datestamp>.txt
 ├── fold/
 │   ├── msa/<msa_method>/     # shared MSAs + a3m (jackhmmer_af2 or mmseqs2_colabfold)
 │   ├── af2/msas/             # AF2-only features.pkl (not under fold/msa/)
 │   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/ … openfold3/    # per-engine predictions + <tool>_fold_scores.tsv
 │   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
-│   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
-│   ├── params.json
-│   └── logs/
+│   └── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
 └── engens/<id>/              # clusters.html + representative conformations (HDBSCAN by default)
                               # + structural_alphabet/ (3Di FASTA + entropy when enabled)
 ```
@@ -411,15 +453,17 @@ results/
 One row per generated structure across all engines. Each engine also writes a
 per-tool table (`fold/<tool>/<tool>_fold_scores.tsv`); the master merges them,
 **normalizing column names** for equivalent scores. Provenance columns name the
-`tool`, input `id`, `model`/sample index, the engine-native `original_file`, and
-the renamed `predictions_file` in `fold/predictions/` (unique per structure).
+`tool`, input `id`, `model`/sample index, `batch` (which predict job produced
+it) and `msa_depth` (MSA subsample depth, blank unless `--msa_subsample` was
+used), the engine-native `original_file`, and the renamed `predictions_file` in
+`fold/predictions/` (unique per structure).
 
 | Column | Meaning | AF2 | Boltz | Protenix | RF3 | AF3 | OpenFold3 |
 |--------|---------|-----|-------|----------|-----|-----|-----------|
-| `ranking_score` | engine's overall ranking metric | iptm+ptm | confidence_score | ranking_score | ranking_score | ranking_score | sample_ranking_score |
+| `ranking_score` | engine's overall ranking metric | `ranking_confidence` (0.8×ipTM + 0.2×pTM for multimer presets; mean pLDDT for monomer presets, incl. `af2_mono`) | confidence_score | ranking_score | ranking_score | ranking_score | sample_ranking_score |
 | `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ | ✓ (mean per-atom) | ✓ |
-| `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ | pae (mean) | pae (mean), pde (gpde) |
+| `pae` / `pde` | overall predicted aligned / distance error | – | pde | pde (`gpde`) | pae, pde | pae (mean) | pae (mean), pde (`gpde`) |
 | `has_clash` | steric-clash flag | – | – | ✓ | ✓ | ✓ | ✓ |
 | `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) |
 
@@ -429,154 +473,15 @@ omitted — only the overall values are reported.
 
 ## Setting up databases
 
-You need local databases only for:
-
-- `--msa_method jackhmmer_af2` (AlphaFold genetic DBs), and/or
-- `--msa_method mmseqs2_colabfold` **without** `--use_remote_server true`
-  (ColabFold MMseqs2 DBs).
-
-Model weights for Boltz / RF3 / Protenix / OpenFold3 are typically baked into the pipeline
-containers; AF2 params are downloaded with the AlphaFold DB tree (`params/`).
-
-Helper scripts live in the repo [`scripts/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/scripts)
-directory.
-
-### AlphaFold genetic databases
-
-Official source: [google-deepmind/alphafold](https://github.com/google-deepmind/alphafold)
-([genetic databases](https://github.com/google-deepmind/alphafold#genetic-databases)).
-
-**Requirements:** `aria2c`, `rsync`, `git`. Full databases are ~556 GB download
-and ~2.62 TB unzipped (SSD recommended).
-
-```bash
-# From a clone of nf-binder-design:
-./scripts/download_alphafold_dbs.sh /data/alphafold_dbs
-# or reduced set:
-./scripts/download_alphafold_dbs.sh /data/alphafold_dbs reduced_dbs
-```
-
-This clones DeepMind's repo shallowly and runs their
-`scripts/download_all_data.sh`, which fetches BFD (or small BFD), MGnify,
-PDB70, PDB mmCIF, UniRef30, UniRef90, UniProt, PDB seqres, and model params.
-
-Equivalent manual invocation:
-
-```bash
-git clone --depth 1 https://github.com/google-deepmind/alphafold.git
-bash alphafold/scripts/download_all_data.sh /data/alphafold_dbs full_dbs
-```
-
-Point the fold workflow at the download root:
-
-```bash
---msa_method jackhmmer_af2 \
---af2_db_path /data/alphafold_dbs \
---af2_db_preset full_dbs
-```
-
-Expected layout (abbreviated):
-
-```
-$AF2_DB_PATH/
-  bfd/                 # full_dbs only
-  small_bfd/           # reduced_dbs only
-  mgnify/mgy_clusters_2022_05.fa
-  params/
-  pdb70/
-  pdb_mmcif/
-  uniref30/UniRef30_2021_03*
-  uniref90/uniref90.fasta
-  uniprot/             # AF2 multimer (2021 snapshot only)
-  pdb_seqres/          # AF2 multimer (2021 snapshot only)
-```
-
-the fold workflow defaults the relative paths to the DeepMind download-script layout
-(e.g. `mgnify/mgy_clusters_2022_05.fa`, `uniref30/UniRef30_2021_03`); the
-`--af2_uniref30_subpath`, `--af2_uniprot_subpath` and `--af2_pdb_seqres_subpath`
-params override them (needed for AF2 multimer against the 2021 snapshot, whose
-HHblits DB is `uniclust30`).
-The M3 default is `/mnt/datasets/alphafold/alphafold_20240229` (group
-`alphafold`); bind-mount it in Apptainer `runOptions` when using `-profile m3`
-(see `examples/fold/nextflow.m3.config`).
-
-Ensure the tree is readable by compute jobs (`chmod -R a+rX` if needed).
-
-### ColabFold MMseqs2 databases
-
-Official downloads and setup notes: [colabfold.mmseqs.com](https://colabfold.mmseqs.com/)
-and ColabFold's
-[`setup_databases.sh`](https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh).
-
-**Requirements:** `mmseqs` in `PATH`, plus `aria2c` or `curl`/`wget`. Indexing
-is memory-heavy (ColabFold documents on the order of hundreds of GB RAM for
-full indexes / single-query search with indexes preloaded).
-
-```bash
-# Install MMseqs2 first, then:
-./scripts/download_colabfold_dbs.sh /data/colabfold_dbs
-```
-
-The helper fetches upstream `setup_databases.sh`, downloads UniRef30 +
-ColabFold env DB (prebuilt expandable-profile archives by default), runs
-`mmseqs createindex` unless `MMSEQS_NO_INDEX=1`, and organises outputs into:
-
-```
-/data/colabfold_dbs/
-  uniref30/           # pass to --uniref30
-  colabfold_envdb/    # pass to --colabfold_envdb
-```
-
-Useful environment overrides:
-
-| Variable | Effect |
-|----------|--------|
-| `SKIP_TEMPLATES=1` | Skip PDB mmCIF / Foldseek template downloads |
-| `MMSEQS_NO_INDEX=1` | Skip `createindex` (smaller disk; slower search) |
-| `DOWNLOADS_ONLY=1` | Download archives only |
-| `GPU=1` | GPU-capable indexes (needs GPU-enabled MMseqs2) |
-| `UNIREF30DB` / `CFDB` | Archive stems (defaults: `uniref30_2302`, `colabfold_envdb_202108`) |
-
-Equivalent manual setup:
-
-```bash
-wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
-chmod +x setup_databases.sh
-./setup_databases.sh /data/colabfold_dbs
-# Then point --uniref30 / --colabfold_envdb at dirs containing
-# uniref30_* and colabfold_envdb* MMseqs2 files (or use the helper).
-```
-
-Databases provided by ColabFold (see [colabfold.mmseqs.com](https://colabfold.mmseqs.com/)):
-
-1. **UniRef30** — 30% identity clustered UniRef100
-2. **ColabFold env DB** — environmental sequences (BFD/MGnify-derived plus
-   metagenomic sources); alternatively BFD/MGnify-only archives are listed on
-   the download page
-3. Optional template DBs (PDB100, etc.)
-
-Use with fold:
-
-```bash
---msa_method mmseqs2_colabfold \
---uniref30 /data/colabfold_dbs/uniref30 \
---colabfold_envdb /data/colabfold_dbs/colabfold_envdb
-```
-
-Bind-mount `/data/colabfold_dbs` (or the paths you pass) into Apptainer when
-running under Singularity/Apptainer profiles.
-
-### Which MSA route should I use?
-
-| Situation | Recommendation |
-|-----------|----------------|
-| Site already has AF2 DBs (e.g. M3 `/mnt/datasets/alphafold/...`) | `--msa_method jackhmmer_af2 --af2_db_path …` |
-| No local DBs, small number of sequences | `--msa_method mmseqs2_colabfold --use_remote_server true` |
-| Heavy ColabFold-style search on your cluster | Install local ColabFold DBs with `scripts/download_colabfold_dbs.sh` |
+Local databases are only needed for `--msa_method jackhmmer_af2`, or for
+`--msa_method mmseqs2_colabfold` without `--use_remote_server true`. See
+[Setting up databases](fold-databases.md) for download scripts, expected
+layout, and the site defaults on M3.
 
 ## Related
 
 - Example run directory: [`examples/fold/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold)
+- [Setting up databases](fold-databases.md)
 - Boltz Pulldown also accepts `--uniref30` / `--colabfold_envdb` for local MSAs
   ([Boltz Pulldown](boltz-pulldown.md))
 - Standalone EnGens: `engens.nf`

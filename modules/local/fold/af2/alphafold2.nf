@@ -160,8 +160,10 @@ process ALPHAFOLD2 {
     // (empty templates). Full / non-subsample: reuse staged features.pkl.
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
+    // Prefixed with the tool name (not a hard-coded "af2_") so af2 and af2_mono
+    // runs of the same target/run/depth don't collide under fold/msa_ids/.
     def msa_ids_file = write_msa_ids \
-        ? "af2_${meta.id}_run${meta.af2_run}_msa${meta.msa_depth_tag}_ids.txt" \
+        ? "${tool}_${meta.id}_run${meta.af2_run}_msa${meta.msa_depth_tag}_ids.txt" \
         : ''
 
     // The three chain-break stanzas below are assembled in Groovy rather than emitted

@@ -57,6 +57,34 @@ def parse_fasta_records(fasta_path: Path) -> List[str]:
     return records
 
 
+def a3m_query(a3m_path: Path) -> Optional[str]:
+    """First sequence in an a3m (skipping ColabFold '#' lines), gaps removed."""
+    seq: List[str] = []
+    seen_header = False
+    for raw in a3m_path.read_text().replace("\x00", "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(">"):
+            if seen_header:
+                break
+            seen_header = True
+        elif seen_header:
+            seq.append(line)
+    return "".join(seq).replace("-", "").upper() if seen_header else None
+
+
+def _check_query(path: Path, seq: str, chain_index: int) -> None:
+    # A mis-ordered bundle otherwise folds each chain with another chain's MSA
+    # without any error from RF3 (this is the bug class fixed in commit 1ae37a8).
+    query = a3m_query(path)
+    if query is not None and query != seq.upper():
+        raise ValueError(
+            f"chain {chain_index}: first sequence in {path.name} does not match the FASTA "
+            f"record - MSA files are not in chain order"
+        )
+
+
 def make_rf3_fold_spec(fasta_path: Path, name: str, a3m_paths: Optional[List[Path]] = None) -> dict:
     sequences = parse_fasta_records(fasta_path)
     if not sequences:
@@ -79,6 +107,7 @@ def make_rf3_fold_spec(fasta_path: Path, name: str, a3m_paths: Optional[List[Pat
     for i, (chain_id, seq) in enumerate(zip(chain_ids, sequences)):
         comp = {"seq": seq, "chain_id": chain_id}
         if a3m_paths:
+            _check_query(a3m_paths[i], seq, i)
             # Basename so fold.nf can overwrite the staged a3m in-task
             # (MSA subsample) without rewriting this JSON.
             comp["msa_path"] = a3m_paths[i].name

@@ -9,10 +9,10 @@ fixed 42, so batch i gets seed base+i (base = --openfold3_seeds, else 42) to kee
 batches distinct while -resume hashes stay stable.
 */
 
-include { GENERATE_OPENFOLD3_INPUT } from '../../modules/fold/openfold3/generate_openfold3_input'
-include { GENERATE_OPENFOLD3_INPUT_COMPLEX } from '../../modules/fold/openfold3/generate_openfold3_input_complex'
-include { OPENFOLD3 as OPENFOLD3_PROCESS } from '../../modules/fold/openfold3/openfold3'
-include { FOLD_PARSE_CONFIDENCE } from '../../modules/fold/common/fold_parse_confidence'
+include { GENERATE_OPENFOLD3_INPUT } from '../../modules/local/fold/openfold3/generate_openfold3_input'
+include { GENERATE_OPENFOLD3_INPUT_COMPLEX } from '../../modules/local/fold/openfold3/generate_openfold3_input_complex'
+include { OPENFOLD3 as OPENFOLD3_PROCESS } from '../../modules/local/fold/openfold3/openfold3'
+include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {

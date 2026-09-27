@@ -8,15 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `--method fold`: multi-method structure folding (AF2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3) with shared MSAs, MSA subsampling, and EnGens clustering (replaces the standalone `fold.nf` entrypoint). Also `engens.nf` for clustering an existing `.cif`/`.pdb` folder or glob.
-- `--method fold_pulldown`: multi-model target × binder pulldown (AF2/Boltz/RF3/Protenix/AlphaFold3/OpenFold3) with per-structure and aggregate scores plus a Quarto report.
-- AlphaFold3 engine (`--methods af3`) for `fold` and `fold_pulldown`, fed from the shared MSA stage (no AF3 databases needed). The weights are not bundled: download them under DeepMind's terms with `models/download_af3_weights.sh` into the default `--af3_model_dir` (`models/alphafold3`), or point `--af3_model_dir` elsewhere.
-- OpenFold3 engine (`--methods openfold3`) for `fold` and `fold_pulldown`, using the shared MSAs with species-based multimer pairing; weights are bundled in the container. `bin/ipsae.py` gains an `openfold3` input format (auto-detected), including OpenFold3's chain-pair ipTM.
-- `--boltz_refold_batch_size`: designs per Boltz refold task, for both complex and binder-monomer refolding. Boltz pays a large fixed cost per invocation (Python and torch startup plus loading the checkpoints) that a one-design-per-task pipeline pays again for every design; passing a directory of YAMLs to a single `boltz predict` amortises it. Measured on a GB10 with Boltz-2 v2.2.1, 8 designs took 476.8 s as 8 invocations against 121.5 s as one (59.6 s against 15.2 s per design). Defaults to 1, which is the previous behaviour exactly; the trade-off in raising it is that a failed task loses every design in its batch. Named to stay distinct from the pre-existing `--boltz_batch_size`, which is `--diffusion_samples` per Boltz job in the `fold` workflows.
+- `--method fold`: multi-method structure folding (AF2, AF2 monomer-on-complex `af2_mono`, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3) for monomer and multimer/complex FASTA inputs, with shared MSAs (jackhmmer/HHblits or ColabFold, taxonomy-paired per engine for multimers), MSA subsampling, a per-structure score table (ipTM, pLDDT, ipSAE, pDockQ, LIS, ...) and EnGens clustering. AlphaFold3 weights are not bundled: download them under DeepMind's terms with `models/download_af3_weights.sh`, or point `--af3_model_dir` at them. Also `engens.nf` for clustering an existing `.cif`/`.pdb` folder or glob.
+- `--method fold_pulldown`: multi-model target × binder pulldown across the same engines, with per-structure and aggregate (z-score, consensus) scores plus a Quarto report. Input ids are validated up front.
+- `--boltz_refold_batch_size`: fold several designs per Boltz refold task to amortise Boltz's per-invocation startup cost (default 1).
 - GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
-- Protenix fold jobs now pass `--need_atom_confidence true` by default (`--protenix_need_atom_confidence`); publishes full-confidence JSON with the token-pair PAE matrix for downstream ipSAE.
 - ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
 
 ### Removed

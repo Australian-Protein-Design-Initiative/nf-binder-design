@@ -18,7 +18,10 @@ class FoldValidation {
      * @param params Nextflow params map
      * @param methods parsed method list
      * @param opts optional map: checkColabfoldDbs (default true), hasMultimer (Boolean or null),
-     *             af2DbPath (Path/File/String or null for uniprot/ check when hasMultimer+af2)
+     *             af2DbPath (Path/File/String or null for uniprot/ check when hasMultimer+af2),
+     *             pulldown (default false): fold_pulldown pairs nothing across chains (the
+     *             binder is query-only) and builds AF2's multimer MSAs itself, so the
+     *             ColabFold-multimer error/warning below do not apply
      * @return [errors, warnings] as Lists of Strings
      */
     static List validate(params, List methods, Map opts = [:]) {
@@ -26,6 +29,7 @@ class FoldValidation {
         def warnings = []
         def checkColabfoldDbs = opts.containsKey('checkColabfoldDbs') ? opts.checkColabfoldDbs : true
         def hasMultimer = opts.containsKey('hasMultimer') ? opts.hasMultimer : null
+        def pulldown = opts.containsKey('pulldown') ? opts.pulldown : false
 
         methods.each { m ->
             if (!(m in VALID_METHODS)) {
@@ -89,6 +93,14 @@ class FoldValidation {
                     "is used (batches use seed, seed+1, ...)."
                 )
             }
+        }
+        // Protenix names its structures without the seed, so several seeds in one job
+        // overwrite each other in fold/predictions/ and mis-pair confidence files.
+        if ('protenix' in methods && params.protenix_seeds && params.protenix_seeds.toString().contains(',')) {
+            errors << (
+                "--protenix_seeds takes a single seed (got '${params.protenix_seeds}'). For more " +
+                "structures use --n_predictions / --protenix_batch_size; batches use seed, seed+1, ..."
+            )
         }
         if ('openfold3' in methods && params.openfold3_seeds && params.openfold3_seeds.toString().contains(',')) {
             warnings << (
@@ -162,28 +174,29 @@ class FoldValidation {
             )
         }
 
-        // NB: the two af2 gates below are deliberately 'af2' only, not af2_mono.
-        // af2_mono uses the monomer weights and never pairs, so it needs neither the
-        // uniprot/ all-seqs DB nor the native jackhmmer multimer MSA pipeline -
-        // ColabFold MSAs are exactly what it wants. Do not widen these to af2_mono.
+        // af2_mono uses the monomer weights and never pairs, so ColabFold MSAs suit it
+        // and the jackhmmer requirement below is 'af2' only. Under jackhmmer_af2 though,
+        // af2_mono's per-chain MSAs come from AF2's multimer search, which needs uniprot/.
         if (hasMultimer == true) {
             if (MsaSubsample.isEnabled(params.msa_subsample)) {
                 errors << "--msa_subsample is not supported for multimer inputs (monomer only)."
             }
-            if (params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
+            if (!pulldown && params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
                 warnings << (
                     "multimer input with --msa_method mmseqs2_colabfold - ColabFold a3m " +
                     "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3/OpenFold3 will run UNPAIRED. Use " +
                     "--msa_method jackhmmer_af2, or --use_msa_server true (Boltz fetches + pairs itself)."
                 )
             }
-            if ('af2' in methods && params.msa_method != 'jackhmmer_af2') {
+            if (!pulldown && 'af2' in methods && params.msa_method != 'jackhmmer_af2') {
                 errors << (
                     "AF2 multimer requires --msa_method jackhmmer_af2 (AF2's native " +
                     "multimer MSA pipeline). Drop af2 from --methods for ColabFold multimer runs."
                 )
             }
-            if ('af2' in methods && opts.af2DbPath) {
+            def af2_multimer_search = ('af2' in methods) \
+                || (!pulldown && 'af2_mono' in methods && params.msa_method == 'jackhmmer_af2')
+            if (af2_multimer_search && opts.af2DbPath) {
                 def uniprot_dir = new File("${opts.af2DbPath}/uniprot")
                 if (!uniprot_dir.exists()) {
                     errors << (

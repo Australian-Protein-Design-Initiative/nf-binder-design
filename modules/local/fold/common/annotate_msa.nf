@@ -29,11 +29,11 @@ process ANNOTATE_MSA {
     px_unpaired = "${stem}.protenix_unpaired.a3m"
     boltz_csv = "${stem}.boltz.csv"
     """
-    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m ${a3m} --tool rf3 \
-        --out ${rf3_a3m} --chain-id '${chain}'
-    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m ${a3m} --tool protenix \
-        --paired-out ${px_paired} --unpaired-out ${px_unpaired} --chain-id '${chain}'
-    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m ${a3m} --tool boltz \
-        --out ${boltz_csv} --chain-id '${chain}'
+    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m "${a3m}" --tool rf3 \
+        --out "${rf3_a3m}" --chain-id '${chain}'
+    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m "${a3m}" --tool protenix \
+        --paired-out "${px_paired}" --unpaired-out "${px_unpaired}" --chain-id '${chain}'
+    python ${projectDir}/bin/fold/msa_taxonomy.py --a3m "${a3m}" --tool boltz \
+        --out "${boltz_csv}" --chain-id '${chain}'
     """
 }

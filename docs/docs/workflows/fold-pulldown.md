@@ -21,6 +21,15 @@ once. Binders are treated as having no useful homologs (query-only MSA unless
 `--create_binder_msa` is set). There is **no cross-chain MSA pairing** — this is
 intentional for designed binders.
 
+FASTA header ids are used as per-chain filenames and are sanitised (non
+`[a-zA-Z0-9_.-]` characters become `_`) before use. The pipeline fails fast,
+listing the offending ids, on: duplicate ids within `--targets` or within
+`--binders`; an id present in both `--targets` and `--binders`; ids that
+collide only after sanitisation; and ids whose pair id
+(`<target>_and_<binder>`) is ambiguous (an id containing the literal
+`_and_`, e.g. target `a_and_b` + binder `c` colliding with target `a` +
+binder `b_and_c`).
+
 ## Command-line options
 
 ```bash
@@ -39,11 +48,11 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3` (see [OpenFold3](fold.md#openfold3)) |
+| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3` (see [Choosing engines](fold.md#choosing-engines)) |
 | `--af3_model_dir` | `models/alphafold3` | AlphaFold3 weights directory (`af3` only; see [AlphaFold3 weights](fold.md#alphafold3-weights)) |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
 | `--create_target_msa` | `false` | Build MSA for each target |
-| `--create_binder_msa` | `false` | Build MSA for each binder (usually leave off for de novo binders) |
+| `--create_binder_msa` | `false` | Build MSA for each binder (usually leave off for de novo binders). AF2/`af2_mono` always fold the binder chain query-only regardless of this flag (see `bin/fold/assemble_af2_multimer_msas.py`); if AF2/`af2_mono` are the only selected `--methods`, the pipeline warns and skips building the binder MSA entirely. |
 | `--n_predictions` | unset | Samples per complex per method (engine defaults if unset) |
 | `--skip_engens` | `true` | EnGens is off by default (would emit N × M reports) |
 | `--consensus_metric` | `ipsae` | `ipsae` or `iptm`; which metric's per-tool z-scores are averaged into `consensus_z` |
@@ -51,11 +60,21 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--z_scope` | `target` | `target` standardises within `(target, tool)`; `global` pools all targets into one distribution |
 | `--min_pool` | `10` | Pools holding fewer complexes than this are flagged `z_pool_small` in the summary and warned about on stderr |
 
-AF2 needs the 2021 DB snapshot with `uniprot/` (default `--af2_db_path` points at
-`alphafold_20211129`). Target MSAs for AF2 are built once (jackhmmer dir, or
-ColabFold/mmseqs2 a3m materialised into AF2 per-chain files) and assembled into a
-multimer tree with a query-only binder chain plus a `features.pkl` (the predict
-stage loads that pickle; it does not rebuild features from the raw MSA files).
+Every pair is a 2-chain complex, so `af2` and `af2_mono` under
+`--msa_method jackhmmer_af2` both need a `uniprot/`-bearing `--af2_db_path`
+(default `alphafold_20211129`; the [Fold](fold.md) workflow instead defaults to
+`alphafold_20240229`, which is monomer-only). Target MSAs for AF2 are built once
+(jackhmmer, or a ColabFold/mmseqs2 a3m converted into AF2's per-chain format)
+and combined with the query-only binder chain into one AF2 multimer input per
+pair.
+
+Every method-specific flag documented under `--method fold --help` (`--af2_*`,
+`--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`) applies here
+too — the same engines, run per target×binder pair instead of per input FASTA.
+A couple worth knowing about: `--af2_keep_models` (`best` by default) controls
+which of AF2's 5 models/run are kept, same as in `--method fold`; and
+`--templates` (a directory of `.cif` files) now reaches Boltz here as well as
+in `--method fold`.
 
 ## Example
 
@@ -71,6 +90,41 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --outdir results \
   -profile slurm,m3
 ```
+
+## Output
+
+Default layout under `--outdir` (`params.json` and `logs/` sit at the outdir
+root, alongside `fold_pulldown/`):
+
+```
+results/
+├── params.json
+├── logs/
+└── fold_pulldown/
+    ├── pairs.tsv                    # id, target, binder — one row per co-folded pair
+    ├── msa/<msa_method>/             # shared target + binder MSAs
+    ├── msa/paired/                   # per-chain MSA rendered into each engine's native format
+    ├── <tool>/<target>_and_<binder>/ # per-tool, per-pair engine outputs (raw + confidence JSON)
+    ├── <tool>/<tool>_fold_scores.tsv # per-tool score table
+    ├── predictions/                  # flat gather: <tool>_<target>_and_<binder>_*.cif
+    ├── fold_pulldown_scores.tsv       # master score table: one row per predicted structure
+    ├── fold_pulldown_summary.tsv      # one row per (target, binder, tool)
+    └── fold_pulldown_report.html      # Quarto overview
+```
+
+Each co-folded pair gets a complex id `<target>_and_<binder>` (from the
+sanitised FASTA header ids), used for its `<tool>/<target>_and_<binder>/`
+directory and as the stem of its files under `predictions/`. `pairs.tsv` maps
+each id back to its `target` and `binder`, and is what a downstream join
+against `fold_pulldown_scores.tsv` should use.
+
+`msa/paired/` exists even though pulldown does no cross-chain pairing: it is
+where the same per-engine MSA-rendering step used by [Fold's multimer
+pairing](fold.md#paired-msas-how-each-engine-differs) converts each chain's own
+MSA into that engine's native per-chain input format (RF3 `TaxID=` a3m,
+Protenix mnemonic-headers a3m, Boltz `key,sequence` CSV, etc). For pulldown
+each chain is rendered independently — the binder chain's rendered file is
+just its own (usually query-only) sequence, not paired against the target's.
 
 ## Interpreting scores
 
@@ -96,14 +150,26 @@ Three defaults decide that ranking, and each can be reverted:
   partly on which target it was paired with. Pass `--z_scope global` to pool them.
 
 Each summary row records `z_basis` (metric, statistic and scope, e.g.
-`ipsae_max/target`), `n_pool`, the number of complexes its z-score was computed
-over, and `z_pool_small`, `True` where that pool was smaller than `--min_pool`.
+`ipsae_max/target`), `n_pool`, the number of complexes that actually contributed a
+value to that z-score's `--consensus_metric` (not just the pool's row count —
+`iptm_n_pool` / `ipsae_n_pool` give the count for each metric individually), and
+`z_pool_small`, `True` where that pool was smaller than `--min_pool`.
 Watch those two: with *k* complexes in a pool the largest possible absolute z is
 (*k*−1)/√*k*, so a two-complex pool can only ever report ±0.707 and the z-score
 carries the ordering and nothing else. A saturated small-pool z looks like a
 mediocre one. The flag is also printed as an stderr warning, but stderr from a
 Nextflow task lands in the work directory, so the column is what a downstream
 consumer should filter on.
+
+`consensus_z` falls back from `--consensus_metric` to the other metric only when
+an entire `(target, tool)` pool lacks the primary metric (e.g. a tool that never
+emits `ipsae`) — never per-complex, so one complex's z is never averaged from a
+different metric than its pool-mates. `consensus_z_metric` records which metric
+actually contributed each row (comma-joined if tools within the same pair
+contributed via different metrics), and `n_tools` is the number of tools that
+contributed a non-missing value to that complex's `consensus_z`. `iptm_sd` /
+`ipsae_sd` are blank for a complex with only one replicate — a single point has no
+spread to report.
 
 For custom statistics (Mann–Whitney, mixed models, score calibration), use
 `fold_pulldown_scores.tsv` / `fold_pulldown_summary.tsv` directly — the HTML

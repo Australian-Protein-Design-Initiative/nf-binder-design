@@ -13,8 +13,8 @@ DATESTAMP=$(date +%Y%m%d_%H%M%S)
 DEFAULT_SLURM_ACCOUNT=$(sacctmgr --parsable2 show user -s ${USER} | tail -1 | cut -f 2 -d \|)
 
 # Mosaic Multispecifics binders x PD-L1 + IL-7Ra.
-# ColabFold remote MSA for targets; all fold engines. AF2 uses query-only target
-# MSA under mmseqs2_colabfold (see README); Boltz/RF3/Protenix get the ColabFold a3ms.
+# ColabFold remote MSAs for targets; binders stay query-only. Every engine,
+# AF2 included, gets the target's ColabFold a3m (see README).
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.m3.config \
   --method fold_pulldown \
@@ -22,7 +22,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --targets input/targets.fasta \
   --binders input/binders.fasta \
   --outdir results \
-  --methods af2,af2_mono,boltz,rf3,protenix,openfold3 \
+  --methods af2,boltz,rf3,protenix,openfold3 \
   --msa_method mmseqs2_colabfold \
   --use_remote_server true \
   --create_target_msa true \

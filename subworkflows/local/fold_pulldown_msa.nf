@@ -6,21 +6,17 @@ No cross-chain MSA pairing: binders are treated as having no useful homologs.
 MSA cost is O(N_targets + N_binders), not O(N x M).
 */
 
-include { ALPHAFOLD2_JACKHMMER_MSA as JACKHMMER_TARGET } from '../../modules/fold/af2/alphafold2_jackhmmer_msa'
-include { ALPHAFOLD2_JACKHMMER_MSA as JACKHMMER_BINDER } from '../../modules/fold/af2/alphafold2_jackhmmer_msa'
-include { AF2_MSAS_TO_A3M as AF2_MSAS_TO_A3M_TARGET } from '../../modules/fold/af2/af2_msas_to_a3m'
-include { AF2_MSAS_TO_A3M as AF2_MSAS_TO_A3M_BINDER } from '../../modules/fold/af2/af2_msas_to_a3m'
+include { ALPHAFOLD2_JACKHMMER_MSA as JACKHMMER_TARGET } from '../../modules/local/fold/af2/alphafold2_jackhmmer_msa'
+include { ALPHAFOLD2_JACKHMMER_MSA as JACKHMMER_BINDER } from '../../modules/local/fold/af2/alphafold2_jackhmmer_msa'
+include { AF2_MSAS_TO_A3M as AF2_MSAS_TO_A3M_TARGET } from '../../modules/local/fold/af2/af2_msas_to_a3m'
+include { AF2_MSAS_TO_A3M as AF2_MSAS_TO_A3M_BINDER } from '../../modules/local/fold/af2/af2_msas_to_a3m'
 include { MMSEQS_COLABFOLDSEARCH as MMSEQS_TARGET } from '../../modules/local/common/mmseqs_colabfoldsearch'
 include { MMSEQS_COLABFOLDSEARCH as MMSEQS_BINDER } from '../../modules/local/common/mmseqs_colabfoldsearch'
-include { ANNOTATE_MSA as ANNOTATE_MSA_TARGET } from '../../modules/fold/common/annotate_msa'
-include { ANNOTATE_MSA as ANNOTATE_MSA_BINDER } from '../../modules/fold/common/annotate_msa'
-include { SINGLE_SEQ_A3M as SINGLE_SEQ_A3M_TARGET } from '../../modules/fold/common/single_seq_a3m'
-include { SINGLE_SEQ_A3M as SINGLE_SEQ_A3M_BINDER } from '../../modules/fold/common/single_seq_a3m'
-include { FOLD_ASSEMBLE_AF2_MULTIMER_MSAS } from '../../modules/fold/af2/fold_assemble_af2_multimer_msas'
-
-def sanitize(name) {
-    return name.toString().replaceAll(/[^a-zA-Z0-9_.-]/, "_")
-}
+include { ANNOTATE_MSA as ANNOTATE_MSA_TARGET } from '../../modules/local/fold/common/annotate_msa'
+include { ANNOTATE_MSA as ANNOTATE_MSA_BINDER } from '../../modules/local/fold/common/annotate_msa'
+include { SINGLE_SEQ_A3M as SINGLE_SEQ_A3M_TARGET } from '../../modules/local/fold/common/single_seq_a3m'
+include { SINGLE_SEQ_A3M as SINGLE_SEQ_A3M_BINDER } from '../../modules/local/fold/common/single_seq_a3m'
+include { FOLD_ASSEMBLE_AF2_MULTIMER_MSAS } from '../../modules/local/fold/af2/fold_assemble_af2_multimer_msas'
 
 def pickPrimaryA3m(meta, a3m) {
     def files = (a3m instanceof List) ? a3m : [a3m]
@@ -45,7 +41,33 @@ workflow FOLD_PULLDOWN_MSA {
     def need_annotate = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
         || ('openfold3' in methods)
     def pub = "${params.fold_publish_dir ?: 'fold'}/msa"
+
+    // Per-chain ids flow raw into jackhmmer/mmseqs2/publishDir paths and into
+    // shell command lines (e.g. `--pair-id '${meta.id}'`); a raw FASTA header
+    // such as a UniProt 'sp|Q9NZQ7|PD1L1_HUMAN' id is unsafe there. Sanitise
+    // once, up front, and keep the original header on meta.orig_id for
+    // anything that wants it back (nothing currently does).
+    ch_targets = ch_targets.map { meta, fasta ->
+        [meta + [id: FoldIds.sanitize(meta.id), orig_id: meta.id.toString()], fasta]
+    }
+    ch_binders = ch_binders.map { meta, fasta ->
+        [meta + [id: FoldIds.sanitize(meta.id), orig_id: meta.id.toString()], fasta]
+    }
+    if (params.create_binder_msa && !need_annotate) {
+        // AF2/af2_mono always write chain B query-only (assemble_af2_multimer_msas.py
+        // copy_or_query(..., force_query_only=True)) - no selected engine reads a
+        // binder MSA, so building one is wasted jackhmmer/mmseqs2 work.
+        log.warn(
+            "fold_pulldown: --create_binder_msa is set but --methods (${methods.join(',')}) " +
+            "only includes AF2/af2_mono, which always fold the binder chain query-only; " +
+            "binder MSA search is skipped."
+        )
+    }
     def empty_msa = file("${projectDir}/assets/dummy_files/empty")
+    // Distinct stub for the target_a3m slot: FOLD_ASSEMBLE_AF2_MULTIMER_MSAS
+    // declares path(target_msa_dir), path(target_a3m) - staging the SAME file
+    // (same basename 'empty') for both is a Nextflow input file name collision.
+    def empty_target_a3m = file("${projectDir}/assets/dummy_files/empty_target_a3m")
 
     // ---------------- target a3m (+ optional AF2 msas dir) ----------------
     ch_target_a3m = Channel.empty()
@@ -78,7 +100,10 @@ workflow FOLD_PULLDOWN_MSA {
     // ---------------- binder a3m ----------------
     ch_binder_a3m = Channel.empty()
 
-    if (params.create_binder_msa && msa_method == 'jackhmmer_af2') {
+    // Gated on need_annotate too: AF2/af2_mono always write chain B query-only
+    // (see the --create_binder_msa warning above), so when they are the only
+    // selected engines, building a binder MSA is pure wasted search cost.
+    if (params.create_binder_msa && need_annotate && msa_method == 'jackhmmer_af2') {
         ch_bin = ch_binders.map { meta, fasta ->
             [meta + [n_chains: 1, af2_force_monomer_msa: true], fasta]
         }
@@ -86,7 +111,7 @@ workflow FOLD_PULLDOWN_MSA {
         AF2_MSAS_TO_A3M_BINDER(JACKHMMER_BINDER.out.msa)
         ch_binder_a3m = AF2_MSAS_TO_A3M_BINDER.out.a3m
     }
-    else if (params.create_binder_msa && msa_method == 'mmseqs2_colabfold') {
+    else if (params.create_binder_msa && need_annotate && msa_method == 'mmseqs2_colabfold') {
         def envdb2 = params.use_remote_server ? file("${projectDir}/assets/dummy_files/empty") : file(params.colabfold_envdb)
         def uniref30_db2 = params.use_remote_server ? file("${projectDir}/assets/dummy_files/empty") : file(params.uniref30)
         ch_bin = ch_binders.map { meta, fasta -> [meta + [n_chains: 1], fasta] }
@@ -103,8 +128,9 @@ workflow FOLD_PULLDOWN_MSA {
     // ---------------- pair meta + FASTA (always) ----------------
     ch_pair_meta = ch_targets.combine(ch_binders)
         .map { tmeta, _tfasta, bmeta, _bfasta ->
-            def tid = sanitize(tmeta.id)
-            def bid = sanitize(bmeta.id)
+            // ch_targets/ch_binders meta.id is already sanitised, above.
+            def tid = tmeta.id.toString()
+            def bid = bmeta.id.toString()
             def pair_id = "${tid}_and_${bid}"
             def pair_meta = [
                 id: pair_id,
@@ -114,6 +140,13 @@ workflow FOLD_PULLDOWN_MSA {
                 target_seq: tmeta.seq,
                 binder_seq: bmeta.seq,
             ]
+            // Binder is always chain B; when its MSA is not being built (see
+            // --create_binder_msa above), engines that honour this flag (e.g.
+            // Boltz --use_msa_server) should keep it query-only rather than
+            // fetching a server MSA the pulldown never asked for.
+            if (!params.create_binder_msa) {
+                pair_meta.query_only_chains = ['B']
+            }
             [pair_meta, tmeta.id.toString(), bmeta.id.toString()]
         }
 
@@ -215,7 +248,7 @@ workflow FOLD_PULLDOWN_MSA {
         }
         else {
             ch_assemble_in = ch_pairs_base.map { pmeta, fasta, _tid, _bid ->
-                [pmeta, fasta, empty_msa, empty_msa]
+                [pmeta, fasta, empty_msa, empty_target_a3m]
             }
         }
         FOLD_ASSEMBLE_AF2_MULTIMER_MSAS(ch_assemble_in)

@@ -16,7 +16,7 @@ process SPLIT_COMPLEX_FASTA {
     script:
     """
     python ${projectDir}/bin/fold/split_complex_fasta.py \
-        --fasta ${fasta} \
+        --fasta "${fasta}" \
         --name '${meta.id}'
     """
 }

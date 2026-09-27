@@ -15,6 +15,7 @@ process FOLD_CREATE_BOLTZ_YAML {
 
     input:
     tuple val(meta), path(fasta), path(a3m)
+    path templates
 
     output:
     tuple val(meta), path(yaml), path(a3m), emit: yaml
@@ -22,12 +23,14 @@ process FOLD_CREATE_BOLTZ_YAML {
     script:
     yaml = "${meta.id}.yml"
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
+    def templates_flag = params.templates ? "--templates '${templates}'" : ''
     """
     ${projectDir}/bin/create_boltz_yaml.py \
         --binder_id '${meta.id}' \
         --binder_from_fasta '${fasta}' \
         --binder_msa '${a3m}' \
         --output_yaml '${yaml}' \
-        ${use_msa_server_flag}
+        ${use_msa_server_flag} \
+        ${templates_flag}
     """
 }

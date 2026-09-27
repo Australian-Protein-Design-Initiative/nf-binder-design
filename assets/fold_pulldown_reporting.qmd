@@ -39,6 +39,17 @@ plt.style.use('seaborn-v0_8')
 scores = pd.read_csv('fold_pulldown_scores.tsv', sep='\t')
 summary = pd.read_csv('fold_pulldown_summary.tsv', sep='\t')
 
+# target/binder are FASTA ids, not data - read_csv's default NA sniffing turns
+# an id spelled "NA"/"None"/"nan" etc into a real NaN, silently dropping that
+# target or binder out of every groupby/pivot below. Re-read just those two
+# columns as literal strings.
+for _df, _path in ((scores, 'fold_pulldown_scores.tsv'), (summary, 'fold_pulldown_summary.tsv')):
+    _id_cols = [c for c in ('target', 'binder') if c in _df.columns]
+    if _id_cols:
+        _raw = pd.read_csv(_path, sep='\t', usecols=_id_cols, dtype=str, keep_default_na=False)
+        for _col in _id_cols:
+            _df[_col] = _raw[_col]
+
 n_targets = scores['target'].nunique() if 'target' in scores.columns else 0
 n_binders = scores['binder'].nunique() if 'binder' in scores.columns else 0
 tools = sorted(scores['tool'].dropna().unique().tolist()) if 'tool' in scores.columns else []
@@ -250,6 +261,8 @@ Spearman correlation of per-complex mean ipTM between tool pairs (requires ≥2 
 #| label: cross-tool
 #| message: false
 
+MIN_SHARED_COMPLEXES = 3
+
 if len(tools) < 2:
     print("Need ≥2 tools for cross-tool correlation.")
 else:
@@ -257,11 +270,20 @@ else:
     if pivot.shape[1] < 2:
         print("Need ≥2 tools with iptm_mean.")
     else:
-        corr = pivot.corr(method='spearman')
-        fig, ax = plt.subplots(figsize=(4 + 0.5 * len(tools), 4 + 0.5 * len(tools)))
-        sns.heatmap(corr, annot=True, fmt='.2f', cmap='vlag', vmin=-1, vmax=1, ax=ax)
-        ax.set_title('Spearman correlation of mean ipTM across tools')
-        plt.tight_layout()
-        plt.show()
-        display(corr.style.set_caption("Spearman r (iptm_mean)").format('{:.3f}'))
+        # A complex "shared" by ≥2 tools has ≥2 non-null entries in its row;
+        # Spearman r over one or two shared points is noise, not a correlation.
+        n_shared = int((pivot.notna().sum(axis=1) >= 2).sum())
+        if n_shared < MIN_SHARED_COMPLEXES:
+            print(
+                f"Need ≥{MIN_SHARED_COMPLEXES} complexes shared by ≥2 tools for a "
+                f"meaningful Spearman correlation (found {n_shared})."
+            )
+        else:
+            corr = pivot.corr(method='spearman')
+            fig, ax = plt.subplots(figsize=(4 + 0.5 * len(tools), 4 + 0.5 * len(tools)))
+            sns.heatmap(corr, annot=True, fmt='.2f', cmap='vlag', vmin=-1, vmax=1, ax=ax)
+            ax.set_title('Spearman correlation of mean ipTM across tools')
+            plt.tight_layout()
+            plt.show()
+            display(corr.style.set_caption("Spearman r (iptm_mean)").format('{:.3f}'))
 ```

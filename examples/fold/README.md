@@ -1,4 +1,4 @@
-Multi-method structure folding with the standalone `fold.nf` workflow.
+Multi-method structure folding with `--method fold`.
 
 See the [Fold workflow docs](../../docs/docs/workflows/fold.md) for MSA options,
 EnGens, outputs, and AlphaFold / ColabFold database setup
@@ -10,51 +10,27 @@ taxonomically-paired MSA per engine (see the [multimer docs](../../docs/docs/wor
 
 `input/pdl1.fasta` folds human PD-L1 as a single-chain monomer. For a multimer
 (protein complex) run, see the sibling [`examples/fold-multimer`](../fold-multimer)
-example (2-chain PD-L1 homodimer with per-engine paired MSAs).
+example (the PD-L1 / PD-1 heterodimer, with per-engine paired MSAs).
 
-## Param harmonization
-
-| Shared | AF2 | Boltz | RF3 | Protenix | OpenFold3 |
-|---|---|---|---|---|---|
-| `--input`, `--outdir` | `--af2_db_path` | `--use_msa_server` (Boltz's own MSA server, independent of `--msa_method`) | `--rf3_ckpt_path` | `--protenix_seeds` (`--seeds`) | `--openfold3_seeds` (runner YAML `seeds`) |
-| `--methods` (`af2,boltz,rf3,protenix,openfold3`) | `--af2_model_preset` | `--templates` | `--rf3_num_steps` | `--protenix_cycle` (`--cycle`) | `--openfold3_batch_size` (`--num-diffusion-samples` per job) |
-| `--msa_method` (`jackhmmer_af2`\|`mmseqs2_colabfold`) | `--af2_db_preset` | `--boltz_recycling` (`--recycling_steps`) | `--rf3_n_recycles` | `--protenix_step` (`--step`) | `--openfold3_kernel_cache_dir` |
-| `--use_remote_server`, `--uniref30`, `--colabfold_envdb` (ColabFold local/remote MSA) | `--af2_max_template_date` | `--boltz_batch_size` (`--diffusion_samples` per job) | `--rf3_batch_size` (`diffusion_batch_size` per job) | `--protenix_batch_size` (`--sample` per job) | |
-| `--n_predictions` (total structures; split by method batch size) | `--af2_random_seed` | `--boltz_sampling_steps` (`--sampling_steps`) | `--rf3_early_stopping_plddt_threshold` | `--protenix_model_name`, `--protenix_use_msa` | |
-| `--msa_subsample` (`false`\|`true`\|`max:extra,...`), `--msa_subsample_include_full` | `--af2_keep_models`, `--af2_no_relax` | `--boltz_seed` | `--rf3_seed` | `--protenix_seeds` | |
-| `--gpu_devices` | | | | | |
-| EnGens (default on): `--skip_engens`, `--engens_clustering` (`hdbscan`\|`gmm`\|`km`), `--engens_min_structures`, `--engens_max_clusters` | | | | | |
-
-Method-namespaced params (`--af2_*`, `--boltz_*`,
-`--rf3_*`, `--protenix_*`, `--openfold3_*`) are kept explicit rather than unified, since
-recycles/samples mean different things per engine (see `fold.nf --help`).
-
-Protenix's per-chain a3m contract (confirmed against
-`protenix:v2.0.0-weights` on 2026-07-17) is the `unpairedMsaPath` field on a
-`proteinChain` input entry (monomer), plus `pairedMsaPath` for multimer - same
-per-chain contract as Boltz's `msa:`/RF3's `msa_path`. Weights
-(`protenix_base_default_v1.0.0.pt` etc) are baked into the container under
-`/models/protenix/checkpoint`, so no download happens at predict time.
-
-OpenFold3 (`openfold3:0.5.0_nv-cuda12_weights`) likewise ships its weights in
-the container, under `/models/openfold3`. The shared a3m becomes each chain's
-`colabfold_main.a3m`, and multimers get a species-tagged `uniprot_hits.a3m`
-that OpenFold3 uses for cross-chain pairing.
+For the full list of parameters, run `--method fold --help`, or see
+[Key Parameters](../../docs/docs/workflows/fold.md#key-parameters) and
+[Choosing engines](../../docs/docs/workflows/fold.md#choosing-engines) in the
+docs.
 
 ## Multimer / paired MSAs
 
 - One canonical taxonomy parse (`bin/fold/msa_taxonomy.py`) renders each engine's
   native paired format: RF3 `TaxID=` a3m, Protenix species-mnemonic
   paired/unpaired a3m, Boltz `key,sequence` CSV, OpenFold3 `tr|ACC|ACC_SPECIES/1-N`
-  pairing a3m. AF2 uses its own native
-  multimer pipeline. See `plans/fold-nf-multimer-paired-msa.md`.
+  pairing a3m, AF3 re-rendered `tr|…_SPECIES` pairing a3m. AF2 uses its own
+  native multimer pipeline.
 - Use `--msa_method jackhmmer_af2`: only its rich headers carry the taxonomy
   pairing needs. ColabFold headers are taxonomy-less, so ColabFold multimer runs
   unpaired — use `--use_msa_server true` (Boltz) instead.
 - AF2 multimer needs the 2021 snapshot (`alphafold_20211129`, has
   `uniprot/`+`pdb_seqres/`); the monomer-only default (`alphafold_20240229`)
-  cannot be used (fold.nf fails fast). Its HHblits DB is `uniclust30`, so set
-  `--af2_uniref30_subpath` (see [`examples/fold-multimer`](../fold-multimer)).
+  cannot be used (the fold workflow fails fast). Its HHblits DB is `uniclust30`,
+  so set `--af2_uniref30_subpath` (see [`examples/fold-multimer`](../fold-multimer)).
 
 ## Running
 
@@ -98,13 +74,14 @@ To try the ColabFold MSA route instead (bridging the resulting a3m into AF2 too)
 ./run-m3.sh --msa_method mmseqs2_colabfold --use_remote_server true
 ```
 
-(No M3 default local ColabFold DB path exists yet - see
-`plans/fold-nf-multi-method-folding.md` - so `--use_remote_server true` is
-required unless you have your own `colabfold_search`-format `--uniref30`/
+(No M3 default local ColabFold DB path exists yet, so `--use_remote_server true`
+is required unless you have your own `colabfold_search`-format `--uniref30`/
 `--colabfold_envdb` DBs.)
 
 ## Outputs
 
+- `results/params.json` and `results/logs/` at the outdir root (shared across
+  every `--method`, not under `results/fold/`).
 - Shared MSAs under `results/fold/msa/<msa_method>/` (`jackhmmer_af2` or
   `mmseqs2_colabfold`), including the a3m derived for Boltz/RF3/Protenix/OpenFold3.
 - AF2-only `features.pkl` under `results/fold/af2/msas/` (not under `fold/msa/`).
@@ -119,7 +96,6 @@ required unless you have your own `colabfold_search`-format `--uniref30`/
   representative structures under
   `results/engens/<id>/clustering/<featurizer>/<gmm|km|hdbscan>/conformations/`
   (e.g. `residue_mindist`, `backbone_torsions`, `backbone_torsions-residue_mindist`).
-- `results/fold/params.json` written on completion.
 
 To re-cluster an existing folder of structures without re-running prediction:
 

@@ -4,7 +4,7 @@ process BOLTZ {
     // Recursive /** so each nested file is its own publish item. A directory
     // output is a single item - saveAs never sees *_model_N.cif inside it, so
     // the fold/predictions gather would publish nothing (same pattern as
-    // modules/fold/af2/alphafold2.nf and modules/fold/rf3/rf3_fold.nf).
+    // modules/local/fold/af2/alphafold2.nf and modules/local/fold/rf3/rf3_fold.nf).
     publishDir(
         path: "${params.outdir}/${step_name}",
         mode: 'copy',

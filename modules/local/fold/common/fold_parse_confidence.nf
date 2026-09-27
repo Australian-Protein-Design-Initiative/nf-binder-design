@@ -38,6 +38,8 @@ process FOLD_PARSE_CONFIDENCE {
         --tool "${tool}" \\
         --id "${meta.id}" \\
         --model "${model}" \\
+        --batch "${meta.fold_batch ?: ''}" \\
+        --msa-depth "${meta.msa_depth_tag ?: ''}" \\
         --original-file "${original_file}" \\
         --predictions-file "${predictions_file}" \\
         --json "${json_file}" \\

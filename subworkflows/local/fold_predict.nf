@@ -15,7 +15,7 @@ include { PROTENIX_FOLD } from './protenix_fold'
 include { ALPHAFOLD3_FOLD } from './alphafold3_fold'
 include { OPENFOLD3_FOLD } from './openfold3_fold'
 include { ENGENS_CLUSTER } from './engens'
-include { FOLD_MERGE_SCORES } from '../../modules/fold/common/fold_merge_scores'
+include { FOLD_MERGE_SCORES } from '../../modules/local/fold/common/fold_merge_scores'
 
 workflow FOLD_PREDICT {
     take:

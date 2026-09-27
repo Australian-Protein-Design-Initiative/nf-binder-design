@@ -7,7 +7,7 @@ process OPENFOLD3 {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/openfold3:0.5.0_nv-cuda12_weights'
 
-    // Recursive glob publish - see modules/fold/rf3/rf3_fold.nf. OpenFold3 writes
+    // Recursive glob publish - see modules/local/fold/rf3/rf3_fold.nf. OpenFold3 writes
     // to output/<query name>/seed_<S>/..., which is <meta.id>/ for ordinary ids.
     // Its run-level files (experiment_config.json, summary.txt, ...) sit at the
     // output root, so they go under the query dir to stop tasks overwriting them.
@@ -107,7 +107,7 @@ process OPENFOLD3 {
     fi
 
     # Claim a GPU for this task's lifetime, then record which card we got
-    # (bin/gpu_lock.sh). See modules/fold/protenix/protenix_fold.nf.
+    # (bin/gpu_lock.sh). See modules/local/fold/protenix/protenix_fold.nf.
     if [[ -n "${params.gpu_devices}" ]]; then
         source ${projectDir}/bin/gpu_lock.sh
         nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1

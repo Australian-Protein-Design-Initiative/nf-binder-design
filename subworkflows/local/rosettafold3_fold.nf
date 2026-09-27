@@ -8,10 +8,10 @@ with the per-chain TaxID=-annotated a3m bundle from FOLD_MSA (see
 plans/fold-nf-multimer-paired-msa.md). Both feed the same RF3_FOLD predict.
 */
 
-include { GENERATE_RF3_FOLD_INPUT } from '../../modules/fold/rf3/generate_rf3_fold_input'
-include { GENERATE_RF3_FOLD_INPUT_COMPLEX } from '../../modules/fold/rf3/generate_rf3_fold_input_complex'
-include { RF3_FOLD } from '../../modules/fold/rf3/rf3_fold'
-include { FOLD_PARSE_CONFIDENCE } from '../../modules/fold/common/fold_parse_confidence'
+include { GENERATE_RF3_FOLD_INPUT } from '../../modules/local/fold/rf3/generate_rf3_fold_input'
+include { GENERATE_RF3_FOLD_INPUT_COMPLEX } from '../../modules/local/fold/rf3/generate_rf3_fold_input_complex'
+include { RF3_FOLD } from '../../modules/local/fold/rf3/rf3_fold'
+include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {

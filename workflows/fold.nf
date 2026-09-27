@@ -4,12 +4,12 @@ nextflow.enable.dsl = 2
 
 /*
 Multi-method structure folding: predicts structures for FASTA inputs with any
-combination of --methods af2,boltz,rf3,protenix, sharing a single MSA-generation
-stage (FOLD_MSA) with a selectable --msa_method.
+combination of --methods af2,af2_mono,boltz,rf3,protenix,af3,openfold3, sharing
+a single MSA-generation stage (FOLD_MSA) with a selectable --msa_method.
 
 Usage via main.nf:
   nextflow run main.nf --method fold --input 'input/*.fasta' --outdir results \
-      --methods af2,boltz,rf3,protenix --msa_method jackhmmer_af2 -profile slurm,m3
+      --methods af2,boltz,rf3,protenix,af3,openfold3 --msa_method jackhmmer_af2 -profile slurm,m3
 */
 
 params.method = 'fold'
@@ -122,8 +122,8 @@ workflow FOLD {
         ==================================================================
 
         Predict structures for one or more FASTA files with any combination of
-        AlphaFold2, Boltz-2, RosettaFold3 and Protenix, sharing one
-        MSA-generation stage.
+        AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3 and OpenFold3,
+        sharing one MSA-generation stage.
 
         Multimer: a multi-record FASTA folds as a protein complex (one record
         = one chain -> chain IDs A, B, C, ...; homo-oligomers = repeated
@@ -140,7 +140,9 @@ workflow FOLD {
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
             --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3,openfold3 [default: ${params.methods}]
-                                                af2      = AlphaFold2-multimer.
+                                                af2      = AlphaFold2. Monomer inputs use --af2_model_preset
+                                                           (monomer_ptm by default); multi-chain inputs use
+                                                           AF2's native multimer weights/pipeline instead.
                                                 af2_mono = AF2 MONOMER weights on a concatenated complex,
                                                            chains separated only by a residue_index jump.
                                                            Shares af2's MSAs; only features.pkl differs.
@@ -169,8 +171,18 @@ workflow FOLD {
             --af2_publish_pkl                   Publish AF2's result_model_*.pkl (~90 MB each; the only
                                                 source of ptm/iptm/ranking_confidence)
                                                 [default: ${params.af2_publish_pkl}]
-            --af2_pdb70_subpath                 pdb70 prefix under --af2_db_path; monomer presets only
-                                                [default: ${params.af2_pdb70_subpath}]
+            --af2_num_predictions_per_model      AF2's --num_multimer_predictions_per_model; multimer only
+                                                [default: ${params.af2_num_predictions_per_model}]
+            --af2_data_dir                       Directory containing params/ (model weights); bundled in
+                                                the container by default, so this rarely needs overriding
+                                                [default: ${params.af2_data_dir}]
+            Per-DB subpaths under --af2_db_path (override individually for a non-default
+            snapshot, e.g. the 2021 multimer snapshot):
+            --af2_uniref30_subpath                [default: ${params.af2_uniref30_subpath}]
+            --af2_mgnify_subpath                  [default: ${params.af2_mgnify_subpath}]
+            --af2_uniprot_subpath                 multimer only [default: ${params.af2_uniprot_subpath}]
+            --af2_pdb_seqres_subpath               multimer only [default: ${params.af2_pdb_seqres_subpath}]
+            --af2_pdb70_subpath                  monomer presets only [default: ${params.af2_pdb70_subpath}]
 
             AF2 monomer chain-break (--methods includes af2_mono):
             --af2_monomer_model_preset          monomer|monomer_ptm|monomer_casp14 [default: ${params.af2_monomer_model_preset}]
@@ -194,7 +206,7 @@ workflow FOLD {
             --rf3_seed                          RF3 hydra seed= [default: unset]
 
             Protenix (--methods includes protenix):
-            --protenix_seeds                    Single seed [default: unset]
+            --protenix_seeds                    Base seed; batch i uses seed+i [default: unset]
             --protenix_cycle                    Pairformer cycles [default: ${params.protenix_cycle}]
             --protenix_step                     Diffusion steps [default: ${params.protenix_step}]
             --protenix_batch_size               Samples per Protenix job (--sample)
@@ -235,6 +247,7 @@ workflow FOLD {
             --engens_gmm_ic                     aic|bic [default: ${params.engens_gmm_ic}]
             --engens_seed                       Optional RNG seed [default: unset]
             --engens_featurizers                default,3di,pb [default: ${params.engens_featurizers}]
+            --engens_superpose_method            Superposition scheme for geometric featurizers [default: ${params.engens_superpose_method}]
 
             --gpu_devices                        GPU devices [default: ${params.gpu_devices}]
             --gpu_slots_per_device               Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
@@ -286,6 +299,11 @@ workflow FOLD {
     warnings.each { log.warn("fold: ${it}") }
     if (errors) {
         error("fold: ${errors.join('\nfold: ')}")
+    }
+
+    def id_errors = FoldIds.validateFoldIds(input_paths.collect { it.baseName })
+    if (id_errors) {
+        error("fold: ${id_errors.join('\nfold: ')}")
     }
 
     ch_input = Channel.fromList(input_paths).map { f ->

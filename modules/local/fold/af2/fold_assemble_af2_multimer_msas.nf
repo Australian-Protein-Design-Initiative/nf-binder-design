@@ -26,14 +26,14 @@ process FOLD_ASSEMBLE_AF2_MULTIMER_MSAS {
     script:
     """
     python ${projectDir}/bin/fold/assemble_af2_multimer_msas.py \\
-        --pair-fasta ${pair_fasta} \\
+        --pair-fasta "${pair_fasta}" \\
         --pair-id '${meta.id}' \\
-        --target-msa-dir ${target_msa_dir} \\
-        --target-a3m ${target_a3m} \\
+        --target-msa-dir "${target_msa_dir}" \\
+        --target-a3m "${target_a3m}" \\
         -o .
 
     python ${projectDir}/bin/fold/af2_multimer_features_from_msas.py \\
-        --fasta ${pair_fasta} \\
+        --fasta "${pair_fasta}" \\
         --msas-dir '${meta.id}'
     """
 }

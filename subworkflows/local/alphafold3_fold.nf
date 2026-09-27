@@ -9,10 +9,10 @@ each gets seed base+i (base = --af3_seeds, else a fixed 1 so -resume hashes
 stay stable).
 */
 
-include { GENERATE_AF3_INPUT } from '../../modules/fold/af3/generate_af3_input'
-include { GENERATE_AF3_INPUT_COMPLEX } from '../../modules/fold/af3/generate_af3_input_complex'
-include { ALPHAFOLD3 as ALPHAFOLD3_PROCESS } from '../../modules/fold/af3/alphafold3'
-include { FOLD_PARSE_CONFIDENCE } from '../../modules/fold/common/fold_parse_confidence'
+include { GENERATE_AF3_INPUT } from '../../modules/local/fold/af3/generate_af3_input'
+include { GENERATE_AF3_INPUT_COMPLEX } from '../../modules/local/fold/af3/generate_af3_input_complex'
+include { ALPHAFOLD3 as ALPHAFOLD3_PROCESS } from '../../modules/local/fold/af3/alphafold3'
+include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {

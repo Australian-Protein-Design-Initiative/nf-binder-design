@@ -40,8 +40,11 @@ import json
 import sys
 
 # Canonical column order for every fold engine's row (see plans/fold-nf-scores-tsv.md).
+# batch/msa_depth distinguish repeated (tool, id, model) rows across
+# --n_predictions batches and --msa_subsample depth jobs; blank when fold.nf
+# ran a single, unbatched, full-depth job.
 COLUMNS = [
-    "tool", "id", "model", "original_file", "predictions_file",
+    "tool", "id", "model", "batch", "msa_depth", "original_file", "predictions_file",
     "ranking_score", "ptm", "iptm", "plddt", "pae", "pde", "has_clash",
     "ipsae", "ipsae_d0chn", "ipsae_d0dom", "pdockq", "pdockq2", "lis",
 ]
@@ -219,6 +222,8 @@ def main():
     p.add_argument("--tool", required=True, choices=list(PARSERS))
     p.add_argument("--id", required=True)
     p.add_argument("--model", required=True, help="per-structure index label")
+    p.add_argument("--batch", default="", help="fold.nf batch index (meta.fold_batch / af2_run); blank if unbatched")
+    p.add_argument("--msa-depth", default="", help="fold.nf MSA subsample depth tag (meta.msa_depth_tag); blank if full-depth")
     p.add_argument("--original-file", default="", help="engine-native structure filename")
     p.add_argument("--predictions-file", default="", help="renamed name in fold/predictions/")
     p.add_argument("--json", help="confidence/summary JSON (rf3, protenix, af3, openfold3)")
@@ -234,6 +239,8 @@ def main():
         "tool": args.tool,
         "id": args.id,
         "model": args.model,
+        "batch": args.batch,
+        "msa_depth": args.msa_depth,
         "original_file": args.original_file,
         "predictions_file": args.predictions_file,
     })

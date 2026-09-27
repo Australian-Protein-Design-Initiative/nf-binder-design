@@ -12,8 +12,8 @@ subsampled a3m (empty templates); full-depth jobs reuse the precomputed
 features.pkl (templates kept for jackhmmer).
 */
 
-include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/fold/af2/alphafold2'
-include { FOLD_SCORE_AF2 } from '../../modules/fold/af2/fold_score_af2'
+include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/local/fold/af2/alphafold2'
+include { FOLD_SCORE_AF2 } from '../../modules/local/fold/af2/fold_score_af2'
 
 workflow ALPHAFOLD2 {
     take:

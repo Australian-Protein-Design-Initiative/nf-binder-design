@@ -65,7 +65,7 @@ process ALPHAFOLD2_JACKHMMER_MSA {
         ]
     }
     else {
-        db_flags_list += ["--pdb70_database_path=${d}/pdb70/pdb70"]
+        db_flags_list += ["--pdb70_database_path=${d}/${params.af2_pdb70_subpath}"]
     }
     db_flags_list += [
         "--template_mmcif_dir=${d}/pdb_mmcif/mmcif_files",
@@ -83,9 +83,13 @@ process ALPHAFOLD2_JACKHMMER_MSA {
     # after the source basename (e.g. targets.1.fasta) rather than after the record's
     # own id. Relink to ${meta.id}.fasta before invoking AlphaFold rather than trust the
     # incoming filename, so the predict stage can find this directory again either way.
-    ln -sf ${fasta} ${meta.id}.fasta
+    # Skip when already named that way: `ln -sf x x` replaces the staged
+    # symlink with one pointing at itself.
+    if [[ "${fasta}" != "${meta.id}.fasta" ]]; then
+        ln -sf "${fasta}" "${meta.id}.fasta"
+    fi
     python /app/alphafold/run_alphafold.py \
-        --fasta_paths=${meta.id}.fasta \
+        --fasta_paths="${meta.id}.fasta" \
         --output_dir=\$PWD \
         --generate_msas_only=true \
         --use_precomputed_msas=false \

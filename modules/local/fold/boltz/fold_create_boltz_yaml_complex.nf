@@ -11,6 +11,7 @@ process FOLD_CREATE_BOLTZ_YAML_COMPLEX {
 
     input:
     tuple val(meta), path(fasta), path(csvs)
+    path templates
 
     output:
     tuple val(meta), path(yaml), path(csvs), emit: yaml
@@ -20,11 +21,19 @@ process FOLD_CREATE_BOLTZ_YAML_COMPLEX {
     def files = (csvs instanceof List) ? csvs : [csvs]
     def msa_arg = files.collect { it.name }.join(' ')
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
+    def templates_flag = params.templates ? "--templates '${templates}'" : ''
+    // meta.query_only_chains (fold_pulldown contract): chain letters that must
+    // stay query-only (msa: empty) even under --use_msa_server, so the server
+    // does not fetch an MSA for a chain --create_binder_msa false disabled it for.
+    def query_only_chains = (meta.query_only_chains ?: []) as List
+    def query_only_flag = query_only_chains ? "--query_only_chains ${query_only_chains.join(' ')}" : ''
     """
     ${projectDir}/bin/fold/make_boltz_complex_yaml.py \
         --fasta ${fasta} \
         --msa ${msa_arg} \
         --output_yaml ${yaml} \
-        ${use_msa_server_flag}
+        ${use_msa_server_flag} \
+        ${templates_flag} \
+        ${query_only_flag}
     """
 }

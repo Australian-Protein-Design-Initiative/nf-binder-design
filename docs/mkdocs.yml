@@ -16,6 +16,7 @@ nav:
       - Boltz Pulldown: workflows/boltz-pulldown.md
       - Fold Pulldown: workflows/fold-pulldown.md
       - Fold: workflows/fold.md
+      - Fold Databases: workflows/fold-databases.md
   - Subworkflows:
       - FoldSeek: subworkflows/foldseek.md
   - Extra:

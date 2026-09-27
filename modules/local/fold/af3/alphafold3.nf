@@ -11,7 +11,7 @@ process ALPHAFOLD3 {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/alphafold3:3.0.4'
 
-    // Recursive glob publish - see modules/fold/rf3/rf3_fold.nf. AF3 writes to
+    // Recursive glob publish - see modules/local/fold/rf3/rf3_fold.nf. AF3 writes to
     // output/<sanitised name>/..., which is <meta.id>/ for ordinary ids.
     publishDir(
         path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af3",
@@ -97,7 +97,7 @@ process ALPHAFOLD3 {
     fi
 
     # Claim a GPU for this task's lifetime, then record which card we got
-    # (bin/gpu_lock.sh). See modules/fold/protenix/protenix_fold.nf.
+    # (bin/gpu_lock.sh). See modules/local/fold/protenix/protenix_fold.nf.
     if [[ -n "${params.gpu_devices}" ]]; then
         source ${projectDir}/bin/gpu_lock.sh
         nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1

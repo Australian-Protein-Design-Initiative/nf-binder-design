@@ -18,4 +18,5 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --af2_keep_models best \
   -profile local -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  "$@"

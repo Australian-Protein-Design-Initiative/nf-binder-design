@@ -26,6 +26,8 @@ process FOLD_SCORE_AF2 {
         --id "${meta.id}" \
         --tool "${meta.af2_tool ?: 'af2'}" \
         --pred-prefix "${pred_prefix}" \
+        --batch "${meta.af2_run ?: ''}" \
+        --msa-depth "${meta.msa_depth_tag ?: ''}" \
         --keep-models ${keep} \
         --pae-cutoff 10 \
         --dist-cutoff 10 \

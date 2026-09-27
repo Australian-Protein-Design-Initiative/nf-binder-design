@@ -27,6 +27,7 @@ entry per copy, distinct chain IDs). A `count:`/id-list shorthand is deferred.
 """
 
 import argparse
+import csv
 import glob
 import os
 import string
@@ -56,11 +57,37 @@ def parse_fasta_records(fasta_path: Path) -> List[str]:
     return records
 
 
+def csv_query(csv_path: Path) -> Optional[str]:
+    """Row 0's sequence column - Boltz always treats a chain MSA's first row as
+    the query (render_boltz_csv in bin/fold/msa_taxonomy.py), so this is the
+    sequence Boltz will fold against for that chain.
+    """
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            return row.get("sequence")
+    return None
+
+
+def _check_query(path: Path, seq: str, chain_index: int) -> None:
+    # A mis-ordered bundle otherwise folds each chain with another chain's MSA
+    # without any error from Boltz (this is the bug class fixed in commit 1ae37a8).
+    if path.suffix.lower() != ".csv":
+        return
+    query = csv_query(path)
+    if query is not None and query.upper() != seq.upper():
+        raise ValueError(
+            f"chain {chain_index}: first sequence in {path.name} does not match the FASTA "
+            f"record - MSA files are not in chain order"
+        )
+
+
 def make_boltz_complex_yaml(
     fasta_path: Path,
     msa_paths: Optional[List[Path]] = None,
     use_msa_server: bool = False,
     templates_dir: Optional[str] = None,
+    query_only_chains: Optional[List[str]] = None,
 ) -> dict:
     sequences = parse_fasta_records(fasta_path)
     if not sequences:
@@ -76,11 +103,18 @@ def make_boltz_complex_yaml(
             f"pass exactly one MSA per chain in record order"
         )
 
+    query_only = set(query_only_chains or [])
+
     entries = []
     for i, (chain_id, seq) in enumerate(zip(chain_ids, sequences)):
         protein = {"id": [chain_id], "sequence": seq}
-        # Omit msa when using the Boltz MSA server (it fetches + pairs its own).
-        if not use_msa_server and msa_paths:
+        if chain_id in query_only:
+            # Keep this chain query-only even under --use_msa_server, e.g. a
+            # binder chain the caller does not want the MSA server to fetch
+            # for (--create_binder_msa false).
+            protein["msa"] = "empty"
+        elif not use_msa_server and msa_paths:
+            _check_query(msa_paths[i], seq, i)
             # Basename so fold.nf can overwrite the staged MSA in-task without
             # rewriting this YAML.
             protein["msa"] = os.path.basename(str(msa_paths[i]))
@@ -107,6 +141,12 @@ def main() -> int:
     )
     parser.add_argument("--templates", default=None, help="Optional templates directory of .cif files")
     parser.add_argument("--use_msa_server", action="store_true", help="Omit msa: so Boltz fetches its own")
+    parser.add_argument(
+        "--query_only_chains",
+        nargs="+",
+        default=None,
+        help="Chain ID(s) (e.g. B) to force msa: empty for, even under --use_msa_server",
+    )
     parser.add_argument("--output_yaml", required=True, help="Output YAML path")
     args = parser.parse_args()
 
@@ -115,6 +155,7 @@ def main() -> int:
         msa_paths=[Path(p) for p in args.msa] if args.msa else None,
         use_msa_server=args.use_msa_server,
         templates_dir=args.templates,
+        query_only_chains=args.query_only_chains,
     )
 
     out = Path(args.output_yaml)

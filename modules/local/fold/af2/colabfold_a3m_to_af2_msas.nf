@@ -28,8 +28,8 @@ process COLABFOLD_A3M_TO_AF2_MSAS {
     cp "${a3m}" "${meta.id}/msas/colabfold.a3m"
 
     python ${projectDir}/bin/fold/colabfold_a3m_to_af2_msas.py \
-        --fasta ${fasta} \
-        --a3m ${a3m} \
+        --fasta "${fasta}" \
+        --a3m "${a3m}" \
         --output-dir "${meta.id}"
     """
 }

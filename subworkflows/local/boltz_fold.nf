@@ -8,10 +8,10 @@ key,sequence CSV from FOLD_MSA; see plans/fold-nf-multimer-paired-msa.md). Both
 feed the same BOLTZ predict.
 */
 
-include { FOLD_CREATE_BOLTZ_YAML } from '../../modules/fold/boltz/fold_create_boltz_yaml'
-include { FOLD_CREATE_BOLTZ_YAML_COMPLEX } from '../../modules/fold/boltz/fold_create_boltz_yaml_complex'
+include { FOLD_CREATE_BOLTZ_YAML } from '../../modules/local/fold/boltz/fold_create_boltz_yaml'
+include { FOLD_CREATE_BOLTZ_YAML_COMPLEX } from '../../modules/local/fold/boltz/fold_create_boltz_yaml_complex'
 include { BOLTZ } from '../../modules/local/common/boltz'
-include { FOLD_PARSE_BOLTZ_CONFIDENCE } from '../../modules/fold/boltz/fold_parse_boltz_confidence'
+include { FOLD_PARSE_BOLTZ_CONFIDENCE } from '../../modules/local/fold/boltz/fold_parse_boltz_confidence'
 
 // Split --n_predictions across jobs of at most batch_size samples each.
 // batch_size unset (Boolean false / null) + n_predictions set => one job of N.
@@ -39,11 +39,12 @@ workflow BOLTZ_FOLD {
     main:
     ch_mono = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
-    FOLD_CREATE_BOLTZ_YAML(ch_mono)
-    FOLD_CREATE_BOLTZ_YAML_COMPLEX(ch_multi)
-    ch_yaml = FOLD_CREATE_BOLTZ_YAML.out.yaml.mix(FOLD_CREATE_BOLTZ_YAML_COMPLEX.out.yaml)
 
     ch_templates = params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates")
+
+    FOLD_CREATE_BOLTZ_YAML(ch_mono, ch_templates)
+    FOLD_CREATE_BOLTZ_YAML_COMPLEX(ch_multi, ch_templates)
+    ch_yaml = FOLD_CREATE_BOLTZ_YAML.out.yaml.mix(FOLD_CREATE_BOLTZ_YAML_COMPLEX.out.yaml)
 
     // BOLTZ's process signature is shared with boltz_pulldown.nf's
     // target+binder complex mode, so it always expects two MSA paths to
@@ -103,9 +104,17 @@ workflow BOLTZ_FOLD {
     // just the top-ranked model_0). The all-samples emit is a list when >1
     // sample, a single path when 1; normalise, then tag each with its model
     // index parsed from the confidence_<id>_model_<N>.json filename.
+    empty_ipsae_tsv = file("${projectDir}/assets/dummy_files/empty_ipsae.tsv")
+
+    // Pair each model's confidence JSON with its own ipSAE TSV (ipsae.py writes
+    // one <model>_10_10_ipsae.tsv per diffusion sample - see boltz.nf's per-pae
+    // loop) so B2's ipsae_d0chn/ipsae_d0dom/pdockq/pdockq2/lis columns get
+    // filled for Boltz too, not just RF3/Protenix/AF3/OpenFold3.
     ch_conf_per_model = BOLTZ.out.confidence_json_all
-        .flatMap { meta, jsons ->
+        .join(BOLTZ.out.ipsae_tsv)
+        .flatMap { meta, jsons, ipsae_tsvs ->
             def files = (jsons instanceof List) ? jsons : [jsons]
+            def ipsae_files = (ipsae_tsvs instanceof List) ? ipsae_tsvs : [ipsae_tsvs]
             files.collect { j ->
                 def m = (j.name =~ /_model_(\d+)\.json$/)
                 def idx = m ? m[0][1] : '0'
@@ -113,7 +122,9 @@ workflow BOLTZ_FOLD {
                 // flat-gather name uses the same FoldNaming prefix as the module.
                 def struct = j.name.replaceFirst(/^confidence_/, '').replaceFirst(/\.json$/, '.cif')
                 def pred = "${FoldNaming.flatPrefix('boltz', meta)}${struct}"
-                [meta, idx, struct, pred, j]
+                def stem = struct.replaceFirst(/\.(cif|pdb)$/, '')
+                def ipsae = ipsae_files.find { it.name.startsWith("${stem}_") && it.name.endsWith('_ipsae.tsv') }
+                [meta, idx, struct, pred, j, ipsae ?: empty_ipsae_tsv]
             }
         }
 

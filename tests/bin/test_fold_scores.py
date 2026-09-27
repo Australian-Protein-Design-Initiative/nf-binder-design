@@ -31,7 +31,7 @@ import numpy as np
 
 BIN = Path(__file__).resolve().parents[2] / "bin" / "fold"
 CANON = [
-    "tool", "id", "model", "original_file", "predictions_file",
+    "tool", "id", "model", "batch", "msa_depth", "original_file", "predictions_file",
     "ranking_score", "ptm", "iptm", "plddt", "pae", "pde", "has_clash",
     "ipsae", "ipsae_d0chn", "ipsae_d0dom", "pdockq", "pdockq2", "lis",
 ]
@@ -125,17 +125,18 @@ def test_rf3_ipsae_tsv_merged(tmp_path):
     with canon.open("w") as f:
         w = csv.writer(f, delimiter="\t")
         w.writerow(CANON)
-        w.writerow(["rf3", "cx", "s0", "o.cif", "rf3_o.cif", "0.8", "0.78",
+        w.writerow(["rf3", "cx", "s0", "1", "", "o.cif", "rf3_o.cif", "0.8", "0.78",
                     "0.81", "0.819", "9.4", "2.5", "false", "", "", "", "", "", ""])
-    # native boltz table
+    # native boltz table (batch/msa_depth optional columns present here)
     boltz = tmp_path / "boltz_fold_scores.tsv"
     with boltz.open("w") as f:
         w = csv.writer(f, delimiter="\t")
-        w.writerow(["id", "model", "original_file", "predictions_file",
+        w.writerow(["id", "model", "batch", "msa_depth", "original_file", "predictions_file",
                     "confidence_score", "ptm", "iptm", "complex_plddt",
-                    "complex_pde", "ipsae_min", "pair_chains_iptm_0_1"])
-        w.writerow(["cx", "0", "cm0.cif", "boltz_cm0.cif", "0.875", "0.82",
-                    "0.88", "0.874", "0.48", "0.63", "0.72"])
+                    "complex_pde", "ipsae_min", "ipSAE_d0chn", "ipSAE_d0dom",
+                    "pDockQ", "pDockQ2", "LIS", "pair_chains_iptm_0_1"])
+        w.writerow(["cx", "0", "2", "512", "cm0.cif", "boltz_cm0.cif", "0.875", "0.82",
+                    "0.88", "0.874", "0.48", "0.63", "0.60", "0.59", "0.31", "0.22", "0.15", "0.72"])
     out = tmp_path / "master.tsv"
     _run([str(BIN / "merge_fold_scores.py"), "--input", str(canon),
           "--input", str(boltz), "-o", str(out)])
@@ -144,8 +145,22 @@ def test_rf3_ipsae_tsv_merged(tmp_path):
     b = next(r for r in rows if r["tool"] == "boltz")
     assert b["ranking_score"] == "0.875" and b["plddt"] == "0.874"
     assert b["pde"] == "0.48" and b["ipsae"] == "0.63"
+    assert b["ipsae_d0chn"] == "0.60" and b["ipsae_d0dom"] == "0.59"
+    assert b["pdockq"] == "0.31" and b["pdockq2"] == "0.22" and b["lis"] == "0.15"
+    assert b["batch"] == "2" and b["msa_depth"] == "512"
     assert b["predictions_file"] == "boltz_cm0.cif"
+    r_rf3 = next(r for r in rows if r["tool"] == "rf3")
+    assert r_rf3["batch"] == "1" and r_rf3["msa_depth"] == ""
     assert list(rows[0].keys()) == CANON                    # master is canonical
+
+
+def test_batch_and_msa_depth_columns(tmp_path):
+    payload = {"ranking_score": 0.5, "ptm": 0.5, "iptm": 0.5}
+    r = _rows(_parse(tmp_path, "rf3", payload, **{"batch": "2", "msa-depth": "512"}))[0]
+    assert r["batch"] == "2" and r["msa_depth"] == "512"
+    # unset -> blank, not omitted (fixed column position in every row)
+    r2 = _rows(_parse(tmp_path, "rf3", payload))[0]
+    assert r2["batch"] == "" and r2["msa_depth"] == ""
 
 
 def test_af2_mono_uses_af2_parser(tmp_path):
