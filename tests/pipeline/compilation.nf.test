@@ -131,6 +131,38 @@ nextflow_pipeline {
         }
     }
 
+    test("fold method compiles with openfold3") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "openfold3"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with openfold3") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "openfold3"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
     test("bindcraft method compiles (single PDB)") {
         options "-preview"
         when {

@@ -1,5 +1,5 @@
-// Generic per-structure confidence parser for fold.nf's RF3, Protenix and AF3
-// engines: optionally run bin/ipsae.py on the full PAE JSON + structure, then
+// Generic per-structure confidence parser for fold.nf's RF3, Protenix, AF3 and
+// OpenFold3 engines: optionally run bin/ipsae.py on the full PAE JSON + structure, then
 // bin/fold/parse_fold_confidence.py flattens the summary JSON (plus ipSAE TSV)
 // into a single normalized TSV row on stdout. The RF3/Protenix subworkflows fan
 // this out one call per sample and collectFile the rows into
@@ -17,16 +17,17 @@ process FOLD_PARSE_CONFIDENCE {
     stdout
 
     script:
-    def ipsae_fmt = tool == 'rf3' ? 'rf3' : 'af3'
-    // AF3's summary JSON carries no pLDDT; the per-atom values are in the full
-    // confidences JSON, which is the file already staged for ipSAE.
-    def full_json_arg = (tool == 'af3' && do_ipsae) ? "--full-json \"${ipsae_pae}\"" : ''
+    def ipsae_fmt = tool in ['rf3', 'openfold3'] ? tool : 'af3'
+    // AF3's summary JSON carries no pLDDT, and neither summary carries PAE; the
+    // per-atom values are in the full confidences JSON already staged for ipSAE.
+    def full_json_arg = (tool in ['af3', 'openfold3'] && do_ipsae) ? "--full-json \"${ipsae_pae}\"" : ''
     """
     set -euo pipefail
     ipsae_args=()
     if [[ "${do_ipsae}" == "true" ]]; then
+        # stdout is this task's TSV row, so keep ipsae.py's diagnostics off it
         python3 ${projectDir}/bin/ipsae.py --format ${ipsae_fmt} \\
-            "${ipsae_pae}" "${ipsae_structure}" 10 10 \\
+            "${ipsae_pae}" "${ipsae_structure}" 10 10 >&2 \\
             || echo "ipsae.py failed for ${ipsae_structure}" >&2
         tsv=\$(ls -1 *_10_10_ipsae.tsv 2>/dev/null | head -n 1 || true)
         if [[ -n "\${tsv}" ]]; then

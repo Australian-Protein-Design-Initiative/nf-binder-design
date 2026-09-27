@@ -10,7 +10,7 @@
 Parse a single fold.nf prediction's confidence output into ONE normalized TSV
 row (written to stdout, with header) for the master fold_scores table.
 
-Handles AF2 / RF3 / Protenix / AF3 (Boltz keeps its own bin/parse_boltz_confidence.py,
+Handles AF2 / RF3 / Protenix / AF3 / OpenFold3 (Boltz keeps its own bin/parse_boltz_confidence.py,
 which is shared with boltz_pulldown.nf). Emits the canonical, cross-engine
 column schema: equivalent scores share a column name, plddt is rescaled to 0-1,
 and asymmetric per-chain-pair scores are intentionally dropped (only overall /
@@ -27,6 +27,10 @@ Sources per tool (verified against example fold-multimer results):
            optional --ipsae-tsv from *_full_data_sample_N.json + *_sample_N.cif
   af3      --json *_seed-S_sample-N_summary_confidences.json (no pLDDT in it)
            optional --full-json *_confidences.json (atom_plddts [0-100], pae)
+           optional --ipsae-tsv from *_confidences.json + *_model.cif
+  openfold3
+           --json *_seed_S_sample_N_confidences_aggregated.json
+           optional --full-json *_confidences.json (per-atom plddt, pae)
            optional --ipsae-tsv from *_confidences.json + *_model.cif
 """
 
@@ -159,12 +163,46 @@ def parse_af3(args):
     return row
 
 
+def _plddt_fraction(x):
+    """Scale a mean pLDDT to 0-1, whichever scale the engine reports."""
+    x = _num(x)
+    if x is None:
+        return None
+    return x / 100.0 if x > 1.0 else x
+
+
+def parse_openfold3(args):
+    import numpy as np
+
+    with open(args.json) as f:
+        d = json.load(f)
+    has_clash = _num(d.get("has_clash"))
+    row = {
+        "ranking_score": _num(d.get("sample_ranking_score")),
+        "ptm": _num(d.get("ptm")),
+        "iptm": _num(d.get("iptm")),
+        "plddt": _plddt_fraction(d.get("avg_plddt")),
+        "pde": _num(d.get("gpde")),
+        "has_clash": bool(has_clash) if has_clash is not None else None,
+    }
+    if args.full_json:
+        with open(args.full_json) as f:
+            full = json.load(f)
+        pae = full.get("pae")
+        if pae:
+            row["pae"] = float(np.nanmean(np.asarray(pae, dtype=float)))
+    if args.ipsae_tsv:
+        row.update(_read_ipsae_min(args.ipsae_tsv))
+    return row
+
+
 PARSERS = {
     "af2": parse_af2,
     "af2_mono": parse_af2,  # same pickle schema; distinct tool tag in the TSV
     "rf3": parse_rf3,
     "protenix": parse_protenix,
     "af3": parse_af3,
+    "openfold3": parse_openfold3,
 }
 
 
@@ -183,8 +221,8 @@ def main():
     p.add_argument("--model", required=True, help="per-structure index label")
     p.add_argument("--original-file", default="", help="engine-native structure filename")
     p.add_argument("--predictions-file", default="", help="renamed name in fold/predictions/")
-    p.add_argument("--json", help="confidence/summary JSON (rf3, protenix, af3)")
-    p.add_argument("--full-json", help="AF3 *_confidences.json (per-atom pLDDT, PAE)")
+    p.add_argument("--json", help="confidence/summary JSON (rf3, protenix, af3, openfold3)")
+    p.add_argument("--full-json", help="AF3 / OpenFold3 *_confidences.json (per-atom pLDDT, PAE)")
     p.add_argument("--pkl", help="AF2 result_model_N.pkl")
     p.add_argument("--ipsae-tsv", help="ipsae.py output TSV (optional; Type==min row)")
     p.add_argument("--no-header", action="store_true", help="omit the header line (for concatenation)")

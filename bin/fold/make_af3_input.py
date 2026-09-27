@@ -95,7 +95,7 @@ def clean_a3m(src: Optional[Path], query_seq: str, chain_id: str) -> str:
     if first.upper() != query_seq.upper():
         raise ValueError(
             f"chain {chain_id}: first sequence in {src.name} does not match the FASTA "
-            f"sequence (AlphaFold3 requires the query as the first MSA row)"
+            f"sequence (the query must be the first MSA row)"
         )
     return "".join(f">{h}\n{s}\n" for h, s in records)
 

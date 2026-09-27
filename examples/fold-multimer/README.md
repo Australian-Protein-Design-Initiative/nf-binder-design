@@ -27,6 +27,7 @@ One FASTA → per-chain MSA search → one canonical taxonomy parse
 | RF3 | numeric `TaxID=` | per-chain a3m with `TaxID=` headers |
 | Protenix | species mnemonic (`_HUMAN`, `_9BETA`) | per-chain `pairedMsaPath` + `unpairedMsaPath` |
 | Boltz-2 | taxid `key` | per-chain `key,sequence` CSV |
+| OpenFold3 | species mnemonic | per-chain `colabfold_main.a3m` + `uniprot_hits.a3m` (`tr\|ACC\|ACC_SPECIES/1-N` headers, used for pairing only) |
 
 The rendered per-chain files are published under `results/fold/msa/paired/`.
 
@@ -68,7 +69,7 @@ Pass `--methods` to select a subset, e.g. skip AF2 (and its 2021-DB dependency)
 and let Boltz pair its own MSA:
 
 ```bash
-./run-m3.sh --methods boltz,rf3,protenix
+./run-m3.sh --methods boltz,rf3,protenix,openfold3
 # or the MSA-server route for Boltz:
 ./run-m3.sh --methods boltz --use_msa_server true
 ```

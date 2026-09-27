@@ -176,6 +176,31 @@ def test_render_af3_paired_synthesises_invalid_accession():
     assert m and m.group("SpeciesId") == "HUMAN"
 
 
+# --- OpenFold3 renderer: every hit header must split into exactly six fields ----
+
+
+def _of3_fields(header):
+    # openfold3 process_msa_pairing_metadata: str.split(r"[|_/:-]") into
+    # [tr, uniprot_id, uniprot_id_copy, species_id, chain_start, chain_end]
+    return re.split(r"[|_/:-]", header)
+
+
+def test_render_openfold3_pairing_headers_split_into_six_fields():
+    uniparc = "UniRef100_UPI0001234567 Foo n=1 Tax=Homo sapiens TaxID=9606 RepID=UPI0001234567_HUMAN"
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, UNIREF_FULL, UNIPROT_SP, COLABFOLD_BARE, uniparc))
+    rendered = mt.render_openfold3_pairing_a3m(recs)
+    headers = [ln[1:] for ln in rendered.splitlines() if ln.startswith(">")]
+    assert headers[0] == QUERY_HEADER
+    fields = [_of3_fields(h) for h in headers[1:]]
+    assert all(len(f) == 6 for f in fields)
+    assert [f[3] for f in fields] == ["9BETA", "9BETA", "HUMAN", "HUMAN"]
+
+
+def test_render_openfold3_pairing_query_only():
+    recs = mt.parse_a3m(build_a3m())
+    assert mt.render_openfold3_pairing_a3m(recs) == f">{QUERY_HEADER}\n{QUERY_SEQ}\n"
+
+
 # --- Boltz renderer: key,sequence CSV keyed on taxid ----------------------------
 
 

@@ -17,6 +17,9 @@
 # Modified by Andrew Perry, 2025
 # Added RosettaFold3 (rf3) support: AF3-shaped confidences, but pLDDT on 0-1,
 # mmCIF atoms numbered from 0, and a single scalar iptm instead of chain_pair_iptm.
+# Added OpenFold3 (openfold3) support: AF3-shaped per-atom pLDDT / token PAE in
+# *_confidences.json, with chain_pair_iptm as a {"(A, B)": x} dict in the sibling
+# *_confidences_aggregated.json.
 #
 # ipsae.py
 # script for calculating the ipSAE score for scoring pairwise protein-protein interactions in AlphaFold2 and AlphaFold3 models
@@ -57,7 +60,7 @@ np.set_printoptions(
     threshold=np.inf
 )  # for printing out full numpy arrays for debugging
 
-SUPPORTED_FORMATS = ("af2", "af3", "boltz", "rf3")
+SUPPORTED_FORMATS = ("af2", "af3", "boltz", "rf3", "openfold3")
 
 
 def unwrap_json_object(data):
@@ -79,10 +82,13 @@ def unwrap_json_object(data):
 
 
 def normalize_token_pae_json(data: dict) -> dict:
-    """Alias Protenix full-data keys onto the AF3/RF3 names ipSAE expects."""
+    """Alias Protenix / OpenFold3 full-data keys onto the AF3/RF3 names ipSAE expects."""
     out = dict(data)
     if "atom_plddts" not in out and "atom_plddt" in out:
         out["atom_plddts"] = out["atom_plddt"]
+    # OpenFold3's *_confidences.json calls its per-atom pLDDT plain "plddt".
+    if "atom_plddts" not in out and "plddt" in out:
+        out["atom_plddts"] = out["plddt"]
     if "pae" not in out and "token_pair_pae" in out:
         out["pae"] = out["token_pair_pae"]
     return out
@@ -115,12 +121,37 @@ def summary_confidences_path(pae_file_path: str) -> str | None:
     return os.path.join(directory, summary_name)
 
 
+def openfold3_aggregated_path(pae_file_path: str) -> str | None:
+    """Map an OpenFold3 ``*_confidences.json`` to its ``*_confidences_aggregated.json``."""
+    directory, name = os.path.split(pae_file_path)
+    if not name.endswith("_confidences.json"):
+        return None
+    return os.path.join(directory, name[: -len(".json")] + "_aggregated.json")
+
+
+def openfold3_chain_pair_iptm(summary: dict, unique_chains) -> dict:
+    """Symmetric chain-pair ipTM from OpenFold3's ``{"(A, B)": x}`` dict (zeros if absent)."""
+    iptm = {c1: {c2: 0.0 for c2 in unique_chains if c2 != c1} for c1 in unique_chains}
+    for key, value in (summary.get("chain_pair_iptm") or {}).items():
+        parts = [p.strip() for p in key.strip("()").split(",")]
+        if len(parts) != 2 or value is None:
+            continue
+        c1, c2 = parts
+        if c1 in iptm and c2 in iptm[c1]:
+            iptm[c1][c2] = iptm[c2][c1] = float(value)
+    return iptm
+
+
 def detect_cif_json_format(pae_file_path: str) -> str:
-    """Distinguish RF3 from AF3: both pair an mmCIF model with a confidences JSON.
+    """Distinguish RF3 / OpenFold3 from AF3: all pair an mmCIF model with a confidences JSON.
 
     AF3 summaries carry a per-chain-pair ``chain_pair_iptm`` matrix; RF3 writes a
     single interface-wide ``iptm`` scalar alongside chain_pair_pae/pde matrices.
+    OpenFold3 is recognised by its ``*_confidences_aggregated.json`` sibling.
     """
+    agg_path = openfold3_aggregated_path(pae_file_path)
+    if agg_path is not None and os.path.exists(agg_path):
+        return "openfold3"
     summary_path = summary_confidences_path(pae_file_path)
     if summary_path is None or not os.path.exists(summary_path):
         return "af3"
@@ -226,8 +257,9 @@ def main():
         default="auto",
         help=(
             "Input format (default: auto from file extensions, with af3 vs rf3 "
-            "decided by the summary_confidences contents). Use rf3 for "
-            "RosettaFold3 confidences JSON."
+            "decided by the summary_confidences contents, and openfold3 by a "
+            "*_confidences_aggregated.json sibling). Use rf3 for RosettaFold3 "
+            "and openfold3 for OpenFold3 confidences JSON."
         ),
     )
     parser.add_argument(
@@ -274,12 +306,13 @@ def main():
     pdb_stem = os.path.join(out_dir, name_stem) if out_dir else name_stem
     path_stem = f"{pdb_stem}_{pae_string}_{dist_string}"
 
-    # One flag per predictor; rf3 is a peer of af2/af3/boltz, not a mode of af3.
+    # One flag per predictor; rf3 / openfold3 are peers of af2/af3/boltz, not modes of af3.
     fmt = resolve_input_format(args.format, struct_name, pae_file_path)
     af2 = fmt == "af2"
     af3 = fmt == "af3"
     boltz = fmt == "boltz"
     rf3 = fmt == "rf3"
+    of3 = fmt == "openfold3"
 
     file_path = path_stem + "_ipsae.tsv"
     file2_path = path_stem + "_ipsae_byres.tsv"
@@ -752,9 +785,10 @@ def main():
         else:
             print("Boltz1 summary file does not exist: ", summary_file_path)
 
-    if af3 or rf3:
-        # RF3 writes AF3-shaped confidences, so the per-atom pLDDT / PAE parsing is
-        # shared; only the summary ipTM (below) and the pLDDT scale differ.
+    if af3 or rf3 or of3:
+        # RF3 and OpenFold3 write AF3-shaped confidences, so the per-atom pLDDT /
+        # PAE parsing is shared; only the summary ipTM (below) and the pLDDT scale
+        # differ.
         # Example Alphafold3 server filenames
         #   fold_aurka_0_tpx2_0_full_data_0.json
         #   fold_aurka_0_tpx2_0_summary_confidences_0.json
@@ -767,7 +801,7 @@ def main():
         #   <id>_confidences.json
         #   <id>_summary_confidences.json
         #   <id>_model.cif
-        label = "RF3" if rf3 else "AF3"
+        label = "RF3" if rf3 else ("OpenFold3" if of3 else "AF3")
         if os.path.exists(pae_file_path):
             with open(pae_file_path, "r") as file:
                 data = json.load(file)
@@ -805,12 +839,16 @@ def main():
         # only writes one interface-wide scalar, applied to every pair as for AF2.
         iptm_af3 = init_chainpairdict_zeros(unique_chains)
         iptm_rf3 = -1.0
-        summary_file_path = summary_confidences_path(pae_file_path)
+        summary_file_path = (
+            openfold3_aggregated_path(pae_file_path) if of3 else summary_confidences_path(pae_file_path)
+        )
 
         if summary_file_path is not None and os.path.exists(summary_file_path):
             with open(summary_file_path, "r") as file:
                 data_summary = json.load(file)
-            if rf3:
+            if of3:
+                iptm_af3 = openfold3_chain_pair_iptm(data_summary, unique_chains)
+            elif rf3:
                 iptm_value = data_summary.get("iptm")
                 iptm_rf3 = float(iptm_value) if iptm_value is not None else -1.0
             else:
@@ -1454,7 +1492,7 @@ def main():
             dist_pairs = dist_valid_pair_counts[chain1][chain2]
             if af2:
                 iptm_af = iptm_af2  # same for all chain pairs in entry
-            if af3:
+            if af3 or of3:
                 iptm_af = iptm_af3[chain1][
                     chain2
                 ]  # symmetric value for each chain pair
@@ -1616,7 +1654,7 @@ def main():
     PML.close()
     OUT2.close()
 
-    if getattr(args, "update_summary", None) and (af3 or rf3 or boltz):
+    if getattr(args, "update_summary", None) and (af3 or rf3 or boltz or of3):
         summary_path = args.update_summary
         binder_chain = getattr(args, "binder_chain", "A")
         target_chain = getattr(args, "target_chain", "B")

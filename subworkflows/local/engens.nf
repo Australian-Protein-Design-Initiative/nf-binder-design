@@ -42,6 +42,10 @@ def engensStructurePaths(files) {
         if (bn ==~ /.*_sample-\d+_model\.cif/) {
             return true
         }
+        // OpenFold3: *_seed_S_sample_N_model.cif
+        if (bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/) {
+            return true
+        }
         // Protenix: *_sample_N.cif
         if (bn ==~ /.*_sample_\d+\.cif/) {
             return true
@@ -70,6 +74,11 @@ def engensUniqueName(meta, path) {
         return meta.fold_namespaced \
             ? "${tool}_batch${meta.fold_batch}${msa_bit}_${bn}" \
             : "${tool}${msa_bit}_${bn}"
+    }
+    if (bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/) {
+        return meta.fold_namespaced \
+            ? "openfold3_batch${meta.fold_batch}${msa_bit}_${bn}" \
+            : "openfold3${msa_bit}_${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
         return meta.fold_namespaced \

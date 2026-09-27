@@ -42,7 +42,8 @@ workflow FOLD_PULLDOWN_MSA {
     // 'af2' alone made `--methods af2_mono` (without af2) skip FOLD_ASSEMBLE_AF, leaving
     // ALPHAFOLD2_MONO with an empty channel: zero predictions, exit 0, no warning.
     def need_af2 = ('af2' in methods) || ('af2_mono' in methods)
-    def need_annotate = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods)
+    def need_annotate = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
+        || ('openfold3' in methods)
     def pub = "${params.fold_publish_dir ?: 'fold'}/msa"
     def empty_msa = file("${projectDir}/assets/dummy_files/empty")
 
@@ -229,5 +230,6 @@ workflow FOLD_PULLDOWN_MSA {
     for_rf3 = ch_for_rf3
     for_protenix = ch_for_protenix
     for_af3 = ch_for_protenix // same bundle; AF3 re-renders pairing from the unpaired a3m
+    for_openfold3 = ch_for_protenix // same bundle; OpenFold3 re-renders pairing likewise
     pairs_rows = ch_pairs_tsv
 }

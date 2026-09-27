@@ -2,7 +2,7 @@
 
 Co-fold the 10 [Mosaic Multispecifics](https://proteinbase.com/collections/mosaic-multispecifics)
 miniprotein binders (Escalante Bio) against **PD-L1** and **IL-7Ra**, using all
-fold engines (AF2, Boltz-2, RF3, Protenix) and ColabFold remote MSAs for targets.
+fold engines (AF2, Boltz-2, RF3, Protenix, OpenFold3) and ColabFold remote MSAs for targets.
 
 See the [Fold Pulldown docs](../../docs/docs/workflows/fold-pulldown.md).
 
@@ -30,7 +30,7 @@ structures (plus MSA jobs).
   miniproteins with no useful homologs.
 - **AF2** reuses the ColabFold target a3m (materialised into AF2’s per-chain MSA
   files for chain A, plus a multimer `features.pkl`); the binder chain stays
-  query-only. Boltz / RF3 / Protenix use the same ColabFold a3ms directly.
+  query-only. Boltz / RF3 / Protenix / OpenFold3 use the same ColabFold a3ms directly.
 
 To use native jackhmmer MSAs for AF2 (and for the shared a3m route) instead:
 

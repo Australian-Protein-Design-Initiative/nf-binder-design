@@ -2,7 +2,7 @@
 
 Multi-model target × binder pulldown, in the spirit of
 [Boltz Pulldown](boltz-pulldown.md) but using the shared fold engines
-(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3).
+(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3).
 
 ## Overview
 
@@ -39,7 +39,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3` |
+| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3` (see [OpenFold3](fold.md#openfold3)) |
 | `--af3_model_dir` | `models/alphafold3` | AlphaFold3 weights directory (`af3` only; see [AlphaFold3 weights](fold.md#alphafold3-weights)) |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
 | `--create_target_msa` | `false` | Build MSA for each target |

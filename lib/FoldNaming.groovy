@@ -40,4 +40,10 @@ class FoldNaming {
     static String af3Name(id) {
         id.toString().replace(' ', '_').replaceAll(/[^A-Za-z0-9_.-]/, '')
     }
+
+    // OpenFold3 query key / output directory name (make_openfold3_input.py
+    // sanitises with the same rule as AF3).
+    static String openfold3Name(id) {
+        af3Name(id)
+    }
 }

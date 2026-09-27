@@ -24,6 +24,11 @@ plans/fold-nf-multimer-paired-msa.md §0):
       ONLY from UniProtKB-style headers (no UniRef form accepted):
         _UNIPROT_ENTRY_NAME_REGEX = (?:tr|sp)\\|[A-Z0-9]{6,10}(?:_\\d+)?\\|[A-Z0-9]{1,10}_(?P<SpeciesId>[A-Z0-9]{1,5})
       so the Protenix `UniRef100_ACC_SPECIES` render cannot be reused as-is.
+  - OpenFold3 (primitives/sequence/msa.process_msa_pairing_metadata): splits each
+      non-query header of the designated pairing MSA (`uniprot_hits`) on [|_/:-]
+      into EXACTLY six fields (tr, acc, acc copy, species, start, end) and pairs
+      on the 4th. Any other field count makes OpenFold3 raise, so the render is
+      `tr|ACC|ACC_SPECIES/1-N` with separator-free ACC and SPECIES.
 
 Because RF3 keys on numeric taxid and Protenix on the species mnemonic, no single
 a3m header form feeds both at full coverage - hence one canonical parse + N
@@ -206,15 +211,7 @@ _AF3_ACC_RE = re.compile(r"^[A-Z0-9]{6,10}$")
 _AF3_SPECIES_RE = re.compile(r"^[A-Z0-9]{1,5}$")
 
 
-def render_af3_paired_a3m(records: List[MsaRecord]) -> str:
-    """a3m whose hit headers match AF3's `_UNIPROT_ENTRY_NAME_REGEX` (`tr|ACC|ACC_SPECIES`).
-
-    Only hits whose species mnemonic fits AF3's `[A-Z0-9]{1,5}` are emitted (AF3
-    pairs on species; anything else contributes nothing to pairing and AF3 still
-    sees it via the unpaired MSA). Accessions that do not fit `[A-Z0-9]{6,10}`
-    (eg UniParc UPI...) get a synthetic one - AF3 only uses the species group.
-    The query is kept first, verbatim.
-    """
+def _render_uniprot_style_a3m(records: List[MsaRecord], with_range: bool) -> str:
     lines: List[str] = []
     for i, rec in enumerate(records):
         if rec.is_query:
@@ -226,8 +223,33 @@ def render_af3_paired_a3m(records: List[MsaRecord]) -> str:
         acc = (rec.accession or "").upper()
         if not _AF3_ACC_RE.match(acc):
             acc = f"A{i:09d}"
-        lines += [f">tr|{acc}|{acc}_{species}", rec.sequence]
+        header = f">tr|{acc}|{acc}_{species}"
+        if with_range:
+            n_res = sum(1 for c in rec.sequence if c.isalpha())
+            header += f"/1-{max(n_res, 1)}"
+        lines += [header, rec.sequence]
     return "\n".join(lines) + "\n"
+
+
+def render_af3_paired_a3m(records: List[MsaRecord]) -> str:
+    """a3m whose hit headers match AF3's `_UNIPROT_ENTRY_NAME_REGEX` (`tr|ACC|ACC_SPECIES`).
+
+    Only hits whose species mnemonic fits AF3's `[A-Z0-9]{1,5}` are emitted (AF3
+    pairs on species; anything else contributes nothing to pairing and AF3 still
+    sees it via the unpaired MSA). Accessions that do not fit `[A-Z0-9]{6,10}`
+    (eg UniParc UPI...) get a synthetic one - AF3 only uses the species group.
+    The query is kept first, verbatim.
+    """
+    return _render_uniprot_style_a3m(records, with_range=False)
+
+
+def render_openfold3_pairing_a3m(records: List[MsaRecord]) -> str:
+    """OpenFold3 `uniprot_hits.a3m`: `tr|ACC|ACC_SPECIES/1-N` hit headers.
+
+    Same species-tagged subset as the AF3 render, plus the `/start-end` tail so
+    every hit header splits into the six fields OpenFold3 requires.
+    """
+    return _render_uniprot_style_a3m(records, with_range=True)
 
 
 def render_boltz_csv(records: List[MsaRecord], out: TextIO) -> None:
@@ -257,9 +279,9 @@ def main() -> int:
     )
     parser.add_argument("--a3m", required=True, help="Input per-chain a3m (query first).")
     parser.add_argument(
-        "--tool", required=True, choices=["rf3", "protenix", "boltz", "af3"], help="Target engine."
+        "--tool", required=True, choices=["rf3", "protenix", "boltz", "af3", "openfold3"], help="Target engine."
     )
-    parser.add_argument("--out", help="Output path (rf3 a3m, boltz csv, or af3 paired a3m).")
+    parser.add_argument("--out", help="Output path (rf3 a3m, boltz csv, af3 paired or openfold3 pairing a3m).")
     parser.add_argument("--paired-out", help="Protenix pairedMsaPath a3m output.")
     parser.add_argument("--unpaired-out", help="Protenix unpairedMsaPath a3m output.")
     parser.add_argument(
@@ -302,6 +324,13 @@ def main() -> int:
         Path(args.out).write_text(paired)
         depth = paired.count(">") - 1
         log.info("chain %s: AF3 paired a3m %d species-tagged rows (of %d)", args.chain_id, depth, len(records))
+    elif args.tool == "openfold3":
+        if not args.out:
+            parser.error("--tool openfold3 needs --out")
+        paired = render_openfold3_pairing_a3m(records)
+        Path(args.out).write_text(paired)
+        depth = paired.count(">") - 1
+        log.info("chain %s: OpenFold3 pairing a3m %d species-tagged rows (of %d)", args.chain_id, depth, len(records))
 
     return 0
 

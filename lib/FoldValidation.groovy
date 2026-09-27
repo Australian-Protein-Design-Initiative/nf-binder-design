@@ -6,7 +6,7 @@ class FoldValidation {
     // 'af2'      - AlphaFold2-multimer.
     // 'af2_mono' - AF2 monomer weights on a concatenated complex, chains separated
     //              only by an --af2_chain_break_offset jump in residue_index.
-    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3']
+    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3']
     static final List VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
 
     static List parseMethods(methodsParam) {
@@ -69,7 +69,7 @@ class FoldValidation {
             }
         }
 
-        ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size'].each { pname ->
+        ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size', 'openfold3_batch_size'].each { pname ->
             def v = params[pname]
             if (v != null && !(v instanceof Boolean)) {
                 def n = v as int
@@ -89,6 +89,12 @@ class FoldValidation {
                     "is used (batches use seed, seed+1, ...)."
                 )
             }
+        }
+        if ('openfold3' in methods && params.openfold3_seeds && params.openfold3_seeds.toString().contains(',')) {
+            warnings << (
+                "--openfold3_seeds takes a single base seed; only '${params.openfold3_seeds.toString().split(',')[0].trim()}' " +
+                "is used (batches use seed, seed+1, ...)."
+            )
         }
 
         if (params.n_predictions && (params.n_predictions as int) < 1) {
@@ -167,7 +173,7 @@ class FoldValidation {
             if (params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
                 warnings << (
                     "multimer input with --msa_method mmseqs2_colabfold - ColabFold a3m " +
-                    "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3 will run UNPAIRED. Use " +
+                    "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3/OpenFold3 will run UNPAIRED. Use " +
                     "--msa_method jackhmmer_af2, or --use_msa_server true (Boltz fetches + pairs itself)."
                 )
             }

@@ -38,6 +38,7 @@ workflow FOLD {
         FOLD_MSA.out.for_rf3,
         FOLD_MSA.out.for_protenix,
         FOLD_MSA.out.for_af3,
+        FOLD_MSA.out.for_openfold3,
         methods,
     )
 

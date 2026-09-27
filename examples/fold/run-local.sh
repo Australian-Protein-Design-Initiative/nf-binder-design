@@ -12,7 +12,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --method fold \
   --input 'input/pdl1.fasta' \
   --outdir results \
-  --methods af2,boltz,rf3,protenix \
+  --methods af2,boltz,rf3,protenix,openfold3 \
   --msa_method jackhmmer_af2 \
   --n_predictions 1 \
   --af2_keep_models best \

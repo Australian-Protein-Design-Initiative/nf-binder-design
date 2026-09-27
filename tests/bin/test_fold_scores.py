@@ -95,6 +95,19 @@ def test_af3_without_full_json_leaves_plddt_blank(tmp_path):
     assert r["plddt"] == "" and r["has_clash"] == "true"
 
 
+def test_openfold3_aggregated_and_full_json(tmp_path):
+    payload = {"avg_plddt": 82.5, "gpde": 1.2, "iptm": 0.61, "ptm": 0.7, "disorder": 0.1,
+               "has_clash": 0.0, "sample_ranking_score": 0.64,
+               "chain_ptm": {"A": 0.7}, "chain_pair_iptm": {"(A, B)": 0.61}}
+    full = tmp_path / "full.json"
+    full.write_text(json.dumps({"plddt": [80.0, 85.0], "pde": [[0.5]], "pae": [[2.0, 4.0], [6.0, 8.0]]}))
+    r = _rows(_parse(tmp_path, "openfold3", payload, **{"full-json": full}))[0]
+    assert r["tool"] == "openfold3" and r["ranking_score"] == "0.64" and r["iptm"] == "0.61"
+    assert abs(float(r["plddt"]) - 0.825) < 1e-9
+    assert r["pde"] == "1.2" and abs(float(r["pae"]) - 5.0) < 1e-9
+    assert r["has_clash"] == "false"
+
+
 def test_rf3_ipsae_tsv_merged(tmp_path):
     payload = {"ranking_score": 0.80, "ptm": 0.78, "iptm": 0.81,
                "overall_plddt": 0.819, "overall_pae": 9.4, "overall_pde": 2.5,

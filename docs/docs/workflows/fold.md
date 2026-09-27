@@ -2,7 +2,7 @@
 
 Multi-method structure prediction for monomer **and multimer** FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
-RosettaFold3, Protenix and AlphaFold3, sharing one MSA-generation stage, then (by
+RosettaFold3, Protenix, AlphaFold3 and OpenFold3, sharing one MSA-generation stage, then (by
 default) clusters the ensemble with EnGens.
 
 > **AlphaFold3** (`--methods af3`) needs model weights that you download yourself
@@ -69,22 +69,23 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold
 |------|-------------|
 | `--input` | Single FASTA, glob, or directory of FASTA files (required) |
 | `--outdir` | Output directory (default: `results`) |
-| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3` (default: `af2`) |
+| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
-| `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix/AF3 emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
+| `--n_predictions` | Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix/AF3/OpenFold3 emit 5 each, AF2 keeps per `--af2_keep_models`. Set N to pin every diffusion engine to N (split by method batch size) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
 | `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
 | `--skip_engens` | Skip post-prediction EnGens clustering |
 | `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
 | `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
 
-Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`) are
+Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`) are
 documented in `--help`. Seeds are unset by default so each engine draws its own
 random seed (pin `--af2_random_seed` / `--boltz_seed` / `--rf3_seed` /
 `--protenix_seeds` for reproducibility; do not inject a fresh random seed on
 every CLI invocation if you want `-resume` to cache). AlphaFold3 always needs a
 seed in its input, so it defaults to a fixed `--af3_seeds 1` (batch *i* uses
-seed + *i*).
+seed + *i*). OpenFold3 uses a fixed seed of 42 unless told otherwise, so
+`--openfold3_seeds` defaults to 42 and batch *i* likewise uses seed + *i*.
 
 ## Multiple Sequence Alignments (MSAs)
 
@@ -189,6 +190,7 @@ tested in `tests/bin/test_msa_taxonomy.py`):
 | **RF3** | atomworks pairs by numeric `TaxID=<n>` in a3m headers | Per-chain a3m with `TaxID=` annotated headers |
 | **Protenix** | Pairs by species *mnemonic* (`_HUMAN`, `_9BETA`) | Per-chain `pairedMsaPath` (mnemonic headers) + `unpairedMsaPath` |
 | **AF3** | Pairs by species mnemonic, parsed only from UniProt-style `tr\|ACC\|NAME_SPECIES` headers | Per-chain `pairedMsaPath` re-rendered with `tr\|…_SPECIES` headers + `unpairedMsaPath` (AF3's own data pipeline is never run) |
+| **OpenFold3** | Pairs online by species, read from the 4th field of `uniprot_hits` headers | Per-chain directory with `colabfold_main.a3m` (unpaired) + `uniprot_hits.a3m` re-rendered as `tr\|ACC\|ACC_SPECIES/1-N` (pairing only) |
 | **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`) |
 
 The rendered per-chain files are published under `<outdir>/fold/msa/paired/`, and
@@ -305,6 +307,24 @@ Or download `af3.bin.zst` manually and put it in a directory of its own. Notes:
 - `--af3_jax_cache_dir /some/shared/dir` keeps JAX compilation results between
   tasks, which saves several minutes per job for repeated input sizes.
 
+## OpenFold3
+
+OpenFold3 (`--methods openfold3`) runs from
+`ghcr.io/australian-protein-design-initiative/containers/openfold3:0.5.0_nv-cuda12_weights`,
+which includes the default OpenFold3 checkpoint under `/models/openfold3`, so no
+download or weights flag is needed.
+
+- MSAs come from the shared MSA stage (`--use-msa-server false`); templates are
+  not used. Each chain's MSA directory holds the shared a3m as
+  `colabfold_main.a3m`, and multimers add a species-tagged `uniprot_hits.a3m`
+  for cross-chain pairing.
+- `--openfold3_batch_size` sets diffusion samples per job
+  (`--num-diffusion-samples`); `--n_predictions` splits across jobs as for the
+  other diffusion engines.
+- OpenFold3 JIT-compiles Triton kernels on first use. By default the cache lives
+  in each task's work directory; `--openfold3_kernel_cache_dir /some/shared/dir`
+  keeps it between tasks.
+
 ## Example Usage
 
 Minimal AF2-only run with jackhmmer MSAs:
@@ -376,8 +396,8 @@ results/
 ├── fold/
 │   ├── msa/<msa_method>/     # shared MSAs + a3m (jackhmmer_af2 or mmseqs2_colabfold)
 │   ├── af2/msas/             # AF2-only features.pkl (not under fold/msa/)
-│   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/    # per-engine predictions + <tool>_fold_scores.tsv
-│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_* mmCIF
+│   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/ … openfold3/    # per-engine predictions + <tool>_fold_scores.tsv
+│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
 │   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
 │   ├── params.json
@@ -394,14 +414,14 @@ per-tool table (`fold/<tool>/<tool>_fold_scores.tsv`); the master merges them,
 `tool`, input `id`, `model`/sample index, the engine-native `original_file`, and
 the renamed `predictions_file` in `fold/predictions/` (unique per structure).
 
-| Column | Meaning | AF2 | Boltz | Protenix | RF3 | AF3 |
-|--------|---------|-----|-------|----------|-----|-----|
-| `ranking_score` | engine's overall ranking metric | iptm+ptm | confidence_score | ranking_score | ranking_score | ranking_score |
-| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ | ✓ |
-| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ | ✓ (mean per-atom) |
-| `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ | pae (mean) |
-| `has_clash` | steric-clash flag | – | – | ✓ | ✓ | ✓ |
-| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) | ✓ (computed) |
+| Column | Meaning | AF2 | Boltz | Protenix | RF3 | AF3 | OpenFold3 |
+|--------|---------|-----|-------|----------|-----|-----|-----------|
+| `ranking_score` | engine's overall ranking metric | iptm+ptm | confidence_score | ranking_score | ranking_score | ranking_score | sample_ranking_score |
+| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ | ✓ (mean per-atom) | ✓ |
+| `pae` / `pde` | overall predicted aligned / distance error | – | pde | – | ✓ | pae (mean) | pae (mean), pde (gpde) |
+| `has_clash` | steric-clash flag | – | – | ✓ | ✓ | ✓ | ✓ |
+| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) |
 
 Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally
@@ -415,7 +435,7 @@ You need local databases only for:
 - `--msa_method mmseqs2_colabfold` **without** `--use_remote_server true`
   (ColabFold MMseqs2 DBs).
 
-Model weights for Boltz / RF3 / Protenix are typically baked into the pipeline
+Model weights for Boltz / RF3 / Protenix / OpenFold3 are typically baked into the pipeline
 containers; AF2 params are downloaded with the AlphaFold DB tree (`params/`).
 
 Helper scripts live in the repo [`scripts/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/scripts)
