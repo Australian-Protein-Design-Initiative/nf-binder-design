@@ -17,6 +17,8 @@ params.outdir = 'results'
 // Conditional includes based on --method parameter
 if (params.method == "rfd") {
     include { RFD } from './workflows/rfd'
+} else if (params.method == "rfd_nim") {
+    include { RFD_NIM } from './workflows/rfd_nim'
 } else if (params.method == "rfd_partial") {
     include { RFD_PARTIAL } from './workflows/rfd_partial'
 } else if (params.method == "bindcraft") {
@@ -67,6 +69,7 @@ workflow {
 
         Available methods:
             rfd             RFDiffusion-based binder design
+            rfd_nim         RFDiffusion+ProteinMPNN NIM proof-of-concept (see workflows/rfd_nim.nf)
             rfd_partial     RFDiffusion partial diffusion for binder optimization
             rfd3            RFDiffusion3-based binder design
             bindcraft       BindCraft binder design
@@ -88,6 +91,8 @@ workflow {
     // Dispatch to appropriate workflow
     if (params.method == "rfd") {
         RFD()
+    } else if (params.method == "rfd_nim") {
+        RFD_NIM()
     } else if (params.method == "rfd_partial") {
         RFD_PARTIAL()
     } else if (params.method == "bindcraft") {
@@ -104,7 +109,7 @@ workflow {
         FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, germinal, boltzgen, boltz_pulldown, foldseek")
+        log.info("Available methods: rfd, rfd_nim, rfd_partial, rfd3, bindcraft, germinal, boltzgen, boltz_pulldown, foldseek")
         exit(1)
     }
 
