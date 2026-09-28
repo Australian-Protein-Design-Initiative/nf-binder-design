@@ -21,6 +21,13 @@ pdb_text = "\n".join(lines)
 # plain JSON array of residue IDs, e.g. ["A56"].
 hotspot_list = [x.strip() for x in hotspot_res.strip("[]").split(",") if x.strip()]
 
+# contigs arrives as a bracketed string like "[A18-132/0 65-120]" (this repo's
+# CLI-style convention, used by the baseline non-NIM RFdiffusion process) - the
+# NIM's own contig parser expects the bare string with no enclosing brackets,
+# e.g. "A18-132/0 65-120". Without stripping, RFdiffusion's contig parser
+# chokes trying to read "[A18" as a numeric range and fails with a 422.
+contigs = contigs.strip("[]")
+
 payload = {
     "input_pdb": pdb_text,
     "contigs": contigs,

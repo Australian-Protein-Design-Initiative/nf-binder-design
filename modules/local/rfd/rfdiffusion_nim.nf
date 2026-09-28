@@ -29,6 +29,30 @@ process RFDIFFUSION_NIM {
     set -euo pipefail
     mkdir -p pdbs
 
+    # The NIM server we start below is a real standing service - it never exits
+    # on its own. Without cleanup, the container hangs forever after our own
+    # work is done (confirmed: job completes the API call, then sits alive
+    # until AWS Batch's job timeout kills it hours later). Two things are
+    # needed, not just one: (1) the server's own worker processes fork into a
+    # separate process group, so a plain process-group kill on exit doesn't
+    # reach them - kill by matching the command line instead; (2) more
+    # importantly, the server inherits our script's stdout/stderr, so even
+    # after our script exits, Nextflow's own log-capturing wrapper can't see
+    # end-of-stream until every process holding that pipe closes it -
+    # including orphaned NIM workers regardless of process group. Redirecting
+    # the server's output to its own file avoids that entirely.
+    SELF_PID=\$\$
+    trap '
+        code=\$?
+        for pid in \$(pgrep -g "\$SELF_PID" 2>/dev/null); do
+            if [ "\$pid" != "\$SELF_PID" ]; then
+                kill -9 "\$pid" 2>/dev/null || true
+            fi
+        done
+        pkill -9 -f start_server 2>/dev/null || true
+        exit "\$code"
+    ' EXIT
+
     export RFD_INPUT_PDB="${input_pdb}"
     export RFD_CONTIGS="${contigs}"
     export RFD_HOTSPOT_RES="${hotspot_res}"
@@ -40,8 +64,9 @@ process RFDIFFUSION_NIM {
     export NGC_API_KEY="${System.getenv('NGC_API_KEY') ?: ''}"
 
     # Start the NIM's own server (normally done automatically by its entrypoint,
-    # which this image build has cleared).
-    /opt/nim/start_server.sh &
+    # which this image build has cleared). Output redirected to its own file,
+    # not inherited - see comment above for why.
+    /opt/nim/start_server.sh > nim_server.log 2>&1 &
 
     for i in \$(seq 1 60); do
         if curl -sf http://localhost:8000/v1/health/ready > /dev/null 2>&1; then
