@@ -9,16 +9,9 @@ containers (RFdiffusion NIM, ProteinMPNN NIM) as ordinary AWS Batch tasks -
 start container, do one unit of work, exit - same shape as every other step in
 this pipeline, rather than as a separately-managed standing service.
 
-Scope, deliberately: RFDIFFUSION_NIM and DL_BINDER_DESIGN_PROTEINMPNN_NIM only.
-Stops after that - does NOT continue into AF2 initial-guess scoring, because:
-  1. There's no AlphaFold2 NIM equivalent for the "initial guess" trick our
-     baseline af2_initial_guess step relies on (see modules/local/rfd/
-     af2_initial_guess.nf and the team discussion this workflow followed from).
-  2. ProteinMPNN NIM returns designed sequences only (a multi-FASTA), not a
-     fully-built PDB with those sequences' side chains threaded onto the
-     backbone - which is what af2_initial_guess.nf actually consumes. Bridging
-     that gap (a threading step, or reworking what the scoring step expects)
-     is a separate, not-yet-made decision.
+Scope: RFDIFFUSION_NIM -> DL_BINDER_DESIGN_PROTEINMPNN_NIM -> THREAD_AND_RELAX.
+Stops before AF2 scoring - no AlphaFold2 NIM equivalent for the baseline's
+"initial guess" trick yet (separate, not-yet-made decision).
 
 Usage:
   nextflow run main.nf --method rfd_nim --input_pdb target.pdb --rfd_n_designs=4 \
@@ -36,6 +29,7 @@ params.pmpnn_temperature = 0.000001
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 include { RFDIFFUSION_NIM } from '../modules/local/rfd/rfdiffusion_nim'
 include { DL_BINDER_DESIGN_PROTEINMPNN_NIM } from '../modules/local/rfd/dl_binder_design_nim'
+include { THREAD_AND_RELAX } from '../modules/local/rfd/thread_and_relax'
 
 workflow RFD_NIM {
 
@@ -47,8 +41,9 @@ workflow RFD_NIM {
         ==================================================================
         PROTEIN BINDER DESIGN PIPELINE - RFDiffusion NIM proof of concept
         ==================================================================
-        Only covers RFdiffusion + ProteinMPNN via their NVIDIA NIM containers.
-        Stops there - see this file's header comment for why.
+        Covers RFdiffusion + ProteinMPNN via their NVIDIA NIM containers, then
+        threads/relaxes the designed sequence onto the backbone. Stops before
+        AF2 scoring - see this file's header comment for why.
 
         Required arguments:
             --input_pdb           Input PDB file for the target
@@ -100,7 +95,13 @@ workflow RFD_NIM {
         ch_pmpnn_inputs.map { pdb, idx -> idx },
     )
 
+    THREAD_AND_RELAX(
+        DL_BINDER_DESIGN_PROTEINMPNN_NIM.out.backbone,
+        DL_BINDER_DESIGN_PROTEINMPNN_NIM.out.fasta,
+    )
+
     emit:
     backbones = RFDIFFUSION_NIM.out.pdbs
     sequences = DL_BINDER_DESIGN_PROTEINMPNN_NIM.out.fasta
+    threaded_pdbs = THREAD_AND_RELAX.out.pdbs
 }
