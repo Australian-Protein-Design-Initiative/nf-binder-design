@@ -1,7 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-# AF2 DBs at /mnt/datasets/alphafold are group=alphafold, mode 750.
-if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
 # Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
 # `def`, which Nextflow >=26's default (strict) parser rejects. Use

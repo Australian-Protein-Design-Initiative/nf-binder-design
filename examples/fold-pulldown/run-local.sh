@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
 PIPELINE_DIR=../..
 DATESTAMP=$(date +%Y%m%d_%H%M%S)

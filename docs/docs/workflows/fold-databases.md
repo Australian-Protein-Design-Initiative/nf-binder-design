@@ -74,9 +74,13 @@ download-script layout (e.g. `mgnify/mgy_clusters_2022_05.fa`,
 override an individual one when a snapshot uses different filenames — needed
 for AF2 multimer against the 2021 snapshot, whose HHblits DB is `uniclust30`.
 
-On M3, `alphafold_20240229` (the fold default) is monomer-only;
-`alphafold_20211129` (the fold_pulldown default) has `uniprot/` + `pdb_seqres/`
-for AF2 multimer. Both live under `/mnt/datasets/alphafold/` (group
+On M3, `-profile m3` defaults to `alphafold_20211129`, which has `uniprot/` +
+`pdb_seqres/` for AF2 multimer, together with its sub-paths (`uniclust30`,
+`mgy_clusters_2018_12.fa`). `alphafold_20240229` is monomer-only and names
+those two DBs differently, so pointing `--af2_db_path` at it under
+`-profile m3` also needs `--af2_uniref30_subpath uniref30/UniRef30_2021_03
+--af2_mgnify_subpath mgnify/mgy_clusters_2022_05.fa` (as
+`examples/fold/nextflow.m3.config` does). Both live under `/mnt/datasets/alphafold/` (group
 `alphafold`); bind-mount that path in Apptainer `runOptions` when using
 `-profile m3` (see `examples/fold/nextflow.m3.config` /
 `examples/fold-multimer/nextflow.m3.config`).

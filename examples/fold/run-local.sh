@@ -1,8 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-# Re-exec under the `alphafold` group so the AF2 database under /mnt/datasets
-# (group=alphafold, mode 750) is readable. Harmless if you already have access.
-if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
 PIPELINE_DIR=../..
 DATESTAMP=$(date +%Y%m%d_%H%M%S)

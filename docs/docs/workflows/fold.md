@@ -349,6 +349,10 @@ Or download `af3.bin.zst` manually and put it in a directory of its own. Notes:
   `--af3_flash_attention auto` (the default) applies: xla flash attention plus
   `XLA_FLAGS=--xla_disable_hlo_passes=custom-kernel-fusion-rewriter`. Ampere or
   newer (A100, H100, L40S) uses triton.
+- `--af3_batch_size` sets diffusion samples per job (`--num_diffusion_samples`,
+  default 5); `--n_predictions` splits across jobs as for the other diffusion
+  engines. `--af3_seeds` sets the base seed (default 1); batch *i* uses
+  `seed + i`. `--af3_num_recycles` defaults to 10.
 - `--af3_jax_cache_dir /some/shared/dir` keeps JAX compilation results between
   tasks, which saves several minutes per job for repeated input sizes.
 

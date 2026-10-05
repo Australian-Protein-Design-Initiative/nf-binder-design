@@ -2,10 +2,6 @@
 set -euo pipefail
 # AlphaFold3 + Protenix on the 2-chain complex, with species-paired MSAs from jackhmmer_af2.
 
-# jackhmmer_af2 MSAs read the AF2 DBs at /mnt/datasets/alphafold (group=alphafold,
-# mode 750). Re-exec under that group so submitted jobs inherit the GID.
-if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
-
 # Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
 # `def`, which Nextflow >=26's default (strict) parser rejects.
 export NXF_VER=24.10.0

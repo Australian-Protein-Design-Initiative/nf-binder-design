@@ -97,11 +97,17 @@ _MOLSTAR_CSS_INLINE: str | None = None
 
 PREDICTOR_COLORS = {
     "af2": "#1f77b4",
+    "af3": "#17becf",
     "boltz": "#ff7f0e",
     "rf3": "#2ca02c",
     "protenix": "#d62728",
+    "openfold3": "#9467bd",
+    "esmfold2": "#8c564b",
+    "esmfold2_fast": "#e377c2",
     "other": "#555555",
 }
+# esmfold2_fast must be tried before esmfold2, whose prefix it contains.
+PREDICTORS = ("af2", "af3", "boltz", "rf3", "protenix", "openfold3", "esmfold2_fast", "esmfold2")
 CLUSTER_COLORS = [
     "#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
     "#ff7f00", "#a65628", "#f781bf", "#999999",
@@ -110,7 +116,7 @@ CLUSTER_COLORS = [
 def predictor_from_label(label: str) -> str:
     low = label.lower()
     # Match prefix at start or after a '_' (e.g. rep_cluster_0_protenix_...).
-    for prefix in ("af2", "boltz", "rf3", "protenix"):
+    for prefix in PREDICTORS:
         if (
             low.startswith(f"{prefix}_")
             or low.startswith(f"{prefix}-")
@@ -194,7 +200,7 @@ def plot_umap_by_predictor(
     """Scatter UMAP coords coloured by fold predictor prefix in the filename."""
     preds = [predictor_from_label(lab) for lab in labels]
     fig, ax = plt.subplots(figsize=(7.0, 5.5))
-    for pred in ("af2", "boltz", "rf3", "protenix", "other"):
+    for pred in PREDICTOR_COLORS:
         idx = [i for i, p in enumerate(preds) if p == pred]
         if not idx:
             continue
@@ -888,7 +894,7 @@ if enough and all_rmsd is not None and len(kept_labels) > 1:
         strip_colors=[PREDICTOR_COLORS[p] for p in preds],
         strip_legend=[
             (f"{pred} (n={preds.count(pred)})", PREDICTOR_COLORS[pred])
-            for pred in ("af2", "boltz", "rf3", "protenix", "other")
+            for pred in PREDICTOR_COLORS
             if pred in preds
         ],
     )
@@ -1055,7 +1061,7 @@ if enough and alphabet_results:
             strip_colors=[PREDICTOR_COLORS[p] for p in preds],
             strip_legend=[
                 (f"{pred} (n={preds.count(pred)})", PREDICTOR_COLORS[pred])
-                for pred in ("af2", "boltz", "rf3", "protenix", "other")
+                for pred in PREDICTOR_COLORS
                 if pred in preds
             ],
             cmap="viridis",
