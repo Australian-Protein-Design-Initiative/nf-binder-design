@@ -22,8 +22,9 @@ docs.
 - One canonical taxonomy parse (`bin/fold/msa_taxonomy.py`) renders each engine's
   native paired format: RF3 `TaxID=` a3m, Protenix species-mnemonic
   paired/unpaired a3m, Boltz `key,sequence` CSV, OpenFold3 `tr|ACC|ACC_SPECIES/1-N`
-  pairing a3m, AF3 re-rendered `tr|…_SPECIES` pairing a3m. AF2 uses its own
-  native multimer pipeline.
+  pairing a3m, AF3 re-rendered `tr|…_SPECIES` pairing a3m, ESMFold2 `key=<taxid>`
+  a3m (pairing done by ESMFold2 itself). AF2 uses its own native multimer
+  pipeline.
 - Use `--msa_method jackhmmer_af2`: only its rich headers carry the taxonomy
   pairing needs. ColabFold headers are taxonomy-less, so ColabFold multimer runs
   unpaired — use `--use_msa_server true` (Boltz) instead.
@@ -49,7 +50,7 @@ To run locally (e.g. on a GPU workstation):
 To fold a multimer (protein complex) instead, see the sibling
 [`examples/fold-multimer`](../fold-multimer) example.
 
-Both default to `--methods af2,boltz,rf3,protenix,openfold3 --msa_method jackhmmer_af2`.
+Both default to `--methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast --msa_method jackhmmer_af2`.
 Pass `--methods` to select a subset - e.g. AlphaFold2 only (the native
 jackhmmer/hhblits MSA + GPU predict route):
 
@@ -83,11 +84,11 @@ is required unless you have your own `colabfold_search`-format `--uniref30`/
 - `results/params.json` and `results/logs/` at the outdir root (shared across
   every `--method`, not under `results/fold/`).
 - Shared MSAs under `results/fold/msa/<msa_method>/` (`jackhmmer_af2` or
-  `mmseqs2_colabfold`), including the a3m derived for Boltz/RF3/Protenix/OpenFold3.
+  `mmseqs2_colabfold`), including the a3m derived for Boltz/RF3/Protenix/OpenFold3/ESMFold2.
 - AF2-only `features.pkl` under `results/fold/af2/msas/` (not under `fold/msa/`).
 - Per-method predictions under `results/fold/` and a flat gather of mmCIF
   structures in `results/fold/predictions/` (tool-prefixed filenames: `af2_`,
-  `boltz_`, `rf3_`, `protenix_`, `openfold3_`).
+  `boltz_`, `rf3_`, `protenix_`, `openfold3_`, `esmfold2_`, `esmfold2_fast_`).
 - With `--msa_subsample`, sequence ID lists for each depth job under
   `results/fold/msa_ids/` (`header_line<TAB>id`; 0-based `>` line in the
   original a3m; filenames include method, batch/run and `_msa<depth>`).

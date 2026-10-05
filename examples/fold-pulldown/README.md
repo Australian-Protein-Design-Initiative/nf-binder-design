@@ -28,8 +28,8 @@ targets = 4 complexes). Pass `--binders input/binders.all.fasta` for the full
 ./run-m3.sh --binders input/binders.all.fasta
 ```
 
-With `--n_predictions 5` and five engines (see `run-m3.sh`), the full pulldown
-predicts 500 structures (plus MSA jobs).
+With `--n_predictions 5` and seven engines (see `run-m3.sh`), the full pulldown
+predicts 700 structures (plus MSA jobs).
 
 ## MSA notes
 
@@ -40,7 +40,7 @@ predicts 500 structures (plus MSA jobs).
 - **AF2** reuses the ColabFold target a3m (materialised into AF2's per-chain MSA
   files for the target chain, plus a multimer `features.pkl`); the binder chain
   stays query-only regardless of `--create_binder_msa`. Boltz / RF3 / Protenix /
-  OpenFold3 use the same ColabFold a3ms directly.
+  OpenFold3 / ESMFold2 use the same ColabFold a3ms directly.
 
 To use native jackhmmer MSAs for AF2 (and for the shared a3m route) instead:
 

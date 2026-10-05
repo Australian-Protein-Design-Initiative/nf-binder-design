@@ -29,6 +29,10 @@ plans/fold-nf-multimer-paired-msa.md §0):
       into EXACTLY six fields (tr, acc, acc copy, species, start, end) and pairs
       on the 4th. Any other field count makes OpenFold3 raise, so the render is
       `tr|ACC|ACC_SPECIES/1-N` with separator-free ACC and SPECIES.
+  - ESMFold2 (models/esmfold2/paired_msa.py): `key=(-?\\d+)` - numeric taxid, as for
+      RF3 but under a different token name. ESMFold2 takes one a3m per chain and
+      builds the paired + block-diagonal layout itself, so unkeyed rows stay in the
+      file as that chain's unpaired tail rather than being dropped.
 
 Because RF3 keys on numeric taxid and Protenix on the species mnemonic, no single
 a3m header form feeds both at full coverage - hence one canonical parse + N
@@ -252,6 +256,33 @@ def render_openfold3_pairing_a3m(records: List[MsaRecord]) -> str:
     return _render_uniprot_style_a3m(records, with_range=True)
 
 
+_ESMFOLD2_KEY_RE = re.compile(r"key=(-?\d+)")
+
+
+def render_esmfold2_a3m(records: List[MsaRecord]) -> str:
+    """a3m whose hit headers carry `key=<taxid>` so ESMFold2 pairs by numeric taxid.
+
+    ESMFold2 takes ONE a3m per chain and does the cross-chain pairing itself
+    (esm/models/esmfold2/paired_msa.py): it reads `key=(-?\\d+)` from each header,
+    pairs rows sharing a key across chains, and lays the rest out block-diagonally
+    as that chain's unpaired tail. So, as for RF3, every record stays in the file -
+    species-less rows are simply unpaired rather than dropped.
+
+    The query (row 0) is kept verbatim and first; ESMFold2 always treats row 0 as
+    the all-chain query row, so it needs no key of its own.
+    """
+    lines: List[str] = []
+    for rec in records:
+        if rec.is_query:
+            lines += [f">{rec.header}", rec.sequence]
+            continue
+        header = rec.header
+        if rec.tax_id and not _ESMFOLD2_KEY_RE.search(header):
+            header = f"{header} key={rec.tax_id}"
+        lines += [f">{header}", rec.sequence]
+    return "\n".join(lines) + "\n"
+
+
 def render_boltz_csv(records: List[MsaRecord], out: TextIO) -> None:
     """Boltz `key,sequence` CSV; key=<tax_id> (blank -> Boltz treats as unpaired).
 
@@ -279,9 +310,13 @@ def main() -> int:
     )
     parser.add_argument("--a3m", required=True, help="Input per-chain a3m (query first).")
     parser.add_argument(
-        "--tool", required=True, choices=["rf3", "protenix", "boltz", "af3", "openfold3"], help="Target engine."
+        "--tool", required=True,
+        choices=["rf3", "protenix", "boltz", "af3", "openfold3", "esmfold2"], help="Target engine."
     )
-    parser.add_argument("--out", help="Output path (rf3 a3m, boltz csv, af3 paired or openfold3 pairing a3m).")
+    parser.add_argument(
+        "--out",
+        help="Output path (rf3/esmfold2 a3m, boltz csv, af3 paired or openfold3 pairing a3m).",
+    )
     parser.add_argument("--paired-out", help="Protenix pairedMsaPath a3m output.")
     parser.add_argument("--unpaired-out", help="Protenix unpairedMsaPath a3m output.")
     parser.add_argument(
@@ -331,6 +366,12 @@ def main() -> int:
         Path(args.out).write_text(paired)
         depth = paired.count(">") - 1
         log.info("chain %s: OpenFold3 pairing a3m %d species-tagged rows (of %d)", args.chain_id, depth, len(records))
+    elif args.tool == "esmfold2":
+        if not args.out:
+            parser.error("--tool esmfold2 needs --out")
+        Path(args.out).write_text(render_esmfold2_a3m(records))
+        depth = _count_paired(records, "tax_id")
+        log.info("chain %s: ESMFold2 a3m %d rows, %d with key= (pairable)", args.chain_id, len(records), depth)
 
     return 0
 

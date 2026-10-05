@@ -10,7 +10,7 @@
 Parse a single fold.nf prediction's confidence output into ONE normalized TSV
 row (written to stdout, with header) for the master fold_scores table.
 
-Handles AF2 / RF3 / Protenix / AF3 / OpenFold3 (Boltz keeps its own bin/parse_boltz_confidence.py,
+Handles AF2 / RF3 / Protenix / AF3 / OpenFold3 / ESMFold2 (Boltz keeps its own bin/parse_boltz_confidence.py,
 which is shared with boltz_pulldown.nf). Emits the canonical, cross-engine
 column schema: equivalent scores share a column name, plddt is rescaled to 0-1,
 and asymmetric per-chain-pair scores are intentionally dropped (only overall /
@@ -31,6 +31,11 @@ Sources per tool (verified against example fold-multimer results):
   openfold3
            --json *_seed_S_sample_N_confidences_aggregated.json
            optional --full-json *_confidences.json (per-atom plddt, pae)
+           optional --ipsae-tsv from *_confidences.json + *_model.cif
+  esmfold2 / esmfold2_fast
+           --json *_seed_S_sample_N_summary_confidences.json (plddt already 0-1;
+           no ranking score - ESMFold2 reports none)
+           optional --full-json *_confidences.json (pae)
            optional --ipsae-tsv from *_confidences.json + *_model.cif
 """
 
@@ -199,6 +204,28 @@ def parse_openfold3(args):
     return row
 
 
+def parse_esmfold2(args):
+    import numpy as np
+
+    with open(args.json) as f:
+        d = json.load(f)
+    row = {
+        # ESMFold2 reports no ranking score; rank on iptm / plddt / ipsae instead.
+        "ptm": _num(d.get("ptm")),
+        "iptm": _num(d.get("iptm")),
+        "plddt": _plddt_fraction(d.get("plddt")),  # already 0-1 from run_esmfold2.py
+    }
+    if args.full_json:
+        with open(args.full_json) as f:
+            full = json.load(f)
+        pae = full.get("pae")
+        if pae:
+            row["pae"] = float(np.nanmean(np.asarray(pae, dtype=float)))
+    if args.ipsae_tsv:
+        row.update(_read_ipsae_min(args.ipsae_tsv))
+    return row
+
+
 PARSERS = {
     "af2": parse_af2,
     "af2_mono": parse_af2,  # same pickle schema; distinct tool tag in the TSV
@@ -206,6 +233,8 @@ PARSERS = {
     "protenix": parse_protenix,
     "af3": parse_af3,
     "openfold3": parse_openfold3,
+    "esmfold2": parse_esmfold2,
+    "esmfold2_fast": parse_esmfold2,  # same run_esmfold2.py output; distinct tool tag
 }
 
 
@@ -226,8 +255,8 @@ def main():
     p.add_argument("--msa-depth", default="", help="fold.nf MSA subsample depth tag (meta.msa_depth_tag); blank if full-depth")
     p.add_argument("--original-file", default="", help="engine-native structure filename")
     p.add_argument("--predictions-file", default="", help="renamed name in fold/predictions/")
-    p.add_argument("--json", help="confidence/summary JSON (rf3, protenix, af3, openfold3)")
-    p.add_argument("--full-json", help="AF3 / OpenFold3 *_confidences.json (per-atom pLDDT, PAE)")
+    p.add_argument("--json", help="confidence/summary JSON (rf3, protenix, af3, openfold3, esmfold2[_fast])")
+    p.add_argument("--full-json", help="AF3 / OpenFold3 / ESMFold2 *_confidences.json (per-atom pLDDT, PAE)")
     p.add_argument("--pkl", help="AF2 result_model_N.pkl")
     p.add_argument("--ipsae-tsv", help="ipsae.py output TSV (optional; Type==min row)")
     p.add_argument("--no-header", action="store_true", help="omit the header line (for concatenation)")

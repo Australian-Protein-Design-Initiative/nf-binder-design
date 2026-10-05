@@ -4,12 +4,12 @@ nextflow.enable.dsl = 2
 
 /*
 Multi-method structure folding: predicts structures for FASTA inputs with any
-combination of --methods af2,af2_mono,boltz,rf3,protenix,af3,openfold3, sharing
+combination of --methods af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast, sharing
 a single MSA-generation stage (FOLD_MSA) with a selectable --msa_method.
 
 Usage via main.nf:
   nextflow run main.nf --method fold --input 'input/*.fasta' --outdir results \
-      --methods af2,boltz,rf3,protenix,af3,openfold3 --msa_method jackhmmer_af2 -profile slurm,m3
+      --methods af2,boltz,rf3,protenix,af3,openfold3,esmfold2 --msa_method jackhmmer_af2 -profile slurm,m3
 */
 
 params.method = 'fold'
@@ -139,7 +139,7 @@ workflow FOLD {
 
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
-            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3,openfold3 [default: ${params.methods}]
+            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast [default: ${params.methods}]
                                                 af2      = AlphaFold2. Monomer inputs use --af2_model_preset
                                                            (monomer_ptm by default); multi-chain inputs use
                                                            AF2's native multimer weights/pipeline instead.
@@ -229,6 +229,18 @@ workflow FOLD {
             --openfold3_seeds                   Base model seed; batch i uses seed+i [default: 42]
             --openfold3_kernel_cache_dir        Persistent Triton kernel cache dir [default: unset]
 
+            ESMFold2 (--methods includes esmfold2 and/or esmfold2_fast; weights are bundled in the containers).
+            esmfold2 is MSA-conditioned (biohub/ESMFold2); esmfold2_fast (biohub/ESMFold2-Fast) always folds
+            from sequence alone. The options below apply to both unless noted.
+            --esmfold2_weights_dir              External HF cache dir (HF_HOME) instead of the in-image weights [default: unset]
+            --esmfold2_batch_size               Samples per ESMFold2 job (num_diffusion_samples)
+            --esmfold2_seeds                    Base model seed; batch i uses seed+i [default: 42]
+            --esmfold2_single_sequence          Fold esmfold2 from sequence alone, no MSAs [default: ${params.esmfold2_single_sequence}]
+            --esmfold2_num_loops                Trunk loops [default: esm's own, 20]
+            --esmfold2_num_sampling_steps       Diffusion steps [default: esm's own, 200]
+            --esmfold2_msa_max_depth            esmfold2 MSA rows kept per loop [default: esm's own, 1024]
+            --esmfold2_kernel_backend           fused (default), cuequivariance or none
+
             MSA subsample:
             --msa_subsample                     false (default), true (CF-random depths), or custom list
             --msa_subsample_include_full        Also keep one full-MSA job [default: ${params.msa_subsample_include_full}]
@@ -265,7 +277,9 @@ workflow FOLD {
     def methods = FoldValidation.parseMethods(params.methods)
 
     def p = params.input
-    def resolved = file(p).isDirectory() ? file("${p}/*.{fasta,fa,faa}") : file(p)
+    // A glob makes file() return a List, which has no isDirectory().
+    def given = file(p)
+    def resolved = (!(given instanceof List) && given.isDirectory()) ? file("${p}/*.{fasta,fa,faa}") : given
     List input_paths = (resolved instanceof List) ? resolved : [resolved]
 
     if (!input_paths) {

@@ -6,7 +6,7 @@ class FoldValidation {
     // 'af2'      - AlphaFold2-multimer.
     // 'af2_mono' - AF2 monomer weights on a concatenated complex, chains separated
     //              only by an --af2_chain_break_offset jump in residue_index.
-    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3']
+    static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3', 'esmfold2', 'esmfold2_fast']
     static final List VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
 
     static List parseMethods(methodsParam) {
@@ -73,7 +73,8 @@ class FoldValidation {
             }
         }
 
-        ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size', 'openfold3_batch_size'].each { pname ->
+        ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size', 'openfold3_batch_size',
+         'esmfold2_batch_size'].each { pname ->
             def v = params[pname]
             if (v != null && !(v instanceof Boolean)) {
                 def n = v as int
@@ -106,6 +107,26 @@ class FoldValidation {
             warnings << (
                 "--openfold3_seeds takes a single base seed; only '${params.openfold3_seeds.toString().split(',')[0].trim()}' " +
                 "is used (batches use seed, seed+1, ...)."
+            )
+        }
+        if (('esmfold2' in methods) || ('esmfold2_fast' in methods)) {
+            if (params.esmfold2_seeds && params.esmfold2_seeds.toString().contains(',')) {
+                warnings << (
+                    "--esmfold2_seeds takes a single base seed; only '${params.esmfold2_seeds.toString().split(',')[0].trim()}' " +
+                    "is used (batches use seed, seed+1, ...)."
+                )
+            }
+            if (!(params.esmfold2_kernel_backend in ['fused', 'cuequivariance', 'none'])) {
+                errors << (
+                    "--esmfold2_kernel_backend must be fused, cuequivariance or none " +
+                    "(got '${params.esmfold2_kernel_backend}')"
+                )
+            }
+        }
+        if ('esmfold2_fast' in methods) {
+            warnings << (
+                "ESMFold2-Fast (--methods esmfold2_fast) has no MSA encoder, so it folds from sequence " +
+                "alone and does not use the MSA. Use --methods esmfold2 for MSA-conditioned ESMFold2."
             )
         }
 
@@ -184,7 +205,7 @@ class FoldValidation {
             if (!pulldown && params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
                 warnings << (
                     "multimer input with --msa_method mmseqs2_colabfold - ColabFold a3m " +
-                    "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3/OpenFold3 will run UNPAIRED. Use " +
+                    "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3/OpenFold3/ESMFold2 will run UNPAIRED. Use " +
                     "--msa_method jackhmmer_af2, or --use_msa_server true (Boltz fetches + pairs itself)."
                 )
             }

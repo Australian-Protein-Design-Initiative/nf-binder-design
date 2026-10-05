@@ -19,7 +19,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --slurm_account ${DEFAULT_SLURM_ACCOUNT} \
   --input 'input/pdl1.fasta' \
   --outdir results \
-  --methods af2,boltz,rf3,protenix,openfold3 \
+  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
   --msa_method jackhmmer_af2 \
   --n_predictions 1 \
   --af2_keep_models best \

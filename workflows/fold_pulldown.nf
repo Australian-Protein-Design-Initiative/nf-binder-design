@@ -144,7 +144,7 @@ workflow FOLD_PULLDOWN {
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
-            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix,af3,openfold3 [default: ${params.methods}]
+            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast [default: ${params.methods}]
                                    af2      = AlphaFold2 multimer (every pair here is a 2-chain complex,
                                               so af2 always uses AF2's native multimer weights/pipeline).
                                    af2_mono = AF2 MONOMER weights on a concatenated complex, chains
@@ -165,7 +165,7 @@ workflow FOLD_PULLDOWN {
             --skip_engens         Skip EnGens clustering [default: ${params.skip_engens}]
 
             Every method-specific flag from --method fold --help (--af2_*, --boltz_*,
-            --rf3_*, --protenix_*, --af3_*, --openfold3_*) applies here too, e.g.
+            --rf3_*, --protenix_*, --af3_*, --openfold3_*, --esmfold2_*) applies here too, e.g.
             --af2_keep_models (which of AF2's 5 models/run to keep toward
             --n_predictions) [default: ${params.af2_keep_models}].
 
@@ -196,6 +196,12 @@ workflow FOLD_PULLDOWN {
             OpenFold3 (--methods includes openfold3; weights are bundled in the container):
             --openfold3_batch_size / --openfold3_seeds /
             --openfold3_kernel_cache_dir   As for --method fold (see --method fold --help)
+
+            ESMFold2 (--methods includes esmfold2 and/or esmfold2_fast; weights are bundled in the containers):
+            --esmfold2_weights_dir / --esmfold2_batch_size /
+            --esmfold2_seeds / --esmfold2_single_sequence / --esmfold2_num_loops /
+            --esmfold2_num_sampling_steps / --esmfold2_msa_max_depth /
+            --esmfold2_kernel_backend      As for --method fold (see --method fold --help)
 
             ColabFold MSA (--msa_method mmseqs2_colabfold):
             --use_remote_server   Query ColabFold API [default: ${params.use_remote_server}]
@@ -274,6 +280,8 @@ workflow FOLD_PULLDOWN {
         FOLD_PULLDOWN_MSA.out.for_protenix,
         FOLD_PULLDOWN_MSA.out.for_af3,
         FOLD_PULLDOWN_MSA.out.for_openfold3,
+        FOLD_PULLDOWN_MSA.out.for_esmfold2,
+        FOLD_PULLDOWN_MSA.out.for_esmfold2_fast,
         methods,
     )
 

@@ -22,7 +22,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --targets input/targets.fasta \
   --binders input/binders.fasta \
   --outdir results \
-  --methods af2,boltz,rf3,protenix,openfold3 \
+  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
   --msa_method mmseqs2_colabfold \
   --use_remote_server true \
   --create_target_msa true \

@@ -38,20 +38,24 @@ include { AF2_STAGE_COLABFOLD_MULTIMER_MSAS } from '../../modules/local/fold/af2
 workflow FOLD_MSA {
     take:
     ch_input   // tuple(meta, fasta)
-    methods    // List<String>, subset of ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3']
+    methods    // List<String>, subset of ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3', 'esmfold2', 'esmfold2_fast']
     msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
 
     main:
     // af2_mono consumes the same per-chain AF2 msas dir as af2; only the in-task
     // features.pkl assembly differs. See FOLD_PULLDOWN_MSA for the same gate.
     def need_af2_msas = ('af2' in methods) || ('af2_mono' in methods)
-    // a3m needed for Boltz/RF3/Protenix/AF3/OpenFold3, and for AF2 when --msa_subsample is on
-    // (shallow jobs rebuild features.pkl from a subsampled a3m).
-    def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) || ('openfold3' in methods) \
+    // a3m needed for Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2, and for AF2 when
+    // --msa_subsample is on (shallow jobs rebuild features.pkl from a subsampled a3m).
+    // ESMFold2 wants none when --esmfold2_single_sequence folds it from sequence alone.
+    def esmfold2_no_msa = ('esmfold2' in methods) && params.esmfold2_single_sequence
+    def need_esmfold2_msa = ('esmfold2' in methods) && !params.esmfold2_single_sequence
+    def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
+        || ('openfold3' in methods) || need_esmfold2_msa \
         || (need_af2_msas && MsaSubsample.isEnabled(params.msa_subsample))
-    // Boltz/RF3/Protenix/AF3/OpenFold3 need per-chain paired MSAs on the multimer path.
+    // Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2 need per-chain paired MSAs on the multimer path.
     def need_paired = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
-        || ('openfold3' in methods)
+        || ('openfold3' in methods) || need_esmfold2_msa
     // af2_mono (monomer-weights chain-break) on a ColabFold-searched multimer input
     // needs one plain a3m per chain too, same split as need_paired, but AF2's own
     // multimer pairing ('af2') under mmseqs2_colabfold is rejected up front by
@@ -68,12 +72,18 @@ workflow FOLD_MSA {
 
     // ==================== MONOMER (unchanged Phase-1 path) ====================
     if (msa_method == 'jackhmmer_af2') {
-        ALPHAFOLD2_JACKHMMER_MSA(ch_mono)
-        ch_af2_msas_mono = ALPHAFOLD2_JACKHMMER_MSA.out.msa // tuple(meta, fasta, msas_dir)
+        // Both gates are false only when nothing consumes an MSA at all
+        // (single-sequence ESMFold2 as the sole engine), so skip the search rather
+        // than run it for nobody. The msa_method branch itself must stay, or an
+        // otherwise-valid method falls through to the unknown-method error below.
+        if (need_af2_msas || need_a3m) {
+            ALPHAFOLD2_JACKHMMER_MSA(ch_mono)
+            ch_af2_msas_mono = ALPHAFOLD2_JACKHMMER_MSA.out.msa // tuple(meta, fasta, msas_dir)
 
-        if (need_a3m) {
-            AF2_MSAS_TO_A3M(ch_af2_msas_mono)
-            ch_a3m_mono = AF2_MSAS_TO_A3M.out.a3m // tuple(meta, fasta, a3m)
+            if (need_a3m) {
+                AF2_MSAS_TO_A3M(ch_af2_msas_mono)
+                ch_a3m_mono = AF2_MSAS_TO_A3M.out.a3m // tuple(meta, fasta, a3m)
+            }
         }
     }
     else if (msa_method == 'mmseqs2_colabfold') {
@@ -252,4 +262,12 @@ workflow FOLD_MSA {
     for_protenix = ch_a3m_mono.mix(ch_protenix_multi)  // multimer: (meta,fasta,[paired...+unpaired...])
     for_af3 = ch_a3m_mono.mix(ch_protenix_multi)       // same bundle; AF3 re-renders pairing from the unpaired a3m
     for_openfold3 = ch_a3m_mono.mix(ch_protenix_multi) // same bundle; OpenFold3 re-renders pairing likewise
+    // Single-sequence mode skips the MSA stage entirely for this engine, so it
+    // cannot draw on ch_a3m_mono (which is not even built when nothing else needs
+    // an a3m) - it takes the raw input FASTA plus a placeholder instead.
+    for_esmfold2 = esmfold2_no_msa \
+        ? ch_input.map { meta, fasta -> [meta, fasta, file("${projectDir}/assets/dummy_files/empty")] } \
+        : ch_a3m_mono.mix(ch_protenix_multi)
+    // ESMFold2-Fast has no MSA encoder, so it never takes (or triggers) an MSA.
+    for_esmfold2_fast = ch_input.map { meta, fasta -> [meta, fasta, file("${projectDir}/assets/dummy_files/empty")] }
 }

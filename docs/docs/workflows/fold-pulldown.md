@@ -2,7 +2,7 @@
 
 Multi-model target × binder pulldown, in the spirit of
 [Boltz Pulldown](boltz-pulldown.md) but using the shared fold engines
-(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3).
+(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, ESMFold2, ESMFold2-Fast).
 
 ## Overview
 
@@ -48,7 +48,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3` (see [Choosing engines](fold.md#choosing-engines)) |
+| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `esmfold2`, `esmfold2_fast` (see [Choosing engines](fold.md#choosing-engines); ESMFold2 weights and caveats are covered in [ESMFold2](fold.md#esmfold2)) |
 | `--af3_model_dir` | `models/alphafold3` | AlphaFold3 weights directory (`af3` only; see [AlphaFold3 weights](fold.md#alphafold3-weights)) |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
 | `--create_target_msa` | `false` | Build MSA for each target |
@@ -69,8 +69,8 @@ and combined with the query-only binder chain into one AF2 multimer input per
 pair.
 
 Every method-specific flag documented under `--method fold --help` (`--af2_*`,
-`--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`) applies here
-too — the same engines, run per target×binder pair instead of per input FASTA.
+`--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`,
+`--esmfold2_*`) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
 A couple worth knowing about: `--af2_keep_models` (`best` by default) controls
 which of AF2's 5 models/run are kept, same as in `--method fold`; and
 `--templates` (a directory of `.cif` files) now reaches Boltz here as well as

@@ -163,6 +163,70 @@ nextflow_pipeline {
         }
     }
 
+    test("fold method compiles with esmfold2") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "esmfold2"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with esmfold2") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "esmfold2"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method compiles with esmfold2 and esmfold2_fast") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "esmfold2,esmfold2_fast"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with esmfold2_fast") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "esmfold2_fast"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
     test("bindcraft method compiles (single PDB)") {
         options "-preview"
         when {

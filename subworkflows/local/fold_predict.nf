@@ -3,7 +3,7 @@ FOLD_PREDICT: run selected structure predictors and merge scores.
 
 Takes per-engine MSA-ready channels from FOLD_MSA (or FOLD_PULLDOWN_MSA) and
 dispatches ALPHAFOLD2 / BOLTZ_FOLD / ROSETTAFOLD3_FOLD / PROTENIX_FOLD /
-ALPHAFOLD3_FOLD / OPENFOLD3_FOLD, then
+ALPHAFOLD3_FOLD / OPENFOLD3_FOLD / ESMFOLD2_FOLD (esmfold2 and esmfold2_fast), then
 merges per-tool score TSVs into fold_scores.tsv. Optional EnGens clustering.
 */
 
@@ -14,6 +14,8 @@ include { ROSETTAFOLD3_FOLD } from './rosettafold3_fold'
 include { PROTENIX_FOLD } from './protenix_fold'
 include { ALPHAFOLD3_FOLD } from './alphafold3_fold'
 include { OPENFOLD3_FOLD } from './openfold3_fold'
+include { ESMFOLD2_FOLD } from './esmfold2_fold'
+include { ESMFOLD2_FOLD as ESMFOLD2_FAST_FOLD } from './esmfold2_fold'
 include { ENGENS_CLUSTER } from './engens'
 include { FOLD_MERGE_SCORES } from '../../modules/local/fold/common/fold_merge_scores'
 
@@ -25,6 +27,8 @@ workflow FOLD_PREDICT {
     ch_for_protenix
     ch_for_af3
     ch_for_openfold3
+    ch_for_esmfold2
+    ch_for_esmfold2_fast
     methods        // List<String>
 
     main:
@@ -35,6 +39,8 @@ workflow FOLD_PREDICT {
     ch_protenix_pred = Channel.empty()
     ch_af3_pred = Channel.empty()
     ch_openfold3_pred = Channel.empty()
+    ch_esmfold2_pred = Channel.empty()
+    ch_esmfold2_fast_pred = Channel.empty()
     ch_scores = Channel.empty()
 
     if ('af2' in methods) {
@@ -76,10 +82,20 @@ workflow FOLD_PREDICT {
         ch_openfold3_pred = OPENFOLD3_FOLD.out.predictions
         ch_scores = ch_scores.mix(OPENFOLD3_FOLD.out.tsv)
     }
+    if ('esmfold2' in methods) {
+        ESMFOLD2_FOLD(ch_for_esmfold2, 'esmfold2')
+        ch_esmfold2_pred = ESMFOLD2_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'esmfold2'], files] }
+        ch_scores = ch_scores.mix(ESMFOLD2_FOLD.out.tsv)
+    }
+    if ('esmfold2_fast' in methods) {
+        ESMFOLD2_FAST_FOLD(ch_for_esmfold2_fast, 'esmfold2_fast')
+        ch_esmfold2_fast_pred = ESMFOLD2_FAST_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'esmfold2_fast'], files] }
+        ch_scores = ch_scores.mix(ESMFOLD2_FAST_FOLD.out.tsv)
+    }
 
     FOLD_MERGE_SCORES(ch_scores.collect())
 
-    ch_predictions = ch_af2_pred.mix(ch_af2_mono_pred, ch_boltz_pred, ch_rf3_pred, ch_protenix_pred, ch_af3_pred, ch_openfold3_pred)
+    ch_predictions = ch_af2_pred.mix(ch_af2_mono_pred, ch_boltz_pred, ch_rf3_pred, ch_protenix_pred, ch_af3_pred, ch_openfold3_pred, ch_esmfold2_pred, ch_esmfold2_fast_pred)
 
     if (!params.skip_engens) {
         ENGENS_CLUSTER(ch_predictions)

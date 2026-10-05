@@ -73,7 +73,9 @@ def engensUniqueName(meta, path) {
         return "${FoldNaming.flatPrefix(tool, meta)}${bn}"
     }
     if (bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/) {
-        return "${FoldNaming.flatPrefix('openfold3', meta)}${bn}"
+        // OpenFold3 and ESMFold2 share this naming, so meta.fold_tool separates them.
+        def tool = meta.fold_tool ?: 'openfold3'
+        return "${FoldNaming.flatPrefix(tool, meta)}${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
         return "${FoldNaming.flatPrefix('protenix', meta)}${bn}"

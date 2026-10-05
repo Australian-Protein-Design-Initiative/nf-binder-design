@@ -184,3 +184,27 @@ def test_af2_mono_uses_af2_parser(tmp_path):
     assert r["ptm"] == "0.81"
     assert r["iptm"] == ""  # monomer_ptm pickle has no iptm
     assert abs(float(r["plddt"]) - 0.91) < 1e-9  # mean([90, 92]) / 100
+
+
+def test_esmfold2_summary_and_full_json(tmp_path):
+    """run_esmfold2.py writes pLDDT already on 0-1 and reports no ranking score."""
+    payload = {"ptm": 0.72, "iptm": 0.64, "plddt": 0.813,
+               "chain_ids": ["A", "B"], "seed": 42, "sample": 0,
+               "chain_pair_iptm": [[0.0, 0.64], [0.64, 0.0]]}
+    full = tmp_path / "full.json"
+    full.write_text(json.dumps({"pae": [[2.0, 4.0], [6.0, 8.0]], "atom_plddts": [81.0, 82.0]}))
+    r = _rows(_parse(tmp_path, "esmfold2", payload, **{"full-json": full}))[0]
+    assert r["tool"] == "esmfold2" and r["ptm"] == "0.72" and r["iptm"] == "0.64"
+    assert abs(float(r["plddt"]) - 0.813) < 1e-9
+    assert abs(float(r["pae"]) - 5.0) < 1e-9
+    assert r["ranking_score"] == "" and r["pde"] == "" and r["has_clash"] == ""
+
+
+def test_esmfold2_fast_uses_esmfold2_parser_with_own_tool_tag(tmp_path):
+    r = _rows(_parse(tmp_path, "esmfold2_fast", {"ptm": 0.8, "iptm": 0.5, "plddt": 0.7}))[0]
+    assert r["tool"] == "esmfold2_fast" and r["iptm"] == "0.5" and r["ranking_score"] == ""
+
+
+def test_esmfold2_monomer_leaves_iptm_blank(tmp_path):
+    r = _rows(_parse(tmp_path, "esmfold2", {"ptm": 0.9, "iptm": None, "plddt": 0.88}))[0]
+    assert r["iptm"] == "" and r["ptm"] == "0.9" and r["pae"] == ""

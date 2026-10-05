@@ -28,10 +28,11 @@ One FASTA → per-chain MSA search → one canonical taxonomy parse
 | Protenix | species mnemonic (`_HUMAN`, `_9BETA`) | per-chain `pairedMsaPath` + `unpairedMsaPath` |
 | Boltz-2 | taxid `key` | per-chain `key,sequence` CSV |
 | OpenFold3 | species mnemonic | per-chain `colabfold_main.a3m` + `uniprot_hits.a3m` (`tr\|ACC\|ACC_SPECIES/1-N` headers, used for pairing only) |
+| ESMFold2 | `key=<taxid>` (done by ESMFold2 itself) | per-chain a3m with `key=<taxid>` headers; rows with no taxonomy are kept |
 
 RF3 / Protenix / Boltz-2's rendered per-chain files are published under
-`results/fold/msa/paired/`. AF3 and OpenFold3 (not shown above; see the
-[Fold docs](../../docs/docs/workflows/fold.md#paired-msas-how-each-engine-differs))
+`results/fold/msa/paired/`. AF3, OpenFold3 and ESMFold2 (not shown above; see
+the [Fold docs](../../docs/docs/workflows/fold.md#paired-msas-how-each-engine-differs))
 render their own pairing input inline in their predict/input-prep tasks
 instead.
 

@@ -38,8 +38,9 @@ workflow FOLD_PULLDOWN_MSA {
     // 'af2' alone made `--methods af2_mono` (without af2) skip FOLD_ASSEMBLE_AF, leaving
     // ALPHAFOLD2_MONO with an empty channel: zero predictions, exit 0, no warning.
     def need_af2 = ('af2' in methods) || ('af2_mono' in methods)
+    // ESMFold2 needs none when --esmfold2_single_sequence folds from sequence alone.
     def need_annotate = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
-        || ('openfold3' in methods)
+        || ('openfold3' in methods) || (('esmfold2' in methods) && !params.esmfold2_single_sequence)
     def pub = "${params.fold_publish_dir ?: 'fold'}/msa"
 
     // Per-chain ids flow raw into jackhmmer/mmseqs2/publishDir paths and into
@@ -72,8 +73,11 @@ workflow FOLD_PULLDOWN_MSA {
     // ---------------- target a3m (+ optional AF2 msas dir) ----------------
     ch_target_a3m = Channel.empty()
     ch_target_af2_msas = Channel.empty() // tuple(target_id, msas_dir)
+    // Nothing reads a target MSA when every selected engine folds from sequence
+    // alone (esmfold2_fast, single-sequence esmfold2), so skip the search.
+    def search_target_msa = params.create_target_msa && (need_af2 || need_annotate)
 
-    if (params.create_target_msa && msa_method == 'jackhmmer_af2') {
+    if (search_target_msa && msa_method == 'jackhmmer_af2') {
         ch_tin = ch_targets.map { meta, fasta ->
             [meta + [n_chains: 1, af2_force_monomer_msa: true], fasta]
         }
@@ -83,7 +87,7 @@ workflow FOLD_PULLDOWN_MSA {
         AF2_MSAS_TO_A3M_TARGET(JACKHMMER_TARGET.out.msa)
         ch_target_a3m = AF2_MSAS_TO_A3M_TARGET.out.a3m
     }
-    else if (params.create_target_msa && msa_method == 'mmseqs2_colabfold') {
+    else if (search_target_msa && msa_method == 'mmseqs2_colabfold') {
         def envdb = params.use_remote_server ? file("${projectDir}/assets/dummy_files/empty") : file(params.colabfold_envdb)
         def uniref30_db = params.use_remote_server ? file("${projectDir}/assets/dummy_files/empty") : file(params.uniref30)
         ch_tin = ch_targets.map { meta, fasta -> [meta + [n_chains: 1], fasta] }
@@ -264,5 +268,12 @@ workflow FOLD_PULLDOWN_MSA {
     for_protenix = ch_for_protenix
     for_af3 = ch_for_protenix // same bundle; AF3 re-renders pairing from the unpaired a3m
     for_openfold3 = ch_for_protenix // same bundle; OpenFold3 re-renders pairing likewise
+    // See FOLD_MSA: single-sequence ESMFold2 skips the MSA stage, so it takes the
+    // per-pair FASTA plus a placeholder rather than an annotated bundle.
+    for_esmfold2 = (('esmfold2' in methods) && params.esmfold2_single_sequence) \
+        ? ch_pairs_base.map { pmeta, fasta, _tid, _bid -> [pmeta, fasta, file("${projectDir}/assets/dummy_files/empty")] } \
+        : ch_for_protenix
+    // ESMFold2-Fast has no MSA encoder, so it never takes (or triggers) an MSA.
+    for_esmfold2_fast = ch_pairs_base.map { pmeta, fasta, _tid, _bid -> [pmeta, fasta, file("${projectDir}/assets/dummy_files/empty")] }
     pairs_rows = ch_pairs_tsv
 }
