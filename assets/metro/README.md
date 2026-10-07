@@ -12,9 +12,10 @@ Each fold engine is one line. `af2` covers `af2`/`af2_mono` and `esmfold2` cover
 `esmfold2`/`esmfold2_fast`. EnGens is drawn after scoring for readability,
 although it clusters the predicted structures rather than the score table.
 
-The line order (rf3, protenix, esmfold2, af2, then the template-using af3, boltz,
-openfold3) is deliberate: with the template-using lines split up, nf-metro 2.1.0
-aborts with overlapping bypass curves around "Template matching".
+Every engine except ESMFold2 passes through "Template matching". The line order
+(esmfold2 first, then rf3, protenix, af2, af3, boltz, openfold3) keeps ESMFold2 on
+the top trunk; other orders crowd or overlap the bypass around that station, and
+nf-metro 2.1.0 aborts on some of them.
 
 ## Regenerate
 
