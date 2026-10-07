@@ -33,12 +33,13 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 workflow PROTENIX_FOLD {
     take:
     ch_for_protenix // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     ch_mono = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
-    GENERATE_PROTENIX_INPUT(ch_mono)
-    GENERATE_PROTENIX_INPUT_COMPLEX(ch_multi)
+    GENERATE_PROTENIX_INPUT(ch_mono, ch_templates)
+    GENERATE_PROTENIX_INPUT_COMPLEX(ch_multi, ch_templates)
     ch_with_json = GENERATE_PROTENIX_INPUT.out.with_json.mix(GENERATE_PROTENIX_INPUT_COMPLEX.out.with_json)
 
     def batches = foldPredictionBatches(params.protenix_batch_size, 5, params.n_predictions)
@@ -50,7 +51,7 @@ workflow PROTENIX_FOLD {
     // single seed value can reach here.
     def base_seed = params.protenix_seeds ? (params.protenix_seeds.toString().trim() as int) : null
 
-    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json ->
+    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json, protenix_templates ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
             ? MsaSubsample.countA3mSequences(a3m) : null
         def depth_jobs = MsaSubsample.depthJobs(
@@ -80,7 +81,7 @@ workflow PROTENIX_FOLD {
                 else if (MsaSubsample.isEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
-                jobs << [m, fasta, a3m, json]
+                jobs << [m, fasta, a3m, json, protenix_templates]
             }
         }
         jobs

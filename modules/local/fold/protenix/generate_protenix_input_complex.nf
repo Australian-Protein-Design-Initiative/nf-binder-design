@@ -13,9 +13,10 @@ process GENERATE_PROTENIX_INPUT_COMPLEX {
 
     input:
     tuple val(meta), path(fasta), path(a3ms)
+    path templates
 
     output:
-    tuple val(meta), path(fasta), path(a3ms), path('protenix_input.json'), emit: with_json
+    tuple val(meta), path(fasta), path(a3ms), path('protenix_input.json'), path('protenix_templates'), emit: with_json
 
     script:
     def files = (a3ms instanceof List) ? a3ms : [a3ms]
@@ -23,12 +24,17 @@ process GENERATE_PROTENIX_INPUT_COMPLEX {
     def unpaired = files.findAll { it.name.endsWith('.protenix_unpaired.a3m') }
     def paired_arg = paired.collect { it.name }.join(' ')
     def unpaired_arg = unpaired.collect { it.name }.join(' ')
+    def template_chains = (meta.template_chains ?: []) as List
+    def templates_arg = params.templates \
+        ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
+        : ''
     """
     python ${projectDir}/bin/fold/make_protenix_input.py \
         --fasta ${fasta} \
         --name '${meta.id}' \
         --a3m ${unpaired_arg} \
         --paired-a3m ${paired_arg} \
+        ${templates_arg} \
         -o protenix_input.json
     """
 }

@@ -67,7 +67,7 @@ workflow FOLD_PREDICT {
         ch_scores = ch_scores.mix(ROSETTAFOLD3_FOLD.out.tsv)
     }
     if ('protenix' in methods) {
-        PROTENIX_FOLD(ch_for_protenix)
+        PROTENIX_FOLD(ch_for_protenix, ch_templates)
         ch_protenix_pred = PROTENIX_FOLD.out.predictions
         ch_scores = ch_scores.mix(PROTENIX_FOLD.out.tsv)
     }

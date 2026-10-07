@@ -1,13 +1,13 @@
 // Protenix (AF3-style) folding process for fold.nf's 4th --methods engine
 // (see plans/fold-nf-multi-method-folding.md Phase 3). Weights are baked into
-// the container under /models/protenix/checkpoint (confirmed present -
-// protenix_base_default_v1.0.0.pt et al. - and /models/protenix/common, so
-// `protenix pred` needs no download at predict time, same as rf3's
-// rc-foundry image).
+// the container under $PROTENIX_ROOT_DIR (/weights/protenix: checkpoint/ and
+// common/), so `protenix pred` needs no download at predict time. The image is
+// built from upstream commit 85767b8, which includes the JSON template support
+// (c5b7446) that --templates needs.
 process PROTENIX_FOLD {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
-    container 'oras://ghcr.io/australian-protein-design-initiative/containers/protenix:v2.0.0-weights'
+    container 'ghcr.io/australian-protein-design-initiative/containers/protenix:2026-09-21_85767b8_weights'
 
     // Recursive glob publish - see modules/local/fold/rf3/rf3_fold.nf's comment for
     // why (publishDir pattern/saveAs only see the top-level output *item*,
@@ -52,7 +52,7 @@ process PROTENIX_FOLD {
     )
 
     input:
-    tuple val(meta), path(fasta), path(a3m), path(protenix_input_json)
+    tuple val(meta), path(fasta), path(a3m), path(protenix_input_json), path(protenix_templates)
 
     output:
     tuple val(meta), path('output/**'), emit: predictions
@@ -123,6 +123,21 @@ process PROTENIX_FOLD {
 
     mkdir -p output
 
+    # JSON templates (--templates) need --use_template; chains without a
+    # templatesPath fold template-free.
+    use_template=false
+    if compgen -G "${protenix_templates}/*.json" >/dev/null; then
+        use_template=true
+        # Template mode creates mmcif/ (and caches) under PROTENIX_ROOT_DIR, which
+        # is read-only in the image, so give it a task-local root linking the
+        # image's checkpoints and data.
+        mkdir -p protenix_root/mmcif
+        for d in "\${PROTENIX_ROOT_DIR}"/*; do
+            ln -sfn "\${d}" "protenix_root/\$(basename "\${d}")"
+        done
+        export PROTENIX_ROOT_DIR="\${PWD}/protenix_root"
+    fi
+
     protenix pred \\
         --input ${protenix_input_json} \\
         --out_dir output \\
@@ -133,6 +148,7 @@ process PROTENIX_FOLD {
         --model_name ${params.protenix_model_name} \\
         --use_msa ${params.protenix_use_msa} \\
         --need_atom_confidence ${params.protenix_need_atom_confidence} \\
+        --use_template \${use_template} \\
         ${task.ext.args ?: ''}
     """
 }

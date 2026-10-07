@@ -33,6 +33,12 @@ numeric TaxID=, so the paired a3m headers must carry the mnemonic
 (bin/fold/msa_taxonomy.py --tool protenix renders both files). A single --a3m with a
 single-record FASTA is the monomer case (unpaired only; single chains don't
 pair).
+
+Templates: with --templates-dir (bin/fold/match_templates.py output), each chain
+listed in --template-chains (default: all) gets a templatesPath JSON of matched
+templates ({mmcif, queryIndices, templateIndices}, the format AF3 uses), written
+under TEMPLATE_DIR_NAME. JSON templates need a Protenix build that includes
+upstream commit c5b7446, and `protenix pred --use_template true`.
 """
 
 import argparse
@@ -41,6 +47,8 @@ import logging
 import sys
 from pathlib import Path
 from typing import List, Optional
+
+from make_af3_input import CHAIN_IDS, chain_templates
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s", stream=sys.stderr)
 log = logging.getLogger(__name__)
@@ -104,11 +112,17 @@ def _match_per_chain(paths: Optional[List[Path]], n_seq: int, flag: str) -> Opti
     return paths
 
 
+TEMPLATE_DIR_NAME = "protenix_templates"
+
+
 def make_protenix_input(
     fasta_path: Path,
     name: str,
     unpaired_a3m_paths: Optional[List[Path]] = None,
     paired_a3m_paths: Optional[List[Path]] = None,
+    out_dir: Path = Path("."),
+    templates_dir: Optional[Path] = None,
+    template_chains: Optional[List[str]] = None,
 ) -> dict:
     sequences = parse_fasta_records(fasta_path)
     if not sequences:
@@ -118,6 +132,7 @@ def make_protenix_input(
     unpaired = _match_per_chain(unpaired_a3m_paths, n, "--a3m")
     paired = _match_per_chain(paired_a3m_paths, n, "--paired-a3m")
 
+    (out_dir / TEMPLATE_DIR_NAME).mkdir(parents=True, exist_ok=True)
     entries = []
     for i, seq in enumerate(sequences):
         protein_chain = {"sequence": seq, "count": 1}
@@ -130,6 +145,13 @@ def make_protenix_input(
         if paired:
             _check_query(paired[i], seq, i)
             protein_chain["pairedMsaPath"] = paired[i].name
+        cid = CHAIN_IDS[i]
+        templates = chain_templates(templates_dir, seq) if (not template_chains or cid in template_chains) else []
+        if templates:
+            rel = f"{TEMPLATE_DIR_NAME}/chain_{cid}.json"
+            (out_dir / rel).write_text(json.dumps(templates))
+            protein_chain["templatesPath"] = rel
+            log.info("chain %s: %d template(s)", cid, len(templates))
         entries.append({"proteinChain": protein_chain})
 
     return {"name": name, "sequences": entries}
@@ -152,18 +174,22 @@ def main() -> int:
         default=None,
         help="Optional pairedMsaPath a3m(s) for multimer: one per chain in record order",
     )
+    parser.add_argument("--templates-dir", dest="templates_dir", default=None, help="Matched-templates directory (bin/fold/match_templates.py)")
+    parser.add_argument("--template-chains", dest="template_chains", nargs="+", default=None, help="Chain ID(s) that may be templated (default: all)")
     parser.add_argument("-o", "--output", required=True, help="Output JSON path")
     args = parser.parse_args()
 
+    out_path = Path(args.output)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     spec = make_protenix_input(
         fasta_path=Path(args.fasta),
         name=args.name,
         unpaired_a3m_paths=[Path(p) for p in args.a3m] if args.a3m else None,
         paired_a3m_paths=[Path(p) for p in args.paired_a3m] if args.paired_a3m else None,
+        out_dir=out_path.parent,
+        templates_dir=Path(args.templates_dir) if args.templates_dir else None,
+        template_chains=args.template_chains,
     )
-
-    out_path = Path(args.output)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     # protenix pred's `-i` input is a JSON list of jobs, even for a single job
     # (see runner/inference.py's infer_predict: `if not isinstance(json_data, list)...`).
     with open(out_path, "w") as f:
