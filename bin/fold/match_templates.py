@@ -15,12 +15,12 @@ database. A template chain is accepted for a query sequence when it passes
 query covered); the best --max-per-chain by identity x coverage are kept.
 
 Outputs, in --outdir:
-  - tmpl_NNN.cif: one normalised single-chain mmCIF per accepted template chain
+  - tmplNNN.cif: one normalised single-chain mmCIF per accepted template chain
     (chain A, resolved residues only, renumbered 1..n, with _entity_poly_seq and
     a _pdbx_audit_revision_history date, which AF3 and others require).
   - index.json: {md5(query sequence): [{cif, template_chain, source, identity,
     coverage, query_indices, template_indices}, ...]}, best first. Indices are
-    0-based and index tmpl_NNN.cif's residues, which are all resolved.
+    0-based and index tmplNNN.cif's residues, which are all resolved.
   - templates_matched.tsv: every query x template-chain pair considered.
 Engine input generators look each chain up by the md5 of its sequence.
 """
@@ -182,6 +182,24 @@ def write_template_cif(tc: TemplateChain, name: str, out_path: Path) -> None:
     doc = st.make_mmcif_document()
     block = doc.sole_block()
     block.name = name
+    # OpenFold3's CIF-direct parser reads the canonical one-letter sequence, which
+    # gemmi does not write.
+    block.set_mmcif_category("_entity_poly.", {
+        "entity_id": ["1"],
+        "type": ["polypeptide(L)"],
+        "pdbx_strand_id": ["A"],
+        "pdbx_seq_one_letter_code": [tc.sequence],
+        "pdbx_seq_one_letter_code_can": [tc.sequence],
+    })
+    n = len(tc.residues)
+    nums = [str(i) for i in range(1, n + 1)]
+    names = [r.name for r in tc.residues]
+    block.set_mmcif_category("_pdbx_poly_seq_scheme.", {
+        "asym_id": ["A"] * n, "entity_id": ["1"] * n, "seq_id": nums, "mon_id": names,
+        "ndb_seq_num": nums, "pdb_seq_num": nums, "auth_seq_num": nums,
+        "pdb_mon_id": names, "auth_mon_id": names, "pdb_strand_id": ["A"] * n,
+        "pdb_ins_code": ["."] * n, "hetero": ["n"] * n,
+    })
     chem_comp = block.find_mmcif_category("_chem_comp.")
     for row in chem_comp:
         row[1] = "'PEPTIDE LINKING'" if row[0] == "GLY" else "'L-PEPTIDE LINKING'"
@@ -255,7 +273,8 @@ def write_outputs(accepted: Dict[str, List[Match]], report: List[List[str]], out
         for m in matches:
             tkey = (m.template.source, m.template.chain_id)
             if tkey not in cif_names:
-                cif_names[tkey] = f"tmpl_{len(cif_names) + 1:03d}.cif"
+                # No underscore: OpenFold3 splits template ids on "_".
+                cif_names[tkey] = f"tmpl{len(cif_names) + 1:03d}.cif"
                 write_template_cif(m.template, cif_names[tkey][:-4], outdir / cif_names[tkey])
             index.setdefault(key, []).append({
                 "cif": cif_names[tkey],

@@ -77,3 +77,45 @@ def test_query_mismatch_rejected(tmp_path):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def _templates_dir(tmp_path: Path, seq: str) -> Path:
+    import hashlib
+    import json
+
+    d = tmp_path / "fold_templates"
+    d.mkdir()
+    (d / "tmpl001.cif").write_text("data_tmpl001\n")
+    hit = {"cif": "tmpl001.cif", "template_chain": "A", "query_indices": [0], "template_indices": [0]}
+    (d / "index.json").write_text(json.dumps({hashlib.md5(seq.encode()).hexdigest(): [hit]}))
+    return d
+
+
+def test_cif_direct_templates_for_matching_chain(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n>b\n{SEQ_B}\n")
+    out = tmp_path / "out"
+    out.mkdir()
+    spec = moi.make_openfold3_input(fasta, "x", out, templates_dir=_templates_dir(tmp_path, SEQ_A))
+    a, b = next(iter(spec["queries"].values()))["chains"]
+    assert a["template_cif_paths"] == [f"{moi.TEMPLATE_DIR_NAME}/tmpl001.cif"]
+    assert a["template_cif_chain_ids"] == ["A"]
+    assert "template_cif_paths" not in b
+    assert (out / moi.TEMPLATE_DIR_NAME / "tmpl001.cif").exists()
+
+
+def test_template_dir_always_created(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n")
+    out = tmp_path / "out"
+    out.mkdir()
+    spec = moi.make_openfold3_input(fasta, "x", out)
+    assert "template_cif_paths" not in next(iter(spec["queries"].values()))["chains"][0]
+    assert (out / moi.TEMPLATE_DIR_NAME).is_dir()
+
+
+def test_template_chains_restricts(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n>b\n{SEQ_A}\n")
+    out = tmp_path / "out"
+    out.mkdir()
+    spec = moi.make_openfold3_input(fasta, "x", out, templates_dir=_templates_dir(tmp_path, SEQ_A), template_chains=["A"])
+    a, b = next(iter(spec["queries"].values()))["chains"]
+    assert "template_cif_paths" in a and "template_cif_paths" not in b

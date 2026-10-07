@@ -79,7 +79,7 @@ workflow FOLD_PREDICT {
         ch_scores = ch_scores.mix(ALPHAFOLD3_FOLD.out.tsv)
     }
     if ('openfold3' in methods) {
-        OPENFOLD3_FOLD(ch_for_openfold3)
+        OPENFOLD3_FOLD(ch_for_openfold3, ch_templates)
         // OpenFold3 and ESMFold2 share *_seed_S_sample_N_model.cif naming, so tag
         // the tool for ENGENS_CLUSTER's collision-free renaming.
         ch_openfold3_pred = OPENFOLD3_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'openfold3'], files] }

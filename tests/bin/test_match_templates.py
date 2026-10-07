@@ -99,6 +99,9 @@ def test_written_cif_is_single_chain_with_revision_date(tmp_path):
     assert set(block.find_loop("_atom_site.label_asym_id")) == {"A"}
     assert set(block.find_loop("_atom_site.auth_asym_id")) == {"A"}
     assert len(block.find_loop("_entity_poly_seq.mon_id")) == len(t["PDL1"])
+    # OpenFold3's CIF-direct parser needs these two
+    assert block.find_value("_entity_poly.pdbx_seq_one_letter_code_can") == t["PDL1"]
+    assert list(block.find_loop("_pdbx_poly_seq_scheme.asym_id")) == ["A"] * len(t["PDL1"])
 
 
 @pytest.mark.parametrize("name", ["notes.txt", "model.json"])

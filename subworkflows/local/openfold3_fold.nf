@@ -33,16 +33,17 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 workflow OPENFOLD3_FOLD {
     take:
     ch_for_openfold3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     def batches = foldPredictionBatches(params.openfold3_batch_size, 5, params.n_predictions)
     def base_seed = params.openfold3_seeds ? (params.openfold3_seeds.toString().split(',')[0].trim() as int) : 42
 
-    GENERATE_OPENFOLD3_INPUT(ch_for_openfold3.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) == 1 })
-    GENERATE_OPENFOLD3_INPUT_COMPLEX(ch_for_openfold3.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) > 1 })
+    GENERATE_OPENFOLD3_INPUT(ch_for_openfold3.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) == 1 }, ch_templates)
+    GENERATE_OPENFOLD3_INPUT_COMPLEX(ch_for_openfold3.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) > 1 }, ch_templates)
     ch_with_json = GENERATE_OPENFOLD3_INPUT.out.with_json.mix(GENERATE_OPENFOLD3_INPUT_COMPLEX.out.with_json)
 
-    ch_batched = ch_with_json.flatMap { meta, fasta, msa_dirs, query_json ->
+    ch_batched = ch_with_json.flatMap { meta, fasta, msa_dirs, query_json, of3_templates ->
         def is_mono = (meta.n_chains ?: 1) == 1
         def main_a3m = (msa_dirs instanceof List ? msa_dirs[0] : msa_dirs).resolve('colabfold_main.a3m')
         def n_seq = (is_mono && MsaSubsample.isEnabled(params.msa_subsample)) \
@@ -72,7 +73,7 @@ workflow OPENFOLD3_FOLD {
                 else if (MsaSubsample.isEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
-                jobs << [m, fasta, msa_dirs, query_json]
+                jobs << [m, fasta, msa_dirs, query_json, of3_templates]
             }
         }
         jobs

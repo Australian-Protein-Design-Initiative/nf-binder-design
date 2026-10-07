@@ -363,8 +363,8 @@ OpenFold3 (`--methods openfold3`) runs from
 which includes the default OpenFold3 checkpoint under `/models/openfold3`, so no
 download or weights flag is needed.
 
-- MSAs come from the shared MSA stage (`--use-msa-server false`); templates are
-  not used. Each chain's MSA directory holds the shared a3m as
+- MSAs come from the shared MSA stage (`--use-msa-server false`). Templates are
+  used only with `--templates` (see [Templates](#templates)). Each chain's MSA directory holds the shared a3m as
   `colabfold_main.a3m`, and multimers add a species-tagged `uniprot_hits.a3m`
   for cross-chain pairing.
 - `--openfold3_batch_size` sets diffusion samples per job
@@ -431,8 +431,8 @@ The match report and the normalised template files are published under
 considered and why it was accepted or rejected). Templates only inform each
 chain's own structure; no engine takes the arrangement between chains from them.
 
-Templates are used by `af3` and `boltz`. Other engines fold without them, with a
-warning. Notes for each engine:
+Templates are used by `af3`, `boltz` and `openfold3`. Other engines fold without
+them, with a warning. Notes for each engine:
 
 - **AF3:** the matched templates are added to each chain's input with an explicit
   residue mapping (`queryIndices` / `templateIndices`).
@@ -443,6 +443,10 @@ warning. Notes for each engine:
   (default 1.0 Å) of the template. It is off by default in `--method fold`, where
   the template should guide the prediction without over-biasing it, and on by
   default in `--method fold_pulldown`.
+- **OpenFold3:** templates are passed as CIF files (its CIF-direct mode), and
+  OpenFold3 realigns them to the chain with kalign. The pipeline points its
+  template structure directory at the staged files and turns off downloads from
+  RCSB.
 
 > Weak, short matches can pass the default thresholds. For example, a de novo
 > design can align to a 26–33 residue stretch of an unrelated structure at about
@@ -528,7 +532,7 @@ results/
 │   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_*, esmfold2_*, esmfold2_fast_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
 │   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
-│   └── templates/            # when --templates: templates_matched.tsv + normalised tmpl_*.cif
+│   └── templates/            # when --templates: templates_matched.tsv + normalised tmpl*.cif
 └── engens/<id>/              # clusters.html + representative conformations (HDBSCAN by default)
                               # + structural_alphabet/ (3Di FASTA + entropy when enabled)
 ```

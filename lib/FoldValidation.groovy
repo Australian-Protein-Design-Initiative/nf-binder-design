@@ -9,7 +9,7 @@ class FoldValidation {
     static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3', 'esmfold2', 'esmfold2_fast']
     static final List VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
     // Engines that use --templates; the others fold without them.
-    static final List TEMPLATE_METHODS = ['af3', 'boltz']
+    static final List TEMPLATE_METHODS = ['af3', 'boltz', 'openfold3']
 
     static List parseMethods(methodsParam) {
         return methodsParam.toString().split(',').collect { it.trim().toLowerCase() }

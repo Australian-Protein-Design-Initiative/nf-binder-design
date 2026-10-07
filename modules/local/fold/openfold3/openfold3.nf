@@ -1,7 +1,8 @@
 // OpenFold3 inference for fold.nf's openfold3 --methods engine. The weights are
 // baked into the image under $OPENFOLD_CACHE (/models/openfold3), which
 // run_openfold searches by default. MSAs come from the pipeline's shared MSA
-// stage via the query JSON (--use-msa-server false), and templates are off.
+// stage via the query JSON (--use-msa-server false). Templates (--templates) come
+// as CIF files in of3_templates/, referenced from the query JSON.
 process OPENFOLD3 {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -41,7 +42,7 @@ process OPENFOLD3 {
     )
 
     input:
-    tuple val(meta), path(fasta), path(msa_dirs), path(query_json)
+    tuple val(meta), path(fasta), path(msa_dirs), path(query_json), path(of3_templates)
 
     output:
     tuple val(meta), path('output/**'), emit: predictions
@@ -128,14 +129,40 @@ process OPENFOLD3 {
     printf 'experiment_settings:\\n  seeds: [%s]\\ndata_module_args:\\n  num_workers: %s\\n' \\
         "${meta.openfold3_seed}" "${task.cpus}" >runner.yml
 
+    # CIF-direct templates: OpenFold3 looks each one up as
+    # <structure_directory>/<stem>.cif and would otherwise download <stem> from RCSB.
+    use_templates=false
+    if compgen -G "${of3_templates}/*.cif" >/dev/null; then
+        use_templates=true
+        # Keep the template cache in the task, not the node-wide /tmp/of3-of-<user>.
+        printf 'template_preprocessor_settings:\\n  structure_directory: %s\\n  fetch_missing_structures: false\\n  output_directory: %s\\n  create_logs: true\\n' \\
+            "\$(readlink -f ${of3_templates})" "\${PWD}/of3_template_data" >>runner.yml
+    fi
+
     run_openfold predict \\
         --query-json ${query_json} \\
         --runner-yaml runner.yml \\
         --output-dir output \\
         --use-msa-server false \\
-        --use-templates false \\
+        --use-templates \${use_templates} \\
         --num-diffusion-samples ${n_samples} \\
         ${task.ext.args ?: ''}
+
+    # OpenFold3 only logs a template it could not use, so check every chain given
+    # templates kept at least one.
+    if [[ "\${use_templates}" == "true" ]]; then
+        python3 - <<'PY'
+import json, sys
+qs = json.load(open("output/inference_query_set.json"))
+lost = [
+    f"{name} chain {c['chain_ids']}"
+    for name, q in qs["queries"].items() for c in q["chains"]
+    if c.get("template_cif_paths") and not c.get("template_entry_chain_ids")
+]
+if lost:
+    sys.exit("OpenFold3 dropped every template for: " + ", ".join(lost) + " (see of3_template_data/template_logs)")
+PY
+    fi
 
     # A failed query is logged and skipped rather than failing the run.
     if ! compgen -G "output/*/seed_*/*_model.cif" >/dev/null; then

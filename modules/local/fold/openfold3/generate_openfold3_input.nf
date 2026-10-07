@@ -8,16 +8,22 @@ process GENERATE_OPENFOLD3_INPUT {
 
     input:
     tuple val(meta), path(fasta), path(a3m)
+    path templates
 
     output:
-    tuple val(meta), path(fasta), path('msa_*'), path('openfold3_query.json'), emit: with_json
+    tuple val(meta), path(fasta), path('msa_*'), path('openfold3_query.json'), path('of3_templates'), emit: with_json
 
     script:
+    def template_chains = (meta.template_chains ?: []) as List
+    def templates_arg = params.templates \
+        ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
+        : ''
     """
     python ${projectDir}/bin/fold/make_openfold3_input.py \\
         --fasta ${fasta} \\
         --name '${meta.id}' \\
         --a3m ${a3m} \\
+        ${templates_arg} \\
         -o openfold3_query.json
     """
 }
