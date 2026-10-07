@@ -7,6 +7,7 @@ builds its own MSA channel and calls FOLD_PREDICT directly.
 
 include { FOLD_MSA } from './fold_msa'
 include { FOLD_PREDICT } from './fold_predict'
+include { FOLD_TEMPLATES } from './fold_templates'
 
 workflow FOLD {
     take:
@@ -16,6 +17,7 @@ workflow FOLD {
 
     main:
     FOLD_MSA(ch_input, methods, msa_method)
+    FOLD_TEMPLATES(ch_input.map { _meta, fasta -> fasta })
 
     def a3m_stub = file("${projectDir}/assets/dummy_files/empty")
     if (('af2' in methods) || ('af2_mono' in methods)) {
@@ -41,6 +43,7 @@ workflow FOLD {
         FOLD_MSA.out.for_openfold3,
         FOLD_MSA.out.for_esmfold2,
         FOLD_MSA.out.for_esmfold2_fast,
+        FOLD_TEMPLATES.out.templates,
         methods,
     )
 

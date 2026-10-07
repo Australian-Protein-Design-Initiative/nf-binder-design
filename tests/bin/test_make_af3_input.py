@@ -87,3 +87,30 @@ def test_per_chain_count_mismatch_raises(tmp_path):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+def _templates_dir(tmp_path: Path, seq: str) -> Path:
+    import hashlib
+
+    d = tmp_path / "fold_templates"
+    d.mkdir()
+    (d / "tmpl_001.cif").write_text("data_tmpl_001\n")
+    hit = {"cif": "tmpl_001.cif", "template_chain": "A", "query_indices": [0, 1, 2], "template_indices": [3, 4, 5]}
+    (d / "index.json").write_text(json.dumps({hashlib.md5(seq.encode()).hexdigest(): [hit]}))
+    return d
+
+
+def test_templates_inlined_for_matching_chain_only(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n>b\n{SEQ_B}\n")
+    d = _templates_dir(tmp_path, SEQ_A)
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1, templates_dir=d)
+    a, b = (e["protein"] for e in spec["sequences"])
+    assert a["templates"] == [{"mmcif": "data_tmpl_001\n", "queryIndices": [0, 1, 2], "templateIndices": [3, 4, 5]}]
+    assert b["templates"] == []
+
+
+def test_template_chains_restricts(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n>b\n{SEQ_A}\n")
+    d = _templates_dir(tmp_path, SEQ_A)
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1, templates_dir=d, template_chains=["A"])
+    assert [len(e["protein"]["templates"]) for e in spec["sequences"]] == [1, 0]

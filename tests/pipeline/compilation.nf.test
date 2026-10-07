@@ -227,6 +227,43 @@ nextflow_pipeline {
         }
     }
 
+    test("fold method compiles with templates") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "af3,boltz"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                templates = "${projectDir}/tests/data/bindcraft/single"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with templates and binder templates") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "af3,boltz"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                templates = "${projectDir}/tests/data/bindcraft/single/targetA.pdb"
+                binder_templates = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
     test("bindcraft method compiles (single PDB)") {
         options "-preview"
         when {

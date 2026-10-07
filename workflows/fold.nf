@@ -189,9 +189,17 @@ workflow FOLD {
             --af2_chain_break_offset            residue_index jump at each chain break; must exceed AF2's
                                                 relative-position clip of 32 [default: ${params.af2_chain_break_offset}]
 
+            Templates (af3, boltz):
+            --templates                        Template structures (.pdb/.cif; dir or glob), matched to chains
+                                               by sequence alignment; used by af3 and boltz [default: ${params.templates}]
+            --template_min_identity            Min identity over aligned residues [default: ${params.template_min_identity}]
+            --template_min_coverage            Min fraction of the chain covered [default: ${params.template_min_coverage}]
+            --template_max_per_chain           Templates kept per chain [default: ${params.template_max_per_chain}]
+            --boltz_template_force             Hold templated chains near the template (Boltz force) [default: false]
+            --boltz_template_threshold         Boltz force threshold in Angstrom [default: ${params.boltz_template_threshold}]
+
             Boltz-2 (--methods includes boltz):
             --use_msa_server                   Use Boltz's own MMseqs2 MSA server [default: ${params.use_msa_server}]
-            --templates                        Templates directory with .cif files [default: ${params.templates}]
             --boltz_recycling                  Boltz --recycling_steps override [default: boltz's own default]
             --boltz_batch_size                 Samples per Boltz job (--diffusion_samples)
             --boltz_sampling_steps              Boltz --sampling_steps override [default: boltz's own default]

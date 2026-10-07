@@ -21,7 +21,16 @@ process FOLD_CREATE_BOLTZ_YAML_COMPLEX {
     def files = (csvs instanceof List) ? csvs : [csvs]
     def msa_arg = files.collect { it.name }.join(' ')
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
-    def templates_flag = params.templates ? "--templates '${templates}'" : ''
+    def template_chains = (meta.template_chains ?: []) as List
+    // Boltz force holds a templated chain within --boltz_template_threshold of the
+    // template. Off by default for fold (guide, don't over-bias an unknown), on for
+    // fold_pulldown (chain structures are known; only the pose is predicted).
+    def force = params.boltz_template_force != null ? params.boltz_template_force : (params.method == 'fold_pulldown')
+    def templates_flag = params.templates ? [
+        "--templates '${templates}'",
+        template_chains ? "--template_chains ${template_chains.join(' ')}" : '',
+        force ? "--template_force --template_threshold ${params.boltz_template_threshold}" : '',
+    ].findAll { it }.join(' ') : ''
     // meta.query_only_chains (fold_pulldown contract): chain letters that must
     // stay query-only (msa: empty) even under --use_msa_server, so the server
     // does not fetch an MSA for a chain --create_binder_msa false disabled it for.

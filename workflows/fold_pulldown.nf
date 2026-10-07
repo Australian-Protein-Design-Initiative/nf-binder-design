@@ -120,6 +120,7 @@ params.gpu_lock_timeout = 14400
 
 include { FOLD_PULLDOWN_MSA } from '../subworkflows/local/fold_pulldown_msa'
 include { FOLD_PREDICT } from '../subworkflows/local/fold_predict'
+include { FOLD_TEMPLATES } from '../subworkflows/local/fold_templates'
 include { FOLD_PULLDOWN_MERGE_SCORES } from '../modules/local/fold/common/fold_pulldown_merge_scores'
 include { FOLD_PULLDOWN_REPORTING } from '../modules/local/common/fold_pulldown_reporting'
 
@@ -161,7 +162,13 @@ workflow FOLD_PULLDOWN {
             --create_binder_msa   Build MSA for each binder [default: ${params.create_binder_msa}]
             --n_predictions       Structures per complex per method [default: unset -> engine defaults]
             --use_msa_server      Boltz fetches its own MSA [default: ${params.use_msa_server}]
-            --templates           Templates directory with .cif files (reaches Boltz too) [default: ${params.templates}]
+            --templates           Template structures (.pdb/.cif; dir or glob), matched to target chains
+                                  by sequence alignment; used by af3 and boltz [default: ${params.templates}]
+            --binder_templates    Also match templates to binder chains [default: ${params.binder_templates}]
+            --template_min_identity / --template_min_coverage / --template_max_per_chain
+                                  Matching thresholds [default: ${params.template_min_identity} / ${params.template_min_coverage} / ${params.template_max_per_chain}]
+            --boltz_template_force  Hold templated chains near the template (Boltz force) [default: true]
+            --boltz_template_threshold  Boltz force threshold in Angstrom [default: ${params.boltz_template_threshold}]
             --skip_engens         Skip EnGens clustering [default: ${params.skip_engens}]
 
             Every method-specific flag from --method fold --help (--af2_*, --boltz_*,
@@ -266,6 +273,13 @@ workflow FOLD_PULLDOWN {
 
     FOLD_PULLDOWN_MSA(ch_targets, ch_binders, methods, params.msa_method)
 
+    // Binders are only templated with --binder_templates (see meta.template_chains).
+    FOLD_TEMPLATES(
+        params.binder_templates \
+            ? Channel.fromPath([params.targets, params.binders])
+            : Channel.fromPath(params.targets)
+    )
+
     ch_pairs_tsv = FOLD_PULLDOWN_MSA.out.pairs_rows.collectFile(
         name: 'pairs.tsv',
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold_pulldown'}",
@@ -282,6 +296,7 @@ workflow FOLD_PULLDOWN {
         FOLD_PULLDOWN_MSA.out.for_openfold3,
         FOLD_PULLDOWN_MSA.out.for_esmfold2,
         FOLD_PULLDOWN_MSA.out.for_esmfold2_fast,
+        FOLD_TEMPLATES.out.templates,
         methods,
     )
 

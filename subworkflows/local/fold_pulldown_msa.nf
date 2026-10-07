@@ -151,6 +151,10 @@ workflow FOLD_PULLDOWN_MSA {
             if (!params.create_binder_msa) {
                 pair_meta.query_only_chains = ['B']
             }
+            // Target is chain A; the binder (B) is only templated with --binder_templates.
+            if (params.templates && !params.binder_templates) {
+                pair_meta.template_chains = ['A']
+            }
             [pair_meta, tmeta.id.toString(), bmeta.id.toString()]
         }
 

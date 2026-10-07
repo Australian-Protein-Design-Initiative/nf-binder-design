@@ -35,12 +35,11 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 workflow BOLTZ_FOLD {
     take:
     ch_for_boltz // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [csv...])
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     ch_mono = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
-
-    ch_templates = params.templates ? file(params.templates) : file("${projectDir}/assets/dummy_files/empty_templates")
 
     FOLD_CREATE_BOLTZ_YAML(ch_mono, ch_templates)
     FOLD_CREATE_BOLTZ_YAML_COMPLEX(ch_multi, ch_templates)

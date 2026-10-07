@@ -412,6 +412,43 @@ Select either or both, e.g. `--methods esmfold2,esmfold2_fast` to compare them:
   does report ptm, iptm, per-token pLDDT and a PAE matrix, plus a per-chain-pair
   ipTM matrix, so ipSAE is computed as usual.
 
+## Templates
+
+`--templates` takes known structures (`.pdb` or `.cif`, optionally gzipped) as
+a directory or glob. The files can hold single chains or whole complexes. No
+mapping file is needed. Every protein chain in every file is aligned to every
+chain being folded, much as AF2's template search does with the PDB, and kept
+for that chain when it passes both thresholds:
+
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `--template_min_identity` | `0.3` | Identity over the aligned residues |
+| `--template_min_coverage` | `0.3` | Fraction of the folded chain covered by the alignment |
+| `--template_max_per_chain` | `4` | Best matches (identity × coverage) kept per chain |
+
+The match report and the normalised template files are published under
+`<outdir>/fold/templates/` (`templates_matched.tsv` lists every chain pair
+considered and why it was accepted or rejected). Templates only inform each
+chain's own structure; no engine takes the arrangement between chains from them.
+
+Templates are used by `af3` and `boltz`. Other engines fold without them, with a
+warning. Notes for each engine:
+
+- **AF3:** the matched templates are added to each chain's input with an explicit
+  residue mapping (`queryIndices` / `templateIndices`).
+- **Boltz-2:** each template is pinned to its chain (`chain_id`). Boltz aligns the
+  template itself and uses only its longest gap-free match, so a template with
+  missing loops contributes just one segment.
+  `--boltz_template_force` holds the chain within `--boltz_template_threshold`
+  (default 1.0 Å) of the template. It is off by default in `--method fold`, where
+  the template should guide the prediction without over-biasing it, and on by
+  default in `--method fold_pulldown`.
+
+> Weak, short matches can pass the default thresholds. For example, a de novo
+> design can align to a 26–33 residue stretch of an unrelated structure at about
+> 35% identity. Check `templates_matched.tsv`, and raise the thresholds when
+> you only want close templates.
+
 ## Example Usage
 
 Minimal AF2-only run with jackhmmer MSAs:
@@ -490,7 +527,8 @@ results/
 │   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/ … openfold3/ … esmfold2/ … esmfold2_fast/    # per-engine predictions + <tool>_fold_scores.tsv
 │   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_*, esmfold2_*, esmfold2_fast_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
-│   └── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
+│   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
+│   └── templates/            # when --templates: templates_matched.tsv + normalised tmpl_*.cif
 └── engens/<id>/              # clusters.html + representative conformations (HDBSCAN by default)
                               # + structural_alphabet/ (3Di FASTA + entropy when enabled)
 ```

@@ -19,12 +19,17 @@ can subsample chain_A_unpaired.a3m in place without rewriting the JSON:
     first record to be the query).
   - Row 0 must equal the chain sequence, else we fail here rather than inside AF3.
 
+Templates: with --templates-dir (bin/fold/match_templates.py output), each chain
+listed in --template-chains (default: all) gets its matched templates inline
+(`mmcif` plus queryIndices/templateIndices), looked up by sequence md5.
+
 Multimer pairing: AF3 pairs pairedMsa rows across chains by UniProt species mnemonic
 parsed from `tr|ACC|NAME_SPECIES` headers - render those with
 `bin/fold/msa_taxonomy.py --tool af3` and pass them via --paired-a3m.
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import string
@@ -111,6 +116,21 @@ def _match_per_chain(paths: Optional[List[Path]], n_seq: int, flag: str) -> List
     return list(paths)
 
 
+def chain_templates(templates_dir: Optional[Path], seq: str) -> List[dict]:
+    if templates_dir is None or not (templates_dir / "index.json").exists():
+        return []
+    index = json.loads((templates_dir / "index.json").read_text())
+    hits = index.get(hashlib.md5(seq.upper().encode()).hexdigest(), [])
+    return [
+        {
+            "mmcif": (templates_dir / h["cif"]).read_text(),
+            "queryIndices": h["query_indices"],
+            "templateIndices": h["template_indices"],
+        }
+        for h in hits
+    ]
+
+
 def make_af3_input(
     fasta_path: Path,
     name: str,
@@ -118,6 +138,8 @@ def make_af3_input(
     seed: int,
     unpaired_a3m_paths: Optional[List[Path]] = None,
     paired_a3m_paths: Optional[List[Path]] = None,
+    templates_dir: Optional[Path] = None,
+    template_chains: Optional[List[str]] = None,
 ) -> dict:
     sequences = parse_fasta_records(fasta_path)
     if not sequences:
@@ -136,13 +158,16 @@ def make_af3_input(
         paired_name = f"chain_{cid}_paired.a3m"
         (out_dir / unpaired_name).write_text(clean_a3m(unpaired[i], seq, cid))
         (out_dir / paired_name).write_text(clean_a3m(paired[i], seq, cid))
+        templates = chain_templates(templates_dir, seq) if (not template_chains or cid in template_chains) else []
+        if templates:
+            log.info("chain %s: %d template(s)", cid, len(templates))
         entries.append({
             "protein": {
                 "id": cid,
                 "sequence": seq,
                 "unpairedMsaPath": unpaired_name,
                 "pairedMsaPath": paired_name,
-                "templates": [],
+                "templates": templates,
             }
         })
 
@@ -173,6 +198,8 @@ def main() -> int:
         help="Optional paired a3m(s) with AF3-parseable species headers: one per chain",
     )
     parser.add_argument("--seed", type=int, default=1, help="modelSeeds entry (default: 1)")
+    parser.add_argument("--templates-dir", dest="templates_dir", default=None, help="Matched-templates directory (bin/fold/match_templates.py)")
+    parser.add_argument("--template-chains", dest="template_chains", nargs="+", default=None, help="Chain ID(s) that may be templated (default: all)")
     parser.add_argument("-o", "--output", required=True, help="Output JSON path (a3m files are written alongside)")
     args = parser.parse_args()
 
@@ -185,6 +212,8 @@ def main() -> int:
         seed=args.seed,
         unpaired_a3m_paths=[Path(p) for p in args.a3m] if args.a3m else None,
         paired_a3m_paths=[Path(p) for p in args.paired_a3m] if args.paired_a3m else None,
+        templates_dir=Path(args.templates_dir) if args.templates_dir else None,
+        template_chains=args.template_chains,
     )
     with open(out_path, "w") as f:
         json.dump(spec, f, indent=2)

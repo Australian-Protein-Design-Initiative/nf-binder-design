@@ -1,12 +1,6 @@
-// Generic single-target Boltz YAML for fold.nf. Adapted from the (previously
-// unwired) CREATE_BOLTZ_YAML_MONOMER in modules/local/common/create_boltz_yaml.nf,
-// but takes the FASTA file directly (via bin/create_boltz_yaml.py's
-// --binder_from_fasta) rather than a meta.seq string, since fold.nf's meta
-// contract (see fold.nf §1) doesn't carry a sequence field.
-//
-// Phase 1 scope: monomer only, so this always emits a single "id: [A]"
-// protein entry (bin/create_boltz_yaml.py's binder-only mode). Multimer
-// (multiple protein entries, one id per chain) is Phase 2 work.
+// Monomer Boltz-2 YAML for fold.nf: a single "id: [A]" protein entry with the
+// shared a3m as its msa:. Uses the same generator as the multimer path so chain
+// templates (--templates) are handled in one place.
 
 process FOLD_CREATE_BOLTZ_YAML {
     tag "${meta.id}"
@@ -22,15 +16,21 @@ process FOLD_CREATE_BOLTZ_YAML {
 
     script:
     yaml = "${meta.id}.yml"
-    def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
-    def templates_flag = params.templates ? "--templates '${templates}'" : ''
+    def template_chains = (meta.template_chains ?: []) as List
+    // Boltz force holds a templated chain within --boltz_template_threshold of the
+    // template. Off by default for fold (guide, don't over-bias an unknown), on for
+    // fold_pulldown (chain structures are known; only the pose is predicted).
+    def force = params.boltz_template_force != null ? params.boltz_template_force : (params.method == 'fold_pulldown')
+    def templates_flag = params.templates ? [
+        "--templates '${templates}'",
+        template_chains ? "--template_chains ${template_chains.join(' ')}" : '',
+        force ? "--template_force --template_threshold ${params.boltz_template_threshold}" : '',
+    ].findAll { it }.join(' ') : ''
     """
-    ${projectDir}/bin/create_boltz_yaml.py \
-        --binder_id '${meta.id}' \
-        --binder_from_fasta '${fasta}' \
-        --binder_msa '${a3m}' \
-        --output_yaml '${yaml}' \
-        ${use_msa_server_flag} \
+    ${projectDir}/bin/fold/make_boltz_complex_yaml.py \
+        --fasta ${fasta} \
+        --msa ${a3m} \
+        --output_yaml ${yaml} \
         ${templates_flag}
     """
 }

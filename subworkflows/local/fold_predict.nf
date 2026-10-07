@@ -29,6 +29,7 @@ workflow FOLD_PREDICT {
     ch_for_openfold3
     ch_for_esmfold2
     ch_for_esmfold2_fast
+    ch_templates   // value: FOLD_TEMPLATES directory (or placeholder)
     methods        // List<String>
 
     main:
@@ -56,7 +57,7 @@ workflow FOLD_PREDICT {
         ch_scores = ch_scores.mix(ALPHAFOLD2_MONO.out.tsv)
     }
     if ('boltz' in methods) {
-        BOLTZ_FOLD(ch_for_boltz)
+        BOLTZ_FOLD(ch_for_boltz, ch_templates)
         ch_boltz_pred = BOLTZ_FOLD.out.predictions
         ch_scores = ch_scores.mix(BOLTZ_FOLD.out.tsv)
     }
@@ -71,7 +72,7 @@ workflow FOLD_PREDICT {
         ch_scores = ch_scores.mix(PROTENIX_FOLD.out.tsv)
     }
     if ('af3' in methods) {
-        ALPHAFOLD3_FOLD(ch_for_af3)
+        ALPHAFOLD3_FOLD(ch_for_af3, ch_templates)
         // AF3 and RF3 share *_seed-S_sample-N_model.cif naming, so tag the tool
         // for ENGENS_CLUSTER's collision-free renaming.
         ch_af3_pred = ALPHAFOLD3_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'af3'], files] }

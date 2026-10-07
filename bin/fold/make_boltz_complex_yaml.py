@@ -24,11 +24,16 @@ entirely and Boltz fetches + pairs its own MSA.
 
 Homo-oligomers: pass the sequence as repeated FASTA records (one `protein:`
 entry per copy, distinct chain IDs). A `count:`/id-list shorthand is deferred.
+
+Templates: --templates is the directory written by bin/fold/match_templates.py.
+Each chain's templates are looked up in its index.json by sequence md5 and pinned
+to that chain (`chain_id`), so Boltz never assigns a target template to a binder.
 """
 
 import argparse
 import csv
-import glob
+import hashlib
+import json
 import os
 import string
 import sys
@@ -88,6 +93,9 @@ def make_boltz_complex_yaml(
     use_msa_server: bool = False,
     templates_dir: Optional[str] = None,
     query_only_chains: Optional[List[str]] = None,
+    template_chains: Optional[List[str]] = None,
+    template_force: bool = False,
+    template_threshold: float = 1.0,
 ) -> dict:
     sequences = parse_fasta_records(fasta_path)
     if not sequences:
@@ -123,11 +131,44 @@ def make_boltz_complex_yaml(
     data = {"version": 1, "sequences": entries}
 
     if templates_dir:
-        cif_files = sorted(glob.glob(os.path.join(templates_dir, "*.cif")))
-        if cif_files:
-            data["templates"] = [{"cif": c} for c in cif_files]
+        templates = chain_templates(
+            templates_dir, chain_ids[: len(sequences)], sequences,
+            template_chains, template_force, template_threshold,
+        )
+        if templates:
+            data["templates"] = templates
 
     return data
+
+
+def chain_templates(
+    templates_dir: str,
+    chain_ids: List[str],
+    sequences: List[str],
+    template_chains: Optional[List[str]],
+    force: bool,
+    threshold: float,
+) -> List[dict]:
+    index_path = Path(templates_dir) / "index.json"
+    if not index_path.exists():
+        return []
+    index = json.loads(index_path.read_text())
+    allowed = set(template_chains) if template_chains else set(chain_ids)
+    entries = []
+    for chain_id, seq in zip(chain_ids, sequences):
+        if chain_id not in allowed:
+            continue
+        for hit in index.get(hashlib.md5(seq.upper().encode()).hexdigest(), []):
+            entry = {
+                "cif": os.path.join(templates_dir, hit["cif"]),
+                "chain_id": chain_id,
+                "template_id": hit["template_chain"],
+            }
+            if force:
+                entry["force"] = True
+                entry["threshold"] = threshold
+            entries.append(entry)
+    return entries
 
 
 def main() -> int:
@@ -139,7 +180,15 @@ def main() -> int:
         default=None,
         help="Per-chain MSA file(s) (.csv/.a3m) in record order (or a single file for a monomer)",
     )
-    parser.add_argument("--templates", default=None, help="Optional templates directory of .cif files")
+    parser.add_argument("--templates", default=None, help="Optional matched-templates directory (bin/fold/match_templates.py)")
+    parser.add_argument(
+        "--template_chains",
+        nargs="+",
+        default=None,
+        help="Chain ID(s) that may be templated (default: all)",
+    )
+    parser.add_argument("--template_force", action="store_true", help="Hold templated chains close to the template (Boltz force)")
+    parser.add_argument("--template_threshold", type=float, default=1.0, help="Boltz force threshold in Angstrom (default: 1.0)")
     parser.add_argument("--use_msa_server", action="store_true", help="Omit msa: so Boltz fetches its own")
     parser.add_argument(
         "--query_only_chains",
@@ -156,6 +205,9 @@ def main() -> int:
         use_msa_server=args.use_msa_server,
         templates_dir=args.templates,
         query_only_chains=args.query_only_chains,
+        template_chains=args.template_chains,
+        template_force=args.template_force,
+        template_threshold=args.template_threshold,
     )
 
     out = Path(args.output_yaml)

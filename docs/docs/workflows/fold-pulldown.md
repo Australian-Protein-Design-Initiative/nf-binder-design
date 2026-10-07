@@ -72,9 +72,23 @@ Every method-specific flag documented under `--method fold --help` (`--af2_*`,
 `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`,
 `--esmfold2_*`) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
 A couple worth knowing about: `--af2_keep_models` (`best` by default) controls
-which of AF2's 5 models/run are kept, same as in `--method fold`; and
-`--templates` (a directory of `.cif` files) now reaches Boltz here as well as
-in `--method fold`.
+which of AF2's 5 models/run are kept, same as in `--method fold`.
+
+### Templates
+
+When a target's structure is known, pass it with `--templates` (a directory or
+glob of `.pdb` / `.cif` files, e.g. the target PDBs themselves). Templates are
+matched to target chains automatically by sequence; see
+[Templates](fold.md#templates). In a pulldown:
+
+- Only the **target** chain is templated by default. `--binder_templates true`
+  also matches binder chains against the same files, e.g. when a complex
+  structure includes a known binder.
+- Boltz holds templated chains close to their template by default
+  (`--boltz_template_force`, 1.0 Å), because the chain structures are known and
+  the binding pose is what is being predicted. Pass `--boltz_template_force false`
+  to let Boltz depart from them.
+- Templates are used by `af3` and `boltz`; other engines fold without them.
 
 ## Example
 

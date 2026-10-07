@@ -8,6 +8,8 @@ class FoldValidation {
     //              only by an --af2_chain_break_offset jump in residue_index.
     static final List VALID_METHODS = ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3', 'esmfold2', 'esmfold2_fast']
     static final List VALID_MSA_METHODS = ['jackhmmer_af2', 'mmseqs2_colabfold']
+    // Engines that use --templates; the others fold without them.
+    static final List TEMPLATE_METHODS = ['af3', 'boltz']
 
     static List parseMethods(methodsParam) {
         return methodsParam.toString().split(',').collect { it.trim().toLowerCase() }
@@ -128,6 +130,28 @@ class FoldValidation {
                 "ESMFold2-Fast (--methods esmfold2_fast) has no MSA encoder, so it folds from sequence " +
                 "alone and does not use the MSA. Use --methods esmfold2 for MSA-conditioned ESMFold2."
             )
+        }
+
+        if (params.templates) {
+            def untemplated = methods.findAll { !(it in TEMPLATE_METHODS) }
+            if (untemplated) {
+                warnings << (
+                    "--templates is only used by ${TEMPLATE_METHODS.join(', ')}; " +
+                    "${untemplated.join(', ')} will fold without templates."
+                )
+            }
+            ['template_min_identity', 'template_min_coverage'].each { p ->
+                def v = params[p] as double
+                if (v < 0 || v > 1) {
+                    errors << "--${p} must be between 0 and 1 (got '${params[p]}')"
+                }
+            }
+            if ((params.template_max_per_chain as int) < 1) {
+                errors << "--template_max_per_chain must be >= 1 (got '${params.template_max_per_chain}')"
+            }
+        }
+        else if (pulldown && params.binder_templates) {
+            warnings << "--binder_templates has no effect without --templates."
         }
 
         if (params.n_predictions && (params.n_predictions as int) < 1) {

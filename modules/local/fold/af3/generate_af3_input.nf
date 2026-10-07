@@ -8,17 +8,23 @@ process GENERATE_AF3_INPUT {
 
     input:
     tuple val(meta), path(fasta), path(a3m)
+    path templates
 
     output:
     tuple val(meta), path(fasta), path('chain_*_{unpaired,paired}.a3m'), path('af3_input.json'), emit: with_json
 
     script:
+    def template_chains = (meta.template_chains ?: []) as List
+    def templates_arg = params.templates \
+        ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
+        : ''
     """
     python ${projectDir}/bin/fold/make_af3_input.py \\
         --fasta ${fasta} \\
         --name '${meta.id}' \\
         --a3m ${a3m} \\
         --seed ${meta.af3_seed} \\
+        ${templates_arg} \\
         -o af3_input.json
     """
 }

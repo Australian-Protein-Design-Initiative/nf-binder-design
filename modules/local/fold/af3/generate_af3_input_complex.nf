@@ -13,6 +13,7 @@ process GENERATE_AF3_INPUT_COMPLEX {
 
     input:
     tuple val(meta), path(fasta), path(a3ms)
+    path templates
 
     output:
     tuple val(meta), path(fasta), path('chain_*_{unpaired,paired}.a3m'), path('af3_input.json'), emit: with_json
@@ -21,6 +22,10 @@ process GENERATE_AF3_INPUT_COMPLEX {
     def files = (a3ms instanceof List) ? a3ms : [a3ms]
     def unpaired = files.findAll { it.name.endsWith('.protenix_unpaired.a3m') }
     def unpaired_arg = unpaired.collect { it.name }.join(' ')
+    def template_chains = (meta.template_chains ?: []) as List
+    def templates_arg = params.templates \
+        ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
+        : ''
     def paired_arg = unpaired.collect { it.name.replaceFirst(/\.protenix_unpaired\.a3m$/, '.af3_paired.a3m') }.join(' ')
     """
     set -euo pipefail
@@ -38,6 +43,7 @@ process GENERATE_AF3_INPUT_COMPLEX {
         --a3m ${unpaired_arg} \\
         --paired-a3m ${paired_arg} \\
         --seed ${meta.af3_seed} \\
+        ${templates_arg} \\
         -o af3_input.json
     """
 }

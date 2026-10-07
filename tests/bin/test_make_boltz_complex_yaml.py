@@ -51,14 +51,40 @@ def test_swapped_msas_rejected(tmp_path):
         mbcy.make_boltz_complex_yaml(fasta, msa_paths=[b, t])
 
 
-def test_templates_dir_added(tmp_path):
+def _templates_dir(tmp_path: Path, seq: str) -> Path:
+    import hashlib
+    import json
+
+    d = tmp_path / "fold_templates"
+    d.mkdir()
+    (d / "tmpl_001.cif").write_text("data_tmpl_001\n")
+    hit = {"cif": "tmpl_001.cif", "template_chain": "A", "query_indices": [0], "template_indices": [0]}
+    (d / "index.json").write_text(json.dumps({hashlib.md5(seq.encode()).hexdigest(): [hit]}))
+    return d
+
+
+def test_templates_pinned_to_matching_chain(tmp_path):
+    fasta = _write(tmp_path / "pair.fasta", f">t\n{TARGET}\n>b\n{BINDER}\n")
+    d = _templates_dir(tmp_path, TARGET)
+    data = mbcy.make_boltz_complex_yaml(fasta, templates_dir=str(d))
+    assert data["templates"] == [{"cif": str(d / "tmpl_001.cif"), "chain_id": "A", "template_id": "A"}]
+
+
+def test_template_chains_and_force(tmp_path):
+    fasta = _write(tmp_path / "pair.fasta", f">t\n{TARGET}\n>b\n{TARGET}\n")
+    d = _templates_dir(tmp_path, TARGET)
+    data = mbcy.make_boltz_complex_yaml(
+        fasta, templates_dir=str(d), template_chains=["A"], template_force=True, template_threshold=1.0,
+    )
+    assert [t["chain_id"] for t in data["templates"]] == ["A"]
+    assert data["templates"][0]["force"] is True and data["templates"][0]["threshold"] == 1.0
+
+
+def test_no_index_no_templates(tmp_path):
     fasta = _write(tmp_path / "mono.fasta", f">t\n{TARGET}\n")
-    templates_dir = tmp_path / "templates"
-    templates_dir.mkdir()
-    cif = templates_dir / "1abc.cif"
-    cif.write_text("data_1abc\n")
-    data = mbcy.make_boltz_complex_yaml(fasta, templates_dir=str(templates_dir))
-    assert data["templates"] == [{"cif": str(cif)}]
+    placeholder = _write(tmp_path / "empty_templates", "placeholder")
+    data = mbcy.make_boltz_complex_yaml(fasta, templates_dir=str(placeholder))
+    assert "templates" not in data
 
 
 def test_query_only_chains_force_empty_msa_under_msa_server(tmp_path):

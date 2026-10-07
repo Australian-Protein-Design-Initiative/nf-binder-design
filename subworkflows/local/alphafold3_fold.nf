@@ -33,6 +33,7 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 workflow ALPHAFOLD3_FOLD {
     take:
     ch_for_af3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     def batches = foldPredictionBatches(params.af3_batch_size, 5, params.n_predictions)
@@ -73,8 +74,8 @@ workflow ALPHAFOLD3_FOLD {
         jobs
     }
 
-    GENERATE_AF3_INPUT(ch_batched.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) == 1 })
-    GENERATE_AF3_INPUT_COMPLEX(ch_batched.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) > 1 })
+    GENERATE_AF3_INPUT(ch_batched.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) == 1 }, ch_templates)
+    GENERATE_AF3_INPUT_COMPLEX(ch_batched.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) > 1 }, ch_templates)
     ch_with_json = GENERATE_AF3_INPUT.out.with_json.mix(GENERATE_AF3_INPUT_COMPLEX.out.with_json)
 
     ALPHAFOLD3_PROCESS(ch_with_json, file(params.af3_model_dir, checkIfExists: true))
