@@ -1,0 +1,70 @@
+%%metro title: nf-binder-design: --method fold_pulldown
+%%metro style: nfcore
+%%metro line: rf3 | RosettaFold3 (rf3) | #2ca02c
+%%metro line: protenix | Protenix (protenix) | #d62728
+%%metro line: esmfold2 | ESMFold2 (esmfold2, esmfold2_fast) | #8c564b
+%%metro line: af2 | AlphaFold2 (af2, af2_mono) | #1f77b4
+%%metro line: af3 | AlphaFold3 (af3) | #17becf
+%%metro line: boltz | Boltz-2 (boltz) | #ff7f0e
+%%metro line: openfold3 | OpenFold3 (openfold3) | #9467bd
+%%metro file: targets_in | FASTA | Targets
+%%metro file: binders_in | FASTA | Binders
+%%metro off_track: binders_in
+%%metro files: templates_in | PDB | Target templates
+%%metro off_track: templates_in
+%%metro file: scores_out | TSV | Scores
+%%metro file: report_out | HTML | Report
+
+graph LR
+    subgraph msa [Inputs and MSAs]
+        targets_in[ ]
+        msa_search[Target MSA search]
+        binders_in[ ]
+        pairs[Make pairs]
+        pairing[Taxonomy pairing]
+        templates_in[ ]
+        match_templates[Template matching]
+        targets_in -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| msa_search
+        msa_search -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| pairs
+        binders_in -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| pairs
+        pairs -->|af3,boltz,openfold3,rf3,protenix,esmfold2| pairing
+        pairing -->|af3,boltz,openfold3| match_templates
+        templates_in -->|af3,boltz,openfold3| match_templates
+    end
+
+    subgraph predict [Complex prediction]
+        af2_run[AlphaFold2]
+        af3_run[AlphaFold3]
+        boltz_run[Boltz-2]
+        rf3_run[RosettaFold3]
+        protenix_run[Protenix]
+        openfold3_run[OpenFold3]
+        esmfold2_run[ESMFold2]
+    end
+
+    subgraph score [Scoring and report]
+        confidence[Confidence and ipSAE]
+        summary[Pulldown summary]
+        report[Quarto report]
+        scores_out[ ]
+        report_out[ ]
+        confidence -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| summary
+        summary -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| scores_out
+        summary -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| report
+        report -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| report_out
+    end
+
+    pairs -->|af2| af2_run
+    match_templates -->|af3| af3_run
+    match_templates -->|boltz| boltz_run
+    pairing -->|rf3| rf3_run
+    pairing -->|protenix| protenix_run
+    match_templates -->|openfold3| openfold3_run
+    pairing -->|esmfold2| esmfold2_run
+    af2_run -->|af2| confidence
+    af3_run -->|af3| confidence
+    boltz_run -->|boltz| confidence
+    rf3_run -->|rf3| confidence
+    protenix_run -->|protenix| confidence
+    openfold3_run -->|openfold3| confidence
+    esmfold2_run -->|esmfold2| confidence

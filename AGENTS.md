@@ -51,6 +51,12 @@ If there is a CHANGELOG.md file, update it with any notable features or bug fixe
 - If a new 'process' has been added in `modules/` or elsewhere, ensure `nextflow.config` and site-specific configs in `conf/platforms` have the approriate `withName` configuration for that process.
 - Update `CHANGELOG.md` condensing and summarizing `[Unreleased]` changes where required.
 
+## Workflow diagrams
+
+- The fold and fold_pulldown docs open with metro-map diagrams made with [nf-metro](https://github.com/seqeralabs/nf-metro). The `.mmd` sources live in `assets/metro/`, and `assets/metro/README.md` has the render commands. When a change alters those workflows' steps, engines or inputs, update the `.mmd` and re-render the images in `docs/docs/images/`.
+- The nf-metro repo ships Claude skills in `.claude/skills/` (`pipeline-metro-diagram` for authoring the `.mmd`, `pipeline-metro-setup` for wiring it into a repo). Clone it into `repos/` (gitignored) to use them.
+- Other workflows still use hand-drawn diagrams (e.g. `docs/docs/images/rfd3-workflow.png`). Don't convert them to nf-metro unless asked.
+
 ## Releases
 
 The version number is duplicated in three places and they must be changed together --

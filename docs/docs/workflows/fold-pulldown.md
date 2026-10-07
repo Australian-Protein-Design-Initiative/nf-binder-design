@@ -1,5 +1,7 @@
 # Fold Pulldown
 
+![Fold Pulldown workflow](../images/fold_pulldown_metro_map.svg)
+
 Multi-model target × binder pulldown, in the spirit of
 [Boltz Pulldown](boltz-pulldown.md) but using the shared fold engines
 (AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, ESMFold2, ESMFold2-Fast).

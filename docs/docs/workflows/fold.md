@@ -1,5 +1,7 @@
 # Fold Workflow
 
+![Fold workflow](../images/fold_metro_map.svg)
+
 Multi-method structure prediction for monomer **and multimer** FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
 RosettaFold3, Protenix, AlphaFold3, OpenFold3 and ESMFold2, sharing one
