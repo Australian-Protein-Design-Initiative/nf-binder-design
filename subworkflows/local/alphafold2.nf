@@ -24,6 +24,7 @@ workflow ALPHAFOLD2 {
     // Both engines can run in the same pipeline; the tag keeps their published
     // predictions, score TSVs and FoldNaming prefixes apart.
     tool
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     def complex_mode = (tool == 'af2_mono') ? 'chainbreak' : 'multimer'
@@ -81,7 +82,7 @@ workflow ALPHAFOLD2 {
         jobs
     }
 
-    ALPHAFOLD2_PREDICT(ch_runs)
+    ALPHAFOLD2_PREDICT(ch_runs, ch_templates)
 
     // Score each run: FoldNaming.af2Prefix(meta) is the exact fold/predictions/
     // filename prefix the module's saveAs uses, so predictions_file lines up.

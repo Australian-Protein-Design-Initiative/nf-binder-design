@@ -189,9 +189,9 @@ workflow FOLD {
             --af2_chain_break_offset            residue_index jump at each chain break; must exceed AF2's
                                                 relative-position clip of 32 [default: ${params.af2_chain_break_offset}]
 
-            Templates (af3, boltz, openfold3, protenix):
+            Templates (every engine except esmfold2 / esmfold2_fast):
             --templates                        Template structures (.pdb/.cif; dir or glob), matched to chains
-                                               by sequence alignment; used by af3, boltz, openfold3, protenix [default: ${params.templates}]
+                                               by sequence alignment; not used by esmfold2 [default: ${params.templates}]
             --template_min_identity            Min identity over aligned residues [default: ${params.template_min_identity}]
             --template_min_coverage            Min fraction of the chain covered [default: ${params.template_min_coverage}]
             --template_max_per_chain           Templates kept per chain [default: ${params.template_max_per_chain}]

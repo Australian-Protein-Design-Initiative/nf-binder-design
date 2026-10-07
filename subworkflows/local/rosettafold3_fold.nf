@@ -32,18 +32,19 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 workflow ROSETTAFOLD3_FOLD {
     take:
     ch_for_rf3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [a3m...])
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     ch_mono = ch_for_rf3.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_for_rf3.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
-    GENERATE_RF3_FOLD_INPUT(ch_mono)
-    GENERATE_RF3_FOLD_INPUT_COMPLEX(ch_multi)
+    GENERATE_RF3_FOLD_INPUT(ch_mono, ch_templates)
+    GENERATE_RF3_FOLD_INPUT_COMPLEX(ch_multi, ch_templates)
     ch_with_json = GENERATE_RF3_FOLD_INPUT.out.with_json.mix(GENERATE_RF3_FOLD_INPUT_COMPLEX.out.with_json)
 
     def batches = foldPredictionBatches(params.rf3_batch_size, 5, params.n_predictions)
     def base_seed = params.rf3_seed ? (params.rf3_seed as int) : null
 
-    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json ->
+    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json, rf3_templates ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
             ? MsaSubsample.countA3mSequences(a3m) : null
         def depth_jobs = MsaSubsample.depthJobs(
@@ -73,7 +74,7 @@ workflow ROSETTAFOLD3_FOLD {
                 else if (MsaSubsample.isEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
-                jobs << [m, fasta, a3m, json]
+                jobs << [m, fasta, a3m, json, rf3_templates]
             }
         }
         jobs

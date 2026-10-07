@@ -81,6 +81,7 @@ process ALPHAFOLD2 {
 
     input:
     tuple val(meta), path(fasta), path(msa_dir), path(a3m)
+    path templates
 
     output:
     // Recursive glob so each nested file is its own publish item (see the
@@ -191,6 +192,15 @@ process ALPHAFOLD2 {
         --chain-break-offset ${params.af2_chain_break_offset} \\
         --layout-out chain_layout.json
 """
+    // Assembled in Groovy, like the chain-break stanzas, so runs without
+    // --templates keep their rendered script (and -resume cache) unchanged.
+    def template_chains = (meta.template_chains ?: []) as List
+    def add_templates = !params.templates ? '' : """
+    python ${projectDir}/bin/fold/af2_add_templates.py \\
+        --features "out/${meta.id}/features.pkl" \\
+        --fasta ${fasta} \\
+        --templates-dir ${templates}${template_chains ? " --template-chains ${template_chains.join(' ')}" : ''}${chainbreak ? ' --chain-layout chain_layout.json' : ''}
+"""
     // The monomer models emit one chain with our +offset numbering still in it. Split
     // it back into real chains before anything downstream (FOLD_SCORE_AF2 -> ipsae, and
     // every consumer of fold/predictions/) tries to select by chain.
@@ -252,7 +262,7 @@ process ALPHAFOLD2 {
                 --ids-output "${msa_ids_file}"
         fi
 ${build_multimer_features}    fi
-${chainbreak_features}
+${chainbreak_features}${add_templates}
     python /app/alphafold/run_alphafold.py \
         --fasta_paths=${fasta} \
         --output_dir=\$PWD/out \

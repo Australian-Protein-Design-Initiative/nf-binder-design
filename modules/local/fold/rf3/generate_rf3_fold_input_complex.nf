@@ -10,18 +10,24 @@ process GENERATE_RF3_FOLD_INPUT_COMPLEX {
 
     input:
     tuple val(meta), path(fasta), path(a3ms)
+    path templates
 
     output:
-    tuple val(meta), path(fasta), path(a3ms), path('rf3_fold.json'), emit: with_json
+    tuple val(meta), path(fasta), path(a3ms), path('rf3_fold.json'), path('rf3_templates'), emit: with_json
 
     script:
     def files = (a3ms instanceof List) ? a3ms : [a3ms]
     def a3m_arg = files.collect { it.name }.join(' ')
+    def template_chains = (meta.template_chains ?: []) as List
+    def templates_arg = params.templates \
+        ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
+        : ''
     """
     python ${projectDir}/bin/fold/make_rf3_fold_spec.py \
         --fasta ${fasta} \
         --name '${meta.id}' \
         --a3m ${a3m_arg} \
+        ${templates_arg} \
         -o rf3_fold.json
     """
 }

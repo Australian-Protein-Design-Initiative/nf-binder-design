@@ -163,7 +163,7 @@ workflow FOLD_PULLDOWN {
             --n_predictions       Structures per complex per method [default: unset -> engine defaults]
             --use_msa_server      Boltz fetches its own MSA [default: ${params.use_msa_server}]
             --templates           Template structures (.pdb/.cif; dir or glob), matched to target chains
-                                  by sequence alignment; used by af3, boltz, openfold3, protenix [default: ${params.templates}]
+                                  by sequence alignment; not used by esmfold2 [default: ${params.templates}]
             --binder_templates    Also match templates to binder chains [default: ${params.binder_templates}]
             --template_min_identity / --template_min_coverage / --template_max_per_chain
                                   Matching thresholds [default: ${params.template_min_identity} / ${params.template_min_coverage} / ${params.template_max_per_chain}]

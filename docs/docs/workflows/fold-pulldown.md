@@ -98,7 +98,7 @@ matched to target chains automatically by sequence; see
   (`--boltz_template_force`, 1.0 Å), because the chain structures are known and
   the binding pose is what is being predicted. Pass `--boltz_template_force false`
   to let Boltz depart from them.
-- Templates are used by `af3`, `boltz`, `openfold3` and `protenix`; other engines fold without them.
+- Every engine except ESMFold2 uses templates.
 
 ## Example
 

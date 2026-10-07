@@ -442,9 +442,13 @@ The match report and the normalised template files are published under
 considered and why it was accepted or rejected). Templates only inform each
 chain's own structure; no engine takes the arrangement between chains from them.
 
-Templates are used by `af3`, `boltz`, `openfold3` and `protenix`. Other engines
-fold without them, with a warning. Notes for each engine:
+Every engine except `esmfold2` / `esmfold2_fast` uses templates; ESMFold2 has no
+template input, so it folds without them (with a warning). Notes for each engine:
 
+- **AF2:** the matched templates are added to the chain's template features
+  ahead of any AF2 found itself (on the `jackhmmer_af2` route), keeping 4 in
+  total. Only monomer models 1 and 2 use templates; multimer models all do.
+  Shallow `--msa_subsample` jobs fold without user templates.
 - **AF3:** the matched templates are added to each chain's input with an explicit
   residue mapping (`queryIndices` / `templateIndices`).
 - **Boltz-2:** each template is pinned to its chain (`chain_id`). Boltz aligns the
@@ -458,6 +462,11 @@ fold without them, with a warning. Notes for each engine:
   format as AF3 (mmCIF plus residue mapping), and the job runs with
   `--use_template true`. This needs the Protenix container built from upstream
   commit 85767b8 or later; the v2.0.0 release cannot take structure-file templates.
+- **RosettaFold3:** RF3 has no separate template input, so the templated chain
+  is given as a structure file built from its best template: the chain's own
+  sequence, with template coordinates on aligned residues (backbone only where
+  the residue differs). Residues the template lacks are kept but not templated.
+  RF3 uses one template per chain.
 - **OpenFold3:** templates are passed as CIF files (its CIF-direct mode), and
   OpenFold3 realigns them to the chain with kalign. The pipeline points its
   template structure directory at the staged files and turns off downloads from

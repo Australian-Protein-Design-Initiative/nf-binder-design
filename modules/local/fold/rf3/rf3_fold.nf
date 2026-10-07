@@ -51,7 +51,7 @@ process RF3_FOLD {
     )
 
     input:
-    tuple val(meta), path(fasta), path(a3m), path(rf3_input_json)
+    tuple val(meta), path(fasta), path(a3m), path(rf3_input_json), path(rf3_templates)
 
     output:
     tuple val(meta), path('output/**'), emit: predictions

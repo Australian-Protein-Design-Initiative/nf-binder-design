@@ -45,14 +45,14 @@ workflow FOLD_PREDICT {
     ch_scores = Channel.empty()
 
     if ('af2' in methods) {
-        ALPHAFOLD2(ch_af2_in, 'af2')
+        ALPHAFOLD2(ch_af2_in, 'af2', ch_templates)
         ch_af2_pred = ALPHAFOLD2.out.predictions
         ch_scores = ch_scores.mix(ALPHAFOLD2.out.tsv)
     }
     // af2_mono reuses the same per-chain MSA directories as af2 - it only assembles
     // them into features.pkl differently (block diagonal, one chain-break jump).
     if ('af2_mono' in methods) {
-        ALPHAFOLD2_MONO(ch_af2_in, 'af2_mono')
+        ALPHAFOLD2_MONO(ch_af2_in, 'af2_mono', ch_templates)
         ch_af2_mono_pred = ALPHAFOLD2_MONO.out.predictions
         ch_scores = ch_scores.mix(ALPHAFOLD2_MONO.out.tsv)
     }
@@ -62,7 +62,7 @@ workflow FOLD_PREDICT {
         ch_scores = ch_scores.mix(BOLTZ_FOLD.out.tsv)
     }
     if ('rf3' in methods) {
-        ROSETTAFOLD3_FOLD(ch_for_rf3)
+        ROSETTAFOLD3_FOLD(ch_for_rf3, ch_templates)
         ch_rf3_pred = ROSETTAFOLD3_FOLD.out.predictions
         ch_scores = ch_scores.mix(ROSETTAFOLD3_FOLD.out.tsv)
     }
