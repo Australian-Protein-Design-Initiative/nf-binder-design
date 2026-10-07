@@ -32,6 +32,14 @@ collide only after sanitisation; and ids whose pair id
 `_and_`, e.g. target `a_and_b` + binder `c` colliding with target `a` +
 binder `b_and_c`).
 
+## Setup
+
+Setup is the same as for [Fold](fold.md#setup). Engine containers and their
+weights are pulled automatically, except the AlphaFold3 weights
+([AlphaFold3 weights](fold.md#alphafold3-weights)). Local sequence databases are
+needed only for `--msa_method jackhmmer_af2`, or for `--msa_method mmseqs2_colabfold`
+without `--use_remote_server true`. See [Fold databases](../extra/fold-databases.md).
+
 ## Command-line options
 
 ```bash
@@ -90,7 +98,7 @@ matched to target chains automatically by sequence; see
   (`--boltz_template_force`, 1.0 Å), because the chain structures are known and
   the binding pose is what is being predicted. Pass `--boltz_template_force false`
   to let Boltz depart from them.
-- Templates are used by `af3`, `boltz` and `openfold3`; other engines fold without them.
+- Templates are used by `af3`, `boltz`, `openfold3` and `protenix`; other engines fold without them.
 
 ## Example
 

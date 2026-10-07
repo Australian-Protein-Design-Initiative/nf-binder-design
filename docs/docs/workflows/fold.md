@@ -50,6 +50,15 @@ produce a conformational ensemble from the combined predictions.
 unset by default. See [Key Parameters](#key-parameters) below for how it maps
 onto each engine's own sampling knobs and batch size.
 
+## Setup
+
+Engine containers, and the weights inside them, are pulled automatically. The
+exception is AlphaFold3, whose weights you download yourself (see
+[AlphaFold3 weights](#alphafold3-weights)). Local sequence databases are needed
+only for `--msa_method jackhmmer_af2`, or for `--msa_method mmseqs2_colabfold`
+without `--use_remote_server true`. See [Fold databases](../extra/fold-databases.md)
+for download scripts, the expected layout and the defaults on M3.
+
 ## Command-line Options
 
 ```bash
@@ -151,7 +160,7 @@ script relative to `--af2_db_path` (e.g. `mgnify/mgy_clusters_2022_05.fa`,
 different filename (needed for [AF2 multimer against the 2021
 snapshot](#af2-multimer-needs-the-2021-db-snapshot), whose HHblits DB is
 `uniclust30` rather than `uniref30`). See
-[Setting up databases](fold-databases.md).
+[Fold databases](../extra/fold-databases.md).
 
 ### Option 2: ColabFold MMseqs2 (`mmseqs2_colabfold`)
 
@@ -174,7 +183,7 @@ occasional runs; for heavy use prefer local databases.
 
 `--uniref30` must contain `uniref30_*` MMseqs2 DB files;
 `--colabfold_envdb` must contain `colabfold_envdb*` files (layout produced by
-[`scripts/download_colabfold_dbs.sh`](fold-databases.md#colabfold-mmseqs2-databases)).
+[`scripts/download_colabfold_dbs.sh`](../extra/fold-databases.md#colabfold-mmseqs2-databases)).
 
 > There is no site-wide default ColabFold DB path on M3 yet — use
 > `--use_remote_server true` or install local DBs yourself.
@@ -433,8 +442,8 @@ The match report and the normalised template files are published under
 considered and why it was accepted or rejected). Templates only inform each
 chain's own structure; no engine takes the arrangement between chains from them.
 
-Templates are used by `af3`, `boltz` and `openfold3`. Other engines fold without
-them, with a warning. Notes for each engine:
+Templates are used by `af3`, `boltz`, `openfold3` and `protenix`. Other engines
+fold without them, with a warning. Notes for each engine:
 
 - **AF3:** the matched templates are added to each chain's input with an explicit
   residue mapping (`queryIndices` / `templateIndices`).
@@ -445,6 +454,10 @@ them, with a warning. Notes for each engine:
   (default 1.0 Å) of the template. It is off by default in `--method fold`, where
   the template should guide the prediction without over-biasing it, and on by
   default in `--method fold_pulldown`.
+- **Protenix:** each templated chain gets a `templatesPath` JSON in the same
+  format as AF3 (mmCIF plus residue mapping), and the job runs with
+  `--use_template true`. This needs the Protenix container built from upstream
+  commit 85767b8 or later; the v2.0.0 release cannot take structure-file templates.
 - **OpenFold3:** templates are passed as CIF files (its CIF-direct mode), and
   OpenFold3 realigns them to the chain with kalign. The pipeline points its
   template structure directory at the staged files and turns off downloads from
@@ -562,17 +575,10 @@ Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally
 omitted — only the overall values are reported.
 
-## Setting up databases
-
-Local databases are only needed for `--msa_method jackhmmer_af2`, or for
-`--msa_method mmseqs2_colabfold` without `--use_remote_server true`. See
-[Setting up databases](fold-databases.md) for download scripts, expected
-layout, and the site defaults on M3.
-
 ## Related
 
 - Example run directory: [`examples/fold/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold)
-- [Setting up databases](fold-databases.md)
+- [Fold databases](../extra/fold-databases.md)
 - Boltz Pulldown also accepts `--uniref30` / `--colabfold_envdb` for local MSAs
   ([Boltz Pulldown](boltz-pulldown.md))
 - Standalone EnGens: `engens.nf`

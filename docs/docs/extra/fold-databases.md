@@ -1,6 +1,6 @@
 # Fold: Setting up databases
 
-Database setup for the [Fold](fold.md) and [Fold Pulldown](fold-pulldown.md)
+Database setup for the [Fold](../workflows/fold.md) and [Fold Pulldown](../workflows/fold-pulldown.md)
 workflows' `--msa_method` options.
 
 You need local databases only for:
@@ -12,7 +12,7 @@ You need local databases only for:
 Model weights for Boltz / RF3 / Protenix / OpenFold3 are baked into the pipeline
 containers; AF2 params are downloaded with the AlphaFold DB tree (`params/`),
 though the container also bundles a copy (see [AF2 multimer needs the 2021 DB
-snapshot](fold.md#af2-multimer-needs-the-2021-db-snapshot)).
+snapshot](../workflows/fold.md#af2-multimer-needs-the-2021-db-snapshot)).
 
 Helper scripts live in the repo [`scripts/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/scripts)
 directory.
@@ -161,6 +161,6 @@ running under Singularity/Apptainer profiles.
 
 ## Related
 
-- [Fold](fold.md), [Fold Pulldown](fold-pulldown.md)
+- [Fold](../workflows/fold.md), [Fold Pulldown](../workflows/fold-pulldown.md)
 - Boltz Pulldown also accepts `--uniref30` / `--colabfold_envdb` for local MSAs
-  ([Boltz Pulldown](boltz-pulldown.md))
+  ([Boltz Pulldown](../workflows/boltz-pulldown.md))

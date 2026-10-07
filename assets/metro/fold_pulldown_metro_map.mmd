@@ -1,5 +1,8 @@
 %%metro title: nf-binder-design: --method fold_pulldown
 %%metro style: nfcore
+%%metro font_scale: 1.2
+%%metro x_spacing: 90
+%%metro y_spacing: 75
 %%metro line: rf3 | RosettaFold3 (rf3) | #2ca02c
 %%metro line: protenix | Protenix (protenix) | #d62728
 %%metro line: esmfold2 | ESMFold2 (esmfold2, esmfold2_fast) | #8c564b
@@ -9,8 +12,7 @@
 %%metro line: openfold3 | OpenFold3 (openfold3) | #9467bd
 %%metro file: targets_in | FASTA | Targets
 %%metro file: binders_in | FASTA | Binders
-%%metro off_track: binders_in
-%%metro files: templates_in | PDB | Target templates
+%%metro files: templates_in | PDB | Templates
 %%metro off_track: templates_in
 %%metro file: scores_out | TSV | Scores
 %%metro file: report_out | HTML | Report
@@ -18,15 +20,17 @@
 graph LR
     subgraph msa [Inputs and MSAs]
         targets_in[ ]
-        msa_search[Target MSA search]
+        msa_search[Target MSAs]
         binders_in[ ]
+        binder_msa[Binder MSAs]
         pairs[Make pairs]
         pairing[Taxonomy pairing]
         templates_in[ ]
         match_templates[Template matching]
         targets_in -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| msa_search
         msa_search -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| pairs
-        binders_in -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| pairs
+        binders_in -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3| binder_msa
+        binder_msa -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3| pairs
         pairs -->|af3,boltz,openfold3,rf3,protenix,esmfold2| pairing
         pairing -->|af3,boltz,openfold3| match_templates
         templates_in -->|af3,boltz,openfold3| match_templates
