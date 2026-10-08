@@ -56,7 +56,7 @@ def _pdl1_templates(tmp_path: Path, query: str) -> Path:
     mt = importlib.util.module_from_spec(mt_spec)
     mt_spec.loader.exec_module(mt)
     pdb = _MODPATH.parents[2] / "examples" / "fold-pulldown" / "input" / "PDL1.pdb"
-    accepted, report = mt.match_templates([pdb], [("q", query)], 0.3, 0.3, 4)
+    accepted, report = mt.match_templates([pdb], [("q", query)], 0.3, 0.3, 40, 4)
     out = tmp_path / "fold_templates"
     mt.write_outputs(accepted, report, out)
     return out

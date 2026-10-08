@@ -32,7 +32,7 @@ def _targets():
 
 
 def _run(tmp_path, templates, queries, **kw):
-    opts = dict(min_identity=0.3, min_coverage=0.3, max_per_chain=4)
+    opts = dict(min_identity=0.3, min_coverage=0.3, min_aligned=40, max_per_chain=4)
     opts.update(kw)
     accepted, report = mt.match_templates(templates, queries, **opts)
     out = tmp_path / "out"
@@ -66,6 +66,23 @@ def test_thresholds_reject_weak_matches(tmp_path):
     index, report, _ = _run(tmp_path, [PDL1_PDB], [("IL7RA", t["IL7RA"])], min_identity=0.5)
     assert index == {}
     assert report[0][6] == "rejected"
+
+
+def test_short_alignment_rejected(tmp_path):
+    """A partial match passing identity and coverage is still too short to be a fold."""
+    seq = _targets()["PDL1"]
+    query = seq[:30] + "WWEWWKWWDWWRWWNWWQWWHWWYWWCWWM"
+    index, report, _ = _run(tmp_path, [PDL1_PDB], [("frag", query)])
+    assert index == {}
+    assert report[0][6] == "rejected" and report[0][7].startswith("aligned <")
+
+
+def test_short_query_matched_end_to_end(tmp_path):
+    """Below min_aligned the whole query must align, so peptides stay templatable."""
+    seq = _targets()["PDL1"]
+    query = seq[:25]
+    index, _, _ = _run(tmp_path, [PDL1_PDB], [("peptide", query)])
+    assert len(index[mt.seq_key(query)]) == 1
 
 
 def test_max_per_chain_keeps_best(tmp_path):

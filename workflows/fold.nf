@@ -194,6 +194,7 @@ workflow FOLD {
                                                by sequence alignment; not used by esmfold2 [default: ${params.templates}]
             --template_min_identity            Min identity over aligned residues [default: ${params.template_min_identity}]
             --template_min_coverage            Min fraction of the chain covered [default: ${params.template_min_coverage}]
+            --template_min_aligned             Min aligned residues (or the full chain, if shorter) [default: ${params.template_min_aligned}]
             --template_max_per_chain           Templates kept per chain [default: ${params.template_max_per_chain}]
             --boltz_template_force             Hold templated chains near the template (Boltz force) [default: false]
             --boltz_template_threshold         Boltz force threshold in Angstrom [default: ${params.boltz_template_threshold}]

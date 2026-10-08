@@ -11,8 +11,10 @@ Every protein chain in every template file (.pdb/.cif, single chains or whole
 complexes) is aligned against every unique query sequence (local alignment,
 BLOSUM62), much like AF2's template search with the user's files as the
 database. A template chain is accepted for a query sequence when it passes
---min-identity (over aligned positions) and --min-coverage (fraction of the
-query covered); the best --max-per-chain by identity x coverage are kept.
+--min-identity (over aligned positions), --min-coverage (fraction of the query
+covered) and --min-aligned (aligned residues, relaxed to the query length for
+queries shorter than that); the best --max-per-chain by identity x coverage are
+kept.
 
 Outputs, in --outdir:
   - tmplNNN.cif: one normalised single-chain mmCIF per accepted template chain
@@ -213,6 +215,7 @@ def match_templates(
     query_records: List[Tuple[str, str]],
     min_identity: float,
     min_coverage: float,
+    min_aligned: int,
     max_per_chain: int,
 ) -> Tuple[Dict[str, List[Match]], List[List[str]]]:
     queries: Dict[str, Tuple[str, List[str]]] = {}
@@ -235,6 +238,9 @@ def match_templates(
     accepted: Dict[str, List[Match]] = {}
     report: List[List[str]] = []
     for key, (seq, ids) in queries.items():
+        # Queries shorter than min_aligned must be covered end to end, so a short
+        # peptide can still be templated without opening the door to fragments.
+        min_len = min(min_aligned, len(seq))
         candidates: List[Match] = []
         for tc in template_chains:
             identity, coverage, q_idx, t_idx = align(aligner, seq, tc.sequence)
@@ -243,6 +249,8 @@ def match_templates(
                 report.append(_report_row(m, "rejected", f"identity < {min_identity}"))
             elif coverage < min_coverage:
                 report.append(_report_row(m, "rejected", f"coverage < {min_coverage}"))
+            elif len(q_idx) < min_len:
+                report.append(_report_row(m, "rejected", f"aligned < {min_len}"))
             else:
                 candidates.append(m)
         candidates.sort(key=lambda m: m.score, reverse=True)
@@ -298,6 +306,8 @@ def main() -> int:
     parser.add_argument("--queries", nargs="+", required=True, help="FASTA file(s) of the chains that may be templated")
     parser.add_argument("--min-identity", type=float, default=0.3, help="Minimum identity over aligned positions (default: 0.3)")
     parser.add_argument("--min-coverage", type=float, default=0.3, help="Minimum fraction of the query covered (default: 0.3)")
+    parser.add_argument("--min-aligned", type=int, default=40,
+                        help="Minimum aligned residues, or the query length if shorter (default: 40)")
     parser.add_argument("--max-per-chain", type=int, default=4, help="Templates kept per query sequence (default: 4)")
     parser.add_argument("-o", "--outdir", required=True, help="Output directory")
     args = parser.parse_args()
@@ -307,7 +317,7 @@ def main() -> int:
         records.extend(parse_fasta(Path(q)))
     accepted, report = match_templates(
         [Path(p) for p in args.templates], records,
-        args.min_identity, args.min_coverage, args.max_per_chain,
+        args.min_identity, args.min_coverage, args.min_aligned, args.max_per_chain,
     )
     write_outputs(accepted, report, Path(args.outdir))
     return 0

@@ -165,8 +165,8 @@ workflow FOLD_PULLDOWN {
             --templates           Template structures (.pdb/.cif; dir or glob), matched to target chains
                                   by sequence alignment; not used by esmfold2 [default: ${params.templates}]
             --binder_templates    Also match templates to binder chains [default: ${params.binder_templates}]
-            --template_min_identity / --template_min_coverage / --template_max_per_chain
-                                  Matching thresholds [default: ${params.template_min_identity} / ${params.template_min_coverage} / ${params.template_max_per_chain}]
+            --template_min_identity / --template_min_coverage / --template_min_aligned / --template_max_per_chain
+                                  Matching thresholds [default: ${params.template_min_identity} / ${params.template_min_coverage} / ${params.template_min_aligned} / ${params.template_max_per_chain}]
             --boltz_template_force  Hold templated chains near the template (Boltz force) [default: true]
             --boltz_template_threshold  Boltz force threshold in Angstrom [default: ${params.boltz_template_threshold}]
             --skip_engens         Skip EnGens clustering [default: ${params.skip_engens}]

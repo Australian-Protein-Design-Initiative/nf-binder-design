@@ -146,6 +146,9 @@ class FoldValidation {
                     errors << "--${p} must be between 0 and 1 (got '${params[p]}')"
                 }
             }
+            if ((params.template_min_aligned as int) < 1) {
+                errors << "--template_min_aligned must be >= 1 (got '${params.template_min_aligned}')"
+            }
             if ((params.template_max_per_chain as int) < 1) {
                 errors << "--template_max_per_chain must be >= 1 (got '${params.template_max_per_chain}')"
             }

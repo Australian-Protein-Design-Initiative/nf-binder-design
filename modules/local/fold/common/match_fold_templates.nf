@@ -26,6 +26,7 @@ process MATCH_FOLD_TEMPLATES {
         --queries queries/* \\
         --min-identity ${params.template_min_identity} \\
         --min-coverage ${params.template_min_coverage} \\
+        --min-aligned ${params.template_min_aligned} \\
         --max-per-chain ${params.template_max_per_chain} \\
         -o fold_templates
     """
