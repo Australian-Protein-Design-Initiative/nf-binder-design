@@ -264,6 +264,44 @@ nextflow_pipeline {
         }
     }
 
+    test("fold method rejects ids that collide after engine sanitisation") {
+        tag "ids"
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                // 'a+b' and 'ab' both become 'ab' for AF3 / OpenFold3 output paths
+                input = "${projectDir}/tests/data/fold_ids/fold"
+                methods = "boltz"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert !workflow.success
+            assert workflow.stdout.any { it.contains("collide once AF3/OpenFold3 sanitise them") }
+        }
+    }
+
+    test("fold_pulldown rejects a target and binder that sanitise to the same id") {
+        tag "ids"
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_ids/pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_ids/pulldown/binders.fasta"
+                methods = "boltz"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert !workflow.success
+            assert workflow.stdout.any { it.contains("shared by targets and binders once sanitised") }
+        }
+    }
+
     test("bindcraft method compiles (single PDB)") {
         options "-preview"
         when {

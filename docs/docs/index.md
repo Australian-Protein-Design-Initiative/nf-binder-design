@@ -15,7 +15,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - **Germinal** - antibody/nanobody design in parallel across multiple GPUs
 - **BoltzGen** - design proteins and complexes using BoltzGen
 - **Fold Pulldown** - an AlphaPulldown-like target × binder pulldown across multiple folding engines (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, ESMFold2)
-- **Fold** - multi-method structure prediction (AF2, Boltz-2, RF3, Protenix) with shared MSAs and EnGens clustering
+- **Fold** - multi-method structure prediction (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, ESMFold2) with shared MSAs and EnGens clustering
 
 ![RFdiffusion workflow](images/rfd-workflow.png)
 

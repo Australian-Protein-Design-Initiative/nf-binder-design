@@ -33,6 +33,10 @@ plugins:
   - mike
 #  - macros
 
+# Re-renders metro/*.mmd into docs/images/ before each build; see metro/README.md.
+hooks:
+  - metro/hook.py
+
 # theme:
 #   name: material
 #   palette:
@@ -62,6 +66,8 @@ theme:
 # without this they render as literal text.
 markdown_extensions:
   - admonition
+  # `{target="_blank"}` on the linked metro-map diagrams in workflows/fold*.md.
+  - attr_list
 
 extra_css:
   - styles.green.css

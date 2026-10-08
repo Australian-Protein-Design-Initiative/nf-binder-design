@@ -104,8 +104,8 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `bindcraft` | BindCraft in parallel | End-to-end design with built-in validation |
 | `germinal` | Germinal in parallel | Antibody and nanobody design via Hydra YAML |
 | `boltzgen` | BoltzGen generative model | Protein, peptide, nanobody, or small-molecule binders |
-| `fold_pulldown` | Multi-model target × binder co-fold | Validate designed binders (AlphaPulldown-like) with AF2/Boltz/RF3/Protenix |
-| `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix |
+| `fold_pulldown` | Multi-model target × binder co-fold | Validate designed binders (AlphaPulldown-like) with AF2/Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2 |
+| `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2 |
 | `foldseek` | FoldSeek structural search | Annotate designs against CATH/PDB databases |
 
 Add `--do_foldseek` to `rfd`, `rfd3`, `bindcraft`, or `boltzgen` to run FoldSeek on outputs inline.

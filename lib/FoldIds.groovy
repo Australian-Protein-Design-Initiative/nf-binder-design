@@ -65,6 +65,14 @@ class FoldIds {
 
         def sanTargets = targetIds.collect { sanitize(it) }
         def sanBinders = binderIds.collect { sanitize(it) }
+        def sharedSan = ((sanTargets as Set).intersect(sanBinders as Set)).sort() - sharedRaw
+        if (sharedSan) {
+            errors << (
+                "id(s) shared by targets and binders once sanitised: ${sharedSan.join(', ')} " +
+                "(e.g. 'A+B' and 'A?B' both become 'A_B' - the per-chain MSA files collide " +
+                "as they would for a shared raw id; rename one side)"
+            )
+        }
         def dupSanTargets = duplicated(sanTargets) - dupTargets
         if (dupSanTargets) {
             errors << (
@@ -99,15 +107,35 @@ class FoldIds {
         return errors
     }
 
-    /** --method fold: fail fast on duplicate meta.id (= FASTA file baseName). */
+    /**
+     * --method fold: fail fast on ids (= FASTA file baseName) that collide, either
+     * outright or once an engine has sanitised them for its own output paths.
+     */
     static List<String> validateFoldIds(List<String> ids) {
+        def errors = []
+
         def dup = duplicated(ids)
-        if (!dup) {
-            return []
+        if (dup) {
+            errors << (
+                "duplicate id(s) derived from input FASTA filenames: ${dup.join(', ')} " +
+                "(two input files share a basename, e.g. 'x.fa' and 'x.fasta' - rename one)"
+            )
         }
-        return [
-            "duplicate id(s) derived from input FASTA filenames: ${dup.join(', ')} " +
-            "(two input files share a basename, e.g. 'x.fa' and 'x.fasta' - rename one)"
-        ]
+
+        // AF3 and OpenFold3 name their output directory after the job, dropping
+        // every character outside [A-Za-z0-9_.-] (FoldNaming.af3Name), so two ids
+        // differing only in those characters would publish over each other.
+        def distinct = (ids as LinkedHashSet).toList()
+        def dupEngine = duplicated(distinct.collect { FoldNaming.af3Name(it) })
+        if (dupEngine) {
+            def culprits = distinct.findAll { FoldNaming.af3Name(it) in dupEngine }.sort()
+            errors << (
+                "input id(s) collide once AF3/OpenFold3 sanitise them: ${culprits.join(', ')} " +
+                "-> ${dupEngine.join(', ')} (characters outside [A-Za-z0-9_.-] are removed, " +
+                "so these would share an output directory and overwrite each other - rename one)"
+            )
+        }
+
+        return errors
     }
 }

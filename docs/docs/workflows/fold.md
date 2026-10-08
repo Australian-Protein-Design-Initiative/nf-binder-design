@@ -1,6 +1,6 @@
 # Fold Workflow
 
-![Fold workflow](../images/fold_metro_map.svg)
+[![Fold workflow](../images/fold_metro_map.svg)](../images/fold_metro_map.svg){target="_blank" rel="noopener" title="Open the full-size diagram in a new tab"}
 
 Multi-method structure prediction for monomer **and multimer** FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,

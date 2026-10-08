@@ -6,7 +6,9 @@
 
 """
 Every process used by fold / fold_pulldown must have a withName selector in
-nextflow.config and conf/platforms/m3.config (AGENTS.md close-out checklist).
+nextflow.config, conf/platforms/m3.config and conf/platforms/m3_bdi.config
+(AGENTS.md close-out checklist), and a container selector in
+conf/platforms/monash_containers.config if its module declares a container.
 
 Nextflow matches a selector as a regex against the WHOLE simple name (declared
 name or include alias) or the whole fully-qualified name, so partial paths such
@@ -23,7 +25,11 @@ from typing import Dict, List, Set
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIGS = [ROOT / "nextflow.config", ROOT / "conf" / "platforms" / "m3.config"]
+PLATFORMS = ROOT / "conf" / "platforms"
+CONFIGS = [ROOT / "nextflow.config", PLATFORMS / "m3.config", PLATFORMS / "m3_bdi.config"]
+CONTAINER_CONFIG = PLATFORMS / "monash_containers.config"
+# Declared containers with no Monash mirror image (see the header of monash_containers.config)
+UNMIRRORED = {"MMSEQS_COLABFOLDSEARCH"}
 
 _PROCESS_RE = re.compile(r"^\s*process\s+([A-Z0-9_]+)\s*\{", re.M)
 _INCLUDE_RE = re.compile(r"include\s*\{([^}]*)\}\s*from\s*'([^']+)'")
@@ -63,6 +69,18 @@ def _processes() -> Dict[str, Set[str]]:
     return names
 
 
+def _containerised() -> Set[str]:
+    """Declared names of processes whose module has a `container` directive."""
+    found: Set[str] = set()
+    for nf in (ROOT / "modules").rglob("*.nf"):
+        parts = re.split(r"^\s*process\s+([A-Z0-9_]+)\s*\{", nf.read_text(), flags=re.M)
+        # parts = [preamble, name1, body1, name2, body2, ...]
+        for name, body in zip(parts[1::2], parts[2::2]):
+            if re.search(r"^\s*container\b", body, re.M):
+                found.add(name)
+    return found
+
+
 PROCESSES = _processes()
 
 
@@ -70,16 +88,28 @@ def test_found_fold_processes():
     assert {"OPENFOLD3", "ANNOTATE_MSA", "FOLD_SCORE_AF2", "SPLIT_COMPLEX_FASTA"} <= set(PROCESSES)
 
 
-@pytest.mark.parametrize("config", CONFIGS, ids=lambda p: p.name)
-def test_every_fold_process_has_a_selector(config):
+def _missing_selectors(config: Path, processes: Dict[str, Set[str]]) -> List[str]:
     selectors = [re.compile(s) for s in _selectors(config)]
-    missing = sorted(
-        base for base, aliases in PROCESSES.items()
+    return sorted(
+        base for base, aliases in processes.items()
         # 'SUBWF:' stands in for any qualified path, for selectors like '.*:PROC'
         if not any(sel.fullmatch(name) or sel.fullmatch(f"SUBWF:{name}")
                    for sel in selectors for name in aliases)
     )
+
+
+@pytest.mark.parametrize("config", CONFIGS, ids=lambda p: p.name)
+def test_every_fold_process_has_a_selector(config):
+    missing = _missing_selectors(config, PROCESSES)
     assert not missing, f"{config.name}: no withName selector for {missing}"
+
+
+def test_every_containerised_fold_process_has_a_mirror_selector():
+    containerised = _containerised() - UNMIRRORED
+    needed = {base: aliases for base, aliases in PROCESSES.items() if base in containerised}
+    assert needed, "no containerised fold processes found"
+    missing = _missing_selectors(CONTAINER_CONFIG, needed)
+    assert not missing, f"{CONTAINER_CONFIG.name}: no container selector for {missing}"
 
 
 @pytest.mark.parametrize("config", CONFIGS, ids=lambda p: p.name)

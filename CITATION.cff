@@ -19,6 +19,10 @@ abstract:
 
   <li>BoltzGen</li>
 
+  <li>Fold - multi-method structure prediction (AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, ESMFold2)</li>
+
+  <li>Fold Pulldown - an AlphaPulldown-like target x binder pulldown across those predictors</li>
+
   <li>FoldSeek structural search of designed binders</li>
 
   </ul>'

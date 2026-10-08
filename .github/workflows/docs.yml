@@ -46,7 +46,7 @@ jobs:
           restore-keys: |
             mkdocs-material-
 
-      - run: pip install mkdocs-material mike
+      - run: pip install -r docs/requirements.txt
 
       - name: Deploy docs
         run: |

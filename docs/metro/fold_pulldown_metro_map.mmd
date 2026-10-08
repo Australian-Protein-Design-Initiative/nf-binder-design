@@ -16,6 +16,8 @@
 %%metro off_track: templates_in
 %%metro file: scores_out | TSV | Scores
 %%metro file: report_out | HTML | Report
+%%metro marker: pairing | square, open
+%%metro marker_legend: square, open | Optional step, off by default
 
 graph LR
     subgraph msa [Inputs and MSAs]
@@ -24,7 +26,7 @@ graph LR
         binders_in[ ]
         binder_msa[Binder MSAs]
         pairs[Make pairs]
-        pairing[Taxonomy pairing]
+        pairing["(Taxonomy pairing)"]
         templates_in[ ]
         match_templates[Template matching]
         targets_in -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| msa_search

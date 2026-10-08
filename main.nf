@@ -74,7 +74,7 @@ workflow {
             bindcraft       BindCraft binder design
             germinal        Germinal antibody/nanobody design
             boltzgen        BoltzGen binder design
-            fold            Multi-method structure folding (AF2/Boltz/RF3/Protenix)
+            fold            Multi-method structure folding (AF2/Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2)
             fold_pulldown   Multi-method target x binder pulldown
             foldseek        FoldSeek structural similarity search
 
