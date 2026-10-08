@@ -425,57 +425,83 @@ Select either or both, e.g. `--methods esmfold2,esmfold2_fast` to compare them:
 
 ## Templates
 
-`--templates` takes known structures (`.pdb` or `.cif`, optionally gzipped) as
-a directory or glob. The files can hold single chains or whole complexes. No
-mapping file is needed. Every protein chain in every file is aligned to every
-chain being folded, much as AF2's template search does with the PDB, and kept
-for that chain when it passes both thresholds:
+`--templates` takes known structures (`.pdb` or `.cif`, optionally gzipped) as a
+directory or a glob. Files may hold single chains or whole complexes, and no
+mapping file is needed.
+
+- Every protein chain in every file is aligned to every chain being folded, much
+  as AF2's template search does against the PDB.
+- A template is kept for a chain when its alignment passes all of the cutoffs
+  below; the best `--template_max_per_chain` by identity × coverage are used.
+- Templates inform each chain's own structure only. No engine takes the
+  arrangement between chains from them.
+- The normalised template files and the full report are published to
+  `<outdir>/fold/templates/`. `templates_matched.tsv` lists every chain and
+  template pair considered, with its identity, coverage and aligned length, and
+  why it was accepted or rejected.
+
+### Match cutoffs
 
 | Option | Default | Meaning |
 |--------|---------|---------|
 | `--template_min_identity` | `0.3` | Identity over the aligned residues |
-| `--template_min_coverage` | `0.3` | Fraction of the folded chain covered by the alignment |
-| `--template_max_per_chain` | `4` | Best matches (identity × coverage) kept per chain |
+| `--template_min_coverage` | `0.3` | Fraction of the folded chain the alignment covers |
+| `--template_min_aligned` | `40` | Aligned residues required |
+| `--template_max_per_chain` | `4` | Templates kept per chain, best first |
 
-The match report and the normalised template files are published under
-`<outdir>/fold/templates/` (`templates_matched.tsv` lists every chain pair
-considered and why it was accepted or rejected). Templates only inform each
-chain's own structure; no engine takes the arrangement between chains from them.
+```bash
+nextflow run main.nf --method fold ... \
+    --templates my_structures/ \
+    --template_min_identity 0.8 \
+    --template_max_per_chain 1
+```
 
-Every engine except `esmfold2` / `esmfold2_fast` uses templates; ESMFold2 has no
-template input, so it folds without them (with a warning). Notes for each engine:
+- Raise `--template_min_identity` (say `0.8`) when only a near-identical
+  structure should count, which is the usual case for a known target.
+- `--template_min_coverage` is a fraction, so it scales away on short chains:
+  30% of a 60-residue binder is only 18 residues. `--template_min_aligned` is
+  the absolute floor underneath it, so a de novo design aligning to a 26-33
+  residue stretch of an unrelated structure no longer counts as a template.
+- A chain shorter than `--template_min_aligned` must be covered end to end
+  instead, so peptide templates still work without lowering the floor.
+- A long but mediocre alignment can still get close to the defaults: in the
+  pulldown example the two unrelated targets align over 70 residues at 28.6%
+  identity, just under the identity cutoff. Check `templates_matched.tsv`, and
+  raise `--template_min_identity` when only a close template should count.
 
-- **AF2:** the matched templates are added to the chain's template features
-  ahead of any AF2 found itself (on the `jackhmmer_af2` route), keeping 4 in
-  total. Only monomer models 1 and 2 use templates; multimer models all do.
-  Shallow `--msa_subsample` jobs fold without user templates.
-- **AF3:** the matched templates are added to each chain's input with an explicit
-  residue mapping (`queryIndices` / `templateIndices`).
-- **Boltz-2:** each template is pinned to its chain (`chain_id`). Boltz aligns the
-  template itself and uses only its longest gap-free match, so a template with
-  missing loops contributes just one segment.
+### How each engine uses them
+
+| Engine | Templates per chain | How they are passed |
+|--------|---------------------|---------------------|
+| `af2`, `af2_mono` | up to 4, user templates first | Added to the chain's features ahead of any AF2 found itself |
+| `af3` | up to `--template_max_per_chain` | Inline mmCIF with an explicit residue mapping |
+| `boltz` | up to `--template_max_per_chain` | Pinned to the chain, with an optional distance restraint |
+| `openfold3` | up to `--template_max_per_chain` | CIF files, realigned by OpenFold3 with kalign |
+| `protenix` | up to `--template_max_per_chain` | AF3-format JSON, run with `--use_template true` |
+| `rf3` | 1 (the best match) | The chain itself, built with the template's coordinates |
+| `esmfold2`, `esmfold2_fast` | none | No template input; folds without them, with a warning |
+
+Engine-specific notes:
+
+- **AF2:** 4 is the most any AF2 model uses, so user templates can displace ones
+  AF2 found on the `jackhmmer_af2` route. Only monomer models 1 and 2 use
+  templates; all multimer models do. Shallow `--msa_subsample` jobs fold without
+  user templates.
+- **Boltz-2:** Boltz aligns the template itself and uses only its longest
+  gap-free match, so a template with missing loops contributes one segment.
   `--boltz_template_force` holds the chain within `--boltz_template_threshold`
-  (default 1.0 Å) of the template. It is off by default in `--method fold`, where
-  the template should guide the prediction without over-biasing it, and on by
-  default in `--method fold_pulldown`.
-- **Protenix:** each templated chain gets a `templatesPath` JSON in the same
-  format as AF3 (mmCIF plus residue mapping), and the job runs with
-  `--use_template true`. This needs the Protenix container built from upstream
-  commit 85767b8 or later; the v2.0.0 release cannot take structure-file templates.
-- **RosettaFold3:** RF3 has no separate template input, so the templated chain
-  is given as a structure file built from its best template: the chain's own
-  sequence, with template coordinates on aligned residues (backbone only where
-  the residue differs). Residues the template lacks are kept but not templated.
-  RF3 uses one template per chain.
-- **OpenFold3:** templates are passed as CIF files (its CIF-direct mode), and
-  OpenFold3 realigns them to the chain with kalign. The pipeline points its
-  template structure directory at the staged files and turns off downloads from
-  RCSB.
-
-> Weak, short matches can pass the default thresholds. For example, a de novo
-> design can align to a 26–33 residue stretch of an unrelated structure at about
-> 35% identity. Check `templates_matched.tsv`, and raise the thresholds when
-> you only want close templates.
+  (default 1.0 Å) of the template. It is off by default in `--method fold`, so
+  the template guides the prediction without over-biasing it, and on by default
+  in `--method fold_pulldown`, where the chain structures are known and the
+  binding pose is what is being predicted.
+- **Protenix:** needs the container built from upstream commit 85767b8 or later.
+  The v2.0.0 release cannot take structure-file templates.
+- **RosettaFold3:** RF3 has no separate template input, so the chain is supplied
+  as a structure file: its own sequence, carrying the template's coordinates on
+  aligned residues (backbone only where the residue differs). Residues the
+  template lacks are kept but not templated.
+- **OpenFold3:** the pipeline points OpenFold3's template structure directory at
+  the staged files and turns off downloads from RCSB.
 
 ## Example Usage
 

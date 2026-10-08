@@ -98,7 +98,11 @@ matched to target chains automatically by sequence; see
   (`--boltz_template_force`, 1.0 Å), because the chain structures are known and
   the binding pose is what is being predicted. Pass `--boltz_template_force false`
   to let Boltz depart from them.
-- Every engine except ESMFold2 uses templates.
+- Matching cutoffs are the same as in `--method fold`
+  ([Match cutoffs](fold.md#match-cutoffs)): identity and coverage of at least
+  0.3, at least 40 aligned residues, and the best 4 templates per chain.
+- Every engine except ESMFold2 uses templates, most of them up to 4 per chain
+  ([how each engine uses them](fold.md#how-each-engine-uses-them)).
 
 ## Example
 
