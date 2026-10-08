@@ -4,7 +4,8 @@ nextflow.enable.dsl = 2
 
 /*
 Fold pulldown: co-fold every binder against every target with one or more of
-AF2 / Boltz-2 / RF3 / Protenix, then summarise interface scores.
+AF2 / AF2-monomer (af2_mono) / Boltz-2 / RF3 / Protenix / AlphaFold3 / OpenFold3,
+then summarise interface scores.
 
 Usage via main.nf:
   nextflow run main.nf --method fold_pulldown \
@@ -23,7 +24,7 @@ params.fold_publish_dir = 'fold_pulldown'
 
 params.create_target_msa = false
 params.create_binder_msa = false
-params.n_predictions = false
+params.n_predictions = 5
 
 // --- Ranking (see bin/fold_pulldown_summarise.py) ---
 params.consensus_metric = 'ipsae'
@@ -51,7 +52,7 @@ params.af2_pdb70_subpath = 'pdb70/pdb70'
 // the in-container default needs no host params dir. Point this at a host
 // AlphaFold download to override. (Falls back to af2_db_path if set false.)
 params.af2_data_dir = '/app/alphafold'
-params.af2_keep_models = 'best'
+params.af2_keep_models = 'all'
 params.af2_no_relax = false
 // AF2's result_model_*.pkl carry the full model output (distogram, MSA and
 // structure-module tensors) at ~90 MB each -- 860 MB per prediction, and by far
@@ -119,7 +120,8 @@ params.gpu_lock_timeout = 14400
 
 include { FOLD_PULLDOWN_MSA } from '../subworkflows/local/fold_pulldown_msa'
 include { FOLD_PREDICT } from '../subworkflows/local/fold_predict'
-include { FOLD_PULLDOWN_MERGE_SCORES } from '../modules/fold/common/fold_pulldown_merge_scores'
+include { FOLD_TEMPLATES } from '../subworkflows/local/fold_templates'
+include { FOLD_PULLDOWN_MERGE_SCORES } from '../modules/local/fold/common/fold_pulldown_merge_scores'
 include { FOLD_PULLDOWN_REPORTING } from '../modules/local/common/fold_pulldown_reporting'
 
 workflow FOLD_PULLDOWN {
@@ -134,7 +136,7 @@ workflow FOLD_PULLDOWN {
         ==================================================================
 
         Co-fold every binder against every target with one or more structure
-        predictors (AF2, Boltz-2, RF3, Protenix), then summarise interface
+        predictors (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3), then summarise interface
         scores (iptm, ipsae) across replicates and models.
 
         Required arguments:
@@ -143,13 +145,14 @@ workflow FOLD_PULLDOWN {
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
-            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix [default: ${params.methods}]
-                                   af2      = AlphaFold2-multimer.
+            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast [default: ${params.methods}]
+                                   af2      = AlphaFold2 multimer (every pair here is a 2-chain complex,
+                                              so af2 always uses AF2's native multimer weights/pipeline).
                                    af2_mono = AF2 MONOMER weights on a concatenated complex, chains
                                               separated only by a residue_index jump. Shares af2's
                                               MSAs; only features.pkl differs. Without an initial
                                               guess the monomer models often fail to dock at all and
-                                              only ranking separates the good pose, so pair it with
+                                              only ranking separates the good pose, so consider
                                               --af2_keep_models best. Not an independent engine:
                                               it shares weights lineage with af2.
             --af2_chain_break_offset  residue_index jump per chain break, must exceed AF2's
@@ -157,10 +160,23 @@ workflow FOLD_PULLDOWN {
             --msa_method          jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --create_target_msa   Build MSA for each target [default: ${params.create_target_msa}]
             --create_binder_msa   Build MSA for each binder [default: ${params.create_binder_msa}]
-            --n_predictions       Structures per complex per method [default: unset -> engine defaults]
+            --n_predictions       Structures per complex per method [default: ${params.n_predictions}]
             --use_msa_server      Boltz fetches its own MSA [default: ${params.use_msa_server}]
-            --templates           Templates directory with .cif files [default: ${params.templates}]
+            --templates           Template structures (.pdb/.cif; dir or glob), matched to target chains
+                                  by sequence alignment; not used by esmfold2 [default: ${params.templates}]
+            --binder_templates    Also match templates to binder chains [default: ${params.binder_templates}]
+            --template_min_identity / --template_min_coverage / --template_min_aligned / --template_max_per_chain
+                                  Matching thresholds [default: ${params.template_min_identity} / ${params.template_min_coverage} / ${params.template_min_aligned} / ${params.template_max_per_chain}]
+            --boltz_template_force  Hold templated chains near the template (Boltz force) [default: true]
+            --boltz_template_threshold  Boltz force threshold in Angstrom [default: ${params.boltz_template_threshold}]
             --skip_engens         Skip EnGens clustering [default: ${params.skip_engens}]
+
+            Every method-specific flag from --method fold --help (--af2_*, --boltz_*,
+            --rf3_*, --protenix_*, --af3_*, --openfold3_*, --esmfold2_*) applies here too, e.g.
+            --af2_keep_models (which of AF2's 5 models/run to keep toward
+            --n_predictions) [default: ${params.af2_keep_models}]. 'all' keeps all 5
+            models from AF2's single run, matching --n_predictions 5 at no extra cost;
+            --method fold defaults to 'best'.
 
             Ranking (summary table):
             --consensus_metric    ipsae|iptm; metric averaged into consensus_z [default: ${params.consensus_metric}]
@@ -172,8 +188,29 @@ workflow FOLD_PULLDOWN {
                                    over k complexes |z| cannot exceed (k-1)/sqrt(k)
                                    [default: ${params.min_pool}]
 
-            AF2 (--methods includes af2) needs the 2021 DB snapshot with uniprot/:
+            AF2 (--methods includes af2 or af2_mono) needs the 2021 DB snapshot with uniprot/:
             --af2_db_path         [default: ${params.af2_db_path}]
+            --af2_uniref30_subpath / --af2_mgnify_subpath / --af2_uniprot_subpath /
+            --af2_pdb_seqres_subpath / --af2_pdb70_subpath   Per-DB subpaths under
+                                   --af2_db_path, as for --method fold (see --method fold --help)
+            --af2_data_dir        Directory containing params/ (model weights); bundled in the
+                                   container by default [default: ${params.af2_data_dir}]
+
+            AlphaFold3 (--methods includes af3; weights are NOT bundled - see models/download_af3_weights.sh):
+            --af3_model_dir       Directory holding exactly one af3.bin.zst / af3.bin
+                                   [default: ${params.af3_model_dir}]
+            --af3_batch_size / --af3_seeds / --af3_num_recycles / --af3_flash_attention /
+            --af3_jax_cache_dir   As for --method fold (see --method fold --help)
+
+            OpenFold3 (--methods includes openfold3; weights are bundled in the container):
+            --openfold3_batch_size / --openfold3_seeds /
+            --openfold3_kernel_cache_dir   As for --method fold (see --method fold --help)
+
+            ESMFold2 (--methods includes esmfold2 and/or esmfold2_fast; weights are bundled in the containers):
+            --esmfold2_weights_dir / --esmfold2_batch_size /
+            --esmfold2_seeds / --esmfold2_single_sequence / --esmfold2_num_loops /
+            --esmfold2_num_sampling_steps / --esmfold2_msa_max_depth /
+            --esmfold2_kernel_backend      As for --method fold (see --method fold --help)
 
             ColabFold MSA (--msa_method mmseqs2_colabfold):
             --use_remote_server   Query ColabFold API [default: ${params.use_remote_server}]
@@ -195,22 +232,16 @@ workflow FOLD_PULLDOWN {
     }
 
     def methods = FoldValidation.parseMethods(params.methods)
+    // AF2 in fold_pulldown assembles the target MSA itself (jackhmmer dir or
+    // ColabFold/mmseqs2 a3m via FOLD_ASSEMBLE_AF2_MULTIMER_MSAS) and always
+    // folds the binder chain query-only, so neither FoldValidation's generic
+    // "AF2 multimer requires jackhmmer_af2" error nor its ColabFold "will run
+    // UNPAIRED" warning apply here - opts.pulldown: true skips both.
     def (errors, warnings) = FoldValidation.validate(params, methods, [
         hasMultimer: true,
         af2DbPath: params.af2_db_path,
-        // Pulldown builds unpaired per-chain MSAs; ColabFold is fine here
-        // (no cross-chain pairing expected). Suppress the unpaired warning by
-        // not treating ColabFold as an error; FoldValidation still warns.
+        pulldown: true,
     ])
-    // Drop the ColabFold unpaired warning — expected for pulldown.
-    warnings = warnings.findAll { !it.toString().contains('will run UNPAIRED') }
-    // AF2+ColabFold is still an error in FoldValidation; for pulldown AF2 uses
-    // assemble from jackhmmer target MSA only, so require jackhmmer when af2.
-    // AF2 gets the ColabFold/mmseqs2 target a3m via assemble (binder stays
-    // query-only). No jackhmmer-specific requirement when create_target_msa.
-    // Remove generic AF2 multimer jackhmmer error if create_target_msa is false
-    // (assemble uses query-only) or we already checked above.
-    errors = errors.findAll { !it.toString().contains("AF2 multimer requires --msa_method jackhmmer_af2") }
 
     warnings.each { log.warn("fold_pulldown: ${it}") }
     if (errors) {
@@ -219,6 +250,13 @@ workflow FOLD_PULLDOWN {
 
     if (MsaSubsample.isEnabled(params.msa_subsample)) {
         error("fold_pulldown: --msa_subsample is not supported (multimer pairs only).")
+    }
+
+    def target_ids = FoldIds.extractFastaIds(file(params.targets))
+    def binder_ids = FoldIds.extractFastaIds(file(params.binders))
+    def id_errors = FoldIds.validatePulldownIds(target_ids, binder_ids)
+    if (id_errors) {
+        error("fold_pulldown: ${id_errors.join('\nfold_pulldown: ')}")
     }
 
     ch_targets_meta = Channel.fromPath(params.targets)
@@ -237,6 +275,13 @@ workflow FOLD_PULLDOWN {
 
     FOLD_PULLDOWN_MSA(ch_targets, ch_binders, methods, params.msa_method)
 
+    // Binders are only templated with --binder_templates (see meta.template_chains).
+    FOLD_TEMPLATES(
+        params.binder_templates \
+            ? Channel.fromPath([params.targets, params.binders])
+            : Channel.fromPath(params.targets)
+    )
+
     ch_pairs_tsv = FOLD_PULLDOWN_MSA.out.pairs_rows.collectFile(
         name: 'pairs.tsv',
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold_pulldown'}",
@@ -249,6 +294,11 @@ workflow FOLD_PULLDOWN {
         FOLD_PULLDOWN_MSA.out.for_boltz,
         FOLD_PULLDOWN_MSA.out.for_rf3,
         FOLD_PULLDOWN_MSA.out.for_protenix,
+        FOLD_PULLDOWN_MSA.out.for_af3,
+        FOLD_PULLDOWN_MSA.out.for_openfold3,
+        FOLD_PULLDOWN_MSA.out.for_esmfold2,
+        FOLD_PULLDOWN_MSA.out.for_esmfold2_fast,
+        FOLD_TEMPLATES.out.templates,
         methods,
     )
 

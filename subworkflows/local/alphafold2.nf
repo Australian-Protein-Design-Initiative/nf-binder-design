@@ -12,8 +12,8 @@ subsampled a3m (empty templates); full-depth jobs reuse the precomputed
 features.pkl (templates kept for jackhmmer).
 */
 
-include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/fold/af2/alphafold2'
-include { FOLD_SCORE_AF2 } from '../../modules/fold/af2/fold_score_af2'
+include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/local/fold/af2/alphafold2'
+include { FOLD_SCORE_AF2 } from '../../modules/local/fold/af2/fold_score_af2'
 
 workflow ALPHAFOLD2 {
     take:
@@ -24,6 +24,7 @@ workflow ALPHAFOLD2 {
     // Both engines can run in the same pipeline; the tag keeps their published
     // predictions, score TSVs and FoldNaming prefixes apart.
     tool
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     def complex_mode = (tool == 'af2_mono') ? 'chainbreak' : 'multimer'
@@ -81,7 +82,7 @@ workflow ALPHAFOLD2 {
         jobs
     }
 
-    ALPHAFOLD2_PREDICT(ch_runs)
+    ALPHAFOLD2_PREDICT(ch_runs, ch_templates)
 
     // Score each run: FoldNaming.af2Prefix(meta) is the exact fold/predictions/
     // filename prefix the module's saveAs uses, so predictions_file lines up.

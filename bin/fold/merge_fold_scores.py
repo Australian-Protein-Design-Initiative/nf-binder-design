@@ -9,7 +9,7 @@ Merge per-tool fold score TSVs into the master fold_scores.tsv.
 AF2/RF3/Protenix per-tool tables are already in the canonical schema (produced
 by bin/fold/parse_fold_confidence.py) and are concatenated as-is. Boltz keeps its own
 native boltz_fold_scores.tsv (from bin/parse_boltz_confidence.py, shared with
-boltz_pulldown.nf), so its columns are mapped onto the canonical schema here.
+the Boltz refold modules), so its columns are mapped onto the canonical schema here.
 
 Canonical schema: see COLUMNS below. plddt is 0-1; asymmetric per-chain-pair
 scores are omitted; blanks where an engine does not report a metric.
@@ -20,7 +20,7 @@ import csv
 import sys
 
 COLUMNS = [
-    "tool", "id", "model", "original_file", "predictions_file",
+    "tool", "id", "model", "batch", "msa_depth", "original_file", "predictions_file",
     "ranking_score", "ptm", "iptm", "plddt", "pae", "pde", "has_clash",
     "ipsae", "ipsae_d0chn", "ipsae_d0dom", "pdockq", "pdockq2", "lis",
 ]
@@ -29,6 +29,8 @@ COLUMNS = [
 BOLTZ_MAP = {
     "id": "id",
     "model": "model",
+    "batch": "batch",
+    "msa_depth": "msa_depth",
     "original_file": "original_file",
     "predictions_file": "predictions_file",
     "confidence_score": "ranking_score",
@@ -36,7 +38,15 @@ BOLTZ_MAP = {
     "iptm": "iptm",
     "complex_plddt": "plddt",
     "complex_pde": "pde",
+    # bin/parse_boltz_confidence.py's --merge-ipsae only renames ipSAE ->
+    # ipSAE_min; the other Type==min interface metrics keep ipsae.py's own
+    # (mixed-case) column names.
     "ipsae_min": "ipsae",
+    "ipSAE_d0chn": "ipsae_d0chn",
+    "ipSAE_d0dom": "ipsae_d0dom",
+    "pDockQ": "pdockq",
+    "pDockQ2": "pdockq2",
+    "LIS": "lis",
 }
 
 

@@ -24,6 +24,13 @@ this merge is not byte-for-byte reversible - re-emitted sequences carry match
 columns only (no lower-case inserts). This is a documented quality caveat,
 not a bug: the merged a3m still carries the same match-column
 co-evolutionary signal Boltz/RF3 use for their own MSA featurization.
+
+parsers.parse_stockholm's per-row "description" is only the sequence name
+(eg "UniRef90_Q9NZQ7/18-239") - it drops the `#=GS <name> DE <description>`
+free-text line, which is where TaxID=/RepID=/Tax= actually live for jackhmmer's
+uniref90/mgnify hits. bin/fold/msa_taxonomy.py needs those in the header, so we
+re-merge each Stockholm source's GS DE text back onto its row descriptions here
+(see stockholm_gs_de.py) before writing the merged a3m.
 """
 
 import argparse
@@ -41,6 +48,21 @@ log = logging.getLogger(__name__)
 sys.path.insert(0, "/app/alphafold")
 
 from alphafold.data import parsers  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from stockholm_gs_de import merge_descriptions, parse_gs_de  # noqa: E402
+
+
+def restore_gs_de_descriptions(msa, sto_text: str):
+    """Return a copy of `msa` with descriptions re-merged from `sto_text`'s GS DE lines."""
+    gs_de = parse_gs_de(sto_text)
+    if not gs_de:
+        return msa
+    return parsers.Msa(
+        sequences=msa.sequences,
+        deletion_matrix=msa.deletion_matrix,
+        descriptions=merge_descriptions(msa.descriptions, gs_de),
+    )
 
 
 def msa_to_a3m_lines(msa, seen: Set[str]) -> List[str]:
@@ -66,8 +88,16 @@ def main() -> int:
     mgnify_sto_path = msas_dir / "mgnify_hits.sto"
 
     bfd_msa = parsers.parse_a3m(bfd_a3m_path.read_text()) if bfd_a3m_path.exists() else None
-    uniref90_msa = parsers.parse_stockholm(uniref90_sto_path.read_text()) if uniref90_sto_path.exists() else None
-    mgnify_msa = parsers.parse_stockholm(mgnify_sto_path.read_text()) if mgnify_sto_path.exists() else None
+
+    uniref90_msa = None
+    if uniref90_sto_path.exists():
+        uniref90_text = uniref90_sto_path.read_text()
+        uniref90_msa = restore_gs_de_descriptions(parsers.parse_stockholm(uniref90_text), uniref90_text)
+
+    mgnify_msa = None
+    if mgnify_sto_path.exists():
+        mgnify_text = mgnify_sto_path.read_text()
+        mgnify_msa = restore_gs_de_descriptions(parsers.parse_stockholm(mgnify_text), mgnify_text)
 
     for label, msa, path in (
         ("bfd_uniref_hits.a3m", bfd_msa, bfd_a3m_path),

@@ -34,4 +34,16 @@ class FoldNaming {
     static String af2Prefix(Map meta) {
         "${meta.af2_tool ?: 'af2'}_${meta.id}_run${meta.af2_run}${msaBit(meta)}_"
     }
+
+    // AlphaFold3's Input.sanitised_name(): the job name AF3 uses for its output
+    // directory and file prefixes (make_af3_input.py writes the same value).
+    static String af3Name(id) {
+        id.toString().replace(' ', '_').replaceAll(/[^A-Za-z0-9_.-]/, '')
+    }
+
+    // OpenFold3 query key / output directory name (make_openfold3_input.py
+    // sanitises with the same rule as AF3).
+    static String openfold3Name(id) {
+        af3Name(id)
+    }
 }

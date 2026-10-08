@@ -1,0 +1,100 @@
+process ALPHAFOLD2_JACKHMMER_MSA {
+    tag "${meta.id}"
+
+    container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
+
+    // Split publish: raw msas/ (shared with a3m conversion) under
+    // fold/msa/jackhmmer_af2/; AF2-only features.pkl under fold/af2/msas/.
+    // Emit "${meta.id}/**" so each nested file is a top-level publish item
+    // (pattern/saveAs cannot see inside a directory output item). The directory
+    // itself stays on the msa channel for AF2 predict / AF2_MSAS_TO_A3M.
+    publishDir(
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/msa/jackhmmer_af2",
+        mode: 'copy',
+        saveAs: { filename ->
+            def rel = filename.toString()
+            return rel.startsWith("${meta.id}/msas/") ? rel : null
+        }
+    )
+    publishDir(
+        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/msas",
+        mode: 'copy',
+        saveAs: { filename ->
+            def rel = filename.toString()
+            return rel == "${meta.id}/features.pkl" ? rel : null
+        }
+    )
+
+    input:
+    tuple val(meta), path(fasta)
+
+    output:
+    tuple val(meta), path(fasta), path("${meta.id}"), emit: msa
+    path "${meta.id}/**", emit: msa_files
+
+    script:
+    // All DB flags below are required on both the MSA and predict stages -
+    // run_alphafold.py has no defaults for them and fails flag parsing if any
+    // are omitted, even though only this (CPU) stage actually reads them.
+    // Multimer (meta.n_chains > 1) swaps the monomer pdb70 template DB for
+    // pdb_seqres + uniprot (all-seqs pairing DB) and sets model_preset=multimer;
+    // run_alphafold.py's _check_flag() ERRORS if pdb70 is set in multimer mode
+    // or pdb_seqres/uniprot in monomer mode, so the set is mutually exclusive.
+    // The monomer branch reproduces the original flag set/order byte-for-byte so
+    // -resume stays valid.
+    def d = params.af2_db_path
+    def data_dir = params.af2_data_dir ?: d
+    def is_multimer = ((meta.n_chains ?: 1) > 1 || params.af2_model_preset == 'multimer') \
+        && !meta.af2_force_monomer_msa
+    // When forcing a monomer MSA under a multimer-default preset (fold_pulldown
+    // target jackhmmer), fall back to monomer_ptm so DB flags and preset agree.
+    def model_preset = is_multimer \
+        ? 'multimer' \
+        : (meta.af2_force_monomer_msa ? 'monomer_ptm' : params.af2_model_preset)
+    def db_flags_list = [
+        "--data_dir=${data_dir}",
+        "--uniref90_database_path=${d}/uniref90/uniref90.fasta",
+        "--mgnify_database_path=${d}/${params.af2_mgnify_subpath}",
+        "--bfd_database_path=${d}/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt",
+        "--uniref30_database_path=${d}/${params.af2_uniref30_subpath}",
+    ]
+    if (is_multimer) {
+        db_flags_list += [
+            "--uniprot_database_path=${d}/${params.af2_uniprot_subpath}",
+            "--pdb_seqres_database_path=${d}/${params.af2_pdb_seqres_subpath}",
+        ]
+    }
+    else {
+        db_flags_list += ["--pdb70_database_path=${d}/${params.af2_pdb70_subpath}"]
+    }
+    db_flags_list += [
+        "--template_mmcif_dir=${d}/pdb_mmcif/mmcif_files",
+        "--obsolete_pdbs_path=${d}/pdb_mmcif/obsolete.dat",
+        "--max_template_date=${params.af2_max_template_date}",
+        "--db_preset=${params.af2_db_preset}",
+        "--model_preset=${model_preset}",
+    ]
+    def db_flags = db_flags_list.join(' ')
+    """
+    # AlphaFold names its per-target output directory after the FASTA stem, and the
+    # predict stage expects that stem to equal meta.id. That holds when a single-record
+    # FASTA is staged with its own id as the filename, but fold_pulldown reaches this
+    # process via splitFasta(file:true), which names each per-record file generically
+    # after the source basename (e.g. targets.1.fasta) rather than after the record's
+    # own id. Relink to ${meta.id}.fasta before invoking AlphaFold rather than trust the
+    # incoming filename, so the predict stage can find this directory again either way.
+    # Skip when already named that way: `ln -sf x x` replaces the staged
+    # symlink with one pointing at itself.
+    if [[ "${fasta}" != "${meta.id}.fasta" ]]; then
+        ln -sf "${fasta}" "${meta.id}.fasta"
+    fi
+    python /app/alphafold/run_alphafold.py \
+        --fasta_paths="${meta.id}.fasta" \
+        --output_dir=\$PWD \
+        --generate_msas_only=true \
+        --use_precomputed_msas=false \
+        --use_gpu_relax=false \
+        --models_to_relax=none \
+        ${db_flags}
+    """
+}

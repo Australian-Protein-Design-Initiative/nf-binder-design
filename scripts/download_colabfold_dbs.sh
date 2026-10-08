@@ -78,7 +78,7 @@ echo "  MMSEQS_NO_INDEX=${MMSEQS_NO_INDEX:-}  SKIP_TEMPLATES=${SKIP_TEMPLATES:-}
   bash "${WORKDIR}/setup_databases.sh" "${DOWNLOAD_DIR}"
 )
 
-# Arrange prefixes so fold.nf / boltz_pulldown --uniref30 and --colabfold_envdb
+# Arrange prefixes so fold.nf's --uniref30 and --colabfold_envdb
 # can point at dedicated directories (MMSEQS_COLABFOLDSEARCH globs uniref30_* and
 # colabfold_envdb* inside each path).
 UNIREF_DIR="${DOWNLOAD_DIR}/uniref30"

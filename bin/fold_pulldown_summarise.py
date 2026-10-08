@@ -65,8 +65,10 @@ def _max(xs: List[float]) -> Optional[float]:
 
 
 def _sd(xs: List[float]) -> Optional[float]:
+    # A single replicate has no spread to report; 0.0 previously implied
+    # "measured and tight", indistinguishable from a real zero-variance pool.
     if len(xs) < 2:
-        return 0.0 if xs else None
+        return None
     return statistics.stdev(xs)
 
 
@@ -108,19 +110,32 @@ def main() -> int:
             pairs[row["id"]] = (row["target"], row["binder"])
 
     score_rows: List[dict] = []
+    missing_ids: List[str] = []
     with open(args.scores) as f:
         reader = csv.DictReader(f, delimiter="\t")
         fieldnames = list(reader.fieldnames or [])
         for row in reader:
-            tid, bid = pairs.get(row.get("id", ""), ("", ""))
-            # Fallback: split id on _and_ if pairs miss a row
-            if not tid and "_and_" in row.get("id", ""):
-                parts = row["id"].split("_and_", 1)
-                tid, bid = parts[0], parts[1]
+            row_id = row.get("id", "")
+            if row_id not in pairs:
+                # Guessing target/binder by splitting on '_and_' is ambiguous
+                # (see FoldIds.groovy pair-id collision check) and silently
+                # mis-attributes a complex to the wrong target/binder - fail
+                # fast instead so a missing pairs.tsv row is never invented.
+                missing_ids.append(row_id)
+                continue
+            tid, bid = pairs[row_id]
             row = dict(row)
             row["target"] = tid
             row["binder"] = bid
             score_rows.append(row)
+
+    if missing_ids:
+        print(
+            f"ERROR: {len(missing_ids)} score row id(s) missing from {args.pairs}: "
+            f"{sorted(set(missing_ids))}",
+            file=sys.stderr,
+        )
+        return 1
 
     out_cols = ["target", "binder"] + [c for c in fieldnames if c not in ("target", "binder")]
     # Keep canonical order: target, binder after id if present
@@ -167,9 +182,13 @@ def main() -> int:
         key = (r["tool"],) if args.z_scope == "global" else (r["target"], r["tool"])
         pools[key].append(r)
 
-    def add_z(rows: List[dict], src: str, dst: str) -> None:
+    def add_z(rows: List[dict], src: str, dst: str) -> int:
+        """Standardise rows[*][src] into rows[*][dst]; return the count of
+        complexes that actually had src (mu/sd are computed over those only -
+        the pool can hold more complexes than contributed a value)."""
         vals = [r[src] for r in rows if r[src] is not None]
-        if len(vals) < 2:
+        n_used = len(vals)
+        if n_used < 2:
             mu, sd = (vals[0] if vals else 0.0), 0.0
         else:
             mu = statistics.mean(vals)
@@ -180,17 +199,34 @@ def main() -> int:
                 r[dst] = 0.0 if v is not None else None
             else:
                 r[dst] = (v - mu) / sd
+        return n_used
 
     iptm_src = f"iptm_{args.z_stat}"
     ipsae_src = f"ipsae_{args.z_stat}"
     z_basis = f"{args.consensus_metric}_{args.z_stat}/{args.z_scope}"
 
+    primary_metric = args.consensus_metric
+    secondary_metric = "iptm" if primary_metric == "ipsae" else "ipsae"
+    primary_src = f"{primary_metric}_{args.z_stat}"
+
+    # Whether the whole (target, tool) [or (tool,) for z_scope=global] pool
+    # lacks the primary metric entirely - only then is the secondary metric
+    # substituted for consensus_z, and for every complex in that pool, not
+    # per-complex - mixing pools per-row would let a complex whose primary
+    # metric merely failed (rather than being unsupported by the tool) beat
+    # complexes that were scored on the primary metric throughout the pool.
+    pool_lacks_primary: Dict[Tuple[str, ...], bool] = {}
+
     for key, rows in sorted(pools.items()):
-        add_z(rows, iptm_src, "iptm_z")
-        add_z(rows, ipsae_src, "ipsae_z")
-        small = len(rows) < args.min_pool
+        iptm_n = add_z(rows, iptm_src, "iptm_z")
+        ipsae_n = add_z(rows, ipsae_src, "ipsae_z")
+        primary_n = ipsae_n if primary_metric == "ipsae" else iptm_n
+        pool_lacks_primary[key] = primary_n == 0
+        small = primary_n < args.min_pool
         for r in rows:
-            r["n_pool"] = len(rows)
+            r["n_pool"] = primary_n
+            r["iptm_n_pool"] = iptm_n
+            r["ipsae_n_pool"] = ipsae_n
             r["z_basis"] = z_basis
             # Carried in the table as well as on stderr: a Nextflow task's stderr
             # ends up in the work directory, where nothing that reads the summary
@@ -200,40 +236,53 @@ def main() -> int:
             # With k complexes the largest possible |z| is (k-1)/sqrt(k), so a small
             # pool yields z-scores that carry only the ordering.
             print(
-                f"Warning: z-score pool {'/'.join(key)} holds {len(rows)} complex(es); "
-                f"|z| cannot exceed {(len(rows) - 1) / (len(rows) ** 0.5):.3f}. "
+                f"Warning: z-score pool {'/'.join(key)} holds {primary_n} complex(es) "
+                f"with {primary_metric}; |z| cannot exceed "
+                f"{max(primary_n - 1, 0) / max(primary_n, 1) ** 0.5:.3f}. "
                 "Treat these z-scores as rank labels, not distances.",
                 file=sys.stderr,
             )
 
-    # consensus_z = mean over tools of the chosen metric's z for that complex,
-    # falling back to the other metric only where the chosen one was not computed.
-    primary = f"{args.consensus_metric}_z"
-    secondary = "ipsae_z" if args.consensus_metric == "iptm" else "iptm_z"
+    # consensus_z = mean over tools of the chosen metric's z for that complex.
+    # The secondary metric is substituted only where its whole pool lacked the
+    # primary metric (see pool_lacks_primary above); otherwise a missing
+    # primary value for one complex just leaves that complex's contribution NA.
+    for r in summary_rows:
+        pool_key = (r["tool"],) if args.z_scope == "global" else (r["target"], r["tool"])
+        if pool_lacks_primary.get(pool_key):
+            z = r.get(f"{secondary_metric}_z")
+            used = secondary_metric if z is not None else None
+        else:
+            z = r.get(f"{primary_metric}_z")
+            used = primary_metric if z is not None else None
+        r["_consensus_z_contrib"] = z
+        r["_consensus_z_metric"] = used
 
     pair_tools: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
     for r in summary_rows:
         pair_tools[(r["target"], r["binder"])].append(r)
 
     consensus: Dict[Tuple[str, str], Optional[float]] = {}
+    n_tools: Dict[Tuple[str, str], int] = {}
+    metrics_used: Dict[Tuple[str, str], str] = {}
     for pair, rows in pair_tools.items():
-        zs = []
-        for r in rows:
-            z = r.get(primary)
-            if z is None:
-                z = r.get(secondary)
-            if z is not None:
-                zs.append(z)
+        contribs = [(r["tool"], r["_consensus_z_contrib"], r["_consensus_z_metric"]) for r in rows]
+        zs = [z for _tool, z, _m in contribs if z is not None]
         consensus[pair] = statistics.mean(zs) if zs else None
+        n_tools[pair] = len(zs)
+        metrics_used[pair] = ",".join(sorted({m for _t, z, m in contribs if z is not None}))
 
     for r in summary_rows:
-        r["consensus_z"] = consensus.get((r["target"], r["binder"]))
+        pair = (r["target"], r["binder"])
+        r["consensus_z"] = consensus.get(pair)
+        r["n_tools"] = n_tools.get(pair, 0)
+        r["consensus_z_metric"] = metrics_used.get(pair, "")
 
     sum_cols = [
         "target", "binder", "tool", "n",
-        "iptm_mean", "iptm_median", "iptm_max", "iptm_sd", "iptm_z",
-        "ipsae_mean", "ipsae_median", "ipsae_max", "ipsae_sd", "ipsae_z",
-        "consensus_z", "z_basis", "n_pool", "z_pool_small",
+        "iptm_mean", "iptm_median", "iptm_max", "iptm_sd", "iptm_z", "iptm_n_pool",
+        "ipsae_mean", "ipsae_median", "ipsae_max", "ipsae_sd", "ipsae_z", "ipsae_n_pool",
+        "consensus_z", "consensus_z_metric", "n_tools", "z_basis", "n_pool", "z_pool_small",
     ]
     with open(args.summary_out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=sum_cols, delimiter="\t", lineterminator="\n")
@@ -241,11 +290,11 @@ def main() -> int:
         for r in summary_rows:
             out = {}
             for c in sum_cols:
-                if c in ("n", "n_pool"):
+                if c in ("n", "n_pool", "iptm_n_pool", "ipsae_n_pool", "n_tools"):
                     out[c] = r[c]
                 elif c == "z_pool_small":
                     out[c] = "True" if r.get(c) else "False"
-                elif c in ("target", "binder", "tool", "z_basis"):
+                elif c in ("target", "binder", "tool", "z_basis", "consensus_z_metric"):
                     out[c] = r.get(c, "")
                 else:
                     out[c] = _fmt(r.get(c))

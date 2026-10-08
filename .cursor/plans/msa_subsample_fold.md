@@ -92,7 +92,7 @@ Keep today’s dual emit:
 
 When AF2 is requested **and** `--msa_subsample` is set, also ensure an a3m is available for AF2 (already true when other methods need a3m; if AF2-only + subsample, still run `AF2_MSAS_TO_A3M` / keep ColabFold a3m). Do **not** remove `COLABFOLD_A3M_TO_AF2_MSAS` — still needed for the non-subsample AF2 path under `--msa_method mmseqs2_colabfold`.
 
-### AF2 predict ([modules/fold/af2/alphafold2.nf](modules/fold/af2/alphafold2.nf) + [subworkflows/local/alphafold2.nf](subworkflows/local/alphafold2.nf))
+### AF2 predict ([modules/local/fold/af2/alphafold2.nf](modules/local/fold/af2/alphafold2.nf) + [subworkflows/local/alphafold2.nf](subworkflows/local/alphafold2.nf))
 
 - Input becomes `tuple val(meta), path(fasta), path(msa_dir), path(a3m)` (a3m may be a dummy/empty asset when subsample is off, mirroring other optional-path patterns in the repo — or only join a3m onto the channel when subsample is on so the process signature stays stable via a stub file).
 - Script branch:
@@ -123,9 +123,9 @@ At the **start of each predict process script**:
 | Process | File | Notes |
 |---------|------|--------|
 | BOLTZ | [modules/local/common/boltz.nf](modules/local/common/boltz.nf) | Overwrite/replace staged a3m |
-| RF3_FOLD | [modules/fold/rf3/rf3_fold.nf](modules/fold/rf3/rf3_fold.nf) | Spec currently bakes absolute `msa_path` — switch [bin/fold/make_rf3_fold_spec.py](bin/fold/make_rf3_fold_spec.py) to **basename** so in-place a3m replace works |
-| PROTENIX_FOLD | [modules/fold/protenix/protenix_fold.nf](modules/fold/protenix/protenix_fold.nf) | Same basename fix in [bin/fold/make_protenix_input.py](bin/fold/make_protenix_input.py) |
-| ALPHAFOLD2 | [modules/fold/af2/alphafold2.nf](modules/fold/af2/alphafold2.nf) | Hybrid branch above |
+| RF3_FOLD | [modules/local/fold/rf3/rf3_fold.nf](modules/local/fold/rf3/rf3_fold.nf) | Spec currently bakes absolute `msa_path` — switch [bin/fold/make_rf3_fold_spec.py](bin/fold/make_rf3_fold_spec.py) to **basename** so in-place a3m replace works |
+| PROTENIX_FOLD | [modules/local/fold/protenix/protenix_fold.nf](modules/local/fold/protenix/protenix_fold.nf) | Same basename fix in [bin/fold/make_protenix_input.py](bin/fold/make_protenix_input.py) |
+| ALPHAFOLD2 | [modules/local/fold/af2/alphafold2.nf](modules/local/fold/af2/alphafold2.nf) | Hybrid branch above |
 
 **Fan-out for depth × batch:** when `--msa_subsample` lists multiple depths, flatMap in each fold subworkflow so each `(batch, depth)` is a separate task (extreme: `--*_batch_size 1` ⇒ different random MSA per sample). Include full-depth job when `--msa_subsample_include_full`.
 

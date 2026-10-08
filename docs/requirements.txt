@@ -1,0 +1,8 @@
+# Docs build dependencies. Used by .github/workflows/docs.yml and for local
+# `mkdocs serve`: pip install -r docs/requirements.txt
+mkdocs-material
+mike
+# Renders metro/*_metro_map.mmd via metro/hook.py on every build. Pinned: the
+# layout engine moves between releases, and 2.1.0 is the version the maps and
+# their line ordering were tuned against.
+nf-metro==2.1.0

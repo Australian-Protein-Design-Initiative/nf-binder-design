@@ -5,6 +5,7 @@ results*/
 models/af2_initial_guess
 models/rfdiffusion
 models/HyperMPNN
+models/alphafold3
 containers/
 
 .venv

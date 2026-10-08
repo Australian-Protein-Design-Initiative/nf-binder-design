@@ -43,7 +43,11 @@ from alphafold.data.pipeline_multimer import (  # noqa: E402
 )
 
 STO_NAMES = ("uniref90_hits.sto", "mgnify_hits.sto")
-A3M_CANDIDATES = ("bfd_uniref_hits.a3m", "bfd_uniclust_hits.a3m")
+# bfd_uniref/bfd_uniclust come from the native jackhmmer/hhblits route
+# (ALPHAFOLD2_JACKHMMER_MSA); colabfold.a3m/subsampled.a3m come from the
+# ColabFold bridge (COLABFOLD_A3M_TO_AF2_MSAS) and --msa_subsample jobs
+# respectively - both write only a plain a3m per chain, no .sto sources.
+A3M_CANDIDATES = ("bfd_uniref_hits.a3m", "bfd_uniclust_hits.a3m", "colabfold.a3m", "subsampled.a3m")
 UNIPROT_STO = "uniprot_hits.sto"
 N_ATOM_TYPES = 37
 N_TEMPLATE_AATYPE = 22

@@ -1,4 +1,4 @@
-Multimer (protein complex) folding with the standalone `fold.nf` workflow.
+Multimer (protein complex) folding with `--method fold`.
 
 See the [Fold workflow docs](../../docs/docs/workflows/fold.md#multimer-complexes)
 for the full multimer / paired-MSA strategy. This example is the multimer
@@ -11,10 +11,10 @@ and chain B human PD-1 (UniProt Q15116, the IgV ectodomain, residues 21–147).
 Swap in any multi-record FASTA (up to 26 chains) to fold a different complex; a
 homo-oligomer is expressed as repeated identical records.
 
-Two alternate inputs are kept alongside it: `input/complex.human-mouse.fasta`
-(the original 3BIK pairing — human PD-L1 + **mouse** PD-1, UniProt Q02242) and
-`input/complex.human-human.fasta` (a copy of the default). Results from the
-human/mouse fold are archived under `results.human-mouse/`.
+`input/complex.human-mouse.fasta` is an alternate input using the original 3BIK
+pairing — human PD-L1 + **mouse** PD-1 (UniProt Q02242) — for comparison against
+the human/human default (`input/complex.human-human.fasta` is an identical copy
+of `input/complex.fasta`).
 
 ## How multimer pairing works here
 
@@ -27,8 +27,14 @@ One FASTA → per-chain MSA search → one canonical taxonomy parse
 | RF3 | numeric `TaxID=` | per-chain a3m with `TaxID=` headers |
 | Protenix | species mnemonic (`_HUMAN`, `_9BETA`) | per-chain `pairedMsaPath` + `unpairedMsaPath` |
 | Boltz-2 | taxid `key` | per-chain `key,sequence` CSV |
+| OpenFold3 | species mnemonic | per-chain `colabfold_main.a3m` + `uniprot_hits.a3m` (`tr\|ACC\|ACC_SPECIES/1-N` headers, used for pairing only) |
+| ESMFold2 | `key=<taxid>` (done by ESMFold2 itself) | per-chain a3m with `key=<taxid>` headers; rows with no taxonomy are kept |
 
-The rendered per-chain files are published under `results/fold/msa/paired/`.
+RF3 / Protenix / Boltz-2's rendered per-chain files are published under
+`results/fold/msa/paired/`. AF3, OpenFold3 and ESMFold2 (not shown above; see
+the [Fold docs](../../docs/docs/workflows/fold.md#paired-msas-how-each-engine-differs))
+render their own pairing input inline in their predict/input-prep tasks
+instead.
 
 **`--msa_method jackhmmer_af2` is required for paired multimers** — only its
 rich UniProt/UniRef headers carry taxonomy. ColabFold headers are taxonomy-less,
@@ -39,16 +45,17 @@ so a ColabFold multimer folds unpaired; for that route use `--use_msa_server tru
 
 AF2 multimer needs the 2021 snapshot (`alphafold_20211129`), which ships
 `uniprot/` + `pdb_seqres/`; the default `alphafold_20240229` is monomer-only and
-`fold.nf` fails fast if `af2` is requested for a multimer against it. The
-snapshot's DB filenames differ from the 20240229 defaults, so
+the fold workflow fails fast if `af2` is requested for a multimer against it.
+The snapshot's DB filenames differ from the 20240229 defaults, so
 `nextflow.m3.config` overrides `--af2_uniref30_subpath` (uniclust30),
 `--af2_mgnify_subpath` (2018_12), `--af2_uniprot_subpath` and
-`--af2_pdb_seqres_subpath` (all verified against the on-disk layout).
+`--af2_pdb_seqres_subpath`.
 
-One extra wrinkle: the container's `run_alphafold.py` loads **multimer_v3**
-weights, which the 2021 snapshot lacks (it only ships v1 multimer params). Since
-`--data_dir` only locates `params/`, the config reads weights from the 20240229
-snapshot (`--af2_data_dir`) while keeping the genetic DBs on the 2021 one.
+`nextflow.m3.config` also overrides `--af2_data_dir` to a host params
+directory, so both DB snapshots stay bind-mounted on M3 for `run_alphafold.py`
+to read weights from; this is not required in general — the `alphafold2`
+container already bundles **multimer_v3** weights alongside the monomer/ptm
+ones at its default `--af2_data_dir` (`/app/alphafold`).
 
 ## Running
 
@@ -68,13 +75,25 @@ Pass `--methods` to select a subset, e.g. skip AF2 (and its 2021-DB dependency)
 and let Boltz pair its own MSA:
 
 ```bash
-./run-m3.sh --methods boltz,rf3,protenix
+./run-m3.sh --methods boltz,rf3,protenix,openfold3
 # or the MSA-server route for Boltz:
 ./run-m3.sh --methods boltz --use_msa_server true
 ```
 
 ## Outputs
 
-Same layout as `examples/fold` (per-method predictions under `results/fold/`, a
-flat mmCIF gather in `results/fold/predictions/`, `results/fold/params.json`),
-plus the per-chain paired MSAs under `results/fold/msa/paired/`.
+Same layout as `examples/fold` (`results/params.json` and `results/logs/` at
+the outdir root; per-method predictions under `results/fold/`, a flat mmCIF
+gather in `results/fold/predictions/`), plus the per-chain paired MSAs under
+`results/fold/msa/paired/`.
+
+## AlphaFold3 + Protenix variant
+
+`run-af3-m3.sh` / `run-af3-local.sh` run only `--methods af3,protenix` into
+`results-af3/`. AlphaFold3 weights are not bundled: download them first with
+`../../models/download_af3_weights.sh` (after reading the terms it prints), or
+point `AF3_MODEL_DIR` at an existing weights directory, eg:
+
+```bash
+AF3_MODEL_DIR=/path/to/af3_weights ./run-af3-m3.sh
+```

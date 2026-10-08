@@ -240,3 +240,107 @@ def test_missing_metric_falls_back_to_the_other(tmp_path):
     pairs = _by_pair(summary, tool="af2")
     assert pairs[("T", "A")]["ipsae_z"] == ""
     assert float(pairs[("T", "A")]["consensus_z"]) > float(pairs[("T", "B")]["consensus_z"])
+    assert pairs[("T", "A")]["consensus_z_metric"] == "iptm"
+    assert pairs[("T", "A")]["n_tools"] == "1"
+
+
+def test_partial_metric_within_a_pool_is_not_mixed_into_consensus(tmp_path):
+    """One complex missing ipsae in a pool that otherwise has it must NOT fall
+    back to iptm for just that complex - that would let a complex whose ipsae
+    happened to fail rank on a different, incomparable metric than its peers."""
+    rows = [
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "iptm": "0.9", "ipsae": "0.10"},
+        {"id": "T_and_B", "tool": "boltz", "model": "0", "iptm": "0.10", "ipsae": ""},
+    ]
+    pairs_in = [
+        {"id": "T_and_A", "target": "T", "binder": "A"},
+        {"id": "T_and_B", "target": "T", "binder": "B"},
+    ]
+    summary, _ = _run(tmp_path, rows, pairs_in)
+    pairs = _by_pair(summary, tool="boltz")
+    # B's ipsae is missing, but the pool (T, boltz) DOES have ipsae (from A) -
+    # so B must be left NA, not silently substituted with its iptm_z.
+    assert pairs[("T", "B")]["consensus_z"] == ""
+    assert pairs[("T", "B")]["consensus_z_metric"] == ""
+    assert pairs[("T", "B")]["n_tools"] == "0"
+    assert pairs[("T", "A")]["consensus_z_metric"] == "ipsae"
+
+
+def test_n_pool_reflects_values_actually_used_not_row_count(tmp_path):
+    """n_pool must track how many complexes actually contributed to mu/sd,
+    not the raw row count in the pool (which can include metric-less rows)."""
+    rows = [
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "iptm": "0.9", "ipsae": "0.10"},
+        {"id": "T_and_B", "tool": "boltz", "model": "0", "iptm": "0.10", "ipsae": ""},
+    ]
+    pairs_in = [
+        {"id": "T_and_A", "target": "T", "binder": "A"},
+        {"id": "T_and_B", "target": "T", "binder": "B"},
+    ]
+    summary, _ = _run(tmp_path, rows, pairs_in)
+    pairs = _by_pair(summary, tool="boltz")
+    # ipsae was seen for exactly one complex in this pool.
+    assert pairs[("T", "A")]["ipsae_n_pool"] == "1"
+    assert pairs[("T", "A")]["iptm_n_pool"] == "2"
+    assert pairs[("T", "A")]["n_pool"] == "1"  # default consensus metric is ipsae
+
+
+def test_replicate_sd_is_blank_for_a_single_sample(tmp_path):
+    rows = [
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "iptm": "0.5", "ipsae": "0.5"},
+    ]
+    pairs_in = [{"id": "T_and_A", "target": "T", "binder": "A"}]
+    summary, _ = _run(tmp_path, rows, pairs_in)
+    row = summary[0]
+    assert row["iptm_sd"] == ""
+    assert row["ipsae_sd"] == ""
+
+
+def test_missing_pair_id_is_a_hard_error(tmp_path):
+    """Guessing target/binder by splitting on '_and_' is ambiguous (e.g.
+    a_and_b + c vs a + b_and_c) and silently mis-attributes scores - a score
+    row whose id is not in pairs.tsv must fail the run, not invent an id."""
+    scores = tmp_path / "fold_scores.tsv"
+    pairs = tmp_path / "pairs.tsv"
+    _write_tsv(scores, SCORE_COLS, [
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "iptm": "0.5", "ipsae": "0.5"},
+    ])
+    _write_tsv(pairs, ["id", "target", "binder"], [])  # pairs.tsv missing this id
+    proc = subprocess.run(
+        [sys.executable, str(SCRIPT),
+         "--scores", str(scores), "--pairs", str(pairs),
+         "--scores-out", str(tmp_path / "out_scores.tsv"),
+         "--summary-out", str(tmp_path / "out_summary.tsv")],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode != 0
+    assert "T_and_A" in proc.stderr
+
+
+def test_boltz_batch_rows_aggregate_together(tmp_path):
+    """Boltz batches (extra batch/msa_depth columns after model) must not be
+    split into separate summary rows - they are still one (target, binder,
+    tool) pool of replicates."""
+    cols = ["id", "tool", "model", "batch", "msa_depth", "iptm", "ipsae"]
+    scores = tmp_path / "fold_scores.tsv"
+    pairs = tmp_path / "pairs.tsv"
+    _write_tsv(scores, cols, [
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "batch": "0", "msa_depth": "128", "iptm": "0.5", "ipsae": "0.4"},
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "batch": "1", "msa_depth": "128", "iptm": "0.9", "ipsae": "0.8"},
+    ])
+    _write_tsv(pairs, ["id", "target", "binder"], [{"id": "T_and_A", "target": "T", "binder": "A"}])
+    out_scores = tmp_path / "out_scores.tsv"
+    out_summary = tmp_path / "out_summary.tsv"
+    subprocess.run(
+        [sys.executable, str(SCRIPT),
+         "--scores", str(scores), "--pairs", str(pairs),
+         "--scores-out", str(out_scores), "--summary-out", str(out_summary)],
+        capture_output=True, text=True, check=True,
+    )
+    summary = list(csv.DictReader(io.StringIO(out_summary.read_text()), delimiter="\t"))
+    assert len(summary) == 1
+    assert summary[0]["n"] == "2"
+    assert float(summary[0]["iptm_max"]) == pytest.approx(0.9)
+    # batch/msa_depth pass through untouched into the per-row scores table.
+    per_row = list(csv.DictReader(io.StringIO(out_scores.read_text()), delimiter="\t"))
+    assert {r["batch"] for r in per_row} == {"0", "1"}

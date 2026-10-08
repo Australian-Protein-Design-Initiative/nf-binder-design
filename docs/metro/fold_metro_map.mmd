@@ -1,0 +1,68 @@
+%%metro title: nf-binder-design: --method fold
+%%metro style: nfcore
+%%metro font_scale: 1.2
+%%metro x_spacing: 90
+%%metro y_spacing: 75
+%%metro line: esmfold2 | ESMFold2 (esmfold2, esmfold2_fast) | #8c564b
+%%metro line: rf3 | RosettaFold3 (rf3) | #2ca02c
+%%metro line: protenix | Protenix (protenix) | #d62728
+%%metro line: af2 | AlphaFold2 (af2, af2_mono) | #1f77b4
+%%metro line: af3 | AlphaFold3 (af3) | #17becf
+%%metro line: boltz | Boltz-2 (boltz) | #ff7f0e
+%%metro line: openfold3 | OpenFold3 (openfold3) | #9467bd
+%%metro file: fasta_in | FASTA | Chains
+%%metro files: templates_in | PDB | Templates
+%%metro off_track: templates_in
+%%metro file: scores_out | TSV | Scores
+%%metro file: engens_out | HTML | EnGens
+
+graph LR
+    subgraph msa [Inputs and MSAs]
+        fasta_in[ ]
+        msa_search[MSA search]
+        pairing[Taxonomy pairing]
+        fasta_in -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| msa_search
+        msa_search -->|af3,boltz,rf3,protenix,openfold3,esmfold2| pairing
+        msa_search -->|af2| match_templates
+        templates_in[ ]
+        match_templates[Template matching]
+        pairing -->|af3,boltz,rf3,protenix,openfold3| match_templates
+        templates_in -->|af2,af3,boltz,rf3,protenix,openfold3| match_templates
+    end
+
+    subgraph predict [Structure prediction]
+        af2_run[AlphaFold2]
+        af3_run[AlphaFold3]
+        boltz_run[Boltz-2]
+        rf3_run[RosettaFold3]
+        protenix_run[Protenix]
+        openfold3_run[OpenFold3]
+        esmfold2_run[ESMFold2]
+    end
+
+    subgraph score [Scoring and clustering]
+        confidence[Confidence and ipSAE]
+        merge[Merge scores]
+        engens[EnGens clustering]
+        scores_out[ ]
+        engens_out[ ]
+        confidence -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| merge
+        merge -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| scores_out
+        merge -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| engens
+        engens -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| engens_out
+    end
+
+    match_templates -->|af2| af2_run
+    match_templates -->|af3| af3_run
+    match_templates -->|boltz| boltz_run
+    match_templates -->|rf3| rf3_run
+    match_templates -->|protenix| protenix_run
+    match_templates -->|openfold3| openfold3_run
+    pairing -->|esmfold2| esmfold2_run
+    af2_run -->|af2| confidence
+    af3_run -->|af3| confidence
+    boltz_run -->|boltz| confidence
+    rf3_run -->|rf3| confidence
+    protenix_run -->|protenix| confidence
+    openfold3_run -->|openfold3| confidence
+    esmfold2_run -->|esmfold2| confidence

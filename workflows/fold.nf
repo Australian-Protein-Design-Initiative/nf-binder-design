@@ -4,12 +4,12 @@ nextflow.enable.dsl = 2
 
 /*
 Multi-method structure folding: predicts structures for FASTA inputs with any
-combination of --methods af2,boltz,rf3,protenix, sharing a single MSA-generation
-stage (FOLD_MSA) with a selectable --msa_method.
+combination of --methods af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast, sharing
+a single MSA-generation stage (FOLD_MSA) with a selectable --msa_method.
 
 Usage via main.nf:
   nextflow run main.nf --method fold --input 'input/*.fasta' --outdir results \
-      --methods af2,boltz,rf3,protenix --msa_method jackhmmer_af2 -profile slurm,m3
+      --methods af2,boltz,rf3,protenix,af3,openfold3,esmfold2 --msa_method jackhmmer_af2 -profile slurm,m3
 */
 
 params.method = 'fold'
@@ -122,8 +122,8 @@ workflow FOLD {
         ==================================================================
 
         Predict structures for one or more FASTA files with any combination of
-        AlphaFold2, Boltz-2, RosettaFold3 and Protenix, sharing one
-        MSA-generation stage.
+        AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3 and OpenFold3,
+        sharing one MSA-generation stage.
 
         Multimer: a multi-record FASTA folds as a protein complex (one record
         = one chain -> chain IDs A, B, C, ...; homo-oligomers = repeated
@@ -139,8 +139,10 @@ workflow FOLD {
 
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
-            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix [default: ${params.methods}]
-                                                af2      = AlphaFold2-multimer.
+            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast [default: ${params.methods}]
+                                                af2      = AlphaFold2. Monomer inputs use --af2_model_preset
+                                                           (monomer_ptm by default); multi-chain inputs use
+                                                           AF2's native multimer weights/pipeline instead.
                                                 af2_mono = AF2 MONOMER weights on a concatenated complex,
                                                            chains separated only by a residue_index jump.
                                                            Shares af2's MSAs; only features.pkl differs.
@@ -150,7 +152,7 @@ workflow FOLD {
                                                            so pair it with --af2_keep_models best.
             --msa_method                       jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --n_predictions                    Total structures per input, per method. Unset (default) => each
-                                                engine uses its own default: Boltz/RF3/Protenix emit 5 each,
+                                                engine uses its own default: Boltz/RF3/Protenix/AF3/OpenFold3 emit 5 each,
                                                 AF2 does one run keeping per --af2_keep_models. Set N to pin
                                                 every diffusion engine to N.
                                                 [default: unset]
@@ -169,17 +171,36 @@ workflow FOLD {
             --af2_publish_pkl                   Publish AF2's result_model_*.pkl (~90 MB each; the only
                                                 source of ptm/iptm/ranking_confidence)
                                                 [default: ${params.af2_publish_pkl}]
-            --af2_pdb70_subpath                 pdb70 prefix under --af2_db_path; monomer presets only
-                                                [default: ${params.af2_pdb70_subpath}]
+            --af2_num_predictions_per_model      AF2's --num_multimer_predictions_per_model; multimer only
+                                                [default: ${params.af2_num_predictions_per_model}]
+            --af2_data_dir                       Directory containing params/ (model weights); bundled in
+                                                the container by default, so this rarely needs overriding
+                                                [default: ${params.af2_data_dir}]
+            Per-DB subpaths under --af2_db_path (override individually for a non-default
+            snapshot, e.g. the 2021 multimer snapshot):
+            --af2_uniref30_subpath                [default: ${params.af2_uniref30_subpath}]
+            --af2_mgnify_subpath                  [default: ${params.af2_mgnify_subpath}]
+            --af2_uniprot_subpath                 multimer only [default: ${params.af2_uniprot_subpath}]
+            --af2_pdb_seqres_subpath               multimer only [default: ${params.af2_pdb_seqres_subpath}]
+            --af2_pdb70_subpath                  monomer presets only [default: ${params.af2_pdb70_subpath}]
 
             AF2 monomer chain-break (--methods includes af2_mono):
             --af2_monomer_model_preset          monomer|monomer_ptm|monomer_casp14 [default: ${params.af2_monomer_model_preset}]
             --af2_chain_break_offset            residue_index jump at each chain break; must exceed AF2's
                                                 relative-position clip of 32 [default: ${params.af2_chain_break_offset}]
 
+            Templates (every engine except esmfold2 / esmfold2_fast):
+            --templates                        Template structures (.pdb/.cif; dir or glob), matched to chains
+                                               by sequence alignment; not used by esmfold2 [default: ${params.templates}]
+            --template_min_identity            Min identity over aligned residues [default: ${params.template_min_identity}]
+            --template_min_coverage            Min fraction of the chain covered [default: ${params.template_min_coverage}]
+            --template_min_aligned             Min aligned residues (or the full chain, if shorter) [default: ${params.template_min_aligned}]
+            --template_max_per_chain           Templates kept per chain [default: ${params.template_max_per_chain}]
+            --boltz_template_force             Hold templated chains near the template (Boltz force) [default: false]
+            --boltz_template_threshold         Boltz force threshold in Angstrom [default: ${params.boltz_template_threshold}]
+
             Boltz-2 (--methods includes boltz):
             --use_msa_server                   Use Boltz's own MMseqs2 MSA server [default: ${params.use_msa_server}]
-            --templates                        Templates directory with .cif files [default: ${params.templates}]
             --boltz_recycling                  Boltz --recycling_steps override [default: boltz's own default]
             --boltz_batch_size                 Samples per Boltz job (--diffusion_samples)
             --boltz_sampling_steps              Boltz --sampling_steps override [default: boltz's own default]
@@ -194,13 +215,40 @@ workflow FOLD {
             --rf3_seed                          RF3 hydra seed= [default: unset]
 
             Protenix (--methods includes protenix):
-            --protenix_seeds                    Single seed [default: unset]
+            --protenix_seeds                    Base seed; batch i uses seed+i [default: unset]
             --protenix_cycle                    Pairformer cycles [default: ${params.protenix_cycle}]
             --protenix_step                     Diffusion steps [default: ${params.protenix_step}]
             --protenix_batch_size               Samples per Protenix job (--sample)
             --protenix_model_name               Checkpoint name [default: ${params.protenix_model_name}]
             --protenix_use_msa                  Feed shared a3m to Protenix [default: ${params.protenix_use_msa}]
             --protenix_need_atom_confidence     Write full-confidence JSON (PAE matrix) per sample [default: ${params.protenix_need_atom_confidence}]
+
+            AlphaFold3 (--methods includes af3; weights are NOT bundled - see models/download_af3_weights.sh):
+            --af3_model_dir                     Directory holding exactly one af3.bin.zst / af3.bin
+                                                [default: ${params.af3_model_dir}]
+            --af3_batch_size                    Samples per AF3 job (--num_diffusion_samples)
+            --af3_seeds                         Base model seed; batch i uses seed+i [default: 1]
+            --af3_num_recycles                  [default: ${params.af3_num_recycles}]
+            --af3_flash_attention               auto|triton|cudnn|xla; auto picks xla (plus the XLA
+                                                workaround) on pre-Ampere GPUs [default: ${params.af3_flash_attention}]
+            --af3_jax_cache_dir                 Persistent JAX compilation cache dir [default: unset]
+
+            OpenFold3 (--methods includes openfold3; weights are bundled in the container):
+            --openfold3_batch_size              Samples per OpenFold3 job (--num-diffusion-samples)
+            --openfold3_seeds                   Base model seed; batch i uses seed+i [default: 42]
+            --openfold3_kernel_cache_dir        Persistent Triton kernel cache dir [default: unset]
+
+            ESMFold2 (--methods includes esmfold2 and/or esmfold2_fast; weights are bundled in the containers).
+            esmfold2 is MSA-conditioned (biohub/ESMFold2); esmfold2_fast (biohub/ESMFold2-Fast) always folds
+            from sequence alone. The options below apply to both unless noted.
+            --esmfold2_weights_dir              External HF cache dir (HF_HOME) instead of the in-image weights [default: unset]
+            --esmfold2_batch_size               Samples per ESMFold2 job (num_diffusion_samples)
+            --esmfold2_seeds                    Base model seed; batch i uses seed+i [default: 42]
+            --esmfold2_single_sequence          Fold esmfold2 from sequence alone, no MSAs [default: ${params.esmfold2_single_sequence}]
+            --esmfold2_num_loops                Trunk loops [default: esm's own, 20]
+            --esmfold2_num_sampling_steps       Diffusion steps [default: esm's own, 200]
+            --esmfold2_msa_max_depth            esmfold2 MSA rows kept per loop [default: esm's own, 1024]
+            --esmfold2_kernel_backend           fused (default), cuequivariance or none
 
             MSA subsample:
             --msa_subsample                     false (default), true (CF-random depths), or custom list
@@ -220,6 +268,7 @@ workflow FOLD {
             --engens_gmm_ic                     aic|bic [default: ${params.engens_gmm_ic}]
             --engens_seed                       Optional RNG seed [default: unset]
             --engens_featurizers                default,3di,pb [default: ${params.engens_featurizers}]
+            --engens_superpose_method            Superposition scheme for geometric featurizers [default: ${params.engens_superpose_method}]
 
             --gpu_devices                        GPU devices [default: ${params.gpu_devices}]
             --gpu_slots_per_device               Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
@@ -237,7 +286,9 @@ workflow FOLD {
     def methods = FoldValidation.parseMethods(params.methods)
 
     def p = params.input
-    def resolved = file(p).isDirectory() ? file("${p}/*.{fasta,fa,faa}") : file(p)
+    // A glob makes file() return a List, which has no isDirectory().
+    def given = file(p)
+    def resolved = (!(given instanceof List) && given.isDirectory()) ? file("${p}/*.{fasta,fa,faa}") : given
     List input_paths = (resolved instanceof List) ? resolved : [resolved]
 
     if (!input_paths) {
@@ -271,6 +322,11 @@ workflow FOLD {
     warnings.each { log.warn("fold: ${it}") }
     if (errors) {
         error("fold: ${errors.join('\nfold: ')}")
+    }
+
+    def id_errors = FoldIds.validateFoldIds(input_paths.collect { it.baseName })
+    if (id_errors) {
+        error("fold: ${id_errors.join('\nfold: ')}")
     }
 
     ch_input = Channel.fromList(input_paths).map { f ->

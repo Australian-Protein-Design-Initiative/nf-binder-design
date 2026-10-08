@@ -13,15 +13,15 @@ nav:
       - BindCraft: workflows/bindcraft.md
       - Germinal: workflows/germinal.md
       - BoltzGen: workflows/boltzgen.md
-      - Boltz Pulldown: workflows/boltz-pulldown.md
-      - Fold Pulldown: workflows/fold-pulldown.md
       - Fold: workflows/fold.md
+      - Fold Pulldown: workflows/fold-pulldown.md
   - Subworkflows:
       - FoldSeek: subworkflows/foldseek.md
   - Extra:
       - Examples: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md
       - Development: extra/development.md
       - Multiple GPUs: extra/multi-gpu.md
+      - Fold Databases: extra/fold-databases.md
       - Utility Scripts: extra/utility-scripts.md
       - M3 HPC Examples: extra/m3-hpc-examples.md
       - Pawsey Setonix Examples: extra/pawsey-setonix.md
@@ -32,6 +32,10 @@ plugins:
   - search
   - mike
 #  - macros
+
+# Re-renders metro/*.mmd into docs/images/ before each build; see metro/README.md.
+hooks:
+  - metro/hook.py
 
 # theme:
 #   name: material
@@ -62,6 +66,8 @@ theme:
 # without this they render as literal text.
 markdown_extensions:
   - admonition
+  # `{target="_blank"}` on the linked metro-map diagrams in workflows/fold*.md.
+  - attr_list
 
 extra_css:
   - styles.green.css

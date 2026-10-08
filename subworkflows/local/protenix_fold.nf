@@ -9,10 +9,10 @@ from FOLD_MSA (Protenix pairs by species mnemonic; see
 plans/fold-nf-multimer-paired-msa.md). Both feed the same PROTENIX_FOLD predict.
 */
 
-include { GENERATE_PROTENIX_INPUT } from '../../modules/fold/protenix/generate_protenix_input'
-include { GENERATE_PROTENIX_INPUT_COMPLEX } from '../../modules/fold/protenix/generate_protenix_input_complex'
-include { PROTENIX_FOLD as PROTENIX_FOLD_PROCESS } from '../../modules/fold/protenix/protenix_fold'
-include { FOLD_PARSE_CONFIDENCE } from '../../modules/fold/common/fold_parse_confidence'
+include { GENERATE_PROTENIX_INPUT } from '../../modules/local/fold/protenix/generate_protenix_input'
+include { GENERATE_PROTENIX_INPUT_COMPLEX } from '../../modules/local/fold/protenix/generate_protenix_input_complex'
+include { PROTENIX_FOLD as PROTENIX_FOLD_PROCESS } from '../../modules/local/fold/protenix/protenix_fold'
+include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -33,32 +33,25 @@ def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
 workflow PROTENIX_FOLD {
     take:
     ch_for_protenix // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
+    ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
     ch_mono = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
     ch_multi = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) > 1 }
-    GENERATE_PROTENIX_INPUT(ch_mono)
-    GENERATE_PROTENIX_INPUT_COMPLEX(ch_multi)
+    GENERATE_PROTENIX_INPUT(ch_mono, ch_templates)
+    GENERATE_PROTENIX_INPUT_COMPLEX(ch_multi, ch_templates)
     ch_with_json = GENERATE_PROTENIX_INPUT.out.with_json.mix(GENERATE_PROTENIX_INPUT_COMPLEX.out.with_json)
 
     def batches = foldPredictionBatches(params.protenix_batch_size, 5, params.n_predictions)
 
-    if (params.protenix_seeds && params.protenix_seeds.toString().contains(',')) {
-        // namespaced is only known after per-a3m depth filtering; reject multi-seed
-        // whenever batching or subsample could fan out (same rule as before).
-        def maybe_depths = MsaSubsample.depthJobs(params.msa_subsample, params.msa_subsample_include_full)
-        if (batches.size() > 1 || maybe_depths.size() > 1) {
-            error(
-                "fold.nf: --protenix_seeds with multiple comma-separated values cannot be " +
-                "auto-offset across --protenix_batch_size jobs; pin a single seed (batches " +
-                "use seed, seed+1, ...) or leave --protenix_seeds unset."
-            )
-        }
-    }
+    // Comma-separated --protenix_seeds is already a hard error in
+    // FoldValidation.groovy (Protenix names structures without the seed, so
+    // several seeds in one job overwrite each other in fold/predictions/ and
+    // mis-pair confidence files) - by the time this workflow runs, only a
+    // single seed value can reach here.
+    def base_seed = params.protenix_seeds ? (params.protenix_seeds.toString().trim() as int) : null
 
-    def base_seed = params.protenix_seeds ? (params.protenix_seeds.toString().split(',')[0].trim() as int) : null
-
-    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json ->
+    ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json, protenix_templates ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
             ? MsaSubsample.countA3mSequences(a3m) : null
         def depth_jobs = MsaSubsample.depthJobs(
@@ -88,7 +81,7 @@ workflow PROTENIX_FOLD {
                 else if (MsaSubsample.isEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
-                jobs << [m, fasta, a3m, json]
+                jobs << [m, fasta, a3m, json, protenix_templates]
             }
         }
         jobs

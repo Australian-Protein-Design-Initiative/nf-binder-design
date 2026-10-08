@@ -1,8 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-# Re-exec under the `alphafold` group so the 2021 AF2 database under /mnt/datasets
-# (group=alphafold, mode 750) is readable. Harmless if you already have access.
-if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
 PIPELINE_DIR=../..
 DATESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -12,10 +9,11 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --method fold \
   --input 'input/complex.fasta' \
   --outdir results \
-  --methods af2,boltz,rf3,protenix \
+  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
   --msa_method jackhmmer_af2 \
   --n_predictions 1 \
   --af2_keep_models best \
   -profile local -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  "$@"

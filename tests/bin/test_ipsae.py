@@ -5,7 +5,7 @@
 # ///
 
 """Tests for bin/ipsae.py helpers (structure extension detection, AF2 list-wrapped
-PAE JSON, Protenix key aliases)."""
+PAE JSON, Protenix / OpenFold3 key aliases and OpenFold3 summaries)."""
 
 import importlib.util
 from pathlib import Path
@@ -39,6 +39,28 @@ def test_summary_confidences_path_protenix(tmp_path):
     summary.write_text("{}")
     got = ipsae.summary_confidences_path(str(pae))
     assert Path(got).name == "cx_summary_confidence_sample_0.json"
+
+
+def test_normalize_openfold3_plddt_key():
+    raw = {"plddt": [91.0, 88.0], "pde": [[0.1]], "pae": [[0.2]]}
+    assert ipsae.normalize_token_pae_json(raw)["atom_plddts"] == [91.0, 88.0]
+
+
+def test_openfold3_format_detected_from_aggregated_sibling(tmp_path):
+    pae = tmp_path / "cx_seed_42_sample_1_confidences.json"
+    agg = tmp_path / "cx_seed_42_sample_1_confidences_aggregated.json"
+    pae.write_text("{}")
+    assert ipsae.resolve_input_format("auto", "cx_seed_42_sample_1_model.cif", str(pae)) == "af3"
+    agg.write_text("{}")
+    assert ipsae.openfold3_aggregated_path(str(pae)) == str(agg)
+    assert ipsae.resolve_input_format("auto", "cx_seed_42_sample_1_model.cif", str(pae)) == "openfold3"
+
+
+def test_openfold3_chain_pair_iptm_dict():
+    summary = {"chain_pair_iptm": {"(A, B)": 0.92, "(A, C)": 0.4}}
+    iptm = ipsae.openfold3_chain_pair_iptm(summary, ["A", "B", "C"])
+    assert iptm["A"]["B"] == iptm["B"]["A"] == 0.92
+    assert iptm["C"]["A"] == 0.4 and iptm["B"]["C"] == 0.0
 
 
 def test_split_structure_name_uses_real_extension():

@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--target", help="Target name (optional)")
     parser.add_argument("--binder", help="Binder name (optional)")
     parser.add_argument("--model", help="Model/sample index (optional); adds a 'model' column")
+    parser.add_argument("--batch", help="fold.nf batch index (optional); adds a 'batch' column")
+    parser.add_argument("--msa-depth", help="fold.nf MSA subsample depth tag (optional); adds a 'msa_depth' column")
     parser.add_argument("--original-file", help="Engine-native structure filename (optional); adds 'original_file'")
     parser.add_argument("--predictions-file", help="Renamed name in fold/predictions/ (optional); adds 'predictions_file'")
     parser.add_argument("--merge-ipsae", help="Path to *_ipsae.tsv file to merge (optional)")
@@ -90,6 +92,12 @@ def main():
         insert_at += 1
     if args.model is not None:
         df_flat.insert(insert_at, "model", args.model)
+        insert_at += 1
+    if args.batch:
+        df_flat.insert(insert_at, "batch", args.batch)
+        insert_at += 1
+    if args.msa_depth:
+        df_flat.insert(insert_at, "msa_depth", args.msa_depth)
         insert_at += 1
     if args.original_file:
         df_flat.insert(insert_at, "original_file", args.original_file)

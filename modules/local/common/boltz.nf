@@ -4,7 +4,7 @@ process BOLTZ {
     // Recursive /** so each nested file is its own publish item. A directory
     // output is a single item - saveAs never sees *_model_N.cif inside it, so
     // the fold/predictions gather would publish nothing (same pattern as
-    // modules/fold/af2/alphafold2.nf and modules/fold/rf3/rf3_fold.nf).
+    // modules/local/fold/af2/alphafold2.nf and modules/local/fold/rf3/rf3_fold.nf).
     publishDir(
         path: "${params.outdir}/${step_name}",
         mode: 'copy',
@@ -16,8 +16,8 @@ process BOLTZ {
     )
     // Second publishDir (fold / fold_pulldown): gather per-sample structures
     // into the shared flat <outdir>/<fold_publish_dir>/predictions/ dir with a
-    // boltz_ prefix. Gated on step_name ending /boltz so boltz_pulldown
-    // (step_name 'boltz_pulldown') does not also dump here.
+    // boltz_ prefix. Gated on step_name ending /boltz so other callers do
+    // not also dump here.
     publishDir(
         path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/predictions",
         mode: 'copy',
@@ -42,7 +42,7 @@ process BOLTZ {
     tuple val(meta), path(yaml_file), path(target_msa), path(binder_msa)
     path templates
     val step_name
-    // pdb | cif | mmcif — callers hardcode this (fold.nf -> cif, boltz_pulldown -> pdb).
+    // pdb | cif | mmcif — callers hardcode this (fold.nf -> cif).
     // File suffix is .cif for cif/mmcif; Boltz CLI uses --output_format mmcif for those.
     val output_format
 
@@ -69,7 +69,7 @@ process BOLTZ {
     // the m3 profile layers in its broad `withName: BOLTZ` selector (a Nextflow
     // profile-merge quirk). Per-job sample count and seed come from meta when
     // BOLTZ_FOLD fans --n_predictions across --boltz_batch_size jobs; params
-    // remain unset for boltz_pulldown callers (no flag added - a no-op).
+    // remain unset for callers that do not fan out (no flag added - a no-op).
     def diffusion_samples = meta.fold_batch_size ?: params.boltz_batch_size
     def seed = meta.boltz_seed != null ? meta.boltz_seed : params.boltz_seed
     def fmt = output_format.toString().toLowerCase()

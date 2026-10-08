@@ -12,13 +12,16 @@ abstract:
 
   <li>BindCraft (in parallel across multiple GPUs)</li>
 
-  <li>"Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)</li>
 
   <li>RFdiffusion3 -&gt; ProteinMPNN -&gt; RosettaFold3 / Boltz refolding</li>
 
   <li>Germinal (antibody/nanobody design)</li>
 
   <li>BoltzGen</li>
+
+  <li>Fold - multi-method structure prediction (AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, ESMFold2)</li>
+
+  <li>Fold Pulldown - an AlphaPulldown-like target x binder pulldown across those predictors</li>
 
   <li>FoldSeek structural search of designed binders</li>
 

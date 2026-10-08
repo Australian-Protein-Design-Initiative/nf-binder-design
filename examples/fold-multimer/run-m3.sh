@@ -1,8 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-# AF2 DBs at /mnt/datasets/alphafold are group=alphafold, mode 750. Re-exec under that
-# group so the sbatch-submitted jobs inherit the GID
-if [ "$(id -gn)" != "alphafold" ]; then exec sg alphafold -c "$0 $*"; fi
 
 # Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
 # `def`, which Nextflow >=26's default (strict) parser rejects. Use
@@ -24,10 +21,11 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --slurm_account ${DEFAULT_SLURM_ACCOUNT} \
   --input 'input/complex.fasta' \
   --outdir results \
-  --methods af2,boltz,rf3,protenix \
+  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
   --msa_method jackhmmer_af2 \
   --n_predictions 5 \
   --af2_keep_models best \
   -profile slurm,m3 -resume \
   -with-report results/logs/report_${DATESTAMP}.html \
-  -with-trace results/logs/trace_${DATESTAMP}.txt
+  -with-trace results/logs/trace_${DATESTAMP}.txt \
+  "$@"

@@ -12,7 +12,7 @@ fold/predictions/, run ipSAE (bin/ipsae.py) and emit a normalized TSV row (via
 bin/fold/parse_fold_confidence.py). Rows for all kept models are concatenated to
 stdout (header once), ready for collectFile into af2_fold_scores.tsv.
 
-Which structures are "published" mirrors modules/fold/af2/alphafold2.nf's flat
+Which structures are "published" mirrors modules/local/fold/af2/alphafold2.nf's flat
 fold/predictions saveAs rule:
   relax on (default): relaxed_model_*.pdb  (all 5 for keep=all; the best for keep=best)
   --af2_no_relax + keep=all:  unrelaxed_model_*.pdb
@@ -97,6 +97,8 @@ def main():
     p.add_argument("--tool", default="af2", choices=("af2", "af2_mono"),
                    help="tool tag for the TSV: af2 (multimer) or af2_mono (chain break)")
     p.add_argument("--pred-prefix", required=True, help="FoldNaming.af2Prefix(meta)")
+    p.add_argument("--batch", default="", help="fold.nf batch index (meta.af2_run); blank if unbatched")
+    p.add_argument("--msa-depth", default="", help="fold.nf MSA subsample depth tag (meta.msa_depth_tag); blank if full-depth")
     p.add_argument("--keep-models", default="all", choices=("all", "best"))
     p.add_argument("--no-relax", action="store_true")
     p.add_argument("--pae-cutoff", type=float, default=10.0)
@@ -114,6 +116,7 @@ def main():
         cmd = [
             sys.executable, os.path.join(BIN, "parse_fold_confidence.py"),
             "--tool", args.tool, "--id", args.id, "--model", str(model_n),
+            "--batch", args.batch, "--msa-depth", args.msa_depth,
             "--original-file", cif, "--predictions-file", f"{args.pred_prefix}{cif}",
             "--pkl", pkl,
         ]

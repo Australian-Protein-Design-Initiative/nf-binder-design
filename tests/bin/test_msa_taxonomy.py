@@ -41,6 +41,10 @@ PROTENIX_UNIPROT_RE = re.compile(
     r"(?:tr|sp)\|[A-Z0-9]{6,10}(?:_\d+)?\|[A-Z0-9]{1,10}_(?P<SpeciesId>[A-Z0-9]{1,5})"
 )
 PROTENIX_UNIREF_RE = re.compile(r"^UniRef100_[^_]+_([^_/]+)")
+# AlphaFold3 data/msa_features._UNIPROT_ENTRY_NAME_REGEX (applied with .match)
+AF3_UNIPROT_RE = re.compile(
+    r"(?:tr|sp)\|(?:[A-Z0-9]{6,10})(?:_\d+)?\|(?:[A-Z0-9]{1,10}_)(?P<SpeciesId>[A-Z0-9]{1,5})"
+)
 
 
 # --- Realistic header samples ---------------------------------------------------
@@ -149,6 +153,54 @@ def test_protenix_paired_accession_has_no_underscore():
     assert "_" not in acc_seg
 
 
+# --- AF3 renderer: paired headers must match AF3's UniProt entry-name regex -----
+
+
+def test_render_af3_paired_matches_af3_uniprot_regex():
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, UNIREF_FULL, UNIPROT_SP, COLABFOLD_BARE))
+    paired = mt.render_af3_paired_a3m(recs)
+    headers = [ln[1:] for ln in paired.splitlines() if ln.startswith(">")]
+    assert headers[0] == QUERY_HEADER
+    hit_headers = headers[1:]
+    assert len(hit_headers) == 3
+    species = [AF3_UNIPROT_RE.match(h).group("SpeciesId") for h in hit_headers]
+    assert species == ["9BETA", "9BETA", "HUMAN"]
+
+
+def test_render_af3_paired_synthesises_invalid_accession():
+    uniparc = "UniRef100_UPI0001234567 Foo n=1 Tax=Homo sapiens TaxID=9606 RepID=UPI0001234567_HUMAN"
+    recs = mt.parse_a3m(build_a3m(uniparc))
+    paired = mt.render_af3_paired_a3m(recs)
+    hit = [ln[1:] for ln in paired.splitlines() if ln.startswith(">")][1]
+    m = AF3_UNIPROT_RE.match(hit)
+    assert m and m.group("SpeciesId") == "HUMAN"
+
+
+# --- OpenFold3 renderer: every hit header must split into exactly six fields ----
+
+
+def _of3_fields(header):
+    # openfold3 process_msa_pairing_metadata: str.split(r"[|_/:-]") into
+    # [tr, uniprot_id, uniprot_id_copy, species_id, chain_start, chain_end]
+    return re.split(r"[|_/:-]", header)
+
+
+def test_render_openfold3_pairing_headers_split_into_six_fields():
+    uniparc = "UniRef100_UPI0001234567 Foo n=1 Tax=Homo sapiens TaxID=9606 RepID=UPI0001234567_HUMAN"
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, UNIREF_FULL, UNIPROT_SP, COLABFOLD_BARE, uniparc))
+    rendered = mt.render_openfold3_pairing_a3m(recs)
+    headers = [ln[1:] for ln in rendered.splitlines() if ln.startswith(">")]
+    assert headers[0] == QUERY_HEADER
+    fields = [_of3_fields(h) for h in headers[1:]]
+    assert all(len(f) == 6 for f in fields)
+    assert [f[3] for f in fields] == ["9BETA", "9BETA", "HUMAN", "HUMAN"]
+
+
+def test_render_openfold3_pairing_query_only():
+    recs = mt.parse_a3m(build_a3m())
+    assert mt.render_openfold3_pairing_a3m(recs) == f">{QUERY_HEADER}\n{QUERY_SEQ}\n"
+
+
 # --- Boltz renderer: key,sequence CSV keyed on taxid ----------------------------
 
 
@@ -181,6 +233,9 @@ def test_query_only_a3m_renders_for_all_tools():
     unpaired = mt.render_protenix_unpaired_a3m(recs)
     assert QUERY_SEQ in paired and QUERY_SEQ in unpaired
 
+    af3 = mt.render_af3_paired_a3m(recs)
+    assert af3 == f">{QUERY_HEADER}\n{QUERY_SEQ}\n"
+
     buf = io.StringIO()
     mt.render_boltz_csv(recs, buf)
     lines = buf.getvalue().splitlines()
@@ -191,3 +246,46 @@ def test_query_only_a3m_renders_for_all_tools():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# --- ESMFold2 renderer: key=<taxid> headers, unkeyed rows kept as unpaired tail --
+
+
+# esm/models/esmfold2/paired_msa.py _KEY_RE
+ESMFOLD2_KEY_RE = re.compile(r"key=(-?\d+)")
+
+
+def test_render_esmfold2_keys_on_taxid():
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, UNIREF_FULL, UNIPROT_SP))
+    headers = [ln[1:] for ln in mt.render_esmfold2_a3m(recs).splitlines() if ln.startswith(">")]
+    assert headers[0] == QUERY_HEADER
+    assert [ESMFOLD2_KEY_RE.search(h).group(1) for h in headers[1:]] == ["1608321", "120505", "9606"]
+
+
+def test_render_esmfold2_keeps_unkeyed_rows_as_unpaired():
+    """ESMFold2 lays taxonomy-less rows out block-diagonally, so they must stay."""
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, COLABFOLD_BARE))
+    rendered = mt.render_esmfold2_a3m(recs)
+    headers = [ln[1:] for ln in rendered.splitlines() if ln.startswith(">")]
+    assert len(headers) == 3
+    assert ESMFOLD2_KEY_RE.search(headers[2]) is None
+
+
+def test_render_esmfold2_query_carries_no_key():
+    """Row 0 is ESMFold2's all-chain query row and is kept verbatim."""
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR))
+    first = mt.render_esmfold2_a3m(recs).splitlines()[0]
+    assert first == f">{QUERY_HEADER}"
+
+
+def test_render_esmfold2_does_not_double_key():
+    already = "tr|Q8QRZ0|Q8QRZ0_9BETA thing OX=1608321 key=42"
+    recs = mt.parse_a3m(build_a3m(already))
+    hit = [ln[1:] for ln in mt.render_esmfold2_a3m(recs).splitlines() if ln.startswith(">")][1]
+    assert ESMFOLD2_KEY_RE.findall(hit) == ["42"]
+
+
+def test_render_esmfold2_preserves_sequences():
+    recs = mt.parse_a3m(build_a3m(UNIPROT_TR, COLABFOLD_BARE))
+    rendered = mt.render_esmfold2_a3m(recs)
+    assert [ln for ln in rendered.splitlines() if not ln.startswith(">")] == [r.sequence for r in recs]

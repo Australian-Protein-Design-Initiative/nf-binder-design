@@ -38,8 +38,12 @@ def engensStructurePaths(files) {
         if (bn ==~ /.*_model_\d+\.(cif|pdb)/ && !(bn ==~ /.*_sample.*/)) {
             return true
         }
-        // RF3: *_sample-N_model.cif
+        // RF3 / AF3: *_sample-N_model.cif
         if (bn ==~ /.*_sample-\d+_model\.cif/) {
+            return true
+        }
+        // OpenFold3: *_seed_S_sample_N_model.cif
+        if (bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/) {
             return true
         }
         // Protenix: *_sample_N.cif
@@ -55,25 +59,26 @@ def engensStructurePaths(files) {
 def engensUniqueName(meta, path) {
     def bn = path.getName().toString()
     def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
+    // Build names from FoldNaming so EnGens staged names always equal the
+    // fold/predictions/ flat-gather names (a bespoke af2_${meta.id} prefix here
+    // ignored meta.af2_tool, so --methods af2,af2_mono on a monomer collided).
     if (bn ==~ /relaxed_model_.*\.cif/ || bn ==~ /unrelaxed_model_.*\.cif/ || bn == 'ranked_0.cif') {
-        def run = meta.af2_run != null ? "run${meta.af2_run}" : ''
-        def run_bit = run ? "_${run}" : ''
-        return "af2_${meta.id}${run_bit}${msa_bit}_${bn}"
+        return "${FoldNaming.af2Prefix(meta)}${bn}"
     }
     if (bn ==~ /.*_model_\d+\.(cif|pdb)/ && !(bn ==~ /.*_sample.*/)) {
-        return meta.fold_namespaced \
-            ? "boltz_batch${meta.fold_batch}${msa_bit}_${bn}" \
-            : "boltz${msa_bit}_${bn}"
+        return "${FoldNaming.flatPrefix('boltz', meta)}${bn}"
     }
     if (bn ==~ /.*_sample-\d+_model\.cif/) {
-        return meta.fold_namespaced \
-            ? "rf3_batch${meta.fold_batch}${msa_bit}_${bn}" \
-            : "rf3${msa_bit}_${bn}"
+        def tool = meta.fold_tool == 'af3' ? 'af3' : 'rf3'
+        return "${FoldNaming.flatPrefix(tool, meta)}${bn}"
+    }
+    if (bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/) {
+        // OpenFold3 and ESMFold2 share this naming, so meta.fold_tool separates them.
+        def tool = meta.fold_tool ?: 'openfold3'
+        return "${FoldNaming.flatPrefix(tool, meta)}${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
-        return meta.fold_namespaced \
-            ? "protenix_batch${meta.fold_batch}${msa_bit}_${bn}" \
-            : "protenix${msa_bit}_${bn}"
+        return "${FoldNaming.flatPrefix('protenix', meta)}${bn}"
     }
     def batch = meta.fold_batch != null ? "_batch${meta.fold_batch}" : ''
     return "${meta.id}${batch}${msa_bit}_${bn}"

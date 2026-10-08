@@ -112,13 +112,25 @@ def build_features(
     descriptions = [d for d, _s in records]
     concat = "".join(sequences)
 
+    # AF2's multimer MSA pipeline writes one msas/<chain> dir per UNIQUE sequence
+    # (duplicate chains of a homomer share it), so a chain-dir lookup for every
+    # chain_id fails for the repeat. Reuse the first chain's MSAs for any later
+    # chain with the same sequence, same as af2_multimer_features_from_msas.py's
+    # by_sequence map.
     per_chain: List[List[parsers.Msa]] = []
+    by_sequence: Dict[str, List[parsers.Msa]] = {}
     for chain_id, seq, desc in zip(protein.PDB_CHAIN_IDS, sequences, descriptions):
-        chain_dir = chain_msa_dir(msas_root, chain_id)
-        msas = load_chain_msas(chain_dir)
-        depth = sum(len(m.sequences) for m in msas)
-        log.info("chain %s (%s): %d residues, %d MSA rows from %s",
-                 chain_id, desc.split()[0] if desc else chain_id, len(seq), depth, chain_dir)
+        if seq in by_sequence:
+            msas = by_sequence[seq]
+            log.info("chain %s (%s): %d residues, reusing MSAs from an earlier "
+                     "chain with the same sequence", chain_id, desc.split()[0] if desc else chain_id, len(seq))
+        else:
+            chain_dir = chain_msa_dir(msas_root, chain_id)
+            msas = load_chain_msas(chain_dir)
+            by_sequence[seq] = msas
+            depth = sum(len(m.sequences) for m in msas)
+            log.info("chain %s (%s): %d residues, %d MSA rows from %s",
+                     chain_id, desc.split()[0] if desc else chain_id, len(seq), depth, chain_dir)
         per_chain.append(msas)
 
     feats = pipeline.make_sequence_features(

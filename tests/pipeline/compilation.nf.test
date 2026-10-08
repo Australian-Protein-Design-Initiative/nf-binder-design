@@ -96,6 +96,212 @@ nextflow_pipeline {
         }
     }
 
+    test("fold method compiles with af3") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "af3"
+                // Empty placeholder: -preview only needs validation to find one model file
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with af3") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "af3"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method compiles with openfold3") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "openfold3"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with openfold3") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "openfold3"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method compiles with esmfold2") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "esmfold2"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with esmfold2") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "esmfold2"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method compiles with esmfold2 and esmfold2_fast") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "esmfold2,esmfold2_fast"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with esmfold2_fast") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "esmfold2_fast"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method compiles with templates") {
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "af3,boltz"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                templates = "${projectDir}/tests/data/bindcraft/single"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold_pulldown method compiles with templates and binder templates") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "af3,boltz"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                templates = "${projectDir}/tests/data/bindcraft/single/targetA.pdb"
+                binder_templates = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method rejects ids that collide after engine sanitisation") {
+        tag "ids"
+        options "-preview"
+        when {
+            params {
+                method = "fold"
+                // 'a+b' and 'ab' both become 'ab' for AF3 / OpenFold3 output paths
+                input = "${projectDir}/tests/data/fold_ids/fold"
+                methods = "boltz"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert !workflow.success
+            assert workflow.stdout.any { it.contains("collide once AF3/OpenFold3 sanitise them") }
+        }
+    }
+
+    test("fold_pulldown rejects a target and binder that sanitise to the same id") {
+        tag "ids"
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_ids/pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_ids/pulldown/binders.fasta"
+                methods = "boltz"
+                skip_engens = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert !workflow.success
+            assert workflow.stdout.any { it.contains("shared by targets and binders once sanitised") }
+        }
+    }
+
     test("bindcraft method compiles (single PDB)") {
         options "-preview"
         when {
