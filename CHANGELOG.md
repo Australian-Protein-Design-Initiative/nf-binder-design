@@ -15,10 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
+- `--method fold_pulldown` now defaults to `--n_predictions 5` and `--af2_keep_models all`, so every engine returns 5 structures per complex by default and AF2 keeps all five models from its single run. `--method fold` is unchanged (engine defaults, `--af2_keep_models best`).
 - Protenix now runs from a container built from upstream commit 85767b8 (`protenix:2026-09-21_85767b8_weights`), which adds structure-file templates.
 - ColabFold MSAs are published as `{sequence_id}.a3m` (e.g. `PDL1.a3m`) rather than `{fasta_stem}.N.a3m` under a `result/` folder.
 
 ### Removed
+- `--method boltz_pulldown`. Fold Pulldown (`--method fold_pulldown`) supersedes it: the same target x binder fan-out, MSA options and reporting, plus the other fold engines, per-chain template matching, multiple samples per pair, MSA subsampling and a cross-engine score summary. Use `--method fold_pulldown --methods boltz` for the equivalent Boltz-only run; note that structures are now written as mmCIF rather than PDB and the score table is `fold_pulldown/fold_pulldown_scores.tsv`.
 - `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection never worked inside Apptainer containers - Set `--gpu_devices` to enable the lock-based allocator instead.
 
 ### Fixed

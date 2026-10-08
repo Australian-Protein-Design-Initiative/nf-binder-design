@@ -1,6 +1,6 @@
 # Database download helpers
 
-Scripts to install local MSA databases used by `fold.nf` (and Boltz Pulldown
+Scripts to install local MSA databases used by `fold.nf` (and Fold Pulldown
 local ColabFold search).
 
 | Script | Purpose |

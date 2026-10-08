@@ -1,5 +1,5 @@
 // fold.nf-local confidence parser: reuses bin/parse_boltz_confidence.py (the
-// same script boltz_pulldown.nf's PARSE_BOLTZ_CONFIDENCE_JSON uses) without
+// same script the Boltz refold comparison modules use) without
 // the target/binder metadata columns that script's binder-design callers add
 // - fold.nf's meta has no target/binder split (it's a single fold target).
 //

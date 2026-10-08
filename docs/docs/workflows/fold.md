@@ -59,51 +59,36 @@ only for `--msa_method jackhmmer_af2`, or for `--msa_method mmseqs2_colabfold`
 without `--use_remote_server true`. See [Fold databases](../extra/fold-databases.md)
 for download scripts, the expected layout and the defaults on M3.
 
-## Command-line Options
+## Example Usage
+
+Minimal AF2-only run with jackhmmer MSAs:
 
 ```bash
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold --help
+nextflow run /path/to/nf-binder-design --method fold \
+  --input input/pdl1.fasta \
+  --outdir results \
+  --methods af2 \
+  --msa_method jackhmmer_af2 \
+  --af2_db_path /mnt/datasets/alphafold/alphafold_20240229 \
+  -profile local
 ```
 
-### Key Parameters
+Multi-method ensemble (25 structures per method) with ColabFold remote MSA:
 
-| Flag | Description |
-|------|-------------|
-| `--input` | Single FASTA, glob, or directory of FASTA files (required) |
-| `--outdir` | Output directory (default: `results`) |
-| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `esmfold2`, `esmfold2_fast` (default: `af2`) |
-| `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
-| `--n_predictions` | Total structures per input, per method (see below) |
-| `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
-| `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
-| `--skip_engens` | Skip post-prediction EnGens clustering |
-| `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
-| `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
-| `--engens_superpose_method` | Superposition scheme for the geometric featurizers (default: `blosum62`) |
+```bash
+nextflow run /path/to/nf-binder-design --method fold \
+  --input UL119_domain.fasta \
+  --outdir results \
+  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
+  --msa_method mmseqs2_colabfold \
+  --use_remote_server true \
+  --n_predictions 25 \
+  --af2_keep_models all \
+  -profile slurm,m3
+```
 
-Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`, `--esmfold2_*`) are
-documented in `--help`.
-
-**`--n_predictions`** is **unset by default**, in which case each engine falls
-back to its own default: Boltz, RF3, Protenix, AF3, OpenFold3 and ESMFold2 each
-emit **5** diffusion samples in a single job (Boltz is lifted from its native default of 1
-for cross-engine parity), while AF2 does a single run and keeps per
-`--af2_keep_models` (default `best` → one structure). Set `--n_predictions N` to
-pin every diffusion engine to exactly N, split across jobs by that engine's own
-`--*_batch_size` (e.g. `--n_predictions 10 --boltz_batch_size 5` runs Boltz as
-two jobs of 5 samples each; leaving `--*_batch_size` unset runs one job of N).
-AF2 has no in-run sampling knob — it always emits its 5 trained models per run,
-and `--af2_keep_models` decides how many runs that takes to reach N (`best`
-keeps the top-ranked model/run → N runs; `all` keeps all 5/run → `ceil(N/5)`
-runs).
-
-**Seeds** are unset by default so each engine draws its own random seed (pin
-`--af2_random_seed` / `--boltz_seed` / `--rf3_seed` / `--protenix_seeds` for
-reproducibility; do not inject a fresh random seed on every CLI invocation if
-you want `-resume` to cache). AlphaFold3, OpenFold3 and ESMFold2 always need a
-seed in their input, so they default to a fixed base seed (`--af3_seeds 1`,
-`--openfold3_seeds 42`, `--esmfold2_seeds 42`); batch *i* uses `seed + i`.
-`--protenix_seeds` takes the same single-base-seed convention.
+See `examples/fold/run-m3.sh` and `examples/fold/run-local.sh` for complete
+HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).
 
 ## Choosing engines
 
@@ -503,37 +488,6 @@ Engine-specific notes:
 - **OpenFold3:** the pipeline points OpenFold3's template structure directory at
   the staged files and turns off downloads from RCSB.
 
-## Example Usage
-
-Minimal AF2-only run with jackhmmer MSAs:
-
-```bash
-nextflow run /path/to/nf-binder-design --method fold \
-  --input input/pdl1.fasta \
-  --outdir results \
-  --methods af2 \
-  --msa_method jackhmmer_af2 \
-  --af2_db_path /mnt/datasets/alphafold/alphafold_20240229 \
-  -profile local
-```
-
-Multi-method ensemble (25 structures per method) with ColabFold remote MSA:
-
-```bash
-nextflow run /path/to/nf-binder-design --method fold \
-  --input UL119_domain.fasta \
-  --outdir results \
-  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
-  --msa_method mmseqs2_colabfold \
-  --use_remote_server true \
-  --n_predictions 25 \
-  --af2_keep_models all \
-  -profile slurm,m3
-```
-
-See `examples/fold/run-m3.sh` and `examples/fold/run-local.sh` for complete
-HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).
-
 ## EnGens clustering
 
 After prediction, EnGens runs by default (UMAP + HDBSCAN) and writes
@@ -564,6 +518,52 @@ nextflow run /path/to/nf-binder-design/engens.nf \
   --outdir results \
   -profile slurm,m3
 ```
+
+## Command-line Options
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold --help
+```
+
+### Key Parameters
+
+| Flag | Description |
+|------|-------------|
+| `--input` | Single FASTA, glob, or directory of FASTA files (required) |
+| `--outdir` | Output directory (default: `results`) |
+| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `esmfold2`, `esmfold2_fast` (default: `af2`) |
+| `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
+| `--n_predictions` | Total structures per input, per method (see below) |
+| `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
+| `--msa_subsample_include_full` | Keep one full-MSA job when subsampling (default: `true`) |
+| `--skip_engens` | Skip post-prediction EnGens clustering |
+| `--engens_clustering` | `hdbscan` (default), `gmm`, `km`, or comma-separated |
+| `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
+| `--engens_superpose_method` | Superposition scheme for the geometric featurizers (default: `blosum62`) |
+
+Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`, `--esmfold2_*`) are
+documented in `--help`.
+
+**`--n_predictions`** is **unset by default**, in which case each engine falls
+back to its own default: Boltz, RF3, Protenix, AF3, OpenFold3 and ESMFold2 each
+emit **5** diffusion samples in a single job (Boltz is lifted from its native default of 1
+for cross-engine parity), while AF2 does a single run and keeps per
+`--af2_keep_models` (default `best` → one structure). Set `--n_predictions N` to
+pin every diffusion engine to exactly N, split across jobs by that engine's own
+`--*_batch_size` (e.g. `--n_predictions 10 --boltz_batch_size 5` runs Boltz as
+two jobs of 5 samples each; leaving `--*_batch_size` unset runs one job of N).
+AF2 has no in-run sampling knob — it always emits its 5 trained models per run,
+and `--af2_keep_models` decides how many runs that takes to reach N (`best`
+keeps the top-ranked model/run → N runs; `all` keeps all 5/run → `ceil(N/5)`
+runs).
+
+**Seeds** are unset by default so each engine draws its own random seed (pin
+`--af2_random_seed` / `--boltz_seed` / `--rf3_seed` / `--protenix_seeds` for
+reproducibility; do not inject a fresh random seed on every CLI invocation if
+you want `-resume` to cache). AlphaFold3, OpenFold3 and ESMFold2 always need a
+seed in their input, so they default to a fixed base seed (`--af3_seeds 1`,
+`--openfold3_seeds 42`, `--esmfold2_seeds 42`); batch *i* uses `seed + i`.
+`--protenix_seeds` takes the same single-base-seed convention.
 
 ## Output
 
@@ -614,6 +614,4 @@ omitted — only the overall values are reported.
 
 - Example run directory: [`examples/fold/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold)
 - [Fold databases](../extra/fold-databases.md)
-- Boltz Pulldown also accepts `--uniref30` / `--colabfold_envdb` for local MSAs
-  ([Boltz Pulldown](boltz-pulldown.md))
 - Standalone EnGens: `engens.nf`

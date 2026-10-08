@@ -13,9 +13,8 @@ nav:
       - BindCraft: workflows/bindcraft.md
       - Germinal: workflows/germinal.md
       - BoltzGen: workflows/boltzgen.md
-      - Boltz Pulldown: workflows/boltz-pulldown.md
-      - Fold Pulldown: workflows/fold-pulldown.md
       - Fold: workflows/fold.md
+      - Fold Pulldown: workflows/fold-pulldown.md
   - Subworkflows:
       - FoldSeek: subworkflows/foldseek.md
   - Extra:

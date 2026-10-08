@@ -12,7 +12,6 @@ abstract:
 
   <li>BindCraft (in parallel across multiple GPUs)</li>
 
-  <li>"Boltz Pulldown" (an AlphaPulldown-like protocol using Boltz-2)</li>
 
   <li>RFdiffusion3 -&gt; ProteinMPNN -&gt; RosettaFold3 / Boltz refolding</li>
 

@@ -162,5 +162,3 @@ running under Singularity/Apptainer profiles.
 ## Related
 
 - [Fold](../workflows/fold.md), [Fold Pulldown](../workflows/fold-pulldown.md)
-- Boltz Pulldown also accepts `--uniref30` / `--colabfold_envdb` for local MSAs
-  ([Boltz Pulldown](../workflows/boltz-pulldown.md))

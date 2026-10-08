@@ -45,13 +45,12 @@ workflow BOLTZ_FOLD {
     FOLD_CREATE_BOLTZ_YAML_COMPLEX(ch_multi, ch_templates)
     ch_yaml = FOLD_CREATE_BOLTZ_YAML.out.yaml.mix(FOLD_CREATE_BOLTZ_YAML_COMPLEX.out.yaml)
 
-    // BOLTZ's process signature is shared with boltz_pulldown.nf's
-    // target+binder complex mode, so it always expects two MSA paths to
-    // stage (their names never appear in the script body - they only need to
-    // be physically present alongside the YAML, since the YAML's `msa:`
-    // field is what boltz predict actually reads). fold.nf has one MSA, so
-    // the unused "target" slot gets the same empty-placeholder file
-    // boltz_pulldown.nf uses for its own target-msa-less branches.
+    // BOLTZ's process signature dates from a target+binder complex mode, so
+    // it always expects two MSA paths to stage (their names never appear in
+    // the script body - they only need to be physically present alongside the
+    // YAML, since the YAML's `msa:` field is what boltz predict actually
+    // reads). fold.nf has one MSA, so the unused "target" slot gets an
+    // empty-placeholder file.
     // default_batch = 5: with --n_predictions unset, emit 5 samples like RF3 /
     // Protenix (Boltz's own native default is 1; we lift it for cross-engine parity).
     def batches = foldPredictionBatches(params.boltz_batch_size, 5, params.n_predictions)
@@ -96,7 +95,7 @@ workflow BOLTZ_FOLD {
     // step_name is BOLTZ's publishDir subdir under params.outdir. Honour
     // fold_publish_dir so fold_pulldown lands at <outdir>/fold_pulldown/boltz/
     // (fold.nf keeps <outdir>/fold/boltz/). mmCIF so predictions stay
-    // format-uniform with af2/rf3/protenix (boltz_pulldown hardcodes pdb).
+    // format-uniform with af2/rf3/protenix.
     BOLTZ(ch_boltz_input, ch_templates, "${params.fold_publish_dir ?: 'fold'}/boltz", 'cif')
 
     // Fan out to one row per diffusion sample so all models are scored (not

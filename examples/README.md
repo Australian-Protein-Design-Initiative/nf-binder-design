@@ -140,10 +140,6 @@ Nanobody binder design (`nanobody-anything`).
 |--------|-------------|
 | `run-local.sh` | Local run |
 
-## Boltz Pulldown (`--method boltz_pulldown`)
-
-No tracked example directory yet. See the [Boltz Pulldown workflow documentation](https://australian-protein-design-initiative.github.io/nf-binder-design/workflows/boltz-pulldown/).
-
 ## Fold Pulldown (`--method fold_pulldown`)
 
 ### `fold-pulldown`

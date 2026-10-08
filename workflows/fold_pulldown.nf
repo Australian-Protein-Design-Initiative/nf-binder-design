@@ -24,7 +24,7 @@ params.fold_publish_dir = 'fold_pulldown'
 
 params.create_target_msa = false
 params.create_binder_msa = false
-params.n_predictions = false
+params.n_predictions = 5
 
 // --- Ranking (see bin/fold_pulldown_summarise.py) ---
 params.consensus_metric = 'ipsae'
@@ -52,7 +52,7 @@ params.af2_pdb70_subpath = 'pdb70/pdb70'
 // the in-container default needs no host params dir. Point this at a host
 // AlphaFold download to override. (Falls back to af2_db_path if set false.)
 params.af2_data_dir = '/app/alphafold'
-params.af2_keep_models = 'best'
+params.af2_keep_models = 'all'
 params.af2_no_relax = false
 // AF2's result_model_*.pkl carry the full model output (distogram, MSA and
 // structure-module tensors) at ~90 MB each -- 860 MB per prediction, and by far
@@ -152,7 +152,7 @@ workflow FOLD_PULLDOWN {
                                               separated only by a residue_index jump. Shares af2's
                                               MSAs; only features.pkl differs. Without an initial
                                               guess the monomer models often fail to dock at all and
-                                              only ranking separates the good pose, so pair it with
+                                              only ranking separates the good pose, so consider
                                               --af2_keep_models best. Not an independent engine:
                                               it shares weights lineage with af2.
             --af2_chain_break_offset  residue_index jump per chain break, must exceed AF2's
@@ -160,7 +160,7 @@ workflow FOLD_PULLDOWN {
             --msa_method          jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --create_target_msa   Build MSA for each target [default: ${params.create_target_msa}]
             --create_binder_msa   Build MSA for each binder [default: ${params.create_binder_msa}]
-            --n_predictions       Structures per complex per method [default: unset -> engine defaults]
+            --n_predictions       Structures per complex per method [default: ${params.n_predictions}]
             --use_msa_server      Boltz fetches its own MSA [default: ${params.use_msa_server}]
             --templates           Template structures (.pdb/.cif; dir or glob), matched to target chains
                                   by sequence alignment; not used by esmfold2 [default: ${params.templates}]
@@ -174,7 +174,9 @@ workflow FOLD_PULLDOWN {
             Every method-specific flag from --method fold --help (--af2_*, --boltz_*,
             --rf3_*, --protenix_*, --af3_*, --openfold3_*, --esmfold2_*) applies here too, e.g.
             --af2_keep_models (which of AF2's 5 models/run to keep toward
-            --n_predictions) [default: ${params.af2_keep_models}].
+            --n_predictions) [default: ${params.af2_keep_models}]. 'all' keeps all 5
+            models from AF2's single run, matching --n_predictions 5 at no extra cost;
+            --method fold defaults to 'best'.
 
             Ranking (summary table):
             --consensus_metric    ipsae|iptm; metric averaged into consensus_z [default: ${params.consensus_metric}]

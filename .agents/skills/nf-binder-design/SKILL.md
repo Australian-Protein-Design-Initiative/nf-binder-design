@@ -4,8 +4,8 @@ description: >-
   Runs the nf-binder-design Nextflow pipeline for de novo protein binder design.
   Covers RFdiffusion (--method rfd), partial diffusion (--method rfd_partial),
   RFdiffusion3 (--method rfd3), BindCraft (--method bindcraft), Germinal
-  (--method germinal), BoltzGen (--method boltzgen), Boltz Pulldown
-  (--method boltz_pulldown), Fold Pulldown (--method fold_pulldown),
+  (--method germinal), BoltzGen (--method boltzgen),
+  Fold Pulldown (--method fold_pulldown),
   Fold (--method fold), and FoldSeek (--method foldseek or --do_foldseek).
   Use when the user wants to design protein binders, nanobodies, or peptides,
   set up or run nf-binder-design, configure HPC/SLURM, or troubleshoot pipeline
@@ -104,8 +104,7 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `bindcraft` | BindCraft in parallel | End-to-end design with built-in validation |
 | `germinal` | Germinal in parallel | Antibody and nanobody design via Hydra YAML |
 | `boltzgen` | BoltzGen generative model | Protein, peptide, nanobody, or small-molecule binders |
-| `boltz_pulldown` | Boltz-2 multimer predictions | Validate designed binders (AlphaPulldown-like) |
-| `fold_pulldown` | Multi-model target × binder co-fold | Same goal as boltz_pulldown with AF2/Boltz/RF3/Protenix |
+| `fold_pulldown` | Multi-model target × binder co-fold | Validate designed binders (AlphaPulldown-like) with AF2/Boltz/RF3/Protenix |
 | `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix |
 | `foldseek` | FoldSeek structural search | Annotate designs against CATH/PDB databases |
 
@@ -116,7 +115,7 @@ Add `--do_foldseek` to `rfd`, `rfd3`, `bindcraft`, or `boltzgen` to run FoldSeek
 1. **New binder from scratch?** → `rfd` (established) or `bindcraft` (end-to-end) or `boltzgen` (protein/peptide/nanobody/small-molecule)
 2. **Antibody or nanobody?** → `germinal` (Hydra YAML) or `boltzgen` with `nanobody-anything`
 3. **Refine existing designs?** → `rfd_partial`
-4. **Validate binder sequences?** → `fold_pulldown` (multi-model) or `boltz_pulldown` (Boltz-only)
+4. **Validate binder sequences?** → `fold_pulldown` (use `--methods boltz` for a Boltz-only run)
 5. **Fold arbitrary FASTAs?** → `fold`
 6. **Annotate structural similarity?** → `--do_foldseek` or `--method foldseek`
 
@@ -234,20 +233,6 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 Protocols: `protein-anything`, `peptide-anything`, `protein-small_molecule`, `nanobody-anything`. → `references/boltzgen-workflow.md`
 
-### boltz_pulldown (Boltz Pulldown)
-
-```bash
-nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
-  --method boltz_pulldown \
-  --targets targets.fasta \
-  --binders binders.fasta \
-  --create_target_msa true \
-  --outdir results \
-  -profile local -resume
-```
-
-→ `references/boltz-pulldown-workflow.md`
-
 ### fold_pulldown (multi-model pulldown)
 
 ```bash
@@ -297,7 +282,6 @@ Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.m
 | `bindcraft` | `bindcraft/accepted/`, `bindcraft/bindcraft_report.html`, `bindcraft/final_design_stats.csv` |
 | `germinal` | `germinal/accepted_designs.csv`, `germinal/accepted/structures/` |
 | `boltzgen` | `boltzgen/filtered/final_ranked_designs/`, `boltzgen/merged/` |
-| `boltz_pulldown` | `boltz_pulldown/boltz_pulldown.tsv`, `boltz_pulldown_report.html` |
 | `fold_pulldown` | `fold_pulldown/fold_pulldown_scores.tsv`, `fold_pulldown_summary.tsv`, `fold_pulldown_report.html` |
 | `fold` | `fold/fold_scores.tsv`, `fold/predictions/`, optional `engens/` |
 | `foldseek` | `foldseek_results.tsv`, `foldseek_results_annotated.tsv` (CATH databases) |
@@ -329,7 +313,6 @@ Read on demand — do not load all upfront:
 | `references/bindcraft-workflow.md` | BindCraft parameters, presets, VRAM |
 | `references/germinal-workflow.md` | Germinal Hydra config, parallelisation |
 | `references/boltzgen-workflow.md` | BoltzGen YAML, protocols, filtering |
-| `references/boltz-pulldown-workflow.md` | Boltz Pulldown MSA options |
 | `references/foldseek-workflow.md` | `--do_foldseek` flag and `--method foldseek` |
 | `references/target-preparation.md` | Target viability and structure preparation |
 | `references/setup-and-hpc.md` | Installation and HPC configuration |

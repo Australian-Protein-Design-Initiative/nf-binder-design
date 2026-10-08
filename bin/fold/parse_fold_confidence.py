@@ -11,7 +11,7 @@ Parse a single fold.nf prediction's confidence output into ONE normalized TSV
 row (written to stdout, with header) for the master fold_scores table.
 
 Handles AF2 / RF3 / Protenix / AF3 / OpenFold3 / ESMFold2 (Boltz keeps its own bin/parse_boltz_confidence.py,
-which is shared with boltz_pulldown.nf). Emits the canonical, cross-engine
+which is shared with the Boltz refold modules). Emits the canonical, cross-engine
 column schema: equivalent scores share a column name, plddt is rescaled to 0-1,
 and asymmetric per-chain-pair scores are intentionally dropped (only overall /
 "main" values are reported). Columns an engine does not report are left blank.

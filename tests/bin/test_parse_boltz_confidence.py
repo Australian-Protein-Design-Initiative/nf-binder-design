@@ -6,7 +6,7 @@
 
 """
 Unit tests for bin/parse_boltz_confidence.py (shared between fold.nf's
-FOLD_PARSE_BOLTZ_CONFIDENCE and boltz_pulldown.nf's PARSE_BOLTZ_CONFIDENCE_JSON).
+FOLD_PARSE_BOLTZ_CONFIDENCE and the Boltz refold comparison modules).
 
     uv run --with pytest --with pandas pytest tests/bin/test_parse_boltz_confidence.py -q
 """
