@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/develop/extra/fold-databases/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>Fold Databases - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+        <link href="../../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Fold Databases";
+        var mkdocs_page_input_path = "extra/fold-databases.md";
+        var mkdocs_page_url = "/nf-binder-design/develop/extra/fold-databases/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/fold/">Fold</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/fold-pulldown/">Fold Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../multi-gpu/">Multiple GPUs</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Fold Databases</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#alphafold-genetic-databases">AlphaFold genetic databases</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#colabfold-mmseqs2-databases">ColabFold MMseqs2 databases</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#which-msa-route-should-i-use">Which MSA route should I use?</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#related">Related</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../pawsey-setonix/">Pawsey Setonix Examples</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Extra</li>
+      <li class="breadcrumb-item active">Fold Databases</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/extra/fold-databases.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="fold-setting-up-databases">Fold: Setting up databases</h1>
+<p>Database setup for the <a href="../../workflows/fold/">Fold</a> and <a href="../../workflows/fold-pulldown/">Fold Pulldown</a>
+workflows' <code>--msa_method</code> options.</p>
+<p>You need local databases only for:</p>
+<ul>
+<li><code>--msa_method jackhmmer_af2</code> (AlphaFold genetic DBs), and/or</li>
+<li><code>--msa_method mmseqs2_colabfold</code> <strong>without</strong> <code>--use_remote_server true</code>
+  (ColabFold MMseqs2 DBs).</li>
+</ul>
+<p>Model weights for Boltz / RF3 / Protenix / OpenFold3 are baked into the pipeline
+containers; AF2 params are downloaded with the AlphaFold DB tree (<code>params/</code>),
+though the container also bundles a copy (see <a href="../../workflows/fold/#af2-multimer-needs-the-2021-db-snapshot">AF2 multimer needs the 2021 DB
+snapshot</a>).</p>
+<p>Helper scripts live in the repo <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/scripts"><code>scripts/</code></a>
+directory.</p>
+<h2 id="alphafold-genetic-databases">AlphaFold genetic databases</h2>
+<p>Official source: <a href="https://github.com/google-deepmind/alphafold">google-deepmind/alphafold</a>
+(<a href="https://github.com/google-deepmind/alphafold#genetic-databases">genetic databases</a>).</p>
+<p><strong>Requirements:</strong> <code>aria2c</code>, <code>rsync</code>, <code>git</code>. Full databases are ~556 GB download
+and ~2.62 TB unzipped (SSD recommended).</p>
+<pre><code class="language-bash"># From a clone of nf-binder-design:
+./scripts/download_alphafold_dbs.sh /data/alphafold_dbs
+# or reduced set:
+./scripts/download_alphafold_dbs.sh /data/alphafold_dbs reduced_dbs
+</code></pre>
+<p>This clones DeepMind's repo shallowly and runs their
+<code>scripts/download_all_data.sh</code>, which fetches BFD (or small BFD), MGnify,
+PDB70, PDB mmCIF, UniRef30, UniRef90, UniProt, PDB seqres, and model params.</p>
+<p>Equivalent manual invocation:</p>
+<pre><code class="language-bash">git clone --depth 1 https://github.com/google-deepmind/alphafold.git
+bash alphafold/scripts/download_all_data.sh /data/alphafold_dbs full_dbs
+</code></pre>
+<p>Point the fold workflow at the download root:</p>
+<pre><code class="language-bash">--msa_method jackhmmer_af2 \
+--af2_db_path /data/alphafold_dbs \
+--af2_db_preset full_dbs
+</code></pre>
+<p>Expected layout (abbreviated):</p>
+<pre><code>$AF2_DB_PATH/
+  bfd/                 # full_dbs only
+  small_bfd/           # reduced_dbs only
+  mgnify/mgy_clusters_2022_05.fa
+  params/
+  pdb70/
+  pdb_mmcif/
+  uniref30/UniRef30_2021_03*
+  uniref90/uniref90.fasta
+  uniprot/             # AF2 multimer (2021 snapshot only)
+  pdb_seqres/          # AF2 multimer (2021 snapshot only)
+</code></pre>
+<p>The fold workflow defaults the per-DB relative paths to this DeepMind
+download-script layout (e.g. <code>mgnify/mgy_clusters_2022_05.fa</code>,
+<code>uniref30/UniRef30_2021_03</code>); <code>--af2_uniref30_subpath</code>, <code>--af2_mgnify_subpath</code>,
+<code>--af2_uniprot_subpath</code>, <code>--af2_pdb_seqres_subpath</code> and <code>--af2_pdb70_subpath</code>
+override an individual one when a snapshot uses different filenames — needed
+for AF2 multimer against the 2021 snapshot, whose HHblits DB is <code>uniclust30</code>.</p>
+<p>On M3, <code>-profile m3</code> defaults to <code>alphafold_20211129</code>, which has <code>uniprot/</code> +
+<code>pdb_seqres/</code> for AF2 multimer, together with its sub-paths (<code>uniclust30</code>,
+<code>mgy_clusters_2018_12.fa</code>). <code>alphafold_20240229</code> is monomer-only and names
+those two DBs differently, so pointing <code>--af2_db_path</code> at it under
+<code>-profile m3</code> also needs <code>--af2_uniref30_subpath uniref30/UniRef30_2021_03
+--af2_mgnify_subpath mgnify/mgy_clusters_2022_05.fa</code> (as
+<code>examples/fold/nextflow.m3.config</code> does). Both live under <code>/mnt/datasets/alphafold/</code> (group
+<code>alphafold</code>); bind-mount that path in Apptainer <code>runOptions</code> when using
+<code>-profile m3</code> (see <code>examples/fold/nextflow.m3.config</code> /
+<code>examples/fold-multimer/nextflow.m3.config</code>).</p>
+<p>Ensure the tree is readable by compute jobs (<code>chmod -R a+rX</code> if needed).</p>
+<h2 id="colabfold-mmseqs2-databases">ColabFold MMseqs2 databases</h2>
+<p>Official downloads and setup notes: <a href="https://colabfold.mmseqs.com/">colabfold.mmseqs.com</a>
+and ColabFold's
+<a href="https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh"><code>setup_databases.sh</code></a>.</p>
+<p><strong>Requirements:</strong> <code>mmseqs</code> in <code>PATH</code>, plus <code>aria2c</code> or <code>curl</code>/<code>wget</code>. Indexing
+is memory-heavy (ColabFold documents on the order of hundreds of GB RAM for
+full indexes / single-query search with indexes preloaded).</p>
+<pre><code class="language-bash"># Install MMseqs2 first, then:
+./scripts/download_colabfold_dbs.sh /data/colabfold_dbs
+</code></pre>
+<p>The helper fetches upstream <code>setup_databases.sh</code>, downloads UniRef30 +
+ColabFold env DB (prebuilt expandable-profile archives by default), runs
+<code>mmseqs createindex</code> unless <code>MMSEQS_NO_INDEX=1</code>, and organises outputs into:</p>
+<pre><code>/data/colabfold_dbs/
+  uniref30/           # pass to --uniref30
+  colabfold_envdb/    # pass to --colabfold_envdb
+</code></pre>
+<p>Useful environment overrides:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SKIP_TEMPLATES=1</code></td>
+<td>Skip PDB mmCIF / Foldseek template downloads</td>
+</tr>
+<tr>
+<td><code>MMSEQS_NO_INDEX=1</code></td>
+<td>Skip <code>createindex</code> (smaller disk; slower search)</td>
+</tr>
+<tr>
+<td><code>DOWNLOADS_ONLY=1</code></td>
+<td>Download archives only</td>
+</tr>
+<tr>
+<td><code>GPU=1</code></td>
+<td>GPU-capable indexes (needs GPU-enabled MMseqs2)</td>
+</tr>
+<tr>
+<td><code>UNIREF30DB</code> / <code>CFDB</code></td>
+<td>Archive stems (defaults: <code>uniref30_2302</code>, <code>colabfold_envdb_202108</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Equivalent manual setup:</p>
+<pre><code class="language-bash">wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
+chmod +x setup_databases.sh
+./setup_databases.sh /data/colabfold_dbs
+# Then point --uniref30 / --colabfold_envdb at dirs containing
+# uniref30_* and colabfold_envdb* MMseqs2 files (or use the helper).
+</code></pre>
+<p>Databases provided by ColabFold (see <a href="https://colabfold.mmseqs.com/">colabfold.mmseqs.com</a>):</p>
+<ol>
+<li><strong>UniRef30</strong> — 30% identity clustered UniRef100</li>
+<li><strong>ColabFold env DB</strong> — environmental sequences (BFD/MGnify-derived plus
+   metagenomic sources); alternatively BFD/MGnify-only archives are listed on
+   the download page</li>
+<li>Optional template DBs (PDB100, etc.)</li>
+</ol>
+<p>Use with fold:</p>
+<pre><code class="language-bash">--msa_method mmseqs2_colabfold \
+--uniref30 /data/colabfold_dbs/uniref30 \
+--colabfold_envdb /data/colabfold_dbs/colabfold_envdb
+</code></pre>
+<p>Bind-mount <code>/data/colabfold_dbs</code> (or the paths you pass) into Apptainer when
+running under Singularity/Apptainer profiles.</p>
+<h2 id="which-msa-route-should-i-use">Which MSA route should I use?</h2>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Site already has AF2 DBs (e.g. M3 <code>/mnt/datasets/alphafold/...</code>)</td>
+<td><code>--msa_method jackhmmer_af2 --af2_db_path …</code></td>
+</tr>
+<tr>
+<td>No local DBs, small number of sequences</td>
+<td><code>--msa_method mmseqs2_colabfold --use_remote_server true</code></td>
+</tr>
+<tr>
+<td>Heavy ColabFold-style search on your cluster</td>
+<td>Install local ColabFold DBs with <code>scripts/download_colabfold_dbs.sh</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="related">Related</h2>
+<ul>
+<li><a href="../../workflows/fold/">Fold</a>, <a href="../../workflows/fold-pulldown/">Fold Pulldown</a></li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../multi-gpu/" class="btn btn-neutral float-left" title="Multiple GPUs"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../utility-scripts/" class="btn btn-neutral float-right" title="Utility Scripts">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../multi-gpu/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../utility-scripts/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+      <script src="../../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

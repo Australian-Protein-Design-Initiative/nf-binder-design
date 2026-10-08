@@ -66,19 +66,15 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../boltz-pulldown/">Boltz Pulldown</a>
-                  </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../fold-pulldown/">Fold Pulldown</a>
-                  </li>
                   <li class="toctree-l1 current"><a class="reference internal current" href="#">Fold</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+    <li class="toctree-l2"><a class="reference internal" href="#setup">Setup</a>
     </li>
-        </ul>
+    <li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#choosing-engines">Choosing engines</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</a>
         <ul>
@@ -106,9 +102,27 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a>
+    <li class="toctree-l2"><a class="reference internal" href="#alphafold3-weights">AlphaFold3 weights</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#openfold3">OpenFold3</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#esmfold2">ESMFold2</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#templates">Templates</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#match-cutoffs">Match cutoffs</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#how-each-engine-uses-them">How each engine uses them</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#engens-clustering">EnGens clustering</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#output">Output</a>
         <ul>
@@ -116,19 +130,11 @@
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#setting-up-databases">Setting up databases</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#alphafold-genetic-databases">AlphaFold genetic databases</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#colabfold-mmseqs2-databases">ColabFold MMseqs2 databases</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#which-msa-route-should-i-use">Which MSA route should I use?</a>
-    </li>
-        </ul>
-    </li>
     <li class="toctree-l2"><a class="reference internal" href="#related">Related</a>
     </li>
     </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../fold-pulldown/">Fold Pulldown</a>
                   </li>
               </ul>
               <p class="caption"><span class="caption-text">Subworkflows</span></p>
@@ -143,6 +149,8 @@
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/development/">Development</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/multi-gpu/">Multiple GPUs</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/fold-databases/">Fold Databases</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
                   </li>
@@ -185,11 +193,14 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="fold-workflow">Fold Workflow</h1>
+<p><a href="../../images/fold_metro_map.svg" rel="noopener" target="_blank" title="Open the full-size diagram in a new tab"><img alt="Fold workflow" src="../../images/fold_metro_map.svg" /></a></p>
 <p>Multi-method structure prediction for monomer <strong>and multimer</strong> FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
-RosettaFold3 and Protenix, sharing one MSA-generation stage, then (by default)
-clusters the ensemble with EnGens.</p>
+RosettaFold3, Protenix, AlphaFold3, OpenFold3 and ESMFold2, sharing one
+MSA-generation stage, then (by default) clusters the ensemble with EnGens.</p>
 <blockquote>
+<p><strong>AlphaFold3</strong> (<code>--methods af3</code>) needs model weights that you download yourself
+under Google DeepMind's terms of use — see <a href="#alphafold3-weights">AlphaFold3 weights</a>.</p>
 <p><strong>Multimer:</strong> a FASTA with more than one record folds as a protein complex
 (one record = one chain → chain IDs A, B, C, …; homo-oligomers = repeated
 records; up to 26 chains). Each engine gets a taxonomically-paired MSA in its
@@ -218,77 +229,122 @@ native format — see <a href="#multimer-complexes">Multimer complexes</a> below
 multiple records fold together as one complex (chains A, B, C, …). Shared MSAs
 feed all selected predictors; optional MSA subsample and EnGens clustering
 produce a conformational ensemble from the combined predictions.</p>
-<p><code>--n_predictions</code> sets how many structures each method produces per input. It is
-<strong>unset by default</strong>, in which case each engine uses its own default: Boltz, RF3,
-and Protenix each emit <strong>5</strong> diffusion samples (Boltz is lifted from its native
-default of 1 for cross-engine parity), while AF2 does a single run and keeps per
-<code>--af2_keep_models</code> (default <code>best</code> → one structure). Set <code>--n_predictions N</code> to
-pin every diffusion engine to exactly N (e.g. <code>--n_predictions 1</code> for a single
-quick structure per method). It is realised differently per engine: Boltz, RF3,
-and Protenix draw N diffusion samples (split across jobs by their
-<code>--*_batch_size</code>); AF2 has no in-run sampling knob — it always emits its 5
-trained models per run and <code>--af2_keep_models</code> selects which to keep toward N
-(<code>best</code> keeps the top-ranked → N runs, the default; <code>all</code> keeps 5/run →
-<code>ceil(N/5)</code> runs).</p>
-<h2 id="command-line-options">Command-line Options</h2>
-<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold --help
+<p><code>--n_predictions</code> sets how many structures each method produces per input,
+unset by default. See <a href="#key-parameters">Key Parameters</a> below for how it maps
+onto each engine's own sampling knobs and batch size.</p>
+<h2 id="setup">Setup</h2>
+<p>Engine containers, and the weights inside them, are pulled automatically. The
+exception is AlphaFold3, whose weights you download yourself (see
+<a href="#alphafold3-weights">AlphaFold3 weights</a>). Local sequence databases are needed
+only for <code>--msa_method jackhmmer_af2</code>, or for <code>--msa_method mmseqs2_colabfold</code>
+without <code>--use_remote_server true</code>. See <a href="../../extra/fold-databases/">Fold databases</a>
+for download scripts, the expected layout and the defaults on M3.</p>
+<h2 id="example-usage">Example Usage</h2>
+<p>Minimal AF2-only run with jackhmmer MSAs:</p>
+<pre><code class="language-bash">nextflow run /path/to/nf-binder-design --method fold \
+  --input input/pdl1.fasta \
+  --outdir results \
+  --methods af2 \
+  --msa_method jackhmmer_af2 \
+  --af2_db_path /mnt/datasets/alphafold/alphafold_20240229 \
+  -profile local
 </code></pre>
-<h3 id="key-parameters">Key Parameters</h3>
+<p>Multi-method ensemble (25 structures per method) with ColabFold remote MSA:</p>
+<pre><code class="language-bash">nextflow run /path/to/nf-binder-design --method fold \
+  --input UL119_domain.fasta \
+  --outdir results \
+  --methods af2,boltz,rf3,protenix,openfold3,esmfold2,esmfold2_fast \
+  --msa_method mmseqs2_colabfold \
+  --use_remote_server true \
+  --n_predictions 25 \
+  --af2_keep_models all \
+  -profile slurm,m3
+</code></pre>
+<p>See <code>examples/fold/run-m3.sh</code> and <code>examples/fold/run-local.sh</code> for complete
+HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).</p>
+<h2 id="choosing-engines">Choosing engines</h2>
 <table>
 <thead>
 <tr>
-<th>Flag</th>
-<th>Description</th>
+<th>Engine</th>
+<th>Weights</th>
+<th>Multimer pairing</th>
+<th>GPU per job</th>
+<th>Relative cost</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>--input</code></td>
-<td>Single FASTA, glob, or directory of FASTA files (required)</td>
+<td><strong>AF2</strong> (<code>af2</code>)</td>
+<td>Bundled in the container</td>
+<td>Native multimer pipeline (needs the 2021 DB snapshot — see <a href="#af2-multimer-needs-the-2021-db-snapshot">below</a>)</td>
+<td>1</td>
+<td>Low–medium; 5 models/run regardless of <code>--n_predictions</code></td>
 </tr>
 <tr>
-<td><code>--outdir</code></td>
-<td>Output directory (default: <code>results</code>)</td>
+<td><strong>AF2 monomer</strong> (<code>af2_mono</code>)</td>
+<td>Bundled in the container</td>
+<td>None (chain-break trick, not a real multimer mode)</td>
+<td>1</td>
+<td>Same as AF2; not an independent engine — see <a href="#af2_mono-af2-monomer-weights-on-a-complex-chain-break">below</a></td>
 </tr>
 <tr>
-<td><code>--methods</code></td>
-<td>Comma-separated: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code> (default: <code>af2</code>)</td>
+<td><strong>Boltz-2</strong> (<code>boltz</code>)</td>
+<td>Bundled in the container</td>
+<td>Taxid-keyed CSV pairing (or its own MSA server with <code>--use_msa_server</code>)</td>
+<td>1</td>
+<td>Low</td>
 </tr>
 <tr>
-<td><code>--msa_method</code></td>
-<td><code>jackhmmer_af2</code> (default) or <code>mmseqs2_colabfold</code></td>
+<td><strong>RosettaFold3</strong> (<code>rf3</code>)</td>
+<td>Bundled in the container</td>
+<td><code>TaxID=</code> a3m pairing</td>
+<td>1</td>
+<td>Medium</td>
 </tr>
 <tr>
-<td><code>--n_predictions</code></td>
-<td>Total structures per input, per method. Unset (default) → Boltz/RF3/Protenix emit 5 each, AF2 keeps per <code>--af2_keep_models</code>. Set N to pin every diffusion engine to N (split by method batch size)</td>
+<td><strong>Protenix</strong> (<code>protenix</code>)</td>
+<td>Bundled in the container</td>
+<td>Species-mnemonic paired/unpaired a3m</td>
+<td>1</td>
+<td>Medium</td>
 </tr>
 <tr>
-<td><code>--msa_subsample</code></td>
-<td>Off by default; <code>true</code> (default depth list) or a custom <code>max_seq:max_extra_seq</code> list. Depths with <code>max_seq &gt;=</code> MSA size are skipped</td>
+<td><strong>AlphaFold3</strong> (<code>af3</code>)</td>
+<td>You download separately — see <a href="#alphafold3-weights">AlphaFold3 weights</a></td>
+<td>Species-mnemonic pairing rendered from the shared MSA</td>
+<td>1</td>
+<td>Medium–high</td>
 </tr>
 <tr>
-<td><code>--msa_subsample_include_full</code></td>
-<td>Keep one full-MSA job when subsampling (default: <code>true</code>)</td>
+<td><strong>OpenFold3</strong> (<code>openfold3</code>)</td>
+<td>Bundled in the container</td>
+<td>Online species pairing from <code>uniprot_hits</code></td>
+<td>1</td>
+<td>Medium; JIT-compiles Triton kernels on first use</td>
 </tr>
 <tr>
-<td><code>--skip_engens</code></td>
-<td>Skip post-prediction EnGens clustering</td>
+<td><strong>ESMFold2</strong> (<code>esmfold2</code>)</td>
+<td>Bundled in the container</td>
+<td><code>key=&lt;taxid&gt;</code> a3m pairing, done by ESMFold2 itself</td>
+<td>1</td>
+<td>Medium</td>
 </tr>
 <tr>
-<td><code>--engens_clustering</code></td>
-<td><code>hdbscan</code> (default), <code>gmm</code>, <code>km</code>, or comma-separated</td>
-</tr>
-<tr>
-<td><code>--engens_featurizers</code></td>
-<td><code>default,3di</code> (default); also <code>pb</code>; comma-separated</td>
+<td><strong>ESMFold2-Fast</strong> (<code>esmfold2_fast</code>)</td>
+<td>Bundled in the container</td>
+<td>None — single-sequence only, no MSA (see <a href="#esmfold2">below</a>)</td>
+<td>1</td>
+<td>Low</td>
 </tr>
 </tbody>
 </table>
-<p>Method-specific flags (<code>--af2_*</code>, <code>--boltz_*</code>, <code>--rf3_*</code>, <code>--protenix_*</code>) are
-documented in <code>--help</code>. Seeds are unset by default so each engine draws its own
-random seed (pin <code>--af2_random_seed</code> / <code>--boltz_seed</code> / <code>--rf3_seed</code> /
-<code>--protenix_seeds</code> for reproducibility; do not inject a fresh random seed on
-every CLI invocation if you want <code>-resume</code> to cache).</p>
+<p>Every predict job takes one GPU; concurrency across jobs is governed by
+<code>--gpu_devices</code> (comma-separated device list, or <code>all</code>), <code>--gpu_slots_per_device</code>
+(concurrent tasks per GPU, default 1) and <code>--gpu_lock_timeout</code> (seconds a task
+waits for a free slot before failing, default 14400). <code>af2_mono</code> is not an
+independent vote alongside the others — see the caveats in its own section
+below before including it in a consensus.</p>
 <h2 id="multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</h2>
 <p>All selected predictors share one MSA stage controlled by <code>--msa_method</code>.</p>
 <h3 id="option-1-alphafold-jackhmmer-hhblits-jackhmmer_af2">Option 1: AlphaFold jackhmmer / HHblits (<code>jackhmmer_af2</code>)</h3>
@@ -327,9 +383,15 @@ templates) unless MSA subsample rebuilds features from a shallow a3m.</p>
 </tr>
 </tbody>
 </table>
-<p>Individual DB paths are <strong>not</strong> separate CLI knobs — set the root with
-<code>--af2_db_path</code> (or <code>params.af2_db_path</code> in a config). See
-<a href="#setting-up-databases">Setting up databases</a>.</p>
+<p>The individual paths default to the layout produced by DeepMind's own download
+script relative to <code>--af2_db_path</code> (e.g. <code>mgnify/mgy_clusters_2022_05.fa</code>,
+<code>uniref30/UniRef30_2021_03</code>); override one with its own
+<code>--af2_uniref30_subpath</code> / <code>--af2_mgnify_subpath</code> / <code>--af2_uniprot_subpath</code> /
+<code>--af2_pdb_seqres_subpath</code> / <code>--af2_pdb70_subpath</code> flag when a snapshot uses a
+different filename (needed for <a href="#af2-multimer-needs-the-2021-db-snapshot">AF2 multimer against the 2021
+snapshot</a>, whose HHblits DB is
+<code>uniclust30</code> rather than <code>uniref30</code>). See
+<a href="../../extra/fold-databases/">Fold databases</a>.</p>
 <h3 id="option-2-colabfold-mmseqs2-mmseqs2_colabfold">Option 2: ColabFold MMseqs2 (<code>mmseqs2_colabfold</code>)</h3>
 <h4 id="remote-server">Remote server</h4>
 <pre><code class="language-bash">--msa_method mmseqs2_colabfold --use_remote_server true
@@ -343,7 +405,7 @@ occasional runs; for heavy use prefer local databases.</p>
 </code></pre>
 <p><code>--uniref30</code> must contain <code>uniref30_*</code> MMseqs2 DB files;
 <code>--colabfold_envdb</code> must contain <code>colabfold_envdb*</code> files (layout produced by
-<a href="#colabfold-mmseqs2-databases"><code>scripts/download_colabfold_dbs.sh</code></a>).</p>
+<a href="../../extra/fold-databases/#colabfold-mmseqs2-databases"><code>scripts/download_colabfold_dbs.sh</code></a>).</p>
 <blockquote>
 <p>There is no site-wide default ColabFold DB path on M3 yet — use
 <code>--use_remote_server true</code> or install local DBs yourself.</p>
@@ -375,9 +437,10 @@ protein complexes only.</p>
 <h3 id="paired-msas-how-each-engine-differs">Paired MSAs (how each engine differs)</h3>
 <p>For a complex, co-evolutionary <strong>pairing</strong> across chains is what carries the
 interface signal. Each engine consumes a paired MSA in a <em>different</em> native
-format, so the fold workflow searches each chain independently and then renders each
-engine's format from one canonical taxonomy parse (<code>bin/fold/msa_taxonomy.py</code>, unit
-tested in <code>tests/bin/test_msa_taxonomy.py</code>):</p>
+format, so the fold workflow searches each chain independently and then renders
+each engine's format from one canonical taxonomy parse. When <code>af2</code> or <code>af2_mono</code>
+is also selected under <code>jackhmmer_af2</code>, the per-chain MSAs come from AF2's own
+multimer search of the complex rather than a second search of each chain:</p>
 <table>
 <thead>
 <tr>
@@ -403,14 +466,32 @@ tested in <code>tests/bin/test_msa_taxonomy.py</code>):</p>
 <td>Per-chain <code>pairedMsaPath</code> (mnemonic headers) + <code>unpairedMsaPath</code></td>
 </tr>
 <tr>
+<td><strong>AF3</strong></td>
+<td>Pairs by species mnemonic, parsed only from UniProt-style <code>tr\|ACC\|NAME_SPECIES</code> headers</td>
+<td>Per-chain <code>pairedMsaPath</code> re-rendered with <code>tr\|…_SPECIES</code> headers + <code>unpairedMsaPath</code> (AF3's own data pipeline is never run)</td>
+</tr>
+<tr>
+<td><strong>OpenFold3</strong></td>
+<td>Pairs online by species, read from the 4th field of <code>uniprot_hits</code> headers</td>
+<td>Per-chain directory with <code>colabfold_main.a3m</code> (unpaired) + <code>uniprot_hits.a3m</code> re-rendered as <code>tr\|ACC\|ACC_SPECIES/1-N</code> (pairing only)</td>
+</tr>
+<tr>
 <td><strong>Boltz-2</strong></td>
 <td>Pairs rows across chains sharing a taxid <code>key</code></td>
 <td>Per-chain <code>key,sequence</code> CSV (<code>key = taxid</code>)</td>
 </tr>
+<tr>
+<td><strong>ESMFold2</strong></td>
+<td>Pairs rows across chains sharing a <code>key=&lt;taxid&gt;</code> token, done by ESMFold2 itself</td>
+<td>One a3m per chain with <code>key=&lt;taxid&gt;</code> headers; unlike the other renders, rows with no taxonomy are kept (laid out block-diagonally)</td>
+</tr>
 </tbody>
 </table>
-<p>The rendered per-chain files are published under <code>&lt;outdir&gt;/fold/msa/paired/</code>, and
-each render logs its paired-row depth per chain.</p>
+<p>RF3 / Protenix / Boltz's rendered per-chain files are published under
+<code>&lt;outdir&gt;/fold/msa/paired/</code>, and each render logs its paired-row depth per
+chain. AF3, OpenFold3 and ESMFold2 render their own pairing input inline
+inside their respective predict/input-prep tasks, so their re-rendered a3ms
+are not published under <code>msa/paired/</code>.</p>
 <blockquote>
 <p><strong>Use <code>--msa_method jackhmmer_af2</code> for paired multimers.</strong> Only the jackhmmer
 route produces the rich UniProt/UniRef headers (<code>TaxID=</code>, <code>RepID=</code>,
@@ -423,15 +504,17 @@ fetches and pairs its own MSA; drop <code>af2</code> from <code>--methods</code>
 <p>AF2 multimer loads different weights (<code>--model_preset=multimer</code>) and a different
 data pipeline that pairs species <strong>internally</strong> against the <code>uniprot/</code> all-seqs
 DB + <code>pdb_seqres/</code> templates. The default <code>alphafold_20240229</code> snapshot is
-monomer-only (no <code>uniprot/</code>), so the fold workflow fails fast if <code>af2</code> is requested for a
-multimer without a <code>uniprot/</code>-bearing <code>--af2_db_path</code>. Point it at the 2021
-snapshot (<code>/mnt/datasets/alphafold/alphafold_20211129</code>), whose HHblits DB is
+monomer-only (no <code>uniprot/</code>), so the fold workflow fails fast if <code>af2</code> (or
+<code>af2_mono</code> under <code>jackhmmer_af2</code>) is requested for a multimer without a
+<code>uniprot/</code>-bearing <code>--af2_db_path</code>. Point it at the 2021 snapshot
+(<code>/mnt/datasets/alphafold/alphafold_20211129</code> on M3), whose HHblits DB is
 <code>uniclust30</code> rather than <code>uniref30</code> — override <code>--af2_uniref30_subpath</code> (and
 <code>--af2_mgnify_subpath</code>, <code>--af2_uniprot_subpath</code>, <code>--af2_pdb_seqres_subpath</code>)
-accordingly. The container also loads <strong>multimer_v3</strong> weights, which the 2021
-snapshot lacks (it ships only v1 multimer params), so point <code>--af2_data_dir</code>
-(the <code>params/</code> source, independent of the genetic-DB paths) at a v3 snapshot
-such as <code>alphafold_20240229</code>. See <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer"><code>examples/fold-multimer/</code></a>
+accordingly. The <code>alphafold2</code> container bundles <strong>multimer_v3</strong> model weights
+(<code>params_model_*_multimer_v3.npz</code>) alongside the monomer/ptm weights, so
+<code>--af2_data_dir</code> does not need to be overridden for multimer mode — it only
+needs pointing at a host <code>params/</code> directory if you are running without the
+bundled weights. See <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer"><code>examples/fold-multimer/</code></a>
 (<code>nextflow.m3.config</code> + <code>run-m3.sh</code>) for a working set of overrides.
 <code>--num_multimer_predictions_per_model</code> (<code>--af2_num_predictions_per_model</code>)
 applies in multimer mode.</p>
@@ -446,57 +529,287 @@ real chains automatically, renumbered <code>1..L</code> per chain, so it feeds i
 everything else exactly like the other engines.</p>
 <p>It reuses the same per-chain MSAs as <code>af2</code>; only <code>features.pkl</code> differs. You can
 run both in one pipeline — their predictions, score TSVs (<code>tool</code> column <code>af2</code> vs
-<code>af2_mono</code>) and <code>fold/predictions/</code> filenames are kept separate.</p>
-<p><strong>When this is worth reaching for.</strong> AF2-multimer pairs MSA rows across chains by
-taxonomy. If one chain has no homologs — a de novo designed binder, say — there is
-nothing to pair, so the merged MSA is block diagonal anyway. (This is not a
-violation of multimer's assumptions: partial pairing is explicit in
-<code>msa_pairing.pad_features</code>, whose padding row "will be selected as a 'paired' row
-in the case of partial alignment". Species present in only one chain are skipped
-from pairing by design.) <code>af2_mono</code> carries the same information without the
-multimer head, as a controlled contrast.</p>
+<code>af2_mono</code>) and <code>fold/predictions/</code> filenames are kept separate. It works with
+either MSA route (<code>jackhmmer_af2</code> or <code>mmseqs2_colabfold</code>), with <code>--msa_subsample</code>,
+and with homo-oligomer inputs; under <code>jackhmmer_af2</code> a multimer still needs a
+<code>uniprot/</code>-bearing <code>--af2_db_path</code> (same requirement as <code>af2</code> itself), because
+<code>af2_mono</code>'s per-chain MSAs come from AF2's multimer search even though the
+predict step then uses the monomer weights.</p>
+<p><strong>When this is worth reaching for.</strong> AF2-multimer pairs MSA rows across chains
+by taxonomy. If one chain has no homologs — a de novo designed binder, say —
+there is nothing to pair, so the merged MSA is block diagonal anyway.
+<code>af2_mono</code> carries the same information without the multimer head, as a
+controlled contrast.</p>
 <p><strong>Two things to know before using it.</strong></p>
 <ol>
 <li><strong>Pair it with <code>--af2_keep_models best</code>.</strong> Without an initial guess the monomer
-   models have no reason to dock the chains, and frequently don't. In a
-   73 + 104-residue test, one of three models docked (interface pLDDT 92.1, 0.5 Å
-   from the AF2-multimer pose — tighter than four independent engines agree with
-   each other) while the other two placed the binder 47 and 53 Å away. Ranking
-   separates them (<code>ranking_confidence</code> for monomer presets is mean pLDDT: 92.1 vs
-   85.1/85.0; interface pLDDT separates them far harder), so <code>ranked_0</code> is sound
-   but <code>all</code> would inject failed poses into any downstream consensus. The workflow
-   warns if you select <code>af2_mono</code> without <code>best</code>.</li>
+   models have no reason to dock the chains, and frequently don't — ranking
+   (mean pLDDT for monomer presets) reliably separates a docked pose from a
+   failed one, but <code>all</code> would inject the failed poses into any downstream
+   consensus. The workflow warns if you select <code>af2_mono</code> without <code>best</code>.</li>
 <li><strong>It is not an independent engine.</strong> <code>monomer_ptm</code> and <code>multimer</code> share an
    architecture family and a training corpus. Treat it as a second opinion from the
    same lineage, never as another vote alongside Boltz / RF3 / Protenix.</li>
 </ol>
 <p>Monomer presets do template search with hhsearch over <code>pdb70</code> rather than hmmsearch
 over <code>pdb_seqres</code>, so <code>--af2_pdb70_subpath</code> must resolve under <code>--af2_db_path</code>
-(this is the one existence check the multimer path never reaches).</p>
+(this is the one existence check the multimer path never reaches; it is honoured
+by the MSA stage as well as predict).</p>
 <p><code>--msa_subsample</code> is monomer-only and is rejected for multimer inputs.</p>
-<h2 id="example-usage">Example Usage</h2>
-<p>Minimal AF2-only run with jackhmmer MSAs:</p>
-<pre><code class="language-bash">nextflow run /path/to/nf-binder-design --method fold \
-  --input input/pdl1.fasta \
-  --outdir results \
-  --methods af2 \
-  --msa_method jackhmmer_af2 \
-  --af2_db_path /mnt/datasets/alphafold/alphafold_20240229 \
-  -profile local
+<h2 id="alphafold3-weights">AlphaFold3 weights</h2>
+<p>The AlphaFold3 container (<code>ghcr.io/australian-protein-design-initiative/containers/alphafold3:3.0.4</code>)
+does <strong>not</strong> include the model parameters. They are released by Google DeepMind
+under the <a href="https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md">AlphaFold3 Model Parameters Terms of Use</a>
+and <a href="https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_PROHIBITED_USE_POLICY.md">Prohibited Use Policy</a>.
+In short, they are for <strong>non-commercial use only</strong>, may <strong>not be shared outside your
+organisation</strong>, and AF3 outputs may not be used to train other structure predictors.
+Read the terms in full before downloading.</p>
+<p>The pipeline looks for the weights in <code>--af3_model_dir</code>, which defaults to
+<code>models/alphafold3/</code> in your copy of the pipeline. That default resolves
+relative to the pipeline checkout, so if you launch the pipeline by revision
+(<code>nextflow run Australian-Protein-Design-Initiative/nf-binder-design ...</code>)
+rather than from a local clone, pass <code>--af3_model_dir</code> explicitly — the
+default would otherwise point inside Nextflow's own cached copy of the
+pipeline under <code>~/.nextflow/assets/</code>. To download the weights there:</p>
+<pre><code class="language-bash"># From a clone of nf-binder-design; prints the terms and asks you to type 'yes'
+./models/download_af3_weights.sh
+
+# Or somewhere else (eg a group-shared location within your organisation)
+./models/download_af3_weights.sh -o /path/to/af3_weights
+# ... then run the pipeline with --af3_model_dir /path/to/af3_weights
 </code></pre>
-<p>Multi-method ensemble (25 structures per method) with ColabFold remote MSA:</p>
-<pre><code class="language-bash">nextflow run /path/to/nf-binder-design --method fold \
-  --input UL119_domain.fasta \
-  --outdir results \
-  --methods af2,boltz,rf3,protenix \
-  --msa_method mmseqs2_colabfold \
-  --use_remote_server true \
-  --n_predictions 25 \
-  --af2_keep_models all \
-  -profile slurm,m3
+<p>Or download <code>af3.bin.zst</code> manually and put it in a directory of its own. Notes:</p>
+<ul>
+<li>The directory must contain <strong>exactly one</strong> model file (<code>af3.bin.zst</code> or
+  <code>af3.bin</code>). AlphaFold3 reads the compressed <code>.zst</code> directly, so you don't need
+  to decompress it.</li>
+<li>The pipeline checks the directory before starting and fails early with
+  instructions if the weights are missing.</li>
+<li>You don't need any bind-mount configuration. The directory is staged into each
+  AlphaFold3 task as <code>af3_models/</code>, which Docker, Apptainer and Singularity mount
+  automatically, and passed to AF3 as <code>--model_dir=af3_models</code>.</li>
+<li>AF3's genetic databases are <strong>not</strong> needed. The pipeline supplies MSAs from its
+  shared MSA stage and runs AF3 with <code>--run_data_pipeline=false</code>.</li>
+<li>Pre-Ampere GPUs (V100, T4; compute capability 7.x) need a workaround, which
+  <code>--af3_flash_attention auto</code> (the default) applies: xla flash attention plus
+  <code>XLA_FLAGS=--xla_disable_hlo_passes=custom-kernel-fusion-rewriter</code>. Ampere or
+  newer (A100, H100, L40S) uses triton.</li>
+<li><code>--af3_batch_size</code> sets diffusion samples per job (<code>--num_diffusion_samples</code>,
+  default 5); <code>--n_predictions</code> splits across jobs as for the other diffusion
+  engines. <code>--af3_seeds</code> sets the base seed (default 1); batch <em>i</em> uses
+  <code>seed + i</code>. <code>--af3_num_recycles</code> defaults to 10.</li>
+<li><code>--af3_jax_cache_dir /some/shared/dir</code> keeps JAX compilation results between
+  tasks, which saves several minutes per job for repeated input sizes.</li>
+</ul>
+<h2 id="openfold3">OpenFold3</h2>
+<p>OpenFold3 (<code>--methods openfold3</code>) runs from
+<code>ghcr.io/australian-protein-design-initiative/containers/openfold3:0.5.0_nv-cuda12_weights</code>,
+which includes the default OpenFold3 checkpoint under <code>/models/openfold3</code>, so no
+download or weights flag is needed.</p>
+<ul>
+<li>MSAs come from the shared MSA stage (<code>--use-msa-server false</code>). Templates are
+  used only with <code>--templates</code> (see <a href="#templates">Templates</a>). Each chain's MSA directory holds the shared a3m as
+  <code>colabfold_main.a3m</code>, and multimers add a species-tagged <code>uniprot_hits.a3m</code>
+  for cross-chain pairing.</li>
+<li><code>--openfold3_batch_size</code> sets diffusion samples per job
+  (<code>--num-diffusion-samples</code>); <code>--n_predictions</code> splits across jobs as for the
+  other diffusion engines.</li>
+<li>OpenFold3 JIT-compiles Triton kernels on first use. By default the cache lives
+  in each task's work directory; <code>--openfold3_kernel_cache_dir /some/shared/dir</code>
+  keeps it between tasks.</li>
+</ul>
+<h2 id="esmfold2">ESMFold2</h2>
+<p>ESMFold2 comes as two engines, run through the <code>esm</code> package (v3.4.1.post1).
+Select either or both, e.g. <code>--methods esmfold2,esmfold2_fast</code> to compare them:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Checkpoint</th>
+<th>Container</th>
+<th>MSA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>esmfold2</code></td>
+<td><code>biohub/ESMFold2</code></td>
+<td><code>esmfold2:3.4.1.post1_nv-cuda13_full_weights</code></td>
+<td>Yes (multimers paired by ESMFold2 itself)</td>
+</tr>
+<tr>
+<td><code>esmfold2_fast</code></td>
+<td><code>biohub/ESMFold2-Fast</code></td>
+<td><code>esmfold2:3.4.1.post1_nv-cuda13_fast_weights</code></td>
+<td>Never — always folds from sequence alone</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Weights (including the ESMC-6B language-model encoder) are baked into each
+  container, so nothing is downloaded at run time. <code>--esmfold2_weights_dir</code>
+  (exported as <code>HF_HOME</code>) points both engines at an external HuggingFace cache
+  instead.</li>
+<li><code>esmfold2_fast</code> has no MSA encoder, so it never uses or triggers an MSA
+  search: on its own it skips the MSA stage entirely, and alongside other
+  engines it ignores the MSAs they share. The pipeline logs a warning to that
+  effect whenever it is selected.</li>
+<li><code>--esmfold2_single_sequence</code> also folds <code>esmfold2</code> (the full checkpoint)
+  from the sequence alone, skipping its MSA — a useful comparison against
+  <code>esmfold2_fast</code>.</li>
+<li>The <code>esm</code> package ships no command-line tool, so the pipeline drives its
+  Python API through <code>bin/fold/run_esmfold2.py</code>.</li>
+<li><code>--esmfold2_kernel_backend</code> (<code>fused</code> default, <code>cuequivariance</code>, or <code>none</code>):
+  <code>fused</code> is roughly 3.5x faster and falls back silently to the reference path
+  if Triton is unavailable.</li>
+<li>The options below are shared by both engines (<code>--esmfold2_msa_max_depth</code>
+  only affects <code>esmfold2</code>). <code>--esmfold2_batch_size</code> sets diffusion samples per job; <code>--n_predictions</code>
+  splits across jobs as for the other diffusion engines. <code>--esmfold2_seeds</code>
+  sets the base seed (default 42); batch <em>i</em> uses <code>seed + i</code>.
+  <code>--esmfold2_num_loops</code>, <code>--esmfold2_num_sampling_steps</code> and
+  <code>--esmfold2_msa_max_depth</code> default to the <code>esm</code> package's own values (20,
+  200, 1024 respectively).</li>
+<li>ESMFold2 reports <strong>no ranking score</strong> — its <code>ranking_score</code> column is blank
+  in the fold score table, so rank on <code>iptm</code> / <code>plddt</code> / <code>ipsae</code> instead. It
+  does report ptm, iptm, per-token pLDDT and a PAE matrix, plus a per-chain-pair
+  ipTM matrix, so ipSAE is computed as usual.</li>
+</ul>
+<h2 id="templates">Templates</h2>
+<p><code>--templates</code> takes known structures (<code>.pdb</code> or <code>.cif</code>, optionally gzipped) as a
+directory or a glob. Files may hold single chains or whole complexes, and no
+mapping file is needed.</p>
+<ul>
+<li>Every protein chain in every file is aligned to every chain being folded, much
+  as AF2's template search does against the PDB.</li>
+<li>A template is kept for a chain when its alignment passes all of the cutoffs
+  below; the best <code>--template_max_per_chain</code> by identity × coverage are used.</li>
+<li>Templates inform each chain's own structure only. No engine takes the
+  arrangement between chains from them.</li>
+<li>The normalised template files and the full report are published to
+  <code>&lt;outdir&gt;/fold/templates/</code>. <code>templates_matched.tsv</code> lists every chain and
+  template pair considered, with its identity, coverage and aligned length, and
+  why it was accepted or rejected.</li>
+</ul>
+<h3 id="match-cutoffs">Match cutoffs</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--template_min_identity</code></td>
+<td><code>0.3</code></td>
+<td>Identity over the aligned residues</td>
+</tr>
+<tr>
+<td><code>--template_min_coverage</code></td>
+<td><code>0.3</code></td>
+<td>Fraction of the folded chain the alignment covers</td>
+</tr>
+<tr>
+<td><code>--template_min_aligned</code></td>
+<td><code>40</code></td>
+<td>Aligned residues required</td>
+</tr>
+<tr>
+<td><code>--template_max_per_chain</code></td>
+<td><code>4</code></td>
+<td>Templates kept per chain, best first</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">nextflow run main.nf --method fold ... \
+    --templates my_structures/ \
+    --template_min_identity 0.8 \
+    --template_max_per_chain 1
 </code></pre>
-<p>See <code>examples/fold/run-m3.sh</code> and <code>examples/fold/run-local.sh</code> for complete
-HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).</p>
+<ul>
+<li>Raise <code>--template_min_identity</code> (say <code>0.8</code>) when only a near-identical
+  structure should count, which is the usual case for a known target.</li>
+<li><code>--template_min_coverage</code> is a fraction, so it scales away on short chains:
+  30% of a 60-residue binder is only 18 residues. <code>--template_min_aligned</code> is
+  the absolute floor underneath it, so a de novo design aligning to a 26-33
+  residue stretch of an unrelated structure no longer counts as a template.</li>
+<li>A chain shorter than <code>--template_min_aligned</code> must be covered end to end
+  instead, so peptide templates still work without lowering the floor.</li>
+<li>A long but mediocre alignment can still get close to the defaults: in the
+  pulldown example the two unrelated targets align over 70 residues at 28.6%
+  identity, just under the identity cutoff. Check <code>templates_matched.tsv</code>, and
+  raise <code>--template_min_identity</code> when only a close template should count.</li>
+</ul>
+<h3 id="how-each-engine-uses-them">How each engine uses them</h3>
+<table>
+<thead>
+<tr>
+<th>Engine</th>
+<th>Templates per chain</th>
+<th>How they are passed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>af2</code>, <code>af2_mono</code></td>
+<td>up to 4, user templates first</td>
+<td>Added to the chain's features ahead of any AF2 found itself</td>
+</tr>
+<tr>
+<td><code>af3</code></td>
+<td>up to <code>--template_max_per_chain</code></td>
+<td>Inline mmCIF with an explicit residue mapping</td>
+</tr>
+<tr>
+<td><code>boltz</code></td>
+<td>up to <code>--template_max_per_chain</code></td>
+<td>Pinned to the chain, with an optional distance restraint</td>
+</tr>
+<tr>
+<td><code>openfold3</code></td>
+<td>up to <code>--template_max_per_chain</code></td>
+<td>CIF files, realigned by OpenFold3 with kalign</td>
+</tr>
+<tr>
+<td><code>protenix</code></td>
+<td>up to <code>--template_max_per_chain</code></td>
+<td>AF3-format JSON, run with <code>--use_template true</code></td>
+</tr>
+<tr>
+<td><code>rf3</code></td>
+<td>1 (the best match)</td>
+<td>The chain itself, built with the template's coordinates</td>
+</tr>
+<tr>
+<td><code>esmfold2</code>, <code>esmfold2_fast</code></td>
+<td>none</td>
+<td>No template input; folds without them, with a warning</td>
+</tr>
+</tbody>
+</table>
+<p>Engine-specific notes:</p>
+<ul>
+<li><strong>AF2:</strong> 4 is the most any AF2 model uses, so user templates can displace ones
+  AF2 found on the <code>jackhmmer_af2</code> route. Only monomer models 1 and 2 use
+  templates; all multimer models do. Shallow <code>--msa_subsample</code> jobs fold without
+  user templates.</li>
+<li><strong>Boltz-2:</strong> Boltz aligns the template itself and uses only its longest
+  gap-free match, so a template with missing loops contributes one segment.
+  <code>--boltz_template_force</code> holds the chain within <code>--boltz_template_threshold</code>
+  (default 1.0 Å) of the template. It is off by default in <code>--method fold</code>, so
+  the template guides the prediction without over-biasing it, and on by default
+  in <code>--method fold_pulldown</code>, where the chain structures are known and the
+  binding pose is what is being predicted.</li>
+<li><strong>Protenix:</strong> needs the container built from upstream commit 85767b8 or later.
+  The v2.0.0 release cannot take structure-file templates.</li>
+<li><strong>RosettaFold3:</strong> RF3 has no separate template input, so the chain is supplied
+  as a structure file: its own sequence, carrying the template's coordinates on
+  aligned residues (backbone only where the residue differs). Residues the
+  template lacks are kept but not templated.</li>
+<li><strong>OpenFold3:</strong> the pipeline points OpenFold3's template structure directory at
+  the staged files and turns off downloads from RCSB.</li>
+</ul>
 <h2 id="engens-clustering">EnGens clustering</h2>
 <p>After prediction, EnGens runs by default (UMAP + HDBSCAN) and writes
 <code>results/engens/&lt;id&gt;/clusters.html</code> plus representative conformations.
@@ -545,18 +858,100 @@ standalone <code>engens.nf</code> workflow:</p>
   --outdir results \
   -profile slurm,m3
 </code></pre>
+<h2 id="command-line-options">Command-line Options</h2>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold --help
+</code></pre>
+<h3 id="key-parameters">Key Parameters</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--input</code></td>
+<td>Single FASTA, glob, or directory of FASTA files (required)</td>
+</tr>
+<tr>
+<td><code>--outdir</code></td>
+<td>Output directory (default: <code>results</code>)</td>
+</tr>
+<tr>
+<td><code>--methods</code></td>
+<td>Comma-separated: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>, <code>esmfold2</code>, <code>esmfold2_fast</code> (default: <code>af2</code>)</td>
+</tr>
+<tr>
+<td><code>--msa_method</code></td>
+<td><code>jackhmmer_af2</code> (default) or <code>mmseqs2_colabfold</code></td>
+</tr>
+<tr>
+<td><code>--n_predictions</code></td>
+<td>Total structures per input, per method (see below)</td>
+</tr>
+<tr>
+<td><code>--msa_subsample</code></td>
+<td>Off by default; <code>true</code> (default depth list) or a custom <code>max_seq:max_extra_seq</code> list. Depths with <code>max_seq &gt;=</code> MSA size are skipped</td>
+</tr>
+<tr>
+<td><code>--msa_subsample_include_full</code></td>
+<td>Keep one full-MSA job when subsampling (default: <code>true</code>)</td>
+</tr>
+<tr>
+<td><code>--skip_engens</code></td>
+<td>Skip post-prediction EnGens clustering</td>
+</tr>
+<tr>
+<td><code>--engens_clustering</code></td>
+<td><code>hdbscan</code> (default), <code>gmm</code>, <code>km</code>, or comma-separated</td>
+</tr>
+<tr>
+<td><code>--engens_featurizers</code></td>
+<td><code>default,3di</code> (default); also <code>pb</code>; comma-separated</td>
+</tr>
+<tr>
+<td><code>--engens_superpose_method</code></td>
+<td>Superposition scheme for the geometric featurizers (default: <code>blosum62</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Method-specific flags (<code>--af2_*</code>, <code>--boltz_*</code>, <code>--rf3_*</code>, <code>--protenix_*</code>, <code>--af3_*</code>, <code>--openfold3_*</code>, <code>--esmfold2_*</code>) are
+documented in <code>--help</code>.</p>
+<p><strong><code>--n_predictions</code></strong> is <strong>unset by default</strong>, in which case each engine falls
+back to its own default: Boltz, RF3, Protenix, AF3, OpenFold3 and ESMFold2 each
+emit <strong>5</strong> diffusion samples in a single job (Boltz is lifted from its native default of 1
+for cross-engine parity), while AF2 does a single run and keeps per
+<code>--af2_keep_models</code> (default <code>best</code> → one structure). Set <code>--n_predictions N</code> to
+pin every diffusion engine to exactly N, split across jobs by that engine's own
+<code>--*_batch_size</code> (e.g. <code>--n_predictions 10 --boltz_batch_size 5</code> runs Boltz as
+two jobs of 5 samples each; leaving <code>--*_batch_size</code> unset runs one job of N).
+AF2 has no in-run sampling knob — it always emits its 5 trained models per run,
+and <code>--af2_keep_models</code> decides how many runs that takes to reach N (<code>best</code>
+keeps the top-ranked model/run → N runs; <code>all</code> keeps all 5/run → <code>ceil(N/5)</code>
+runs).</p>
+<p><strong>Seeds</strong> are unset by default so each engine draws its own random seed (pin
+<code>--af2_random_seed</code> / <code>--boltz_seed</code> / <code>--rf3_seed</code> / <code>--protenix_seeds</code> for
+reproducibility; do not inject a fresh random seed on every CLI invocation if
+you want <code>-resume</code> to cache). AlphaFold3, OpenFold3 and ESMFold2 always need a
+seed in their input, so they default to a fixed base seed (<code>--af3_seeds 1</code>,
+<code>--openfold3_seeds 42</code>, <code>--esmfold2_seeds 42</code>); batch <em>i</em> uses <code>seed + i</code>.
+<code>--protenix_seeds</code> takes the same single-base-seed convention.</p>
 <h2 id="output">Output</h2>
-<p>Default layout under <code>--outdir</code>:</p>
+<p>Default layout under <code>--outdir</code> (<code>params.json</code> and <code>logs/</code> sit at the outdir
+root, alongside <code>fold/</code>, not inside it — they are shared across every
+<code>--method</code>):</p>
 <pre><code>results/
+├── params.json
+├── logs/                     # report/trace/timeline/dag + gpu_trace_&lt;datestamp&gt;.txt
 ├── fold/
 │   ├── msa/&lt;msa_method&gt;/     # shared MSAs + a3m (jackhmmer_af2 or mmseqs2_colabfold)
 │   ├── af2/msas/             # AF2-only features.pkl (not under fold/msa/)
-│   ├── af2/ … boltz/ … rf3/ … protenix/    # per-engine predictions + &lt;tool&gt;_fold_scores.tsv
-│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_* mmCIF
+│   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/ … openfold3/ … esmfold2/ … esmfold2_fast/    # per-engine predictions + &lt;tool&gt;_fold_scores.tsv
+│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_*, esmfold2_*, esmfold2_fast_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
 │   ├── msa_ids/              # when --msa_subsample: header_line&lt;TAB&gt;id (0-based '&gt;' line)
-│   ├── params.json
-│   └── logs/
+│   └── templates/            # when --templates: templates_matched.tsv + normalised tmpl*.cif
 └── engens/&lt;id&gt;/              # clusters.html + representative conformations (HDBSCAN by default)
                               # + structural_alphabet/ (3Di FASTA + entropy when enabled)
 </code></pre>
@@ -564,8 +959,10 @@ standalone <code>engens.nf</code> workflow:</p>
 <p>One row per generated structure across all engines. Each engine also writes a
 per-tool table (<code>fold/&lt;tool&gt;/&lt;tool&gt;_fold_scores.tsv</code>); the master merges them,
 <strong>normalizing column names</strong> for equivalent scores. Provenance columns name the
-<code>tool</code>, input <code>id</code>, <code>model</code>/sample index, the engine-native <code>original_file</code>, and
-the renamed <code>predictions_file</code> in <code>fold/predictions/</code> (unique per structure).</p>
+<code>tool</code>, input <code>id</code>, <code>model</code>/sample index, <code>batch</code> (which predict job produced
+it) and <code>msa_depth</code> (MSA subsample depth, blank unless <code>--msa_subsample</code> was
+used), the engine-native <code>original_file</code>, and the renamed <code>predictions_file</code> in
+<code>fold/predictions/</code> (unique per structure).</p>
 <table>
 <thead>
 <tr>
@@ -575,21 +972,30 @@ the renamed <code>predictions_file</code> in <code>fold/predictions/</code> (uni
 <th>Boltz</th>
 <th>Protenix</th>
 <th>RF3</th>
+<th>AF3</th>
+<th>OpenFold3</th>
+<th>ESMFold2 / ESMFold2-Fast</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>ranking_score</code></td>
 <td>engine's overall ranking metric</td>
-<td>iptm+ptm</td>
+<td><code>ranking_confidence</code> (0.8×ipTM + 0.2×pTM for multimer presets; mean pLDDT for monomer presets, incl. <code>af2_mono</code>)</td>
 <td>confidence_score</td>
 <td>ranking_score</td>
 <td>ranking_score</td>
+<td>ranking_score</td>
+<td>sample_ranking_score</td>
+<td>– (not reported; rank on <code>iptm</code>/<code>plddt</code>/<code>ipsae</code>)</td>
 </tr>
 <tr>
 <td><code>ptm</code> / <code>iptm</code></td>
 <td>(interface) predicted TM-score</td>
 <td>✓ (pkl)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
 <td>✓</td>
 <td>✓</td>
 <td>✓</td>
@@ -601,14 +1007,20 @@ the renamed <code>predictions_file</code> in <code>fold/predictions/</code> (uni
 <td>✓</td>
 <td>✓</td>
 <td>✓</td>
+<td>✓ (mean per-atom)</td>
+<td>✓</td>
+<td>✓ (per-token)</td>
 </tr>
 <tr>
 <td><code>pae</code> / <code>pde</code></td>
 <td>overall predicted aligned / distance error</td>
 <td>–</td>
 <td>pde</td>
-<td>–</td>
-<td>✓</td>
+<td>pde (<code>gpde</code>)</td>
+<td>pae, pde</td>
+<td>pae (mean)</td>
+<td>pae (mean), pde (<code>gpde</code>)</td>
+<td>pae (mean)</td>
 </tr>
 <tr>
 <td><code>has_clash</code></td>
@@ -617,6 +1029,9 @@ the renamed <code>predictions_file</code> in <code>fold/predictions/</code> (uni
 <td>–</td>
 <td>✓</td>
 <td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>–</td>
 </tr>
 <tr>
 <td><code>ipsae</code>, <code>ipsae_d0chn</code>, <code>ipsae_d0dom</code>, <code>pdockq</code>, <code>pdockq2</code>, <code>lis</code></td>
@@ -625,173 +1040,27 @@ the renamed <code>predictions_file</code> in <code>fold/predictions/</code> (uni
 <td>ipsae only</td>
 <td>✓ (computed)</td>
 <td>✓ (computed)</td>
+<td>✓ (computed)</td>
+<td>✓ (computed)</td>
+<td>✓ (computed)</td>
 </tr>
 </tbody>
 </table>
 <p>Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix <code>chain_pair_iptm</code>, Boltz <code>pair_chains_iptm</code>) are intentionally
 omitted — only the overall values are reported.</p>
-<h2 id="setting-up-databases">Setting up databases</h2>
-<p>You need local databases only for:</p>
-<ul>
-<li><code>--msa_method jackhmmer_af2</code> (AlphaFold genetic DBs), and/or</li>
-<li><code>--msa_method mmseqs2_colabfold</code> <strong>without</strong> <code>--use_remote_server true</code>
-  (ColabFold MMseqs2 DBs).</li>
-</ul>
-<p>Model weights for Boltz / RF3 / Protenix are typically baked into the pipeline
-containers; AF2 params are downloaded with the AlphaFold DB tree (<code>params/</code>).</p>
-<p>Helper scripts live in the repo <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/scripts"><code>scripts/</code></a>
-directory.</p>
-<h3 id="alphafold-genetic-databases">AlphaFold genetic databases</h3>
-<p>Official source: <a href="https://github.com/google-deepmind/alphafold">google-deepmind/alphafold</a>
-(<a href="https://github.com/google-deepmind/alphafold#genetic-databases">genetic databases</a>).</p>
-<p><strong>Requirements:</strong> <code>aria2c</code>, <code>rsync</code>, <code>git</code>. Full databases are ~556 GB download
-and ~2.62 TB unzipped (SSD recommended).</p>
-<pre><code class="language-bash"># From a clone of nf-binder-design:
-./scripts/download_alphafold_dbs.sh /data/alphafold_dbs
-# or reduced set:
-./scripts/download_alphafold_dbs.sh /data/alphafold_dbs reduced_dbs
-</code></pre>
-<p>This clones DeepMind's repo shallowly and runs their
-<code>scripts/download_all_data.sh</code>, which fetches BFD (or small BFD), MGnify,
-PDB70, PDB mmCIF, UniRef30, UniRef90, UniProt, PDB seqres, and model params.</p>
-<p>Equivalent manual invocation:</p>
-<pre><code class="language-bash">git clone --depth 1 https://github.com/google-deepmind/alphafold.git
-bash alphafold/scripts/download_all_data.sh /data/alphafold_dbs full_dbs
-</code></pre>
-<p>Point the fold workflow at the download root:</p>
-<pre><code class="language-bash">--msa_method jackhmmer_af2 \
---af2_db_path /data/alphafold_dbs \
---af2_db_preset full_dbs
-</code></pre>
-<p>Expected layout (abbreviated):</p>
-<pre><code>$AF2_DB_PATH/
-  bfd/                 # full_dbs only
-  small_bfd/           # reduced_dbs only
-  mgnify/mgy_clusters_2022_05.fa
-  params/
-  pdb70/
-  pdb_mmcif/
-  uniref30/UniRef30_2021_03*
-  uniref90/uniref90.fasta
-  uniprot/             # AF2 multimer (2021 snapshot only)
-  pdb_seqres/          # AF2 multimer (2021 snapshot only)
-</code></pre>
-<p>the fold workflow defaults the relative paths to the DeepMind download-script layout
-(e.g. <code>mgnify/mgy_clusters_2022_05.fa</code>, <code>uniref30/UniRef30_2021_03</code>); the
-<code>--af2_uniref30_subpath</code>, <code>--af2_uniprot_subpath</code> and <code>--af2_pdb_seqres_subpath</code>
-params override them (needed for AF2 multimer against the 2021 snapshot, whose
-HHblits DB is <code>uniclust30</code>).
-The M3 default is <code>/mnt/datasets/alphafold/alphafold_20240229</code> (group
-<code>alphafold</code>); bind-mount it in Apptainer <code>runOptions</code> when using <code>-profile m3</code>
-(see <code>examples/fold/nextflow.m3.config</code>).</p>
-<p>Ensure the tree is readable by compute jobs (<code>chmod -R a+rX</code> if needed).</p>
-<h3 id="colabfold-mmseqs2-databases">ColabFold MMseqs2 databases</h3>
-<p>Official downloads and setup notes: <a href="https://colabfold.mmseqs.com/">colabfold.mmseqs.com</a>
-and ColabFold's
-<a href="https://github.com/sokrypton/ColabFold/blob/main/setup_databases.sh"><code>setup_databases.sh</code></a>.</p>
-<p><strong>Requirements:</strong> <code>mmseqs</code> in <code>PATH</code>, plus <code>aria2c</code> or <code>curl</code>/<code>wget</code>. Indexing
-is memory-heavy (ColabFold documents on the order of hundreds of GB RAM for
-full indexes / single-query search with indexes preloaded).</p>
-<pre><code class="language-bash"># Install MMseqs2 first, then:
-./scripts/download_colabfold_dbs.sh /data/colabfold_dbs
-</code></pre>
-<p>The helper fetches upstream <code>setup_databases.sh</code>, downloads UniRef30 +
-ColabFold env DB (prebuilt expandable-profile archives by default), runs
-<code>mmseqs createindex</code> unless <code>MMSEQS_NO_INDEX=1</code>, and organises outputs into:</p>
-<pre><code>/data/colabfold_dbs/
-  uniref30/           # pass to --uniref30
-  colabfold_envdb/    # pass to --colabfold_envdb
-</code></pre>
-<p>Useful environment overrides:</p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Effect</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>SKIP_TEMPLATES=1</code></td>
-<td>Skip PDB mmCIF / Foldseek template downloads</td>
-</tr>
-<tr>
-<td><code>MMSEQS_NO_INDEX=1</code></td>
-<td>Skip <code>createindex</code> (smaller disk; slower search)</td>
-</tr>
-<tr>
-<td><code>DOWNLOADS_ONLY=1</code></td>
-<td>Download archives only</td>
-</tr>
-<tr>
-<td><code>GPU=1</code></td>
-<td>GPU-capable indexes (needs GPU-enabled MMseqs2)</td>
-</tr>
-<tr>
-<td><code>UNIREF30DB</code> / <code>CFDB</code></td>
-<td>Archive stems (defaults: <code>uniref30_2302</code>, <code>colabfold_envdb_202108</code>)</td>
-</tr>
-</tbody>
-</table>
-<p>Equivalent manual setup:</p>
-<pre><code class="language-bash">wget https://raw.githubusercontent.com/sokrypton/ColabFold/main/setup_databases.sh
-chmod +x setup_databases.sh
-./setup_databases.sh /data/colabfold_dbs
-# Then point --uniref30 / --colabfold_envdb at dirs containing
-# uniref30_* and colabfold_envdb* MMseqs2 files (or use the helper).
-</code></pre>
-<p>Databases provided by ColabFold (see <a href="https://colabfold.mmseqs.com/">colabfold.mmseqs.com</a>):</p>
-<ol>
-<li><strong>UniRef30</strong> — 30% identity clustered UniRef100</li>
-<li><strong>ColabFold env DB</strong> — environmental sequences (BFD/MGnify-derived plus
-   metagenomic sources); alternatively BFD/MGnify-only archives are listed on
-   the download page</li>
-<li>Optional template DBs (PDB100, etc.)</li>
-</ol>
-<p>Use with fold:</p>
-<pre><code class="language-bash">--msa_method mmseqs2_colabfold \
---uniref30 /data/colabfold_dbs/uniref30 \
---colabfold_envdb /data/colabfold_dbs/colabfold_envdb
-</code></pre>
-<p>Bind-mount <code>/data/colabfold_dbs</code> (or the paths you pass) into Apptainer when
-running under Singularity/Apptainer profiles.</p>
-<h3 id="which-msa-route-should-i-use">Which MSA route should I use?</h3>
-<table>
-<thead>
-<tr>
-<th>Situation</th>
-<th>Recommendation</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Site already has AF2 DBs (e.g. M3 <code>/mnt/datasets/alphafold/...</code>)</td>
-<td><code>--msa_method jackhmmer_af2 --af2_db_path …</code></td>
-</tr>
-<tr>
-<td>No local DBs, small number of sequences</td>
-<td><code>--msa_method mmseqs2_colabfold --use_remote_server true</code></td>
-</tr>
-<tr>
-<td>Heavy ColabFold-style search on your cluster</td>
-<td>Install local ColabFold DBs with <code>scripts/download_colabfold_dbs.sh</code></td>
-</tr>
-</tbody>
-</table>
 <h2 id="related">Related</h2>
 <ul>
 <li>Example run directory: <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold"><code>examples/fold/</code></a></li>
-<li>Boltz Pulldown also accepts <code>--uniref30</code> / <code>--colabfold_envdb</code> for local MSAs
-  (<a href="../boltz-pulldown/">Boltz Pulldown</a>)</li>
+<li><a href="../../extra/fold-databases/">Fold databases</a></li>
 <li>Standalone EnGens: <code>engens.nf</code></li>
 </ul>
               
             </div>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
-        <a href="../fold-pulldown/" class="btn btn-neutral float-left" title="Fold Pulldown"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../subworkflows/foldseek/" class="btn btn-neutral float-right" title="FoldSeek">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../boltzgen/" class="btn btn-neutral float-left" title="BoltzGen"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../fold-pulldown/" class="btn btn-neutral float-right" title="Fold Pulldown">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -818,10 +1087,10 @@ running under Singularity/Apptainer profiles.</p>
         </span>
     
     
-      <span><a href="../fold-pulldown/" style="color: #fcfcfc">&laquo; Previous</a></span>
+      <span><a href="../boltzgen/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../subworkflows/foldseek/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../fold-pulldown/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>
