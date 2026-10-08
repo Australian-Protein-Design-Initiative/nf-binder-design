@@ -255,6 +255,20 @@ def main() -> int:
     seqs = [s for _, s in pairs]
     prefix = "colabfold_remote"
 
+    # An existing directory wins over the suffix heuristic, so a directory whose
+    # name happens to contain a dot (results/v1.2) is not mistaken for a file.
+    out = Path(args.output)
+    single_file = bool(out.suffix) and not out.is_dir()
+    if single_file and len(pairs) != 1:
+        log.error(
+            "--output %s names a single file but %s holds %d sequences; "
+            "pass a directory to write one .a3m per record",
+            out,
+            args.fasta,
+            len(pairs),
+        )
+        return 1
+
     a3m_strings = run_remote_msa(
         seqs,
         prefix,
@@ -265,14 +279,13 @@ def main() -> int:
 
     # Name each .a3m after the FASTA record id (PDL1.a3m), not the input
     # filename stem (targets.1.a3m from Nextflow splitFasta).
-    out = Path(args.output)
-    if out.suffix and len(a3m_strings) == 1:
+    if single_file:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(a3m_strings[0])
         log.info("Wrote %s", out)
         return 0
 
-    dest = out.parent if out.suffix else out
+    dest = out
     dest.mkdir(parents=True, exist_ok=True)
     used: Dict[str, int] = {}
     for (header, _), content in zip(pairs, a3m_strings):
