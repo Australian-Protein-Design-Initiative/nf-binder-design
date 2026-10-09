@@ -16,6 +16,16 @@ To run locally on a dual-GPU machine:
 ./run-dual-gpu.sh
 ```
 
+To use AlphaFold3 instead of Protenix for structure prediction (`configs/pdl1_vhh_af3.yaml`, which sets `structure_model: "af3"`):
+
+```bash
+AF3_WEIGHTS=/path/to/af3_weights \
+AF3_DATABASES=/path/to/af3_databases \
+  ./run-af3.sh
+```
+
+AlphaFold3's model parameters and public databases are not in the container, so both are bind-mounted in by `nextflow.af3.config`. `AF3_WEIGHTS` is a directory holding exactly one `af3.bin.zst` (see `models/download_af3_weights.sh`); `AF3_DATABASES` is the ~630 GB AlphaFold3 public database set. On M3 the databases are already available at `/mnt/datasets/alphafold3/3.0.0` for members of the `alphafold3` group. The [Germinal workflow docs](../../docs/docs/workflows/germinal.md) explain each `af3_*` config setting.
+
 To run on M3 BDI (SLURM):
 
 ```bash

@@ -160,6 +160,35 @@ Monitor the output of `nf-binder-design-%j.log`, or `.nextflow.log`.
 
 > If using an interactive `smux` or low resource CPU-only Strudel session, you can run without `sbatch` like: `./run.sh` - Nextflow will still submit jobs to the queue. This can be convenient for debugging.
 
+## AlphaFold3 databases
+
+AlphaFold3's public sequence databases (~630 GB) are already installed on M3, so
+there is no need to download your own copy:
+
+```
+/mnt/datasets/alphafold3/3.0.0
+```
+
+All nine files AlphaFold3 3.0.4 expects are here including the `mmcif_files/` template structures.
+
+Access is restricted to the **`alphafold3` group** — request membership through
+the [M3 IRAP dashboard](https://allocation.erc.monash.edu/) after accepting the AlphaFold3 terms of use. Without it, jobs reading the directory fail with `Permission denied`.
+
+The model parameters are *not* included; they are licensed separately and must
+be obtained per-organisation (see
+[AlphaFold3 weights](../workflows/fold.md#alphafold3-weights)).
+
+When running [Germinal with `structure_model: "af3"`](../workflows/germinal.md#structure-prediction-with-alphafold3-af3),
+bind the models and database directories into the container at the fixed paths `/root/models` and `/root/public_databases`:
+
+```groovy
+process {
+    withName: /^(GERMINAL|GERMINAL_PROCESS)$/ {
+        containerOptions = '-B /path/to/af3_weights:/root/models -B /mnt/datasets/alphafold3/3.0.0:/root/public_databases'
+    }
+}
+```
+
 ## Troubleshooting failures
 
 If you encounter an error, the `.nextflow.log` file will report the failing task and the path into the `./work` directory, like:

@@ -1,8 +1,13 @@
 # @package _global_
-# Germinal example config: VHH PDL1 + Protenix + AbLang
+# Germinal example config: VHH PDL1 + AlphaFold3 + AbLang
 #
-# Used by examples/pdl1-germinal with nf-binder-design --method germinal.
+# Used by examples/pdl1-germinal/run-af3.sh with nf-binder-design --method germinal.
 # Trajectory limits are set by Nextflow (--germinal_n_traj); values below are overridden per batch.
+#
+# Identical to pdl1_vhh.yaml apart from structure_model below. AlphaFold3 needs
+# two directories bind-mounted into the container -- its weights and its
+# databases -- which run-af3.sh supplies from $AF3_WEIGHTS and $AF3_DATABASES.
+# See the af3_* settings below and docs/workflows/germinal.md.
 
 defaults:
   - _self_
@@ -90,11 +95,13 @@ model_path: "abmpnn"
 mpnn_weights: "abmpnn"
 
 # Structure prediction settings
-structure_model: "protenix"
+structure_model: "af3"
+# Germinal builds the MSAs itself before calling AF3. "target" means an MSA for
+# the target chain only, with the binder left single-sequence.
 msa_mode: "target"
 af3_structure_select_mode: "worst"
 
-# AF3 configuration (unused when structure_model == "protenix").
+# AF3 configuration (active, since structure_model == "af3").
 # These are the germinal:*-af3 container's defaults -- all paths are INSIDE the
 # container. See docs/workflows/germinal.md for the full explanation.
 #
