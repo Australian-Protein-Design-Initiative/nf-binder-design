@@ -74,6 +74,16 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#key-parameters">Key Parameters</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#structure-prediction-with-alphafold3-af3">Structure prediction with AlphaFold3 (af3)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#config-settings">Config settings</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#bind-mounts">Bind mounts</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#what-af3-actually-runs">What AF3 actually runs</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#output-structure">Output Structure</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#hotspot-numbering">Hotspot numbering</a>
@@ -222,6 +232,113 @@ nextflow run /path/to/nf-binder-design-germinal/main.nf \
 </tr>
 </tbody>
 </table>
+<h2 id="structure-prediction-with-alphafold3-af3">Structure prediction with AlphaFold3 (<code>af3</code>)</h2>
+<p>Germinal's filter stage re-predicts each design with an external structure
+predictor. The default is <code>protenix</code>, but AlphaFold3 (<code>af3</code>) is also an option. </p>
+<p>Select AlphaFold3 in the Germinal config:</p>
+<pre><code class="language-yaml">structure_model: &quot;af3&quot;   # default is &quot;protenix&quot;
+</code></pre>
+<p>This requires the <code>-af3</code> germinal image, which the workflow already pins
+(<code>germinal:20260611-104bbdd7-af3</code>). It bundles AlphaFold3 3.0.4, but contains <strong>neither the model parameters nor the public sequence and template structure databases</strong>. Both must be bind-mounted by you via the <code>nextflow.config</code>.</p>
+<h3 id="config-settings">Config settings</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Value</th>
+<th>Provided by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>af3_repo_path</code></td>
+<td><code>"/app/alphafold"</code></td>
+<td><strong>In the container — leave as-is</strong></td>
+</tr>
+<tr>
+<td><code>af3_sif_path</code></td>
+<td><code>"/usr/local/bin/singularity"</code></td>
+<td><strong>Dummy wrapper, in the container — leave as-is</strong></td>
+</tr>
+<tr>
+<td><code>af3_model_dir</code></td>
+<td><code>"/root/models"</code></td>
+<td>Mount point — <strong>you bind the weights here</strong></td>
+</tr>
+<tr>
+<td><code>af3_db_dir</code></td>
+<td><code>"/root/public_databases"</code></td>
+<td>Mount point — <strong>you bind the databases here</strong></td>
+</tr>
+<tr>
+<td><code>msa_db_dir</code></td>
+<td><code>null</code></td>
+<td>Only used by <code>msa_mode: "local"</code></td>
+</tr>
+<tr>
+<td><code>use_metagenomic_db</code></td>
+<td><code>false</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>cache_binder_msa</code></td>
+<td><code>false</code></td>
+<td>Requires <code>msa_mode: "colabfold"</code></td>
+</tr>
+</tbody>
+</table>
+<p>All five paths are already set to these values in the container's own
+<code>configs/run/*.yaml</code>, so a config derived from those needs no changes.</p>
+<p><code>af3_sif_path</code> looks odd because upstream Germinal shells out to
+<code>singularity exec … &lt;image&gt; python /root/alphafold3/run_alphafold.py</code>. There is
+no nested Apptainer inside the container, so the image provides a shim at
+<code>/usr/local/bin/singularity</code> that discards the image argument and runs AF3 from
+its bundled virtualenv. Both it and <code>af3_repo_path</code> should be left as shipped.</p>
+<div class="admonition warning">
+<p class="admonition-title">Do not point <code>af3_model_dir</code> / <code>af3_db_dir</code> at host paths</p>
+<p>These two must stay as the in-container mount points above. The shim
+implements Germinal's <code>--bind src:dest</code> as <code>rm -rf dest &amp;&amp; ln -sfn src dest</code>,
+and <code>/root</code> is read-only under Apptainer, so a host path fails. Leave the
+config pointing at <code>/root/models</code> and <code>/root/public_databases</code>, and supply
+the real directories as bind mounts instead.</p>
+</div>
+<h3 id="bind-mounts">Bind mounts</h3>
+<p>Add both mounts to the <code>GERMINAL</code> process, e.g. in a <code>nextflow.config</code> in your
+run directory:</p>
+<pre><code class="language-groovy">process {
+    withName: /^(GERMINAL|GERMINAL_PROCESS)$/ {
+        containerOptions = '-B /path/to/af3_weights:/root/models -B /path/to/af3_databases:/root/public_databases'
+    }
+}
+</code></pre>
+<p><strong>Weights</strong> — a directory holding exactly one <code>af3.bin.zst</code> (or <code>af3.bin</code>).
+Obtain them under the AlphaFold3 Model Parameters Terms of Use; see
+<a href="../fold/#alphafold3-weights">AlphaFold3 weights</a> for <code>models/download_af3_weights.sh</code>
+and the licensing conditions.</p>
+<p><strong>Databases</strong> — the full AlphaFold3 public database set (~630 GB), as produced by
+AlphaFold3's own <code>fetch_databases.sh</code>. All nine entries are required <em>even though
+Germinal supplies the MSAs itself</em>, because <code>run_alphafold.py</code> validates every
+default database path against <code>--db_dir</code> before it reads the input. An empty or
+missing directory fails with:</p>
+<pre><code>FileNotFoundError: ${DB_DIR}/bfd-first_non_consensus_sequences.fasta
+  with ${DB_DIR} not found in any of ['/root/public_databases']
+</code></pre>
+<p>The directory must contain <code>bfd-first_non_consensus_sequences.fasta</code>,
+<code>mgy_clusters_2022_05.fa</code>, <code>mmcif_files/</code>,
+<code>nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta</code>,
+<code>pdb_seqres_2022_09_28.fasta</code>, <code>rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta</code>,
+<code>rnacentral_active_seq_id_90_cov_80_linclust.fasta</code>, <code>uniprot_all_2021_04.fa</code>
+and <code>uniref90_2022_05.fa</code>.</p>
+<h3 id="what-af3-actually-runs">What AF3 actually runs</h3>
+<p><code>msa_mode</code> controls the MSA, which <strong>Germinal</strong> generates before calling AF3 —
+<code>"target"</code> (the default) builds one for the target chain only and leaves the
+binder single-sequence. AF3's own MSA search is therefore unused, but its data
+pipeline still runs and performs a <strong>template search for both chains</strong> against
+<code>pdb_seqres</code> and <code>mmcif_files</code>.</p>
+<p>On M3 the databases are already installed cluster-wide — see
+<a href="../../extra/m3-hpc-examples/#alphafold3-databases">AlphaFold3 databases on M3</a>.</p>
+<p>A complete worked example is in <code>examples/pdl1-germinal/</code>
+(<code>configs/pdl1_vhh_af3.yaml</code> and <code>run-af3.sh</code>).</p>
 <h2 id="output-structure">Output Structure</h2>
 <pre><code>results/germinal/
 ├── all_trajectories.csv      # merged across all batches

@@ -96,6 +96,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#bindcraft-example">BindCraft Example</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#alphafold3-databases">AlphaFold3 databases</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#troubleshooting-failures">Troubleshooting failures</a>
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#common-errors">Common errors</a>
@@ -269,6 +271,25 @@ cp ~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/exam
 <blockquote>
 <p>If using an interactive <code>smux</code> or low resource CPU-only Strudel session, you can run without <code>sbatch</code> like: <code>./run.sh</code> - Nextflow will still submit jobs to the queue. This can be convenient for debugging.</p>
 </blockquote>
+<h2 id="alphafold3-databases">AlphaFold3 databases</h2>
+<p>AlphaFold3's public sequence databases (~630 GB) are already installed on M3, so
+there is no need to download your own copy:</p>
+<pre><code>/mnt/datasets/alphafold3/3.0.0
+</code></pre>
+<p>All nine files AlphaFold3 3.0.4 expects are here including the <code>mmcif_files/</code> template structures.</p>
+<p>Access is restricted to the <strong><code>alphafold3</code> group</strong> — request membership through
+the <a href="https://allocation.erc.monash.edu/">M3 IRAP dashboard</a> after accepting the AlphaFold3 terms of use. Without it, jobs reading the directory fail with <code>Permission denied</code>.</p>
+<p>The model parameters are <em>not</em> included; they are licensed separately and must
+be obtained per-organisation (see
+<a href="../../workflows/fold/#alphafold3-weights">AlphaFold3 weights</a>).</p>
+<p>When running <a href="../../workflows/germinal/#structure-prediction-with-alphafold3-af3">Germinal with <code>structure_model: "af3"</code></a>,
+bind the models and database directories into the container at the fixed paths <code>/root/models</code> and <code>/root/public_databases</code>:</p>
+<pre><code class="language-groovy">process {
+    withName: /^(GERMINAL|GERMINAL_PROCESS)$/ {
+        containerOptions = '-B /path/to/af3_weights:/root/models -B /mnt/datasets/alphafold3/3.0.0:/root/public_databases'
+    }
+}
+</code></pre>
 <h2 id="troubleshooting-failures">Troubleshooting failures</h2>
 <p>If you encounter an error, the <code>.nextflow.log</code> file will report the failing task and the path into the <code>./work</code> directory, like:</p>
 <pre><code>Work dir:
