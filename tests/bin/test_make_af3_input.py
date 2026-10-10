@@ -114,3 +114,73 @@ def test_template_chains_restricts(tmp_path):
     d = _templates_dir(tmp_path, SEQ_A)
     spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1, templates_dir=d, template_chains=["A"])
     assert [len(e["protein"]["templates"]) for e in spec["sequences"]] == [1, 0]
+
+
+# --- Germinal parity modes -------------------------------------------------
+# Germinal's AF3 JSON (repos/germinal/germinal/filters/af3.py:36-81) gives every
+# chain "pairedMsa": "" and omits the templates key entirely, and puts several
+# seeds in modelSeeds. These check we can emit exactly that.
+
+
+def test_paired_msa_empty_writes_no_paired_file(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n>b\n{SEQ_B}\n")
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1, paired_msa_mode="empty")
+    for entry in spec["sequences"]:
+        prot = entry["protein"]
+        # "" is an explicitly empty MSA, NOT an absent key - an absent key would
+        # let a running data pipeline go and search for one.
+        assert prot["pairedMsa"] == ""
+        assert "pairedMsaPath" not in prot
+        assert prot["unpairedMsaPath"].endswith("_unpaired.a3m")
+    assert not list(tmp_path.glob("*_paired.a3m"))
+
+
+def test_templates_search_omits_key(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n")
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1, templates_mode="search")
+    assert "templates" not in spec["sequences"][0]["protein"]
+
+
+def test_templates_none_emits_empty_list(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n")
+    d = _templates_dir(tmp_path, SEQ_A)
+    # even with a matching template available, "none" must not inline it
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1, templates_mode="none", templates_dir=d)
+    assert spec["sequences"][0]["protein"]["templates"] == []
+
+
+def test_multiple_seeds_in_one_job(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n")
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=[11, 22, 33])
+    assert spec["modelSeeds"] == [11, 22, 33]
+
+
+def test_single_int_seed_still_scalar(tmp_path):
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n")
+    assert mai.make_af3_input(fasta, "x", tmp_path, seed=7)["modelSeeds"] == [7]
+
+
+def test_defaults_unchanged_by_parity_options(tmp_path):
+    """The default call must be byte-identical to what it produced before the
+    parity options existed - they are opt-in."""
+    fasta = _write(tmp_path / "in.fasta", f">a\n{SEQ_A}\n>b\n{SEQ_B}\n")
+    spec = mai.make_af3_input(fasta, "x", tmp_path, seed=1)
+    for entry in spec["sequences"]:
+        prot = entry["protein"]
+        assert prot["pairedMsaPath"].endswith("_paired.a3m")
+        assert prot["templates"] == []
+        assert "pairedMsa" not in prot
+
+
+def test_germinal_shape_end_to_end(tmp_path):
+    """The full Germinal combination: no pairing, no templates key, 5 seeds."""
+    fasta = _write(tmp_path / "in.fasta", f">target\n{SEQ_A}\n>binder\n{SEQ_B}\n")
+    spec = mai.make_af3_input(
+        fasta, "pdl1_nb", tmp_path, seed=[1, 2, 3, 4, 5],
+        paired_msa_mode="empty", templates_mode="search",
+    )
+    assert spec["modelSeeds"] == [1, 2, 3, 4, 5]
+    assert spec["dialect"] == "alphafold3" and spec["version"] == 2
+    assert [e["protein"]["id"] for e in spec["sequences"]] == ["A", "B"]
+    for entry in spec["sequences"]:
+        assert set(entry["protein"]) == {"id", "sequence", "unpairedMsaPath", "pairedMsa"}

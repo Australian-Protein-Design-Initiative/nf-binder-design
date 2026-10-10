@@ -2,11 +2,16 @@
 ALPHAFOLD3_FOLD: AlphaFold3 folding for fold.nf / fold_pulldown.nf (--methods af3).
 
 Consumes the same MSA bundle as PROTENIX_FOLD - monomer (meta, fasta, a3m);
-multimer (meta, fasta, [paired...+unpaired...]) - and runs AF3 inference only
-(--run_data_pipeline=false). AF3 requires a modelSeeds entry in the input JSON
-and has no CLI seed flag, so batches are fanned out BEFORE JSON generation and
-each gets seed base+i (base = --af3_seeds, else a fixed 1 so -resume hashes
+multimer (meta, fasta, [paired...+unpaired...]) - and by default runs AF3
+inference only (--run_data_pipeline=false). AF3 requires modelSeeds in the input
+JSON and has no CLI seed flag, so batches are fanned out BEFORE JSON generation
+and each gets seed base+i (base = --af3_seeds, else a fixed 1 so -resume hashes
 stay stable).
+
+With a comma list in --af3_seeds every job instead carries that whole seed list,
+which is how Germinal runs AF3; see lib/AF3Input.groovy. --af3_run_data_pipeline
+turns AF3's data pipeline on so it searches for templates (the Germinal
+behaviour), which additionally requires --af3_db_dir.
 */
 
 include { GENERATE_AF3_INPUT } from '../../modules/local/fold/af3/generate_af3_input'
@@ -36,8 +41,16 @@ workflow ALPHAFOLD3_FOLD {
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
 
     main:
-    def batches = foldPredictionBatches(params.af3_batch_size, 5, params.n_predictions)
-    def base_seed = params.af3_seeds ? (params.af3_seeds.toString().split(',')[0].trim() as int) : 1
+    // A comma list in --af3_seeds means "all of these seeds, in one job" (Germinal
+    // style); a single value keeps the one-seed-per-batch fan-out. The seed list
+    // IS the replication in that mode, so the --n_predictions fan-out is
+    // suppressed - otherwise every batch would repeat the same seeds and the run
+    // would produce len(seeds) x n_predictions structures instead of
+    // len(seeds) x --af3_batch_size.
+    def literal_seeds = AF3Input.literalSeeds(params)
+    def batches = literal_seeds \
+        ? [(params.af3_batch_size ?: 5) as int] \
+        : foldPredictionBatches(params.af3_batch_size, 5, params.n_predictions)
 
     ch_batched = ch_for_af3.flatMap { meta, fasta, msa ->
         def is_mono = (meta.n_chains ?: 1) == 1
@@ -54,7 +67,7 @@ workflow ALPHAFOLD3_FOLD {
                     fold_batch: i + 1,
                     fold_batch_size: n_samples,
                     fold_namespaced: namespaced,
-                    af3_seed: base_seed + i,
+                    af3_seeds: AF3Input.seedsForBatch(params, i),
                 ]
                 if (depth != null) {
                     def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
@@ -78,7 +91,13 @@ workflow ALPHAFOLD3_FOLD {
     GENERATE_AF3_INPUT_COMPLEX(ch_batched.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) > 1 }, ch_templates)
     ch_with_json = GENERATE_AF3_INPUT.out.with_json.mix(GENERATE_AF3_INPUT_COMPLEX.out.with_json)
 
-    ALPHAFOLD3_PROCESS(ch_with_json, file(params.af3_model_dir, checkIfExists: true))
+    // The databases are only read when the data pipeline runs; otherwise stage a
+    // placeholder so the process signature stays the same.
+    def af3_dbs = AF3Input.runDataPipeline(params) \
+        ? file(params.af3_db_dir, checkIfExists: true) \
+        : file("${projectDir}/assets/dummy_files", checkIfExists: true)
+
+    ALPHAFOLD3_PROCESS(ch_with_json, file(params.af3_model_dir, checkIfExists: true), af3_dbs)
 
     // One score row per AF3 sample (seed-S_sample-N). ipSAE and pLDDT both need
     // the sibling *_confidences.json; see protenix_fold.nf for why missing files

@@ -27,22 +27,34 @@ process GENERATE_AF3_INPUT_COMPLEX {
         ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
         : ''
     def paired_arg = unpaired.collect { it.name.replaceFirst(/\.protenix_unpaired\.a3m$/, '.af3_paired.a3m') }.join(' ')
-    """
-    set -euo pipefail
-    for f in ${unpaired_arg}; do
+    // --af3_paired_msa false / --af3_templates search reproduce Germinal, which
+    // gives AF3 no cross-chain pairing and lets AF3's own data pipeline find
+    // templates. With pairing off there is nothing to re-render, so the
+    // msa_taxonomy.py pass is skipped too.
+    def mode_args = AF3Input.modeArgs(params)
+    def do_pairing = AF3Input.pairedMsa(params)
+    def paired_flag = do_pairing ? "--paired-a3m ${paired_arg}" : ''
+    def render_paired = do_pairing \
+        ? """for f in ${unpaired_arg}; do
         python ${projectDir}/bin/fold/msa_taxonomy.py \\
             --a3m "\${f}" \\
             --tool af3 \\
             --chain-id "\${f%.protenix_unpaired.a3m}" \\
             --out "\${f%.protenix_unpaired.a3m}.af3_paired.a3m"
-    done
+    done""" \
+        : 'true'
+    def seeds = (meta.af3_seeds ?: [meta.af3_seed]).join(' ')
+    """
+    set -euo pipefail
+    ${render_paired}
 
     python ${projectDir}/bin/fold/make_af3_input.py \\
         --fasta ${fasta} \\
         --name '${meta.id}' \\
         --a3m ${unpaired_arg} \\
-        --paired-a3m ${paired_arg} \\
-        --seed ${meta.af3_seed} \\
+        ${paired_flag} \\
+        --seed ${seeds} \\
+        ${mode_args} \\
         ${templates_arg} \\
         -o af3_input.json
     """

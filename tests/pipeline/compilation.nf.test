@@ -131,6 +131,43 @@ nextflow_pipeline {
         }
     }
 
+    test("fold_pulldown method compiles with af3 germinal parity profile") {
+        options "-preview -profile af3_germinal_parity"
+        when {
+            params {
+                method = "fold_pulldown"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                binders = "${projectDir}/tests/data/fold_pulldown/binders.fasta"
+                methods = "af3"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                // The profile turns on AF3's data pipeline, which makes af3_db_dir
+                // required and checked for all nine database entries.
+                af3_db_dir = "${projectDir}/tests/data/af3_dummy_dbs"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("fold method compiles with af3 germinal parity profile") {
+        options "-preview -profile af3_germinal_parity"
+        when {
+            params {
+                method = "fold"
+                input = "${projectDir}/tests/data/fold_pulldown/monomer.fasta"
+                methods = "af3"
+                af3_model_dir = "${projectDir}/tests/data/af3_dummy_weights"
+                af3_db_dir = "${projectDir}/tests/data/af3_dummy_dbs"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
     test("fold method compiles with openfold3") {
         options "-preview"
         when {

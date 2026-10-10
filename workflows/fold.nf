@@ -227,11 +227,32 @@ workflow FOLD {
             --af3_model_dir                     Directory holding exactly one af3.bin.zst / af3.bin
                                                 [default: ${params.af3_model_dir}]
             --af3_batch_size                    Samples per AF3 job (--num_diffusion_samples)
-            --af3_seeds                         Base model seed; batch i uses seed+i [default: 1]
+            --af3_seeds                         Base model seed; batch i uses seed+i [default: 1].
+                                                A COMMA LIST ('1,2,3') instead puts every seed in one
+                                                job's modelSeeds, as Germinal does; --n_predictions is
+                                                then ignored and the run makes
+                                                n_seeds x --af3_batch_size structures per complex.
             --af3_num_recycles                  [default: ${params.af3_num_recycles}]
             --af3_flash_attention               auto|triton|cudnn|xla; auto picks xla (plus the XLA
                                                 workaround) on pre-Ampere GPUs [default: ${params.af3_flash_attention}]
             --af3_jax_cache_dir                 Persistent JAX compilation cache dir [default: unset]
+
+            AlphaFold3 input and run mode (-profile af3_germinal_parity sets the
+            combination Germinal uses: pairing off, template search on, data pipeline on):
+            --af3_paired_msa                    false emits "pairedMsa": "" per chain, i.e. no
+                                                cross-chain pairing [default: ${params.af3_paired_msa}]
+            --af3_templates                     inline|none|search. inline embeds templates matched by
+                                                --templates; search omits the key so AF3's data pipeline
+                                                searches pdb_seqres/mmcif_files on every chain
+                                                [default: ${params.af3_templates}]
+            --af3_run_data_pipeline             Run AF3's data pipeline rather than inference only.
+                                                MSAs still come from the JSON; this is what enables
+                                                AF3's template search [default: ${params.af3_run_data_pipeline}]
+            --af3_db_dir                        AlphaFold3 public databases (~630 GB), required when the
+                                                data pipeline runs. AF3 validates all nine default paths
+                                                before reading the input, so the full set must be present
+                                                even though only the template databases are used.
+                                                On M3: /mnt/datasets/alphafold3/3.0.0 [default: unset]
 
             OpenFold3 (--methods includes openfold3; weights are bundled in the container):
             --openfold3_batch_size              Samples per OpenFold3 job (--num-diffusion-samples)

@@ -117,6 +117,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 |------|---------|-------------|
 | `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `esmfold2`, `esmfold2_fast` (see [Choosing engines](fold.md#choosing-engines); ESMFold2 weights and caveats are covered in [ESMFold2](fold.md#esmfold2)) |
 | `--af3_model_dir` | `models/alphafold3` | AlphaFold3 weights directory (`af3` only; see [AlphaFold3 weights](fold.md#alphafold3-weights)) |
+| `--af3_paired_msa` / `--af3_templates` / `--af3_run_data_pipeline` | `true` / `inline` / `false` | How AF3 is fed and run. `-profile af3_germinal_parity` sets the combination Germinal uses (pairing off, AF3's own template search, data pipeline on) and needs `--af3_db_dir`; see [Germinal: external folding validation](germinal.md#external-folding-validation) |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
 | `--create_target_msa` | `false` | Build MSA for each target |
 | `--create_binder_msa` | `false` | Build MSA for each binder (usually leave off for de novo binders). AF2/`af2_mono` always fold the binder chain query-only regardless of this flag (see `bin/fold/assemble_af2_multimer_msas.py`); if AF2/`af2_mono` are the only selected `--methods`, the pipeline warns and skips building the binder MSA entirely. |

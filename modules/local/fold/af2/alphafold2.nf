@@ -272,6 +272,7 @@ ${chainbreak_features}${add_templates}
         ${random_seed_flag} \
         ${models_to_relax_flag} \
         ${num_multimer_predictions_flag} \
-        ${db_flags}${split_chainbreak}
+        ${db_flags} \
+        ${task.ext.args ?: ''}${split_chainbreak}
     """
 }

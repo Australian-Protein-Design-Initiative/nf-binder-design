@@ -18,12 +18,16 @@ process GENERATE_AF3_INPUT {
     def templates_arg = params.templates \
         ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
         : ''
+    // Germinal parity: see generate_af3_input_complex.nf for why these two modes exist.
+    def mode_args = AF3Input.modeArgs(params)
+    def seeds = (meta.af3_seeds ?: [meta.af3_seed]).join(' ')
     """
     python ${projectDir}/bin/fold/make_af3_input.py \\
         --fasta ${fasta} \\
         --name '${meta.id}' \\
         --a3m ${a3m} \\
-        --seed ${meta.af3_seed} \\
+        --seed ${seeds} \\
+        ${mode_args} \\
         ${templates_arg} \\
         -o af3_input.json
     """

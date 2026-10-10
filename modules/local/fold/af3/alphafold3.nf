@@ -45,6 +45,7 @@ process ALPHAFOLD3 {
     input:
     tuple val(meta), path(fasta), path(a3ms), path(af3_input_json)
     path af3_models, stageAs: 'af3_models'
+    path af3_dbs, stageAs: 'af3_dbs'
 
     output:
     tuple val(meta), path('output/**'), emit: predictions
@@ -60,6 +61,17 @@ process ALPHAFOLD3 {
         ? "af3_${batch_bit}msa${meta.msa_depth_tag}_${meta.id}_ids.txt" \
         : ''
     def jax_cache_arg = params.af3_jax_cache_dir ? "--jax_compilation_cache_dir=${params.af3_jax_cache_dir}" : ''
+    // Germinal parity (--af3_run_data_pipeline true): Germinal passes no
+    // --norun_data_pipeline, so AF3's data pipeline runs. It does NOT search for
+    // MSAs - those are supplied in the JSON - but it DOES search pdb_seqres and
+    // mmcif_files for templates on every chain, which is the main behavioural
+    // difference from this pipeline's default inference-only mode. AF3 validates
+    // all nine default database paths against --db_dir before reading the input,
+    // so the full ~630 GB set has to be present even though only the template
+    // databases are used.
+    def do_data_pipeline = AF3Input.runDataPipeline(params)
+    def run_data_pipeline = do_data_pipeline ? 'true' : 'false'
+    def db_dir_arg = do_data_pipeline ? '--db_dir=af3_dbs' : ''
     """
     set -euo pipefail
 
@@ -135,7 +147,8 @@ process ALPHAFOLD3 {
         --model_dir=af3_models \\
         --output_dir=output \\
         --force_output_dir \\
-        --run_data_pipeline=false \\
+        --run_data_pipeline=${run_data_pipeline} \\
+        ${db_dir_arg} \\
         --num_diffusion_samples=${n_samples} \\
         --num_recycles=${params.af3_num_recycles} \\
         --flash_attention_implementation=\${flash_attention} \\

@@ -95,6 +95,12 @@ params.protenix_model_name = 'protenix_base_default_v1.0.0'
 params.protenix_use_msa = true
 params.protenix_need_atom_confidence = true
 
+// --- AF3 Germinal parity (see lib/AF3Input.groovy) ---
+params.af3_paired_msa = true
+params.af3_templates = 'inline'
+params.af3_run_data_pipeline = false
+params.af3_db_dir = null
+
 // --- MSA subsample (not supported for pulldown multimers) ---
 params.msa_subsample = false
 params.msa_subsample_include_full = true
@@ -201,6 +207,9 @@ workflow FOLD_PULLDOWN {
                                    [default: ${params.af3_model_dir}]
             --af3_batch_size / --af3_seeds / --af3_num_recycles / --af3_flash_attention /
             --af3_jax_cache_dir   As for --method fold (see --method fold --help)
+            --af3_paired_msa / --af3_templates / --af3_run_data_pipeline / --af3_db_dir
+                                  As for --method fold. -profile af3_germinal_parity sets
+                                  the combination Germinal uses (needs --af3_db_dir).
 
             OpenFold3 (--methods includes openfold3; weights are bundled in the container):
             --openfold3_batch_size / --openfold3_seeds /

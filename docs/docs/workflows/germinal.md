@@ -189,6 +189,79 @@ uv run bin/renumber_chains.py input/target.pdb -o pdbs/target.pdb
 
 After renumbering, set `target_hotspots` (and `hotspot_residue` if used) to match the new 1-based sequential numbers.
 
+## External folding validation (optional) {#external-folding-validation}
+
+Germinal already re-predicts every design with one external predictor and gates
+on its scores — that is the filter stage described above, and it is what decides
+which designs reach `accepted/`. This section is about an **additional,
+independent re-fold afterwards**, with predictors Germinal did not use.
+
+It is optional and sits outside the workflow today: you run it as a separate
+`--method fold_pulldown` job over the designs a Germinal run produced. It may
+become an option on the Germinal workflow itself in future.
+
+### Running it
+
+Build a FASTA of the target and a FASTA of the binder sequences (from
+`accepted/designs.csv`, or the `trajectory_sequence` column of
+`all_trajectories.csv`), then fold every pair with whichever predictors you want
+to compare:
+
+```bash
+nextflow run main.nf --method fold_pulldown \
+    --targets target.fasta --binders binders.fasta \
+    --methods af3,protenix,boltz,esmfold2 \
+    --create_target_msa true --create_binder_msa false \
+    --msa_method mmseqs2_colabfold --use_remote_server true \
+    --outdir results_refold
+```
+
+`--create_target_msa true --create_binder_msa false` is Germinal's
+`msa_mode: "target"` — an MSA for the target chain only, binder left
+single-sequence — so the MSA conditioning matches what the Germinal run used.
+
+### Matching Germinal's AF3 settings
+
+If AlphaFold3 is one of the predictors and you intend to compare its numbers
+against the ones in `all_trajectories.csv`, the default `fold_pulldown` settings
+are **not** a like-for-like comparison. Germinal's AF3 call supplies no
+cross-chain pairing and omits the `templates` key, so AF3 searches the PDB for
+templates on both chains (see [What AF3 actually runs](#what-af3-actually-runs));
+`fold_pulldown` defaults to inference-only with a paired MSA and no templates.
+
+`-profile af3_germinal_parity` switches all three, and bundles them with the MSA
+and sampling settings Germinal uses:
+
+```bash
+nextflow run main.nf --method fold_pulldown \
+    --targets target.fasta --binders binders.fasta --methods af3 \
+    -profile slurm,m3,af3_germinal_parity \
+    --af3_model_dir /path/to/af3_weights \
+    --af3_db_dir /mnt/datasets/alphafold3/3.0.0 \
+    --outdir results_refold
+```
+
+It composes with any platform profile, in either order — Nextflow merges
+profiles in the order they are declared in `nextflow.config`, not the order you
+list them, and the feature profiles are declared last. That matters because this
+profile raises the AF3 walltime: with the data pipeline on, AF3 runs a template
+search before inference, which the platform formulas (sized for inference only)
+do not allow for.
+
+See [Germinal AF3 parity](fold.md#germinal-af3-parity) for the full mapping.
+
+### Comparing the numbers
+
+- **Structure selection.** Germinal keeps the **worst** of its sampled
+  structures by `ranking_score` (`af3_structure_select_mode: "worst"`) and
+  reports every metric from that one, while `fold_pulldown` keeps and scores all
+  of them. A per-sample score from one is not comparable to a Germinal number
+  from the other until you reduce it the same way.
+
+No rescaling is needed beyond that: `fold_pulldown` already computes `plddt` as
+the mean over all atom pLDDTs and `pae` as the mean of the whole PAE matrix,
+which are Germinal's definitions, and runs ipSAE at the same 10/10 cutoffs.
+
 ## Notes
 
 - The nanobody scaffold (`nb.pdb`) is copied from the container into `pdb_dir` if missing.

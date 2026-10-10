@@ -6,11 +6,17 @@
 """
 AlphaFold3 input JSON (alphafold3 dialect, version 2) for fold.nf's ALPHAFOLD3_FOLD.
 
-We always run AF3 with --run_data_pipeline=false, feeding MSAs computed by the
+By default we run AF3 with --run_data_pipeline=false, feeding MSAs computed by the
 pipeline's shared MSA stage. In that mode AF3 requires unpairedMsa, pairedMsa and
 templates to be non-null for every protein chain (data/featurisation.py), so every
 chain gets an unpaired and a paired a3m file (query-only when there is nothing
 better) and "templates": [].
+
+--paired-msa-mode empty and --templates-mode search relax that for Germinal
+parity: Germinal gives AF3 no pairing at all ("pairedMsa": "") and no templates
+key, and lets AF3's data pipeline run so it searches pdb_seqres/mmcif_files for
+templates on every chain. --templates-mode search therefore REQUIRES
+--run_data_pipeline=true; with the pipeline off AF3 rejects the missing key.
 
 The a3m files are rewritten next to the JSON as chain_<ID>_{unpaired,paired}.a3m and
 referenced by basename (*MsaPath resolves relative to the JSON), so the predict task
@@ -135,12 +141,18 @@ def make_af3_input(
     fasta_path: Path,
     name: str,
     out_dir: Path,
-    seed: int,
+    seed,
     unpaired_a3m_paths: Optional[List[Path]] = None,
     paired_a3m_paths: Optional[List[Path]] = None,
     templates_dir: Optional[Path] = None,
     template_chains: Optional[List[str]] = None,
+    paired_msa_mode: str = "path",
+    templates_mode: str = "inline",
 ) -> dict:
+    # `seed` accepts a single int or a list; AF3 runs --num_diffusion_samples
+    # structures for each entry of modelSeeds.
+    seeds = [seed] if isinstance(seed, int) else list(seed)
+
     sequences = parse_fasta_records(fasta_path)
     if not sequences:
         raise ValueError(f"No FASTA records found in {fasta_path}")
@@ -154,26 +166,41 @@ def make_af3_input(
     entries = []
     for i, seq in enumerate(sequences):
         cid = CHAIN_IDS[i]
+        protein = {"id": cid, "sequence": seq}
+
         unpaired_name = f"chain_{cid}_unpaired.a3m"
-        paired_name = f"chain_{cid}_paired.a3m"
         (out_dir / unpaired_name).write_text(clean_a3m(unpaired[i], seq, cid))
-        (out_dir / paired_name).write_text(clean_a3m(paired[i], seq, cid))
-        templates = chain_templates(templates_dir, seq) if (not template_chains or cid in template_chains) else []
-        if templates:
-            log.info("chain %s: %d template(s)", cid, len(templates))
-        entries.append({
-            "protein": {
-                "id": cid,
-                "sequence": seq,
-                "unpairedMsaPath": unpaired_name,
-                "pairedMsaPath": paired_name,
-                "templates": templates,
-            }
-        })
+        protein["unpairedMsaPath"] = unpaired_name
+
+        if paired_msa_mode == "empty":
+            # Germinal parity: no cross-chain pairing at all. "" is an explicitly
+            # empty MSA, which is not the same as omitting the key - omitting it
+            # would let a running data pipeline go and search for one.
+            protein["pairedMsa"] = ""
+        else:
+            paired_name = f"chain_{cid}_paired.a3m"
+            (out_dir / paired_name).write_text(clean_a3m(paired[i], seq, cid))
+            protein["pairedMsaPath"] = paired_name
+
+        if templates_mode == "search":
+            # Leave the key out entirely so AF3's own data pipeline searches
+            # pdb_seqres/mmcif_files for templates. Requires --run_data_pipeline=true,
+            # otherwise AF3's featurisation rejects the null.
+            pass
+        elif templates_mode == "none":
+            protein["templates"] = []
+        else:
+            templates = (chain_templates(templates_dir, seq)
+                         if (not template_chains or cid in template_chains) else [])
+            if templates:
+                log.info("chain %s: %d template(s)", cid, len(templates))
+            protein["templates"] = templates
+
+        entries.append({"protein": protein})
 
     return {
         "name": sanitised_name(name),
-        "modelSeeds": [seed],
+        "modelSeeds": seeds,
         "sequences": entries,
         "dialect": "alphafold3",
         "version": 2,
@@ -197,9 +224,22 @@ def main() -> int:
         default=None,
         help="Optional paired a3m(s) with AF3-parseable species headers: one per chain",
     )
-    parser.add_argument("--seed", type=int, default=1, help="modelSeeds entry (default: 1)")
+    parser.add_argument("--seed", type=int, nargs="+", default=[1],
+                        help="modelSeeds entries; several seeds run in one AF3 job (default: 1)")
     parser.add_argument("--templates-dir", dest="templates_dir", default=None, help="Matched-templates directory (bin/fold/match_templates.py)")
     parser.add_argument("--template-chains", dest="template_chains", nargs="+", default=None, help="Chain ID(s) that may be templated (default: all)")
+    parser.add_argument(
+        "--paired-msa-mode", dest="paired_msa_mode", choices=["path", "empty"], default="path",
+        help="path: write a paired a3m per chain and reference it (default). "
+             "empty: emit \"pairedMsa\": \"\" so AF3 does no cross-chain pairing, as Germinal does.",
+    )
+    parser.add_argument(
+        "--templates-mode", dest="templates_mode", choices=["inline", "none", "search"], default="inline",
+        help="inline: embed templates matched by --templates-dir (default). "
+             "none: emit \"templates\": []. "
+             "search: omit the key so AF3's own data pipeline searches for templates "
+             "(needs --run_data_pipeline=true), as Germinal does.",
+    )
     parser.add_argument("-o", "--output", required=True, help="Output JSON path (a3m files are written alongside)")
     args = parser.parse_args()
 
@@ -214,10 +254,14 @@ def main() -> int:
         paired_a3m_paths=[Path(p) for p in args.paired_a3m] if args.paired_a3m else None,
         templates_dir=Path(args.templates_dir) if args.templates_dir else None,
         template_chains=args.template_chains,
+        paired_msa_mode=args.paired_msa_mode,
+        templates_mode=args.templates_mode,
     )
     with open(out_path, "w") as f:
         json.dump(spec, f, indent=2)
-    log.info("Wrote AlphaFold3 input JSON (%d chain(s), seed %d) to %s", len(spec["sequences"]), args.seed, out_path)
+    log.info("Wrote AlphaFold3 input JSON (%d chain(s), seeds %s, paired=%s, templates=%s) to %s",
+             len(spec["sequences"]), ",".join(str(s) for s in spec["modelSeeds"]),
+             args.paired_msa_mode, args.templates_mode, out_path)
     return 0
 
 

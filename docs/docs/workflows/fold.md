@@ -352,6 +352,55 @@ Or download `af3.bin.zst` manually and put it in a directory of its own. Notes:
 - `--af3_jax_cache_dir /some/shared/dir` keeps JAX compilation results between
   tasks, which saves several minutes per job for repeated input sizes.
 
+### Germinal AF3 parity {#germinal-af3-parity}
+
+Germinal's own AF3 call is deliberately bare
+(`germinal/filters/af3.py`) - only `--model_dir`, `--db_dir`, `--output_dir` and
+`--json_path`. Three things follow from that, and by default this pipeline does
+none of them:
+
+| | Germinal | `fold` / `fold_pulldown` default |
+|---|---|---|
+| cross-chain pairing | none: `"pairedMsa": ""` on every chain | a paired a3m per chain |
+| templates | no `templates` key, so **AF3 searches** `pdb_seqres` + `mmcif_files` on every chain | `"templates": []`, or inlined from `--templates` |
+| data pipeline | runs (no `--norun_data_pipeline`) | `--run_data_pipeline=false` |
+| seeds | N seeds in one job's `modelSeeds` (3 initial fold, 5 final) | one seed per batch, `seed + i` |
+| recycles / samples | AF3 defaults: 10 and 5 | same (`--af3_num_recycles 10`, `--af3_batch_size 5`) |
+
+`-profile af3_germinal_parity` sets the first three together, along with
+Germinal's MSA mode and sampling (`conf/af3_germinal_parity.config`):
+
+```bash
+nextflow run main.nf --method fold_pulldown \
+    --targets targets.fasta --binders binders.fasta \
+    --methods af3 \
+    -profile af3_germinal_parity \
+    --af3_db_dir /mnt/datasets/alphafold3/3.0.0 \
+    --af3_model_dir /path/to/af3_weights \
+    --af3_seeds '1,2,3,4,5' \
+    --create_target_msa true --create_binder_msa false \
+    --msa_method mmseqs2_colabfold --use_remote_server true
+```
+
+The template search is the part that matters most: it is why a parity run needs
+the full ~630 GB database set even though the MSAs still come from the JSON. AF3
+validates all nine default database paths before it reads the input, so a
+missing or partial `--af3_db_dir` fails with a bare `FileNotFoundError` inside
+the job; the pipeline checks for all nine up front instead.
+
+Each knob is an ordinary parameter and can be set on its own —
+`--af3_paired_msa false`, `--af3_templates inline|none|search`,
+`--af3_run_data_pipeline true` — so the profile is only a convenient name for
+one combination, not a mode the pipeline knows about.
+
+!!! note "What parity does not reproduce"
+    Germinal draws its seeds randomly in `[0, 999999)` - pass `--af3_seeds` only
+    if you need specific values; for matched sampling the count is what matters.
+    Germinal also keeps the **worst** of its sampled structures by
+    `ranking_score` (`af3_structure_select_mode: "worst"`), whereas this pipeline
+    keeps and scores all of them. Reduce afterwards if you want Germinal's single
+    number.
+
 ## OpenFold3
 
 OpenFold3 (`--methods openfold3`) runs from

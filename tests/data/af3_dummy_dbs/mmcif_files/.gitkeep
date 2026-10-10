@@ -1,0 +1,3 @@
+AlphaFold3 checks that this directory exists before it reads its input, so the
+compilation tests need it present. Git does not track empty directories, hence
+this file.

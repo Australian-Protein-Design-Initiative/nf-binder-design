@@ -90,12 +90,28 @@ class FoldValidation {
             if (!(params.af3_flash_attention in ['auto', 'triton', 'cudnn', 'xla'])) {
                 errors << "--af3_flash_attention must be auto, triton, cudnn or xla (got '${params.af3_flash_attention}')"
             }
-            if (params.af3_seeds && params.af3_seeds.toString().contains(',')) {
-                warnings << (
-                    "--af3_seeds takes a single base seed; only '${params.af3_seeds.toString().split(',')[0].trim()}' " +
-                    "is used (batches use seed, seed+1, ...)."
+            if (AF3Input.literalSeeds(params)) {
+                def seeds = params.af3_seeds.toString().split(',').collect { it.trim() }
+                if (seeds.any { !(it ==~ /^\d+$/) }) {
+                    errors << "--af3_seeds must be integers (got '${params.af3_seeds}')"
+                }
+                // The seed list IS the replication in this mode, so --n_predictions
+                // is ignored rather than multiplied with it.
+                if (params.n_predictions && (params.n_predictions as int) != 1) {
+                    warnings << (
+                        "--af3_seeds lists ${seeds.size()} seeds, so --n_predictions is ignored for af3: " +
+                        "it will run ${seeds.size()} seed(s) x ${(params.af3_batch_size ?: 5)} " +
+                        "diffusion samples = ${seeds.size() * ((params.af3_batch_size ?: 5) as int)} structures per complex."
+                    )
+                }
+            }
+            if (!(AF3Input.templatesMode(params) in AF3Input.TEMPLATE_MODES)) {
+                errors << (
+                    "--af3_templates must be one of ${AF3Input.TEMPLATE_MODES.join(', ')} " +
+                    "(got '${params.af3_templates}')"
                 )
             }
+            errors.addAll(af3DataPipelineErrors(params))
         }
         // Protenix names its structures without the seed, so several seeds in one job
         // overwrite each other in fold/predictions/ and mis-pair confidence files.
@@ -257,6 +273,63 @@ class FoldValidation {
         }
 
         return [errors, warnings]
+    }
+
+    /**
+     * --af3_templates search needs AF3's data pipeline, which needs the database
+     * set. AF3 validates all nine default database paths against --db_dir before
+     * it reads the input, so a missing or partial directory fails deep inside a
+     * GPU job with a bare FileNotFoundError - check it here instead.
+     */
+    static final List AF3_REQUIRED_DBS = [
+        'bfd-first_non_consensus_sequences.fasta',
+        'mgy_clusters_2022_05.fa',
+        'mmcif_files',
+        'nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta',
+        'pdb_seqres_2022_09_28.fasta',
+        'rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta',
+        'rnacentral_active_seq_id_90_cov_80_linclust.fasta',
+        'uniprot_all_2021_04.fa',
+        'uniref90_2022_05.fa',
+    ]
+
+    static List af3DataPipelineErrors(params) {
+        def errors = []
+        def needs_pipeline = AF3Input.templatesMode(params) == 'search'
+        def pipeline_on = AF3Input.runDataPipeline(params)
+
+        if (needs_pipeline && !pipeline_on) {
+            errors << (
+                "--af3_templates search omits the templates key so AF3 searches for templates itself, " +
+                "which requires --af3_run_data_pipeline true. " +
+                "With the data pipeline off AF3 rejects the missing key."
+            )
+        }
+        if (!pipeline_on) {
+            return errors
+        }
+        if (!params.af3_db_dir) {
+            errors << (
+                "--af3_run_data_pipeline true needs --af3_db_dir pointing at the AlphaFold3 public " +
+                "databases (~630 GB, from AF3's fetch_databases.sh). On M3 use /mnt/datasets/alphafold3/3.0.0."
+            )
+            return errors
+        }
+        def dir = new File(params.af3_db_dir.toString().replaceFirst(/^file:\/\//, ''))
+        if (!dir.isDirectory()) {
+            errors << "--af3_db_dir '${params.af3_db_dir}' does not exist or is not a directory."
+            return errors
+        }
+        def missing = AF3_REQUIRED_DBS.findAll { !new File(dir, it).exists() }
+        if (missing) {
+            errors << (
+                "--af3_db_dir '${params.af3_db_dir}' is missing ${missing.size()} of the " +
+                "${AF3_REQUIRED_DBS.size()} entries AlphaFold3 validates before it reads the input: " +
+                "${missing.join(', ')}. All of them must be present even though only the template " +
+                "databases are used."
+            )
+        }
+        return errors
     }
 
     /**
