@@ -103,6 +103,10 @@
         </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#alphafold3-weights">AlphaFold3 weights</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#germinal-af3-parity">Germinal AF3 parity</a>
+    </li>
+        </ul>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#openfold3">OpenFold3</a>
     </li>
@@ -601,6 +605,77 @@ pipeline under <code>~/.nextflow/assets/</code>. To download the weights there:<
 <li><code>--af3_jax_cache_dir /some/shared/dir</code> keeps JAX compilation results between
   tasks, which saves several minutes per job for repeated input sizes.</li>
 </ul>
+<h3 id="germinal-af3-parity">Germinal AF3 parity</h3>
+<p>Germinal's own AF3 call is deliberately bare
+(<code>germinal/filters/af3.py</code>) - only <code>--model_dir</code>, <code>--db_dir</code>, <code>--output_dir</code> and
+<code>--json_path</code>. Three things follow from that, and by default this pipeline does
+none of them:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Germinal</th>
+<th><code>fold</code> / <code>fold_pulldown</code> default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cross-chain pairing</td>
+<td>none: <code>"pairedMsa": ""</code> on every chain</td>
+<td>a paired a3m per chain</td>
+</tr>
+<tr>
+<td>templates</td>
+<td>no <code>templates</code> key, so <strong>AF3 searches</strong> <code>pdb_seqres</code> + <code>mmcif_files</code> on every chain</td>
+<td><code>"templates": []</code>, or inlined from <code>--templates</code></td>
+</tr>
+<tr>
+<td>data pipeline</td>
+<td>runs (no <code>--norun_data_pipeline</code>)</td>
+<td><code>--run_data_pipeline=false</code></td>
+</tr>
+<tr>
+<td>seeds</td>
+<td>N seeds in one job's <code>modelSeeds</code> (3 initial fold, 5 final)</td>
+<td>one seed per batch, <code>seed + i</code></td>
+</tr>
+<tr>
+<td>recycles / samples</td>
+<td>AF3 defaults: 10 and 5</td>
+<td>same (<code>--af3_num_recycles 10</code>, <code>--af3_batch_size 5</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><code>-profile af3_germinal_parity</code> sets the first three together, along with
+Germinal's MSA mode and sampling (<code>conf/af3_germinal_parity.config</code>):</p>
+<pre><code class="language-bash">nextflow run main.nf --method fold_pulldown \
+    --targets targets.fasta --binders binders.fasta \
+    --methods af3 \
+    -profile af3_germinal_parity \
+    --af3_db_dir /mnt/datasets/alphafold3/3.0.0 \
+    --af3_model_dir /path/to/af3_weights \
+    --af3_seeds '1,2,3,4,5' \
+    --create_target_msa true --create_binder_msa false \
+    --msa_method mmseqs2_colabfold --use_remote_server true
+</code></pre>
+<p>The template search is the part that matters most: it is why a parity run needs
+the full ~630 GB database set even though the MSAs still come from the JSON. AF3
+validates all nine default database paths before it reads the input, so a
+missing or partial <code>--af3_db_dir</code> fails with a bare <code>FileNotFoundError</code> inside
+the job; the pipeline checks for all nine up front instead.</p>
+<p>Each knob is an ordinary parameter and can be set on its own —
+<code>--af3_paired_msa false</code>, <code>--af3_templates inline|none|search</code>,
+<code>--af3_run_data_pipeline true</code> — so the profile is only a convenient name for
+one combination, not a mode the pipeline knows about.</p>
+<div class="admonition note">
+<p class="admonition-title">What parity does not reproduce</p>
+<p>Germinal draws its seeds randomly in <code>[0, 999999)</code> - pass <code>--af3_seeds</code> only
+if you need specific values; for matched sampling the count is what matters.
+Germinal also keeps the <strong>worst</strong> of its sampled structures by
+<code>ranking_score</code> (<code>af3_structure_select_mode: "worst"</code>), whereas this pipeline
+keeps and scores all of them. Reduce afterwards if you want Germinal's single
+number.</p>
+</div>
 <h2 id="openfold3">OpenFold3</h2>
 <p>OpenFold3 (<code>--methods openfold3</code>) runs from
 <code>ghcr.io/australian-protein-design-initiative/containers/openfold3:0.5.0_nv-cuda12_weights</code>,

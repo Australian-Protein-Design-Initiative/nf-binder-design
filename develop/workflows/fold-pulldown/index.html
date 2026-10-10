@@ -324,6 +324,11 @@ matched to target chains automatically by sequence; see
 <td>AlphaFold3 weights directory (<code>af3</code> only; see <a href="../fold/#alphafold3-weights">AlphaFold3 weights</a>)</td>
 </tr>
 <tr>
+<td><code>--af3_paired_msa</code> / <code>--af3_templates</code> / <code>--af3_run_data_pipeline</code></td>
+<td><code>true</code> / <code>inline</code> / <code>false</code></td>
+<td>How AF3 is fed and run. <code>-profile af3_germinal_parity</code> sets the combination Germinal uses (pairing off, AF3's own template search, data pipeline on) and needs <code>--af3_db_dir</code>; see <a href="../germinal/#external-folding-validation">Germinal: external folding validation</a></td>
+</tr>
+<tr>
 <td><code>--msa_method</code></td>
 <td><code>jackhmmer_af2</code></td>
 <td><code>jackhmmer_af2</code> or <code>mmseqs2_colabfold</code></td>
