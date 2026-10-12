@@ -102,12 +102,13 @@ PREDICTOR_COLORS = {
     "rf3": "#2ca02c",
     "protenix": "#d62728",
     "openfold3": "#9467bd",
+    "chai1": "#bcbd22",
     "esmfold2": "#8c564b",
     "esmfold2_fast": "#e377c2",
     "other": "#555555",
 }
 # esmfold2_fast must be tried before esmfold2, whose prefix it contains.
-PREDICTORS = ("af2", "af3", "boltz", "rf3", "protenix", "openfold3", "esmfold2_fast", "esmfold2")
+PREDICTORS = ("af2", "af3", "boltz", "rf3", "protenix", "openfold3", "chai1", "esmfold2_fast", "esmfold2")
 CLUSTER_COLORS = [
     "#e41a1c", "#377eb8", "#4daf4a", "#984ea3",
     "#ff7f00", "#a65628", "#f781bf", "#999999",

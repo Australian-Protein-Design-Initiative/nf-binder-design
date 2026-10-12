@@ -3,7 +3,8 @@ FOLD_PREDICT: run selected structure predictors and merge scores.
 
 Takes per-engine MSA-ready channels from FOLD_MSA (or FOLD_PULLDOWN_MSA) and
 dispatches ALPHAFOLD2 / BOLTZ_FOLD / ROSETTAFOLD3_FOLD / PROTENIX_FOLD /
-ALPHAFOLD3_FOLD / OPENFOLD3_FOLD / ESMFOLD2_FOLD (esmfold2 and esmfold2_fast), then
+ALPHAFOLD3_FOLD / OPENFOLD3_FOLD / CHAI1_FOLD / ESMFOLD2_FOLD (esmfold2 and
+esmfold2_fast), then
 merges per-tool score TSVs into fold_scores.tsv. Optional EnGens clustering.
 */
 
@@ -14,6 +15,7 @@ include { ROSETTAFOLD3_FOLD } from './rosettafold3_fold'
 include { PROTENIX_FOLD } from './protenix_fold'
 include { ALPHAFOLD3_FOLD } from './alphafold3_fold'
 include { OPENFOLD3_FOLD } from './openfold3_fold'
+include { CHAI1_FOLD } from './chai1_fold'
 include { ESMFOLD2_FOLD } from './esmfold2_fold'
 include { ESMFOLD2_FOLD as ESMFOLD2_FAST_FOLD } from './esmfold2_fold'
 include { ENGENS_CLUSTER } from './engens'
@@ -26,7 +28,7 @@ workflow FOLD_PREDICT {
     ch_for_rf3
     ch_for_protenix
     ch_for_af3
-    ch_for_openfold3
+    ch_for_openfold3 // also feeds Chai-1, which takes the same bundle
     ch_for_esmfold2
     ch_for_esmfold2_fast
     ch_templates   // value: FOLD_TEMPLATES directory (or placeholder)
@@ -40,6 +42,7 @@ workflow FOLD_PREDICT {
     ch_protenix_pred = Channel.empty()
     ch_af3_pred = Channel.empty()
     ch_openfold3_pred = Channel.empty()
+    ch_chai1_pred = Channel.empty()
     ch_esmfold2_pred = Channel.empty()
     ch_esmfold2_fast_pred = Channel.empty()
     ch_scores = Channel.empty()
@@ -80,10 +83,15 @@ workflow FOLD_PREDICT {
     }
     if ('openfold3' in methods) {
         OPENFOLD3_FOLD(ch_for_openfold3, ch_templates)
-        // OpenFold3 and ESMFold2 share *_seed_S_sample_N_model.cif naming, so tag
+        // OpenFold3, Chai-1 and ESMFold2 share *_seed_S_sample_N_model.cif naming, so tag
         // the tool for ENGENS_CLUSTER's collision-free renaming.
         ch_openfold3_pred = OPENFOLD3_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'openfold3'], files] }
         ch_scores = ch_scores.mix(OPENFOLD3_FOLD.out.tsv)
+    }
+    if ('chai1' in methods) {
+        CHAI1_FOLD(ch_for_openfold3, ch_templates)
+        ch_chai1_pred = CHAI1_FOLD.out.predictions.map { meta, files -> [meta + [fold_tool: 'chai1'], files] }
+        ch_scores = ch_scores.mix(CHAI1_FOLD.out.tsv)
     }
     if ('esmfold2' in methods) {
         ESMFOLD2_FOLD(ch_for_esmfold2, 'esmfold2')
@@ -98,7 +106,7 @@ workflow FOLD_PREDICT {
 
     FOLD_MERGE_SCORES(ch_scores.collect())
 
-    ch_predictions = ch_af2_pred.mix(ch_af2_mono_pred, ch_boltz_pred, ch_rf3_pred, ch_protenix_pred, ch_af3_pred, ch_openfold3_pred, ch_esmfold2_pred, ch_esmfold2_fast_pred)
+    ch_predictions = ch_af2_pred.mix(ch_af2_mono_pred, ch_boltz_pred, ch_rf3_pred, ch_protenix_pred, ch_af3_pred, ch_openfold3_pred, ch_chai1_pred, ch_esmfold2_pred, ch_esmfold2_fast_pred)
 
     if (!params.skip_engens) {
         ENGENS_CLUSTER(ch_predictions)

@@ -10,6 +10,7 @@
 %%metro line: af3 | AlphaFold3 (af3) | #17becf
 %%metro line: boltz | Boltz-2 (boltz) | #ff7f0e
 %%metro line: openfold3 | OpenFold3 (openfold3) | #9467bd
+%%metro line: chai1 | Chai-1 (chai1) | #bcbd22
 %%metro file: targets_in | FASTA | Targets
 %%metro file: binders_in | FASTA | Binders
 %%metro files: templates_in | PDB | Templates
@@ -29,14 +30,14 @@ graph LR
         pairing["(Taxonomy pairing)"]
         templates_in[ ]
         match_templates[Template matching]
-        targets_in -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| msa_search
-        msa_search -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| pairs
-        binders_in -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3| binder_msa
-        binder_msa -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3| pairs
-        pairs -->|af3,boltz,openfold3,rf3,protenix,esmfold2| pairing
+        targets_in -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| msa_search
+        msa_search -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| pairs
+        binders_in -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3,chai1| binder_msa
+        binder_msa -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3,chai1| pairs
+        pairs -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2| pairing
         pairs -->|af2| match_templates
-        pairing -->|af3,boltz,rf3,protenix,openfold3| match_templates
-        templates_in -->|af2,af3,boltz,rf3,protenix,openfold3| match_templates
+        pairing -->|af3,boltz,rf3,protenix,openfold3,chai1| match_templates
+        templates_in -->|af2,af3,boltz,rf3,protenix,openfold3,chai1| match_templates
     end
 
     subgraph predict [Complex prediction]
@@ -46,6 +47,7 @@ graph LR
         rf3_run[RosettaFold3]
         protenix_run[Protenix]
         openfold3_run[OpenFold3]
+        chai1_run[Chai-1]
         esmfold2_run[ESMFold2]
     end
 
@@ -55,10 +57,10 @@ graph LR
         report[Quarto report]
         scores_out[ ]
         report_out[ ]
-        confidence -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| summary
-        summary -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| scores_out
-        summary -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| report
-        report -->|af3,boltz,openfold3,rf3,protenix,esmfold2,af2| report_out
+        confidence -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| summary
+        summary -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| scores_out
+        summary -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| report
+        report -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| report_out
     end
 
     match_templates -->|af2| af2_run
@@ -67,6 +69,7 @@ graph LR
     match_templates -->|rf3| rf3_run
     match_templates -->|protenix| protenix_run
     match_templates -->|openfold3| openfold3_run
+    match_templates -->|chai1| chai1_run
     pairing -->|esmfold2| esmfold2_run
     af2_run -->|af2| confidence
     af3_run -->|af3| confidence
@@ -74,4 +77,5 @@ graph LR
     rf3_run -->|rf3| confidence
     protenix_run -->|protenix| confidence
     openfold3_run -->|openfold3| confidence
+    chai1_run -->|chai1| confidence
     esmfold2_run -->|esmfold2| confidence

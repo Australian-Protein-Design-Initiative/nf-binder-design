@@ -151,7 +151,7 @@ workflow FOLD_PULLDOWN {
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
-            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast [default: ${params.methods}]
+            --methods             Comma-separated af2,af2_mono,boltz,rf3,protenix,af3,openfold3,chai1,esmfold2,esmfold2_fast [default: ${params.methods}]
                                    af2      = AlphaFold2 multimer (every pair here is a 2-chain complex,
                                               so af2 always uses AF2's native multimer weights/pipeline).
                                    af2_mono = AF2 MONOMER weights on a concatenated complex, chains
@@ -178,7 +178,7 @@ workflow FOLD_PULLDOWN {
             --skip_engens         Skip EnGens clustering [default: ${params.skip_engens}]
 
             Every method-specific flag from --method fold --help (--af2_*, --boltz_*,
-            --rf3_*, --protenix_*, --af3_*, --openfold3_*, --esmfold2_*) applies here too, e.g.
+            --rf3_*, --protenix_*, --af3_*, --openfold3_*, --chai1_*, --esmfold2_*) applies here too, e.g.
             --af2_keep_models (which of AF2's 5 models/run to keep toward
             --n_predictions) [default: ${params.af2_keep_models}]. 'all' keeps all 5
             models from AF2's single run, matching --n_predictions 5 at no extra cost;
@@ -214,6 +214,10 @@ workflow FOLD_PULLDOWN {
             OpenFold3 (--methods includes openfold3; weights are bundled in the container):
             --openfold3_batch_size / --openfold3_seeds /
             --openfold3_kernel_cache_dir   As for --method fold (see --method fold --help)
+
+            Chai-1 (--methods includes chai1; weights are bundled in the container):
+            --chai1_batch_size / --chai1_seeds / --chai1_num_trunk_recycles /
+            --chai1_num_diffn_timesteps    As for --method fold (see --method fold --help)
 
             ESMFold2 (--methods includes esmfold2 and/or esmfold2_fast; weights are bundled in the containers):
             --esmfold2_weights_dir / --esmfold2_batch_size /

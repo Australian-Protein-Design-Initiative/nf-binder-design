@@ -3,8 +3,8 @@
 [![Fold Pulldown workflow](../images/fold_pulldown_metro_map.svg)](../images/fold_pulldown_metro_map.svg){target="_blank" rel="noopener" title="Open the full-size diagram in a new tab"}
 
 An AlphaPulldown-like target × binder pulldown across the shared fold engines
-(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, ESMFold2,
-ESMFold2-Fast).
+(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, Chai-1,
+ESMFold2, ESMFold2-Fast).
 
 !!! info "Previously `--method boltz_pulldown`"
 
@@ -66,13 +66,13 @@ Pairing is done by the fold engine, from per-chain files, and only when **both**
 chains have homologs that share a taxonomy id. For _de novo_ binder 'pulldowns' where we typically don't use a binder MSA (`--create_binder_msa false`), the taxonomy is not used. The pairing process uses the same heuristics as in
 [Fold](fold.md#paired-msas-how-each-engine-differs): RF3 `TaxID=` a3m,
 Protenix species-mnemonic a3m, Boltz `key,sequence` CSV, and the AF3 /
-OpenFold3 equivalents.
+OpenFold3 / Chai-1 equivalents.
 
 | Condition | Pairing |
 |-----------|---------|
 | `--create_binder_msa false` (the default) | None. Chain B is the binder sequence alone. Boltz is also given `msa: empty` for chain B, including when `--use_msa_server` is set, so the server does not fetch a binder MSA either. |
 | `--create_target_msa false` | None for the MSAs this pipeline builds: chain A is a single sequence too. The exception is Boltz with both `--use_msa_server` and `--create_binder_msa true`, which fetches and pairs both chains itself. |
-| Both `--create_target_msa` and `--create_binder_msa`, `--msa_method jackhmmer_af2`, and `boltz`, `rf3`, `protenix`, `af3`, `openfold3` or `esmfold2` | The engine pairs shared taxids. Jackhmmer headers carry `TaxID=` / species mnemonics; each chain is still written independently and the engine matches them. |
+| Both `--create_target_msa` and `--create_binder_msa`, `--msa_method jackhmmer_af2`, and `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `chai1` or `esmfold2` | The engine pairs shared taxids. Jackhmmer headers carry `TaxID=` / species mnemonics; each chain is still written independently and the engine matches them. |
 | Same flags, but `af2` or `af2_mono` | None. Those engines always write the binder chain query-only, whatever `--create_binder_msa` is. If they are the only selected `--methods`, the binder search is skipped. |
 | Both MSAs requested, `--msa_method mmseqs2_colabfold` | None. ColabFold headers carry no taxonomy, so the renders stay unpaired. Boltz with `--use_msa_server` and `--create_binder_msa true` still fetches and pairs its own MSAs. |
 | `esmfold2_fast`, or `esmfold2` with `--esmfold2_single_sequence` | None. Those runs fold from sequence alone. |
@@ -115,7 +115,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `esmfold2`, `esmfold2_fast` (see [Choosing engines](fold.md#choosing-engines); ESMFold2 weights and caveats are covered in [ESMFold2](fold.md#esmfold2)) |
+| `--methods` | `boltz` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast` (see [Choosing engines](fold.md#choosing-engines); ESMFold2 weights and caveats are covered in [ESMFold2](fold.md#esmfold2)) |
 | `--af3_model_dir` | `models/alphafold3` | AlphaFold3 weights directory (`af3` only; see [AlphaFold3 weights](fold.md#alphafold3-weights)) |
 | `--af3_paired_msa` / `--af3_templates` / `--af3_run_data_pipeline` | `true` / `inline` / `false` | How AF3 is fed and run. `-profile af3_germinal_parity` sets the combination Germinal uses (pairing off, AF3's own template search, data pipeline on) and needs `--af3_db_dir`; see [Germinal: external folding validation](germinal.md#external-folding-validation) |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
@@ -138,7 +138,7 @@ pair.
 
 Every method-specific flag documented under `--method fold --help` (`--af2_*`,
 `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`,
-`--esmfold2_*`) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
+`--chai1_*`, `--esmfold2_*`) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
 One worth knowing about: `--af2_keep_models` controls which of AF2's 5 models
 per run are kept. It defaults to `all` here, so one AF2 run yields the 5
 structures `--n_predictions` asks for at no extra cost (`--method fold` defaults
@@ -176,7 +176,7 @@ against `fold_pulldown_scores.tsv` should use.
 `msa/paired/` holds those per-chain renders (RF3 `TaxID=` a3m, Protenix
 mnemonic-headers a3m, Boltz `key,sequence` CSV). Each chain is written on its
 own; whether an engine then pairs them is covered in
-[Taxonomic pairing](#taxonomic-pairing). AF3, OpenFold3 and ESMFold2 re-render
+[Taxonomic pairing](#taxonomic-pairing). AF3, OpenFold3, Chai-1 and ESMFold2 re-render
 their pairing input inside the predict task, so those a3ms are not published
 here.
 

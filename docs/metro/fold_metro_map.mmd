@@ -10,6 +10,7 @@
 %%metro line: af3 | AlphaFold3 (af3) | #17becf
 %%metro line: boltz | Boltz-2 (boltz) | #ff7f0e
 %%metro line: openfold3 | OpenFold3 (openfold3) | #9467bd
+%%metro line: chai1 | Chai-1 (chai1) | #bcbd22
 %%metro file: fasta_in | FASTA | Chains
 %%metro files: templates_in | PDB | Templates
 %%metro off_track: templates_in
@@ -21,13 +22,13 @@ graph LR
         fasta_in[ ]
         msa_search[MSA search]
         pairing[Taxonomy pairing]
-        fasta_in -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| msa_search
-        msa_search -->|af3,boltz,rf3,protenix,openfold3,esmfold2| pairing
+        fasta_in -->|af2,af3,boltz,rf3,protenix,openfold3,chai1,esmfold2| msa_search
+        msa_search -->|af3,boltz,rf3,protenix,openfold3,chai1,esmfold2| pairing
         msa_search -->|af2| match_templates
         templates_in[ ]
         match_templates[Template matching]
-        pairing -->|af3,boltz,rf3,protenix,openfold3| match_templates
-        templates_in -->|af2,af3,boltz,rf3,protenix,openfold3| match_templates
+        pairing -->|af3,boltz,rf3,protenix,openfold3,chai1| match_templates
+        templates_in -->|af2,af3,boltz,rf3,protenix,openfold3,chai1| match_templates
     end
 
     subgraph predict [Structure prediction]
@@ -37,6 +38,7 @@ graph LR
         rf3_run[RosettaFold3]
         protenix_run[Protenix]
         openfold3_run[OpenFold3]
+        chai1_run[Chai-1]
         esmfold2_run[ESMFold2]
     end
 
@@ -46,10 +48,10 @@ graph LR
         engens[EnGens clustering]
         scores_out[ ]
         engens_out[ ]
-        confidence -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| merge
-        merge -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| scores_out
-        merge -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| engens
-        engens -->|af2,af3,boltz,rf3,protenix,openfold3,esmfold2| engens_out
+        confidence -->|af2,af3,boltz,rf3,protenix,openfold3,chai1,esmfold2| merge
+        merge -->|af2,af3,boltz,rf3,protenix,openfold3,chai1,esmfold2| scores_out
+        merge -->|af2,af3,boltz,rf3,protenix,openfold3,chai1,esmfold2| engens
+        engens -->|af2,af3,boltz,rf3,protenix,openfold3,chai1,esmfold2| engens_out
     end
 
     match_templates -->|af2| af2_run
@@ -58,6 +60,7 @@ graph LR
     match_templates -->|rf3| rf3_run
     match_templates -->|protenix| protenix_run
     match_templates -->|openfold3| openfold3_run
+    match_templates -->|chai1| chai1_run
     pairing -->|esmfold2| esmfold2_run
     af2_run -->|af2| confidence
     af3_run -->|af3| confidence
@@ -65,4 +68,5 @@ graph LR
     rf3_run -->|rf3| confidence
     protenix_run -->|protenix| confidence
     openfold3_run -->|openfold3| confidence
+    chai1_run -->|chai1| confidence
     esmfold2_run -->|esmfold2| confidence

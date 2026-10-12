@@ -4,7 +4,7 @@
 
 Multi-method structure prediction for monomer **and multimer** FASTA
 inputs. Predicts structures with any combination of AlphaFold2, Boltz-2,
-RosettaFold3, Protenix, AlphaFold3, OpenFold3 and ESMFold2, sharing one
+RosettaFold3, Protenix, AlphaFold3, OpenFold3, Chai-1 and ESMFold2, sharing one
 MSA-generation stage, then (by default) clusters the ensemble with EnGens.
 
 > **AlphaFold3** (`--methods af3`) needs model weights that you download yourself
@@ -101,6 +101,7 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).
 | **Protenix** (`protenix`) | Bundled in the container | Species-mnemonic paired/unpaired a3m | 1 | Medium |
 | **AlphaFold3** (`af3`) | You download separately — see [AlphaFold3 weights](#alphafold3-weights) | Species-mnemonic pairing rendered from the shared MSA | 1 | Medium–high |
 | **OpenFold3** (`openfold3`) | Bundled in the container | Online species pairing from `uniprot_hits` | 1 | Medium; JIT-compiles Triton kernels on first use |
+| **Chai-1** (`chai1`) | Bundled in the container | Taxid pairing keys in per-chain MSA parquet files, paired by Chai-1 itself | 1 | Medium |
 | **ESMFold2** (`esmfold2`) | Bundled in the container | `key=<taxid>` a3m pairing, done by ESMFold2 itself | 1 | Medium |
 | **ESMFold2-Fast** (`esmfold2_fast`) | Bundled in the container | None — single-sequence only, no MSA (see [below](#esmfold2)) | 1 | Low |
 
@@ -222,12 +223,13 @@ multimer search of the complex rather than a second search of each chain:
 | **Protenix** | Pairs by species *mnemonic* (`_HUMAN`, `_9BETA`) | Per-chain `pairedMsaPath` (mnemonic headers) + `unpairedMsaPath` |
 | **AF3** | Pairs by species mnemonic, parsed only from UniProt-style `tr\|ACC\|NAME_SPECIES` headers | Per-chain `pairedMsaPath` re-rendered with `tr\|…_SPECIES` headers + `unpairedMsaPath` (AF3's own data pipeline is never run) |
 | **OpenFold3** | Pairs online by species, read from the 4th field of `uniprot_hits` headers | Per-chain directory with `colabfold_main.a3m` (unpaired) + `uniprot_hits.a3m` re-rendered as `tr\|ACC\|ACC_SPECIES/1-N` (pairing only) |
+| **Chai-1** | Pairs rows across chains sharing a `pairing_key`, done by Chai-1 itself | One `.aligned.pqt` per unique chain sequence, with `pairing_key = taxid`; rows with no taxonomy are kept as that chain's unpaired rows |
 | **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`) |
 | **ESMFold2** | Pairs rows across chains sharing a `key=<taxid>` token, done by ESMFold2 itself | One a3m per chain with `key=<taxid>` headers; unlike the other renders, rows with no taxonomy are kept (laid out block-diagonally) |
 
 RF3 / Protenix / Boltz's rendered per-chain files are published under
 `<outdir>/fold/msa/paired/`, and each render logs its paired-row depth per
-chain. AF3, OpenFold3 and ESMFold2 render their own pairing input inline
+chain. AF3, OpenFold3, Chai-1 and ESMFold2 render their own pairing input inline
 inside their respective predict/input-prep tasks, so their re-rendered a3ms
 are not published under `msa/paired/`.
 
@@ -419,6 +421,29 @@ download or weights flag is needed.
   in each task's work directory; `--openfold3_kernel_cache_dir /some/shared/dir`
   keeps it between tasks.
 
+## Chai-1
+
+Chai-1 (`--methods chai1`) runs from
+`ghcr.io/australian-protein-design-initiative/containers/chai-1:2026-06-30_66c38d1_nv-cuda12_weights`
+(chai-lab 0.6.1), which includes the model and ESM2 language-model weights
+under `/models/chai`, so no download or weights flag is needed.
+
+- The `chai-lab fold` command does not save the PAE matrix, so the pipeline
+  calls Chai-1's Python API through `bin/fold/run_chai1.py`. This lets ipSAE be
+  computed for Chai-1 models as for the other engines.
+- MSAs come from the shared MSA stage and are written as Chai-1's
+  `.aligned.pqt` files; Chai-1's ColabFold MSA server is never used. Hits whose
+  header starts with `UniRef` are labelled as `uniref90` (Chai-1 keeps at most
+  10,000 of these) and all others as `bfd_uniclust`, as Chai-1 does for its own
+  ColabFold MSAs.
+- Templates are used only with `--templates` (see [Templates](#templates)).
+- `--chai1_batch_size` sets diffusion samples per job; `--n_predictions`
+  splits across jobs as for the other diffusion engines.
+- `--chai1_num_trunk_recycles` (default 3) and `--chai1_num_diffn_timesteps`
+  (default 200) are passed to Chai-1 when set.
+- The `ranking_score` column is Chai-1's `aggregate_score` (0.2 × pTM +
+  0.8 × ipTM, with a penalty for inter-chain clashes).
+
 ## ESMFold2
 
 ESMFold2 comes as two engines, run through the `esm` package (v3.4.1.post1).
@@ -510,6 +535,7 @@ nextflow run main.nf --method fold ... \
 | `af2`, `af2_mono` | up to 4, user templates first | Added to the chain's features ahead of any AF2 found itself |
 | `af3` | up to `--template_max_per_chain` | Inline mmCIF with an explicit residue mapping |
 | `boltz` | up to `--template_max_per_chain` | Pinned to the chain, with an optional distance restraint |
+| `chai1` | up to 4 | m8 hit table plus local CIF files, realigned by Chai-1 with kalign |
 | `openfold3` | up to `--template_max_per_chain` | CIF files, realigned by OpenFold3 with kalign |
 | `protenix` | up to `--template_max_per_chain` | AF3-format JSON, run with `--use_template true` |
 | `rf3` | 1 (the best match) | The chain itself, built with the template's coordinates |
@@ -536,6 +562,9 @@ Engine-specific notes:
   template lacks are kept but not templated.
 - **OpenFold3:** the pipeline points OpenFold3's template structure directory at
   the staged files and turns off downloads from RCSB.
+- **Chai-1:** the matched CIFs are placed in Chai-1's template folder before the
+  run, so Chai-1 never downloads from RCSB. Chai-1 uses at most 4 templates per
+  chain and logs (rather than fails on) a template it cannot load.
 
 ## EnGens clustering
 
@@ -580,7 +609,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold
 |------|-------------|
 | `--input` | Single FASTA, glob, or directory of FASTA files (required) |
 | `--outdir` | Output directory (default: `results`) |
-| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `esmfold2`, `esmfold2_fast` (default: `af2`) |
+| `--methods` | Comma-separated: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast` (default: `af2`) |
 | `--msa_method` | `jackhmmer_af2` (default) or `mmseqs2_colabfold` |
 | `--n_predictions` | Total structures per input, per method (see below) |
 | `--msa_subsample` | Off by default; `true` (default depth list) or a custom `max_seq:max_extra_seq` list. Depths with `max_seq >=` MSA size are skipped |
@@ -590,11 +619,11 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design --method fold
 | `--engens_featurizers` | `default,3di` (default); also `pb`; comma-separated |
 | `--engens_superpose_method` | Superposition scheme for the geometric featurizers (default: `blosum62`) |
 
-Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`, `--esmfold2_*`) are
+Method-specific flags (`--af2_*`, `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`, `--chai1_*`, `--esmfold2_*`) are
 documented in `--help`.
 
 **`--n_predictions`** is **unset by default**, in which case each engine falls
-back to its own default: Boltz, RF3, Protenix, AF3, OpenFold3 and ESMFold2 each
+back to its own default: Boltz, RF3, Protenix, AF3, OpenFold3, Chai-1 and ESMFold2 each
 emit **5** diffusion samples in a single job (Boltz is lifted from its native default of 1
 for cross-engine parity), while AF2 does a single run and keeps per
 `--af2_keep_models` (default `best` → one structure). Set `--n_predictions N` to
@@ -607,12 +636,15 @@ keeps the top-ranked model/run → N runs; `all` keeps all 5/run → `ceil(N/5)`
 runs).
 
 **Seeds** are unset by default so each engine draws its own random seed (pin
-`--af2_random_seed` / `--boltz_seed` / `--rf3_seed` / `--protenix_seeds` for
+`--af2_random_seed` / `--boltz_seed` / `--rf3_seed` / `--protenix_seeds` /
+`--chai1_seeds` for
 reproducibility; do not inject a fresh random seed on every CLI invocation if
 you want `-resume` to cache). AlphaFold3, OpenFold3 and ESMFold2 always need a
 seed in their input, so they default to a fixed base seed (`--af3_seeds 1`,
 `--openfold3_seeds 42`, `--esmfold2_seeds 42`); batch *i* uses `seed + i`.
-`--protenix_seeds` takes the same single-base-seed convention.
+`--protenix_seeds` and `--chai1_seeds` take the same single-base-seed convention.
+Without `--chai1_seeds`, each Chai-1 job draws its own seed and records it in
+its file names.
 
 ## Output
 
@@ -627,8 +659,8 @@ results/
 ├── fold/
 │   ├── msa/<msa_method>/     # shared MSAs + a3m (jackhmmer_af2 or mmseqs2_colabfold)
 │   ├── af2/msas/             # AF2-only features.pkl (not under fold/msa/)
-│   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/ … openfold3/ … esmfold2/ … esmfold2_fast/    # per-engine predictions + <tool>_fold_scores.tsv
-│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_*, esmfold2_*, esmfold2_fast_* mmCIF
+│   ├── af2/ … boltz/ … rf3/ … protenix/ … af3/ … openfold3/ … chai1/ … esmfold2/ … esmfold2_fast/    # per-engine predictions + <tool>_fold_scores.tsv
+│   ├── predictions/          # flat gather: af2_*, boltz_*, rf3_*, protenix_*, af3_*, openfold3_*, chai1_*, esmfold2_*, esmfold2_fast_* mmCIF
 │   ├── fold_scores.tsv       # master score table: one row per generated structure
 │   ├── msa_ids/              # when --msa_subsample: header_line<TAB>id (0-based '>' line)
 │   └── templates/            # when --templates: templates_matched.tsv + normalised tmpl*.cif
@@ -646,14 +678,14 @@ it) and `msa_depth` (MSA subsample depth, blank unless `--msa_subsample` was
 used), the engine-native `original_file`, and the renamed `predictions_file` in
 `fold/predictions/` (unique per structure).
 
-| Column | Meaning | AF2 | Boltz | Protenix | RF3 | AF3 | OpenFold3 | ESMFold2 / ESMFold2-Fast |
-|--------|---------|-----|-------|----------|-----|-----|-----------|----------|
-| `ranking_score` | engine's overall ranking metric | `ranking_confidence` (0.8×ipTM + 0.2×pTM for multimer presets; mean pLDDT for monomer presets, incl. `af2_mono`) | confidence_score | ranking_score | ranking_score | ranking_score | sample_ranking_score | – (not reported; rank on `iptm`/`plddt`/`ipsae`) |
-| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ | ✓ (mean per-atom) | ✓ | ✓ (per-token) |
-| `pae` / `pde` | overall predicted aligned / distance error | – | pde | pde (`gpde`) | pae, pde | pae (mean) | pae (mean), pde (`gpde`) | pae (mean) |
-| `has_clash` | steric-clash flag | – | – | ✓ | ✓ | ✓ | ✓ | – |
-| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) |
+| Column | Meaning | AF2 | Boltz | Protenix | RF3 | AF3 | OpenFold3 | Chai-1 | ESMFold2 / ESMFold2-Fast |
+|--------|---------|-----|-------|----------|-----|-----|-----------|--------|----------|
+| `ranking_score` | engine's overall ranking metric | `ranking_confidence` (0.8×ipTM + 0.2×pTM for multimer presets; mean pLDDT for monomer presets, incl. `af2_mono`) | confidence_score | ranking_score | ranking_score | ranking_score | sample_ranking_score | aggregate_score | – (not reported; rank on `iptm`/`plddt`/`ipsae`) |
+| `ptm` / `iptm` | (interface) predicted TM-score | ✓ (pkl) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `plddt` | mean pLDDT, **rescaled to 0–1** | ✓ | ✓ | ✓ | ✓ | ✓ (mean per-atom) | ✓ | ✓ (per-token) | ✓ (per-token) |
+| `pae` / `pde` | overall predicted aligned / distance error | – | pde | pde (`gpde`) | pae, pde | pae (mean) | pae (mean), pde (`gpde`) | pae (mean) | pae (mean) |
+| `has_clash` | steric-clash flag | – | – | ✓ | ✓ | ✓ | ✓ | ✓ (inter-chain) | – |
+| `ipsae`, `ipsae_d0chn`, `ipsae_d0dom`, `pdockq`, `pdockq2`, `lis` | ipSAE interface metrics (`bin/ipsae.py`) | ✓ (computed) | ipsae only | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) | ✓ (computed) |
 
 Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally

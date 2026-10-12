@@ -40,7 +40,7 @@ workflow FOLD_PULLDOWN_MSA {
     def need_af2 = ('af2' in methods) || ('af2_mono' in methods)
     // ESMFold2 needs none when --esmfold2_single_sequence folds from sequence alone.
     def need_annotate = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
-        || ('openfold3' in methods) || (('esmfold2' in methods) && !params.esmfold2_single_sequence)
+        || ('openfold3' in methods) || ('chai1' in methods) || (('esmfold2' in methods) && !params.esmfold2_single_sequence)
     def pub = "${params.fold_publish_dir ?: 'fold'}/msa"
 
     // Per-chain ids flow raw into jackhmmer/mmseqs2/publishDir paths and into
@@ -271,7 +271,7 @@ workflow FOLD_PULLDOWN_MSA {
     for_rf3 = ch_for_rf3
     for_protenix = ch_for_protenix
     for_af3 = ch_for_protenix // same bundle; AF3 re-renders pairing from the unpaired a3m
-    for_openfold3 = ch_for_protenix // same bundle; OpenFold3 re-renders pairing likewise
+    for_openfold3 = ch_for_protenix // same bundle; OpenFold3 re-renders pairing likewise, Chai-1 reads it as-is
     // See FOLD_MSA: single-sequence ESMFold2 skips the MSA stage, so it takes the
     // per-pair FASTA plus a placeholder rather than an annotated bundle.
     for_esmfold2 = (('esmfold2' in methods) && params.esmfold2_single_sequence) \

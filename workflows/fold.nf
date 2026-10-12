@@ -4,12 +4,12 @@ nextflow.enable.dsl = 2
 
 /*
 Multi-method structure folding: predicts structures for FASTA inputs with any
-combination of --methods af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast, sharing
+combination of --methods af2,af2_mono,boltz,rf3,protenix,af3,openfold3,chai1,esmfold2,esmfold2_fast, sharing
 a single MSA-generation stage (FOLD_MSA) with a selectable --msa_method.
 
 Usage via main.nf:
   nextflow run main.nf --method fold --input 'input/*.fasta' --outdir results \
-      --methods af2,boltz,rf3,protenix,af3,openfold3,esmfold2 --msa_method jackhmmer_af2 -profile slurm,m3
+      --methods af2,boltz,rf3,protenix,af3,openfold3,chai1,esmfold2 --msa_method jackhmmer_af2 -profile slurm,m3
 */
 
 params.method = 'fold'
@@ -139,7 +139,7 @@ workflow FOLD {
 
         Optional arguments:
             --outdir                           Output directory [default: ${params.outdir}]
-            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3,openfold3,esmfold2,esmfold2_fast [default: ${params.methods}]
+            --methods                          Comma-separated list of af2,af2_mono,boltz,rf3,protenix,af3,openfold3,chai1,esmfold2,esmfold2_fast [default: ${params.methods}]
                                                 af2      = AlphaFold2. Monomer inputs use --af2_model_preset
                                                            (monomer_ptm by default); multi-chain inputs use
                                                            AF2's native multimer weights/pipeline instead.
@@ -152,7 +152,7 @@ workflow FOLD {
                                                            so pair it with --af2_keep_models best.
             --msa_method                       jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --n_predictions                    Total structures per input, per method. Unset (default) => each
-                                                engine uses its own default: Boltz/RF3/Protenix/AF3/OpenFold3 emit 5 each,
+                                                engine uses its own default: Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1 emit 5 each,
                                                 AF2 does one run keeping per --af2_keep_models. Set N to pin
                                                 every diffusion engine to N.
                                                 [default: unset]
@@ -258,6 +258,12 @@ workflow FOLD {
             --openfold3_batch_size              Samples per OpenFold3 job (--num-diffusion-samples)
             --openfold3_seeds                   Base model seed; batch i uses seed+i [default: 42]
             --openfold3_kernel_cache_dir        Persistent Triton kernel cache dir [default: unset]
+
+            Chai-1 (--methods includes chai1; weights are bundled in the container):
+            --chai1_batch_size                  Samples per Chai-1 job (num_diffn_samples)
+            --chai1_seeds                       Base model seed; batch i uses seed+i [default: random per job]
+            --chai1_num_trunk_recycles          [default: Chai-1's own, 3]
+            --chai1_num_diffn_timesteps         Diffusion steps [default: Chai-1's own, 200]
 
             ESMFold2 (--methods includes esmfold2 and/or esmfold2_fast; weights are bundled in the containers).
             esmfold2 is MSA-conditioned (biohub/ESMFold2); esmfold2_fast (biohub/ESMFold2-Fast) always folds

@@ -38,24 +38,24 @@ include { AF2_STAGE_COLABFOLD_MULTIMER_MSAS } from '../../modules/local/fold/af2
 workflow FOLD_MSA {
     take:
     ch_input   // tuple(meta, fasta)
-    methods    // List<String>, subset of ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3', 'esmfold2', 'esmfold2_fast']
+    methods    // List<String>, subset of FoldValidation.VALID_METHODS
     msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
 
     main:
     // af2_mono consumes the same per-chain AF2 msas dir as af2; only the in-task
     // features.pkl assembly differs. See FOLD_PULLDOWN_MSA for the same gate.
     def need_af2_msas = ('af2' in methods) || ('af2_mono' in methods)
-    // a3m needed for Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2, and for AF2 when
+    // a3m needed for Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2, and for AF2 when
     // --msa_subsample is on (shallow jobs rebuild features.pkl from a subsampled a3m).
     // ESMFold2 wants none when --esmfold2_single_sequence folds it from sequence alone.
     def esmfold2_no_msa = ('esmfold2' in methods) && params.esmfold2_single_sequence
     def need_esmfold2_msa = ('esmfold2' in methods) && !params.esmfold2_single_sequence
     def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
-        || ('openfold3' in methods) || need_esmfold2_msa \
+        || ('openfold3' in methods) || ('chai1' in methods) || need_esmfold2_msa \
         || (need_af2_msas && MsaSubsample.isEnabled(params.msa_subsample))
-    // Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2 need per-chain paired MSAs on the multimer path.
+    // Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2 need per-chain paired MSAs on the multimer path.
     def need_paired = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
-        || ('openfold3' in methods) || need_esmfold2_msa
+        || ('openfold3' in methods) || ('chai1' in methods) || need_esmfold2_msa
     // af2_mono (monomer-weights chain-break) on a ColabFold-searched multimer input
     // needs one plain a3m per chain too, same split as need_paired, but AF2's own
     // multimer pairing ('af2') under mmseqs2_colabfold is rejected up front by
@@ -261,7 +261,7 @@ workflow FOLD_MSA {
     for_rf3 = ch_a3m_mono.mix(ch_rf3_multi)            // multimer: (meta,fasta,[rf3_a3m...])
     for_protenix = ch_a3m_mono.mix(ch_protenix_multi)  // multimer: (meta,fasta,[paired...+unpaired...])
     for_af3 = ch_a3m_mono.mix(ch_protenix_multi)       // same bundle; AF3 re-renders pairing from the unpaired a3m
-    for_openfold3 = ch_a3m_mono.mix(ch_protenix_multi) // same bundle; OpenFold3 re-renders pairing likewise
+    for_openfold3 = ch_a3m_mono.mix(ch_protenix_multi) // same bundle; OpenFold3 re-renders pairing likewise, Chai-1 reads it as-is
     // Single-sequence mode skips the MSA stage entirely for this engine, so it
     // cannot draw on ch_a3m_mono (which is not even built when nothing else needs
     // an a3m) - it takes the raw input FASTA plus a placeholder instead.
