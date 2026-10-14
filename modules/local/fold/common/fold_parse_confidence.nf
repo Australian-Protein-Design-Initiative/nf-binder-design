@@ -20,9 +20,12 @@ process FOLD_PARSE_CONFIDENCE {
     // ESMFold2's confidence files are written by bin/fold/run_esmfold2.py in AF3's
     // shape (atom_plddts + chain-ordered chain_pair_iptm), so they use af3 here.
     def ipsae_fmt = tool in ['rf3', 'openfold3'] ? tool : 'af3'
-    // AF3's summary JSON carries no pLDDT, and neither summary carries PAE; the
-    // per-atom values are in the full confidences JSON already staged for ipSAE.
-    def full_json_arg = (tool in ['af3', 'openfold3', 'esmfold2', 'esmfold2_fast'] && do_ipsae) ? "--full-json \"${ipsae_pae}\"" : ''
+    // AF3's summary JSON carries no pLDDT, and no engine's summary carries the
+    // NxN PAE; both live in the full confidences JSON already staged for ipSAE.
+    // protenix belongs here too: its summary has only chain_pair_pae_*, so
+    // leaving it out emitted an empty pae column and made every downstream
+    // external_pae gate unevaluable.
+    def full_json_arg = (tool in ['af3', 'openfold3', 'esmfold2', 'esmfold2_fast', 'protenix'] && do_ipsae) ? "--full-json \"${ipsae_pae}\"" : ''
     """
     set -euo pipefail
     ipsae_args=()
