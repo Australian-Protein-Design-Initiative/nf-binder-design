@@ -24,6 +24,7 @@ Sources per tool (verified against example fold-multimer results):
   rf3      --json *_summary_confidences.json
            optional --ipsae-tsv from *_confidences.json + *_model.cif
   protenix --json *_summary_confidence_sample_N.json (plddt is 0-100)
+           optional --full-json *_full_data_sample_N.json (token_pair_pae)
            optional --ipsae-tsv from *_full_data_sample_N.json + *_sample_N.cif
   af3      --json *_seed-S_sample-N_summary_confidences.json (no pLDDT in it)
            optional --full-json *_confidences.json (atom_plddts [0-100], pae)
@@ -129,6 +130,8 @@ def parse_rf3(args):
 
 
 def parse_protenix(args):
+    import numpy as np
+
     with open(args.json) as f:
         d = json.load(f)
     plddt = _num(d.get("plddt"))
@@ -140,6 +143,18 @@ def parse_protenix(args):
         "pde": _num(d.get("gpde")),
         "has_clash": d.get("has_clash"),
     }
+    # The summary JSON carries no whole-structure PAE -- only chain_pair_pae_*.
+    # The NxN matrix lives in the full-data JSON under `token_pair_pae`, not
+    # `pae` as af3/openfold3/esmfold2 name it, which is why this parser used to
+    # emit an empty pae column and every downstream external_pae gate came out
+    # unevaluable. Mean over the whole matrix, matching how Germinal computes
+    # external_pae (filters/af3.py) and what the other parsers here do.
+    if args.full_json:
+        with open(args.full_json) as f:
+            full = json.load(f)
+        pae = full.get("token_pair_pae")
+        if pae:
+            row["pae"] = float(np.nanmean(np.asarray(pae, dtype=float)))
     if args.ipsae_tsv:
         row.update(_read_ipsae_min(args.ipsae_tsv))
     return row
