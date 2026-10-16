@@ -159,8 +159,8 @@
                 <h1 id="fold-pulldown">Fold Pulldown</h1>
 <p><a href="../../images/fold_pulldown_metro_map.svg" rel="noopener" target="_blank" title="Open the full-size diagram in a new tab"><img alt="Fold Pulldown workflow" src="../../images/fold_pulldown_metro_map.svg" /></a></p>
 <p>An AlphaPulldown-like target × binder pulldown across the shared fold engines
-(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, ESMFold2,
-ESMFold2-Fast).</p>
+(AlphaFold2, Boltz-2, RosettaFold3, Protenix, AlphaFold3, OpenFold3, Chai-1,
+ESMFold2, ESMFold2-Fast).</p>
 <div class="admonition info">
 <p class="admonition-title">Previously <code>--method boltz_pulldown</code></p>
 <p>This workflow began as Boltz Pulldown, which could only co-fold with
@@ -226,7 +226,7 @@ the cases below.</p>
 chains have homologs that share a taxonomy id. For <em>de novo</em> binder 'pulldowns' where we typically don't use a binder MSA (<code>--create_binder_msa false</code>), the taxonomy is not used. The pairing process uses the same heuristics as in
 <a href="../fold/#paired-msas-how-each-engine-differs">Fold</a>: RF3 <code>TaxID=</code> a3m,
 Protenix species-mnemonic a3m, Boltz <code>key,sequence</code> CSV, and the AF3 /
-OpenFold3 equivalents.</p>
+OpenFold3 / Chai-1 equivalents.</p>
 <table>
 <thead>
 <tr>
@@ -244,7 +244,7 @@ OpenFold3 equivalents.</p>
 <td>None for the MSAs this pipeline builds: chain A is a single sequence too. The exception is Boltz with both <code>--use_msa_server</code> and <code>--create_binder_msa true</code>, which fetches and pairs both chains itself.</td>
 </tr>
 <tr>
-<td>Both <code>--create_target_msa</code> and <code>--create_binder_msa</code>, <code>--msa_method jackhmmer_af2</code>, and <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code> or <code>esmfold2</code></td>
+<td>Both <code>--create_target_msa</code> and <code>--create_binder_msa</code>, <code>--msa_method jackhmmer_af2</code>, and <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>, <code>chai1</code> or <code>esmfold2</code></td>
 <td>The engine pairs shared taxids. Jackhmmer headers carry <code>TaxID=</code> / species mnemonics; each chain is still written independently and the engine matches them.</td>
 </tr>
 <tr>
@@ -316,7 +316,7 @@ matched to target chains automatically by sequence; see
 <tr>
 <td><code>--methods</code></td>
 <td><code>boltz</code></td>
-<td>Comma-separated: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>, <code>esmfold2</code>, <code>esmfold2_fast</code> (see <a href="../fold/#choosing-engines">Choosing engines</a>; ESMFold2 weights and caveats are covered in <a href="../fold/#esmfold2">ESMFold2</a>)</td>
+<td>Comma-separated: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>, <code>chai1</code>, <code>esmfold2</code>, <code>esmfold2_fast</code> (see <a href="../fold/#choosing-engines">Choosing engines</a>; ESMFold2 weights and caveats are covered in <a href="../fold/#esmfold2">ESMFold2</a>)</td>
 </tr>
 <tr>
 <td><code>--af3_model_dir</code></td>
@@ -384,7 +384,7 @@ and combined with the query-only binder chain into one AF2 multimer input per
 pair.</p>
 <p>Every method-specific flag documented under <code>--method fold --help</code> (<code>--af2_*</code>,
 <code>--boltz_*</code>, <code>--rf3_*</code>, <code>--protenix_*</code>, <code>--af3_*</code>, <code>--openfold3_*</code>,
-<code>--esmfold2_*</code>) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
+<code>--chai1_*</code>, <code>--esmfold2_*</code>) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
 One worth knowing about: <code>--af2_keep_models</code> controls which of AF2's 5 models
 per run are kept. It defaults to <code>all</code> here, so one AF2 run yields the 5
 structures <code>--n_predictions</code> asks for at no extra cost (<code>--method fold</code> defaults
@@ -416,7 +416,7 @@ against <code>fold_pulldown_scores.tsv</code> should use.</p>
 <p><code>msa/paired/</code> holds those per-chain renders (RF3 <code>TaxID=</code> a3m, Protenix
 mnemonic-headers a3m, Boltz <code>key,sequence</code> CSV). Each chain is written on its
 own; whether an engine then pairs them is covered in
-<a href="#taxonomic-pairing">Taxonomic pairing</a>. AF3, OpenFold3 and ESMFold2 re-render
+<a href="#taxonomic-pairing">Taxonomic pairing</a>. AF3, OpenFold3, Chai-1 and ESMFold2 re-render
 their pairing input inside the predict task, so those a3ms are not published
 here.</p>
 <h2 id="interpreting-scores">Interpreting scores</h2>

@@ -322,8 +322,8 @@ process rather than globally:</p>
 extra slots simply go unused.</p>
 <p>One asymmetry to keep in mind: <strong><code>maxForks</code> is per process, but slots are
 global.</strong> Several GPU processes are usually eligible at once -- RFDIFFUSION3,
-ROSETTAFOLD3 and BOLTZ_COMPARE_<em> all run in the same phase -- so what competes
-for slots is the </em>sum* of their in-flight tasks, not any one <code>maxForks</code>. If that
+ROSETTAFOLD3 and BOLTZ_COMPARE_* all run in the same phase -- so what competes
+for slots is the <em>sum</em> of their in-flight tasks, not any one <code>maxForks</code>. If that
 sum exceeds the slot count the surplus blocks on the lock. In practice the
 executor's <code>memory</code> budget usually binds first, which is another reason to
 declare process memory accurately.</p>
