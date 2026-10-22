@@ -1,0 +1,21 @@
+# RFD4-Proteina condition spec: a 50-120 residue de novo binder against PD-L1.
+#
+# Residue numbers resolve against the mmCIF label_seq_id. input/PDL1.cif was converted from
+# input/PDL1.pdb with bin/rfd4_proteina/pdb_to_rfd4_cif.py, which keeps the PDB numbering, so
+# these are the residue numbers you see in the PDB.
+pdl1:
+  input: input/PDL1.cif
+  contig: "50-120, /0, A18-132"
+  conditions:
+    # Target backbone geometry as one coordinate group: the pose is free, the fold is not
+    C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
+    # The target sequence is known
+    C_SEQ: {true: [{select: "sel('A')"}]}
+    # Hotspots the binder should engage
+    C_HOT:
+      true:
+        - select: "sel('A/*/54')"
+        - select: "sel('A/*/56')"
+        - select: "sel('A/*/115')"
+        - select: "sel('A/*/123')"
+        - select: "sel('A/*/125')"

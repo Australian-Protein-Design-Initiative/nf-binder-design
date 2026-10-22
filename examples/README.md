@@ -52,6 +52,19 @@ PD-L1 binder design with RFDiffusion3 → MPNN → RosettaFold3.
 | `run-local-full.sh` | Extended options (refold, filters, etc.) |
 | `run-dual-gpu.sh` | Dual-GPU local run |
 
+## RFD4-Proteina (`--method rfd4_proteina`)
+
+### `pdl1-rfd4-proteina`
+
+PD-L1 binder design with RFD4-Proteina sequence-structure co-design.
+
+| Script | Description |
+|--------|-------------|
+| `run-local-simple.sh` | Params mode (`--contigs`, `--hotspot_res`) |
+| `run-local-config.sh` | Config-file mode (`--rfd4_config`) |
+| `run-local-full.sh` | Extended options (refold, filters, FoldSeek) |
+| `run-smoke.sh` | Fastest check that the container and GPU work |
+
 ## BindCraft (`--method bindcraft`)
 
 ### `pdl1-bindcraft`

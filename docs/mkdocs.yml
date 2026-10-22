@@ -10,6 +10,7 @@ nav:
   - Workflows:
       - RFdiffusion: workflows/rfdiffusion.md
       - RFdiffusion3: workflows/rfd3.md
+      - RFD4-Proteina: workflows/rfd4-proteina.md
       - BindCraft: workflows/bindcraft.md
       - Germinal: workflows/germinal.md
       - BoltzGen: workflows/boltzgen.md
