@@ -10,6 +10,7 @@ process COMBINE_RFD4_SCORES {
           path(boltz_scores_monomer, stageAs: 'boltz_scores_monomer.tsv'),
           path(boltz_rmsd_target_aligned_binder, stageAs: 'boltz_rmsd_target_aligned_binder.tsv'),
           path(boltz_rmsd_monomer_vs_complex, stageAs: 'boltz_rmsd_monomer_vs_complex.tsv'),
+          path(refold_oracle_scores, stageAs: 'refold_oracle_scores.tsv'),
           val(binder_chain),
           path(design_cifs, stageAs: 'cifs/*')
 
@@ -78,6 +79,16 @@ process COMBINE_RFD4_SCORES {
         --keys id,structure1 \\
         --strip-suffix '(_model_0\\.pdb|_monomer)\$' \\
         --value-columns rmsd_pruned,rmsd_all \\
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
+    fi
+
+    # REFOLD_ORACLES scores, already one row per design with tool-prefixed columns.
+    if [[ -s ${refold_oracle_scores} ]]; then
+      python ${projectDir}/bin/merge_scores.py \\
+        combined_scores.tsv ${refold_oracle_scores} \\
+        --keys id \\
+        --sort-by id \\
+        --first-column id,filename,sequence,length \\
         -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 

@@ -3,7 +3,7 @@
 // Runs as a process rather than on the driver because a spec may be YAML, and PyYAML is
 // available in the container but not necessarily on the Nextflow head node.
 process PARSE_RFD4_CONFIG {
-    container 'ghcr.io/australian-protein-design-initiative/containers/rfd4-proteina:0.0.3_nv-cuda13-arm64'
+    container 'ghcr.io/australian-protein-design-initiative/containers/rfd4-proteina:0.0.3-aaccdd2_nv-cuda13-arm64'
 
     input:
     path config_spec

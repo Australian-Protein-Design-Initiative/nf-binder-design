@@ -132,6 +132,41 @@ Boltz-2 instead, using the same options as the other workflows:
 FoldSeek search is enabled with `--do_foldseek`. See the
 [FoldSeek subworkflow](../subworkflows/foldseek.md) for its options.
 
+### Scoring with other folding oracles (prototype)
+
+`--full_refold_with boltz` is tied to Boltz-2, because its RMSD, ipSAE and BindCraft metrics come
+out of Boltz-specific processes. `--refold_oracles` is the oracle-agnostic alternative: it takes
+each design's binder sequence, co-folds it against the target with whichever predictors you name,
+and adds tool-prefixed columns to `combined_scores.tsv`.
+
+```bash
+  --refold_oracles boltz,chai1,openfold3 \
+  --refold_oracles_max 50 \
+  --n_predictions 3
+```
+
+Any engine `--method fold_pulldown` supports can go in the list: `af2`, `af2_mono`, `boltz`,
+`rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast`. The columns added are
+`<tool>_iptm_max`, `<tool>_ipsae_max` and so on, plus one `consensus_z` and `n_tools` per design:
+a cross-tool z-score, so a design several independent oracles agree on ranks above one that only
+its designer liked.
+
+This path is governed by the fold-family parameters (`--n_predictions`, `--msa_method`,
+`--create_target_msa`, `--use_msa_server`, and each engine's own flags), not by the
+`--full_refold_*` ones, which stay with the Boltz path. The two are independent, and a run may use
+both.
+
+The trade-off against `--full_refold_with boltz`: breadth across oracles and a consensus score,
+but no RMSD-to-design and no binder-monomer metrics, because the oracles are given the binder
+sequence rather than the design structure. For triage you usually want both - Boltz-2 for how
+closely the refold reproduces the designed pose, the oracle consensus for how many independent
+models believe the interface at all.
+
+Implemented by `subworkflows/local/refold_oracles.nf`, which holds nothing rfd4-specific. It takes
+designs as `tuple(meta, structure)`, so the other design workflows can adopt it unchanged. Nextflow
+does not apply `params` declarations made in an included script, so the adopting workflow also has
+to copy the parameter block marked "Oracle refold scoring" from `workflows/rfd4_proteina.nf`.
+
 ## Outputs
 
 | Path | Contents |
@@ -142,6 +177,7 @@ FoldSeek search is enabled with `--do_foldseek`. See the
 | `<outdir>/rfd4_proteina/binders.fasta` | Binder sequences |
 | `<outdir>/rfd4_proteina/filter/` | Filter scores and accepted/rejected designs, with `--rfd4_filters` |
 | `<outdir>/boltz_refold/` | Boltz-2 refolds and scores, with `--full_refold_with boltz` |
+| `<outdir>/rfd4_proteina/refold_oracles/` | Per-oracle predictions and scores, with `--refold_oracles` |
 
 Design file names are `<design_name>_<uid>_b<task>_<example>_<replicate>.cif`. The task index keeps
 ids unique across the parallel tasks.

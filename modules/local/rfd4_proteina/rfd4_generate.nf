@@ -1,7 +1,7 @@
 process RFD4_GENERATE {
     tag "batch_${batch_index}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/rfd4-proteina:0.0.3_nv-cuda13-arm64'
+    container 'ghcr.io/australian-protein-design-initiative/containers/rfd4-proteina:0.0.3-aaccdd2_nv-cuda13-arm64'
 
     // saveAs strips the task-local 'output/' prefix so designs land directly in designs/
     publishDir path: "${params.outdir}/rfd4_proteina/designs", pattern: 'output/*', mode: 'copy', saveAs: { fn -> file(fn).name }

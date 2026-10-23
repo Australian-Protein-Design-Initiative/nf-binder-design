@@ -124,10 +124,7 @@ params.gpu_devices = ''
 params.gpu_slots_per_device = 1
 params.gpu_lock_timeout = 14400
 
-include { FOLD_PULLDOWN_MSA } from '../subworkflows/local/fold_pulldown_msa'
-include { FOLD_PREDICT } from '../subworkflows/local/fold_predict'
-include { FOLD_TEMPLATES } from '../subworkflows/local/fold_templates'
-include { FOLD_PULLDOWN_MERGE_SCORES } from '../modules/local/fold/common/fold_pulldown_merge_scores'
+include { FOLD_PULLDOWN_CORE } from '../subworkflows/local/fold_pulldown_core'
 include { FOLD_PULLDOWN_REPORTING } from '../modules/local/common/fold_pulldown_reporting'
 
 workflow FOLD_PULLDOWN {
@@ -286,44 +283,24 @@ workflow FOLD_PULLDOWN {
     ch_targets = ch_targets_meta.merge(ch_targets_fasta_paths)
     ch_binders = ch_binders_meta.merge(ch_binders_fasta_paths)
 
-    FOLD_PULLDOWN_MSA(ch_targets, ch_binders, methods, params.msa_method)
-
     // Binders are only templated with --binder_templates (see meta.template_chains).
-    FOLD_TEMPLATES(
+    FOLD_PULLDOWN_CORE(
+        ch_targets,
+        ch_binders,
+        methods,
+        params.msa_method,
         params.binder_templates \
             ? Channel.fromPath([params.targets, params.binders])
-            : Channel.fromPath(params.targets)
+            : Channel.fromPath(params.targets),
     )
-
-    ch_pairs_tsv = FOLD_PULLDOWN_MSA.out.pairs_rows.collectFile(
-        name: 'pairs.tsv',
-        storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold_pulldown'}",
-        newLine: false,
-        seed: "id\ttarget\tbinder\n",
-    )
-
-    FOLD_PREDICT(
-        FOLD_PULLDOWN_MSA.out.af2_in,
-        FOLD_PULLDOWN_MSA.out.for_boltz,
-        FOLD_PULLDOWN_MSA.out.for_rf3,
-        FOLD_PULLDOWN_MSA.out.for_protenix,
-        FOLD_PULLDOWN_MSA.out.for_af3,
-        FOLD_PULLDOWN_MSA.out.for_openfold3,
-        FOLD_PULLDOWN_MSA.out.for_esmfold2,
-        FOLD_PULLDOWN_MSA.out.for_esmfold2_fast,
-        FOLD_TEMPLATES.out.templates,
-        methods,
-    )
-
-    FOLD_PULLDOWN_MERGE_SCORES(FOLD_PREDICT.out.scores, ch_pairs_tsv)
 
     FOLD_PULLDOWN_REPORTING(
         file("${projectDir}/assets/fold_pulldown_reporting.qmd"),
-        FOLD_PULLDOWN_MERGE_SCORES.out.scores,
-        FOLD_PULLDOWN_MERGE_SCORES.out.summary,
+        FOLD_PULLDOWN_CORE.out.scores,
+        FOLD_PULLDOWN_CORE.out.summary,
     )
 
     emit:
-    scores = FOLD_PULLDOWN_MERGE_SCORES.out.scores
-    summary = FOLD_PULLDOWN_MERGE_SCORES.out.summary
+    scores = FOLD_PULLDOWN_CORE.out.scores
+    summary = FOLD_PULLDOWN_CORE.out.summary
 }
