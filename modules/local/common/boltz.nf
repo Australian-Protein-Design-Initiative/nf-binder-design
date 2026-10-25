@@ -63,6 +63,9 @@ process BOLTZ {
     script:
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
     def args = task.ext.args ?: ''
+    // Dataloader workers. A duplicate --num_workers in ext.args would not win, so this is a
+    // parameter: on some platforms the workers deadlock and the run sits at 0% GPU forever.
+    def num_workers = params.boltz_num_workers != null ? (params.boltz_num_workers as int) : task.cpus
     // fold.nf's --boltz_* knobs are resolved here in the module (reading params /
     // meta) rather than via a withName ext.args closure: ext.args set on the
     // subworkflow-qualified `BOLTZ_FOLD:BOLTZ` selector is silently dropped once
@@ -152,7 +155,7 @@ process BOLTZ {
         ${boltz_flags} \
         ${use_msa_server_flag} \
         --preprocessing-threads ${task.cpus} \
-        --num_workers ${task.cpus} \
+        --num_workers ${num_workers} \
         --output_format ${out_fmt_cli} \
         ${yaml_file} 2>&1 | tee "\$BOLTZ_PREDICT_LOG"
     boltz_rc=\${PIPESTATUS[0]}

@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - rfd4_proteina: `--rfd4_target_chain` / `--rfd4_binder_chain` resolved to the literal string `"false"` when left unset, because the params default to boolean `false` and `false.toString()` is a non-empty, therefore truthy, string. The A/B default and the derivation from `--contigs` never ran, so filter metrics were computed on a chain that does not exist - every `rg` blank and every design rejected - and the binder sequence was read from the wrong chain.
+- rfd4_proteina: the `boltz_monomer_vs_complex_rmsd_*` columns in `combined_scores.tsv` were always empty. The merge stripped `_model_0.pdb` / `_monomer` from the RMSD table's `structure1`, but the values there end in `_complex.pdb`, so the key never matched a design id.
+- `--boltz_num_workers` (default: `task.cpus`, unchanged): Boltz's dataloader workers deadlock on some platforms, leaving the run at 0% GPU indefinitely rather than failing. `conf/platforms/arm64.config` sets it to 0. Previously `--num_workers` was hardcoded to `task.cpus` in three modules and could not be overridden, since a duplicate flag in `ext.args` does not win.
 - rfd4_proteina: `COMBINE_RFD4_SCORES` failed with `Not a valid path value type` whenever the filters rejected every design, because the empty-channel fallback passed `Channel.of(file(...))` to `ifEmpty`, which takes a value rather than a channel.
 - rfd3: treat unset/`false` `--rf3_batch_size` as 1 (avoids Boolean→Integer cast failure when a shared config sentinel is present).
 - `examples/pdl1-rfd/run-m3-full.sh` and `examples/pdl1-bindcraft/run-m3.sh`: point at repo `main.nf`, pin `NXF_VER=24.10.0`, and drop mid-command `#` comments that broke the Nextflow invocation.

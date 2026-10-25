@@ -77,7 +77,7 @@ process COMBINE_RFD4_SCORES {
         combined_scores.tsv \\
         "${boltz_rmsd_monomer_vs_complex}=boltz_monomer_vs_complex_" \\
         --keys id,structure1 \\
-        --strip-suffix '(_model_0\\.pdb|_monomer)\$' \\
+        --strip-suffix '(_complex|_monomer)?(_model_0)?\\.(pdb|cif)\$' \\
         --value-columns rmsd_pruned,rmsd_all \\
         -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
