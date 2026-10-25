@@ -470,8 +470,11 @@ workflow RFD4_PROTEINA {
 
     // collect() yields a List; combine() flattens Lists into the parent tuple. Wrap as [list]
     // so one combine element stays a List for path(design_cifs, stageAs: 'cifs/*').
+    // ifEmpty takes a value, not a channel: given Channel.of(...) it emits the channel object
+    // itself, and staging then fails with "Not a valid path value type". Reached whenever the
+    // filters reject every design.
     def ch_design_cifs = ch_designs
-        .ifEmpty(Channel.of(file("${projectDir}/assets/dummy_files/empty")))
+        .ifEmpty(file("${projectDir}/assets/dummy_files/empty"))
         .collect()
         .map { cifs -> [cifs as List] }
 

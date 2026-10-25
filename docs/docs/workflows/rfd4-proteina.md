@@ -185,14 +185,33 @@ ids unique across the parallel tasks.
 ## Running on arm64
 
 The `rfd4-proteina` container is built for `linux/arm64` (DGX Spark GB10 and similar), since
-upstream does not publish an arm64 image. Use `-c nextflow.docker.config` from the example
-directory, or an equivalent config, to run it under Docker rather than Apptainer.
+upstream does not publish an arm64 image.
 
-The other containers this workflow uses are **not** arm64 builds. `nf-binder-design-utils`, which
-runs `PREPARE_RFD4_INPUT`, `RFD4_FILTER_DESIGNS` and `COMBINE_RFD4_SCORES`, and the Boltz-2 and
-FoldSeek images are `linux/amd64` only, so on an arm64 host those steps fail with
-`exec format error`. Generation itself runs; the post-processing does not. On an amd64 cluster
-every step runs as normal, except that there is no amd64 `rfd4-proteina` image yet.
+The other images this workflow uses are published for `linux/amd64`, and on an arm64 host their
+tasks fail immediately with `exec format error`. Add `conf/platforms/arm64.config`, which points
+them at arm64 builds of the same versions, alongside a runtime config:
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  -c conf/platforms/arm64.config \
+  -c nextflow.docker.config \
+  --method rfd4_proteina --rfd4_config pdl1_binder.yaml
+```
+
+`nextflow.docker.config` from the example directory runs the containers under Docker rather than
+Apptainer, which is usually what is available on such a workstation.
+
+That config covers `nf-binder-design-utils` (which runs `PREPARE_RFD4_INPUT`,
+`RFD4_FILTER_DESIGNS` and `COMBINE_RFD4_SCORES`), Boltz-2 and FoldSeek, so generation, filtering,
+Boltz-2 refolding, FoldSeek search and scoring all run. Two limitations remain:
+
+- FoldSeek runs on CPU, because upstream's GPU build is x86_64 only. The searches here are CPU
+  searches, so this is a difference in speed rather than in what works.
+- `--refold_oracles` accepts engines that have no arm64 image. `boltz` is the one that runs on
+  this platform; AF2, AF3, Protenix, Chai-1, RosettaFold3, OpenFold3 and ESMFold2 do not.
+
+On an amd64 cluster every step runs as normal without that config, except that there is no amd64
+`rfd4-proteina` image built yet.
 
 ## Troubleshooting
 

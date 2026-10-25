@@ -83,6 +83,21 @@ List<String> rfd4ChainsFromContig(String contig) {
 }
 
 /**
+ * A param's trimmed string value, or null when it is unset.
+ *
+ * Params default to boolean false here rather than null, and Groovy renders that as the string
+ * "false", which is truthy. A bare `params.x?.toString()` therefore reports an unset param as the
+ * value "false" instead of as absent.
+ */
+String rfd4UnsetToNull(value) {
+    if (value == null || value instanceof Boolean && !value) {
+        return null
+    }
+    def text = value.toString().trim()
+    return (text && text.toLowerCase() != 'false' && text.toLowerCase() != 'null') ? text : null
+}
+
+/**
  * Target and binder chain ids for the run, in that order.
  *
  * Explicit --rfd4_target_chain / --rfd4_binder_chain win. Otherwise they are derived from
@@ -91,15 +106,19 @@ List<String> rfd4ChainsFromContig(String contig) {
  * chain is not A.
  */
 List<String> resolveRfd4Chains(params) {
-    def explicitTarget = params.rfd4_target_chain?.toString()?.trim()
-    def explicitBinder = params.rfd4_binder_chain?.toString()?.trim()
+    // These params default to boolean false, and false.toString() is the non-empty - therefore
+    // truthy - string "false". Taken at face value that makes every chain id literally "false",
+    // so the derivation below never runs. Treat an unset param as unset.
+    def explicitTarget = rfd4UnsetToNull(params.rfd4_target_chain)
+    def explicitBinder = rfd4UnsetToNull(params.rfd4_binder_chain)
     if (explicitTarget && explicitBinder) {
         return [explicitTarget, explicitBinder]
     }
 
     def derived = null
-    if (params.contigs?.toString()?.trim()) {
-        derived = rfd4ChainsFromContig(params.contigs.toString().trim())
+    def contigs = rfd4UnsetToNull(params.contigs)
+    if (contigs) {
+        derived = rfd4ChainsFromContig(contigs)
     }
     else {
         log.info(
