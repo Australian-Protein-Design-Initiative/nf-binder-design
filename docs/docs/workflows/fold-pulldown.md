@@ -23,7 +23,7 @@ writes:
 | File | Contents |
 |------|----------|
 | `fold_pulldown/fold_pulldown_scores.tsv` | One row per predicted structure (canonical fold scores + `target`, `binder`) |
-| `fold_pulldown/fold_pulldown_summary.tsv` | One row per `(target, binder, tool)` with mean/median/max/sd for `iptm` and `ipsae`, per-target within-tool z-scores, cross-tool `consensus_z`, and the `z_basis` / `n_pool` / `z_pool_small` provenance of that z |
+| `fold_pulldown/fold_pulldown_summary.tsv` | One row per `(target, binder, tool)` with mean/median/max/min/sd for `iptm` and `ipsae`, per-target within-tool z-scores, cross-tool `consensus_z`, and the `z_basis` / `n_pool` / `z_pool_small` provenance of that z |
 | `fold_pulldown/fold_pulldown_report.html` | Simple Quarto overview (boxplots, heatmaps, top hits, cross-tool Spearman) |
 
 ## Setup
@@ -124,7 +124,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--n_predictions` | `5` | Samples per complex per method. Matches the native default of the diffusion engines, and with `--af2_keep_models all` it is what AF2's single run already produces |
 | `--skip_engens` | `true` | EnGens is off by default (would emit N × M reports) |
 | `--consensus_metric` | `ipsae` | `ipsae` or `iptm`; which metric's per-tool z-scores are averaged into `consensus_z` |
-| `--z_stat` | `max` | `max` or `mean`; the per-complex statistic over samples that gets standardised |
+| `--z_stat` | `max` | `max`, `mean`, `median` or `min`; the per-complex statistic over samples that gets standardised |
 | `--z_scope` | `target` | `target` standardises within `(target, tool)`; `global` pools all targets into one distribution |
 | `--min_pool` | `10` | Pools holding fewer complexes than this are flagged `z_pool_small` in the summary and warned about on stderr |
 
@@ -199,8 +199,11 @@ Three defaults decide that ranking, and each can be reverted:
   together. Pass `--consensus_metric iptm` to rank on ipTM instead.
 - **`--z_stat max`.** One diffusion sample per complex is noisy, so the statistic
   worth standardising is the best of the samples rather than their average. This is
-  also what makes `--n_predictions > 1` valuable. Pass `--z_stat mean` for the
-  average - but be aware `mean` can be heavily impacted by outliers with poor scores.
+  also what makes `--n_predictions > 1` valuable. Pass `--z_stat median` for the
+  middle sample, which a single collapsed replicate does not pull down the way
+  `mean` does. Pass `--z_stat min` for the worst sample when the shortlist should
+  be conservative (worst-of-N). Pass `--z_stat mean` for the average — `mean` can
+  be heavily impacted by outliers with poor scores.
 - **`--z_scope target`.** The default is to pool only within-target scores, since raw co-folding scores are typically not comparable across targets, and the distribution of between-target scores often varies more than within-target scores, so pooling several targets into one distribution makes a complex rank partly on which target it was paired with. If you'd like to pool all targets together anyway, use `--z_scope global`.
 
 Each summary row records `z_basis` (metric, statistic and scope, e.g.

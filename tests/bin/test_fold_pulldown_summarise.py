@@ -13,10 +13,10 @@ Run from the repo root (host python has no pytest):
     uv run --with pytest pytest tests/bin/test_fold_pulldown_summarise.py -q
 
 The assertions lock the three decisions that decide an ordering: which metric
-consensus_z is built from, whether the standardised statistic is the max or the mean
-over samples, and whether the standardisation pool is per target or global. A
-regression in any of them silently reorders a shortlist, which is the kind of defect
-that only shows up in the wet lab.
+consensus_z is built from, which per-complex statistic over samples is standardised
+(max, mean, median or min), and whether the standardisation pool is per target or
+global. A regression in any of them silently reorders a shortlist, which is the
+kind of defect that only shows up in the wet lab.
 """
 
 import csv
@@ -132,9 +132,10 @@ def test_z_stat_max_separates_where_mean_ties(tmp_path):
     rows, pairs_in = _two_sample_rows()
     summary, _ = _run(tmp_path, rows, pairs_in, "--consensus-metric", "iptm")
     pairs = _by_pair(summary)
-    # means tie at 0.7; maxima are 0.9 vs 0.7
+    # means tie at 0.7; maxima are 0.9 vs 0.7. min is written even when unused.
     assert float(pairs[("T", "A")]["iptm_mean"]) == pytest.approx(0.7)
     assert float(pairs[("T", "B")]["iptm_mean"]) == pytest.approx(0.7)
+    assert float(pairs[("T", "A")]["iptm_min"]) == pytest.approx(0.5)
     assert float(pairs[("T", "A")]["iptm_z"]) > float(pairs[("T", "B")]["iptm_z"])
 
 
@@ -146,6 +147,44 @@ def test_z_stat_mean_is_degenerate_on_a_tie(tmp_path):
     # sd of a tied pool is 0, so add_z assigns 0.0 to every row
     assert float(pairs[("T", "A")]["iptm_z"]) == pytest.approx(0.0)
     assert float(pairs[("T", "B")]["iptm_z"]) == pytest.approx(0.0)
+
+
+def test_z_stat_min_ranks_the_worst_sample(tmp_path):
+    """Worst-of-N inverts the max ranking when one complex has a collapsed sample."""
+    rows, pairs_in = _two_sample_rows()
+    summary, _ = _run(tmp_path, rows, pairs_in, "--consensus-metric", "iptm", "--z-stat", "min")
+    pairs = _by_pair(summary)
+    assert pairs[("T", "A")]["z_basis"] == "iptm_min/target"
+    # A is 0.5/0.9, B is 0.7/0.7: max prefers A, min prefers B.
+    assert float(pairs[("T", "A")]["iptm_min"]) == pytest.approx(0.5)
+    assert float(pairs[("T", "B")]["iptm_min"]) == pytest.approx(0.7)
+    assert float(pairs[("T", "A")]["ipsae_min"]) == pytest.approx(0.20)
+    assert float(pairs[("T", "B")]["iptm_z"]) > float(pairs[("T", "A")]["iptm_z"])
+
+
+def test_z_stat_median_ignores_a_single_collapsed_sample(tmp_path):
+    """Three samples so the median is a real sample, not the mean of two."""
+    rows = [
+        {"id": "T_and_A", "tool": "boltz", "model": "0", "iptm": "0.1", "ipsae": "0.1"},
+        {"id": "T_and_A", "tool": "boltz", "model": "1", "iptm": "0.8", "ipsae": "0.8"},
+        {"id": "T_and_A", "tool": "boltz", "model": "2", "iptm": "0.9", "ipsae": "0.9"},
+        {"id": "T_and_B", "tool": "boltz", "model": "0", "iptm": "0.55", "ipsae": "0.55"},
+        {"id": "T_and_B", "tool": "boltz", "model": "1", "iptm": "0.60", "ipsae": "0.60"},
+        {"id": "T_and_B", "tool": "boltz", "model": "2", "iptm": "0.65", "ipsae": "0.65"},
+    ]
+    pairs_in = [
+        {"id": "T_and_A", "target": "T", "binder": "A"},
+        {"id": "T_and_B", "target": "T", "binder": "B"},
+    ]
+    summary, _ = _run(tmp_path, rows, pairs_in, "--consensus-metric", "iptm", "--z-stat", "median")
+    pairs = _by_pair(summary)
+    assert pairs[("T", "A")]["z_basis"] == "iptm_median/target"
+    # Means tie at 0.6; medians are 0.8 vs 0.6 because A's 0.1 is ignored.
+    assert float(pairs[("T", "A")]["iptm_mean"]) == pytest.approx(0.6)
+    assert float(pairs[("T", "B")]["iptm_mean"]) == pytest.approx(0.6)
+    assert float(pairs[("T", "A")]["iptm_median"]) == pytest.approx(0.8)
+    assert float(pairs[("T", "B")]["iptm_median"]) == pytest.approx(0.6)
+    assert float(pairs[("T", "A")]["iptm_z"]) > float(pairs[("T", "B")]["iptm_z"])
 
 
 # --- standardisation pool ------------------------------------------------------
