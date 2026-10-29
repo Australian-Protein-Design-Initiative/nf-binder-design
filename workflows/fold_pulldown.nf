@@ -186,8 +186,9 @@ workflow FOLD_PULLDOWN {
 
             Ranking (summary table):
             --consensus_metric    ipsae|iptm; metric averaged into consensus_z [default: ${params.consensus_metric}]
-            --z_stat              max|mean; per-complex statistic over samples that is
-                                   standardised [default: ${params.z_stat}]
+            --z_stat              max|mean|median|min; per-complex statistic over samples
+                                   that is standardised. min is worst-of-N, for a
+                                   conservative shortlist [default: ${params.z_stat}]
             --z_scope             target|global; standardise within (target, tool) or over all
                                    targets together [default: ${params.z_scope}]
             --min_pool            flag z-score pools smaller than this as z_pool_small, since

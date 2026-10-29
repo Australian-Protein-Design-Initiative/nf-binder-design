@@ -19,7 +19,9 @@ Three choices govern the ranking, all overridable:
                      paired with. Use `global` for the old single-pool behaviour.
   --z-stat max       Standardise the max over samples. One diffusion sample is
                      noisy; taking the max is why --n_predictions > 1 is worth
-                     paying for. Use `mean` for the old behaviour.
+                     paying for. `median` is the centre, so one collapsed sample
+                     does not pull it down. `min` is worst-of-N, for a
+                     conservative shortlist. Use `mean` for the old behaviour.
   --consensus-metric ipsae
                      Build consensus_z from ipSAE rather than ipTM. ipSAE
                      (Dunbrack 2025) isolates the interface from whole-complex
@@ -64,6 +66,10 @@ def _max(xs: List[float]) -> Optional[float]:
     return max(xs) if xs else None
 
 
+def _min(xs: List[float]) -> Optional[float]:
+    return min(xs) if xs else None
+
+
 def _sd(xs: List[float]) -> Optional[float]:
     # A single replicate has no spread to report; 0.0 previously implied
     # "measured and tight", indistinguishable from a real zero-variance pool.
@@ -89,8 +95,9 @@ def main() -> int:
         help="Metric whose per-tool z-scores are averaged into consensus_z [default: ipsae]",
     )
     p.add_argument(
-        "--z-stat", choices=("max", "mean"), default="max",
-        help="Per-complex statistic over samples that is standardised [default: max]",
+        "--z-stat", choices=("max", "mean", "median", "min"), default="max",
+        help="Per-complex statistic over samples that is standardised. "
+             "min is worst-of-N, for a conservative shortlist [default: max]",
     )
     p.add_argument(
         "--z-scope", choices=("target", "global"), default="target",
@@ -167,10 +174,12 @@ def main() -> int:
             "iptm_mean": _mean(iptms),
             "iptm_median": _median(iptms),
             "iptm_max": _max(iptms),
+            "iptm_min": _min(iptms),
             "iptm_sd": _sd(iptms),
             "ipsae_mean": _mean(ipsaes),
             "ipsae_median": _median(ipsaes),
             "ipsae_max": _max(ipsaes),
+            "ipsae_min": _min(ipsaes),
             "ipsae_sd": _sd(ipsaes),
         })
 
@@ -280,8 +289,8 @@ def main() -> int:
 
     sum_cols = [
         "target", "binder", "tool", "n",
-        "iptm_mean", "iptm_median", "iptm_max", "iptm_sd", "iptm_z", "iptm_n_pool",
-        "ipsae_mean", "ipsae_median", "ipsae_max", "ipsae_sd", "ipsae_z", "ipsae_n_pool",
+        "iptm_mean", "iptm_median", "iptm_max", "iptm_min", "iptm_sd", "iptm_z", "iptm_n_pool",
+        "ipsae_mean", "ipsae_median", "ipsae_max", "ipsae_min", "ipsae_sd", "ipsae_z", "ipsae_n_pool",
         "consensus_z", "consensus_z_metric", "n_tools", "z_basis", "n_pool", "z_pool_small",
     ]
     with open(args.summary_out, "w", newline="") as f:
