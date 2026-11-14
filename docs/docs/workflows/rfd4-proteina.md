@@ -117,55 +117,114 @@ A contig must contain at least one preserved segment.
 [CLI options reference](https://rfd4-proteina.org/latest/reference/cli-options.html) can go there,
 for example `--rfd4_extra_args "generation.args.guidance_w=1.2 precision=bf16-mixed"`.
 
-### Refolding and search
+### Refold scoring
 
 Inline scoring is switched off (`~metrics`), because RFD4-Proteina's own refolding metrics need an
-AlphaFold 3 / OpenFold3 environment that is not in the container. Scoring is done downstream with
-Boltz-2 instead, using the same options as the other workflows:
+AlphaFold 3 / OpenFold3 environment that is not in the container. Designs are scored downstream
+instead, by folding them again: each design's binder sequence is folded against its target, the
+result is compared with the design, and the rebuilt interface is scored.
+
+`--full_refold_with` names the engines:
 
 ```bash
-  --full_refold_with boltz \
+  --full_refold_with boltz,chai1,openfold3 \
   --full_refold_max 50 \
-  --full_refold_use_msa_server true
+  --use_msa_server
 ```
+
+Any engine `--method fold` supports can go in the list: `af2`, `af2_mono`, `boltz`, `rf3`,
+`protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast`. Every one of them produces
+the same columns in `combined_scores.tsv`, prefixed with the engine name:
+
+| Column | What it says |
+|--------|--------------|
+| `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_plddt_max`, ... | How confident the refold is, per `--refold_metrics` |
+| `<tool>_target_aligned_binder_rmsd_all` | Superimpose on the target, score the binder: did it come back where it was designed to sit |
+| `<tool>_complex_rmsd_all` | The whole complex against the design |
+| `<tool>_monomer_vs_design_rmsd_all` | The binder folded alone, against its designed conformation |
+| `<tool>_monomer_vs_complex_rmsd_all` | The binder folded alone, against the binder in the refolded complex |
+| `<tool>_interface_dG`, `<tool>_interface_dSASA`, ... | BindCraft interface metrics on the refolded complex |
+| `<tool>_selected_batch`, `<tool>_selected_model` | Which sample the RMSD and interface columns describe |
+| `consensus_z`, `n_tools` | Per design, not per engine: a cross-engine z-score, so a design several independent predictors agree on ranks above one only its designer liked |
+
+#### Samples per design
+
+The refold runs `--n_predictions` structures per design per engine, 5 by default, as 5 fold jobs
+of one sample each with seeds 42, 43, ... rather than one job of 5 samples. The engines that batch
+samples share a single trunk and recycling pass across them, so five samples from one seed differ
+only in the diffusion noise, while five seeds re-run the whole prediction. The disadvantage is five
+model loads rather than one - on a GB10, Boltz pays roughly 45 s of fixed cost per load.
+
+The split is set per engine by `--full_refold_<engine>_batch_size 1` (and `--protenix_batch_size`,
+which this workflow declares itself). Setting one of them higher gives that engine a mixture:
+`--n_predictions 6 --full_refold_boltz_batch_size 3` is 2 seeds x 3 samples.
+
+Where an engine takes every seed in one invocation, it is given them all rather than run once per
+seed, so the model is loaded once instead of five times. That applies to `esmfold2`,
+`esmfold2_fast`, `openfold3` and `protenix`; AF3 does the same under its own `--af3_seeds` comma
+list. Boltz and RF3 are single-seed per process, so they still run one job per seed.
+`--fold_seed_list false` turns the grouping off everywhere.
+
+Everything in `combined_scores.tsv` is then reduced across those samples, in two ways:
+
+| Group | Reduced by | Meaning |
+|-------|-----------|---------|
+| Confidence (`_max`, `_mean`, `n`) | the summary's own aggregates | `iptm_max` is the best of the samples, `iptm_mean` their average |
+| RMSD and interface scores | `--refold_structure_stat`, `selected` by default | read from the best-ranked sample, by `--consensus_metric` (ipSAE) |
+
+The structural metrics are read from one sample rather than aggregated per metric, because they
+all describe one set of coordinates. Taking the lowest RMSD and the lowest `interface_dG`
+independently would give a row that no predicted structure matches, and the interface metrics have
+no shared direction to take a best in anyway - `interface_dG` is better lower, `interface_dSASA`
+and `interface_sc` better higher. Selecting on the same quantity the confidence ranking uses means
+`<tool>_ipsae_max` and `<tool>_complex_rmsd_all` describe the same structure. `<tool>_selected_batch` and
+`<tool>_selected_model` record which sample that was. Both are needed: an engine run once per seed
+writes one sample per batch, while an engine handed the whole seed list returns every sample from
+batch 1, and only the model label tells those apart.
+
+`refold_sample_scores.tsv` has every sample's own values, unreduced, so any statistic over them can
+be computed from it afterwards. `--refold_structure_stat min|mean|max|first` overrides the
+selection with one statistic applied to every structural column, which suits RMSD and does not suit
+the interface metrics.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--full_refold_with` | none | Comma-separated engines |
+| `--full_refold_max` | all | Maximum designs to refold |
+| `--n_predictions` | `5` | Structures per design per engine, as that many seeds of one sample |
+| `--fold_seed_list` | `true` | Give an engine every seed in one invocation where it supports that |
+| `--refold_metrics` | iptm/ipsae/plddt/ptm/pae | Summary columns carried into `combined_scores.tsv` |
+| `--refold_structure_stat` | `selected` | How several samples per design reduce to one RMSD and one interface score |
+| `--refold_binder_monomer` | `true` | Also fold each binder alone |
+| `--refold_monomer_single_sequence` | `true` | Fold that monomer from sequence alone |
+| `--refold_interface_scoring` | `true` | BindCraft interface metrics on the refolded complex |
+
+How the refold folds is governed by the fold-stack parameters - `--n_predictions`,
+`--msa_method`, `--create_target_msa`, `--use_msa_server`, `--templates` and each engine's own
+flags - the same ones `--method fold` and `--method fold_pulldown` use.
+
+RF3 is the one exception to "each engine's own flags": here they are `--full_refold_rf3_ckpt_path`,
+`--full_refold_rf3_num_steps`, `--full_refold_rf3_n_recycles`, `--full_refold_rf3_batch_size`,
+`--full_refold_rf3_early_stopping_plddt_threshold` and `--full_refold_rf3_seed`. The plain
+`--rf3_*` names belong to the design-time RF3 step in `--method rfd3`, where they mean different
+things, and a workflow's parameters are one flat namespace. Where the prefixed names are declared
+the fold stack reads only those, so passing `--rf3_num_steps` here has no effect.
+
+Implemented by `subworkflows/local/refold.nf`, which holds nothing rfd4-specific. It takes designs
+as `tuple(meta, structure)`, so the other design workflows can adopt it unchanged. Nextflow does
+not apply `params` declarations made in an included script, so the adopting workflow also has to
+copy the parameter block marked "Refold scoring" from `workflows/rfd4_proteina.nf`.
+
+!!! note "Replaces --refold_oracles"
+    `--refold_oracles` was a second parameter for the same idea, needed only because the refold
+    used to be a Boltz-specific process that could not take another engine. It is accepted for now
+    and folded into `--full_refold_with`, with a warning. The MSA and template parameters that
+    belonged to the Boltz path - `--full_refold_create_target_msa`, `--full_refold_use_msa_server`,
+    `--full_refold_alignment`, `--full_refold_target_fasta`, `--full_refold_target_templates` - are
+    gone; a run that sets one stops with the fold-stack replacement named.
 
 FoldSeek search is enabled with `--do_foldseek`. See the
 [FoldSeek subworkflow](../subworkflows/foldseek.md) for its options.
-
-### Scoring with other folding oracles (prototype)
-
-`--full_refold_with boltz` is tied to Boltz-2, because its RMSD, ipSAE and BindCraft metrics come
-out of Boltz-specific processes. `--refold_oracles` is the oracle-agnostic alternative: it takes
-each design's binder sequence, co-folds it against the target with whichever predictors you name,
-and adds tool-prefixed columns to `combined_scores.tsv`.
-
-```bash
-  --refold_oracles boltz,chai1,openfold3 \
-  --refold_oracles_max 50 \
-  --n_predictions 3
-```
-
-Any engine `--method fold_pulldown` supports can go in the list: `af2`, `af2_mono`, `boltz`,
-`rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast`. The columns added are
-`<tool>_iptm_max`, `<tool>_ipsae_max` and so on, plus one `consensus_z` and `n_tools` per design:
-a cross-tool z-score, so a design several independent oracles agree on ranks above one that only
-its designer liked.
-
-This path is governed by the fold-family parameters (`--n_predictions`, `--msa_method`,
-`--create_target_msa`, `--use_msa_server`, and each engine's own flags), not by the
-`--full_refold_*` ones, which stay with the Boltz path. The two are independent, and a run may use
-both.
-
-The trade-off against `--full_refold_with boltz`: breadth across oracles and a consensus score,
-but no RMSD-to-design and no binder-monomer metrics, because the oracles are given the binder
-sequence rather than the design structure. For triage you usually want both - Boltz-2 for how
-closely the refold reproduces the designed pose, the oracle consensus for how many independent
-models believe the interface at all.
-
-Implemented by `subworkflows/local/refold_oracles.nf`, which holds nothing rfd4-specific. It takes
-designs as `tuple(meta, structure)`, so the other design workflows can adopt it unchanged. Nextflow
-does not apply `params` declarations made in an included script, so the adopting workflow also has
-to copy the parameter block marked "Oracle refold scoring" from `workflows/rfd4_proteina.nf`.
 
 ## Outputs
 
@@ -176,8 +235,8 @@ to copy the parameter block marked "Oracle refold scoring" from `workflows/rfd4_
 | `<outdir>/rfd4_proteina/combined_scores.tsv` | Every design with its sequence and metrics |
 | `<outdir>/rfd4_proteina/binders.fasta` | Binder sequences |
 | `<outdir>/rfd4_proteina/filter/` | Filter scores and accepted/rejected designs, with `--rfd4_filters` |
-| `<outdir>/boltz_refold/` | Boltz-2 refolds and scores, with `--full_refold_with boltz` |
-| `<outdir>/rfd4_proteina/refold_oracles/` | Per-oracle predictions and scores, with `--refold_oracles` |
+| `<outdir>/rfd4_proteina/refold/` | Refolded structures, per-engine scores, RMSD and interface tables, with `--full_refold_with` |
+| `<outdir>/rfd4_proteina/refold/refold_sample_scores.tsv` | One row per refolded sample, nothing reduced: `id`, `tool`, `batch`, `model` and every confidence, RMSD and interface score that sample has |
 
 Design file names are `<design_name>_<uid>_b<task>_<example>_<replicate>.cif`. The task index keeps
 ids unique across the parallel tasks.
@@ -202,16 +261,31 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 Apptainer, which is usually what is available on such a workstation.
 
 That config covers `nf-binder-design-utils` (which runs `PREPARE_RFD4_INPUT`,
-`RFD4_FILTER_DESIGNS` and `COMBINE_RFD4_SCORES`), Boltz-2 and FoldSeek, so generation, filtering,
-Boltz-2 refolding, FoldSeek search and scoring all run. Two limitations remain:
+`RFD4_FILTER_DESIGNS` and `COMBINE_RFD4_SCORES`), Boltz-2, ESMFold2, RF3, Protenix, BindCraft and
+FoldSeek, so generation, filtering, refolding, FoldSeek search and scoring all run. Two limitations
+remain:
 
 - FoldSeek runs on CPU, because upstream's GPU build is x86_64 only. The searches here are CPU
   searches, so this is a difference in speed rather than in what works.
-- `--refold_oracles` accepts engines that have no arm64 image. `boltz` is the one that runs on
-  this platform; AF2, AF3, Protenix, Chai-1, RosettaFold3, OpenFold3 and ESMFold2 do not.
+- `--full_refold_with` accepts engines that have no arm64 image. `boltz`, `esmfold2`,
+  `esmfold2_fast`, `rf3` and `protenix` run on this platform; AF2, AF3, Chai-1 and OpenFold3 do
+  not.
 
-On an amd64 cluster every step runs as normal without that config, except that there is no amd64
-`rfd4-proteina` image built yet.
+!!! note "RF3 on a GB10 needs the -ngc2606 image"
+    `rc-foundry:0.2.0_arm64-weights` is built on CUDA 12.8, whose nvrtc cannot target `sm_121`.
+    Most kernels JIT from that image's `compute_120` PTX, but PyTorch's jiterator compiles
+    `erfinv` for the exact device architecture, so RF3 dies with `nvrtc: error: invalid value for
+    --gpu-architecture (-arch)` once the weights have loaded. The config points at
+    `0.2.0_arm64-weights-ngc2606`, the same release on CUDA 13.3, which does not have this
+    problem.
+
+!!! note "Protenix on a GB10 needs the arm64 image specifically"
+    Protenix's fused layer-norm is a CUDA extension compiled when the image is built, and upstream
+    builds it for `sm_70` to `sm_100` only. On a GB10 (`sm_121`) inference reaches the first
+    layer-norm call and dies with `no kernel image is available for execution on the device`. The
+    arm64 image adds `sm_120` and `sm_121` to that list and rebuilds the extension.
+
+On an amd64 cluster every step runs as normal without that config.
 
 ## Troubleshooting
 

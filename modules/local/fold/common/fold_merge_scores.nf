@@ -7,16 +7,21 @@
 process FOLD_MERGE_SCORES {
     tag "fold_scores"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
+    // publish_label distinguishes two fold runs that share an output directory: the
+    // refold path folds the complexes and then the binder monomers, and without a label
+    // the second run's fold_scores.tsv would overwrite the first's.
     publishDir(
         path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}",
         mode: 'copy',
+        saveAs: { filename -> publish_label ? "${publish_label}_${filename}" : filename },
         enabled: (params.method != 'fold_pulldown' && params.fold_publish_dir != 'fold_pulldown')
     )
 
     input:
     path(tsvs)
+    val publish_label
 
     output:
     path('fold_scores.tsv'), emit: tsv

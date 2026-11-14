@@ -25,7 +25,7 @@ process CHAI1 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/)) { return null }
+            if (!FoldNaming.isModelStructure('chai1', bn)) { return null }
             return "${FoldNaming.flatPrefix('chai1', meta)}${bn}"
         }
     )
@@ -45,7 +45,7 @@ process CHAI1 {
     tuple val(meta), path('output/*_summary_confidences.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (params.chai1_batch_size ?: 5)
+    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'chai1_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''

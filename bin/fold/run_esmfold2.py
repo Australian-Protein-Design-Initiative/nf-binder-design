@@ -27,7 +27,13 @@ Conventions this script has to honour (esm 3.4.1.post1):
   - The `-Fast` checkpoint has no MSA encoder and silently IGNORES MSAs, so MSA
     runs need the full `biohub/ESMFold2` (see --model).
 
-Outputs per diffusion sample, named so the shared FOLD_PARSE_CONFIDENCE /
+--seed takes a list, and each seed is folded in turn with the model already
+resident. Several seeds in one invocation is how a run gets independent replicates
+cheaply: five seeds re-run the whole prediction, where --num-diffusion-samples 5
+varies only the diffusion noise over one trunk pass, and loading the checkpoint
+once rather than five times is most of the saving on a small complex.
+
+Outputs per seed and diffusion sample, named so the shared FOLD_PARSE_CONFIDENCE /
 ipsae.py path can consume them unchanged:
 
     <name>_seed_<S>_sample_<i>_model.cif
@@ -230,7 +236,11 @@ def main() -> int:
         help="Ignore --a3m and fold from sequence alone (ESMFold2's single-sequence mode).",
     )
     p.add_argument("--model", default="biohub/ESMFold2", help="HuggingFace repo id or local snapshot dir.")
-    p.add_argument("--seed", type=int, default=42)
+    p.add_argument(
+        "--seed", default="42",
+        help="Seed, or a comma-separated list of them. Each is folded in turn with the "
+             "model loaded once, and names its own output files [default: 42]",
+    )
     p.add_argument("--num-diffusion-samples", type=int, default=1)
     p.add_argument("--num-loops", type=int, help="esm default: 20")
     p.add_argument("--num-sampling-steps", type=int, help="esm default: 200")
@@ -246,11 +256,19 @@ def main() -> int:
     p.add_argument("--device", default="cuda")
     args = p.parse_args()
 
+    try:
+        seeds = [int(s.strip()) for s in str(args.seed).split(",") if s.strip()]
+    except ValueError:
+        p.error(f"--seed takes integers, got '{args.seed}'")
+    if not seeds:
+        p.error("--seed needs at least one value")
+
     specs = build_chain_specs(args.fasta, args.a3m, args.single_sequence)
     n_with_msa = sum(1 for s in specs if s.a3m is not None)
     log.info(
-        "ESMFold2 %s: %d chain(s), %d with an MSA, %d diffusion sample(s), seed %d",
-        args.name, len(specs), n_with_msa, args.num_diffusion_samples, args.seed,
+        "ESMFold2 %s: %d chain(s), %d with an MSA, %d diffusion sample(s), seed(s) %s",
+        args.name, len(specs), n_with_msa, args.num_diffusion_samples,
+        ",".join(str(s) for s in seeds),
     )
     if n_with_msa and "fast" in str(args.model).lower():
         log.warning(
@@ -289,7 +307,7 @@ def main() -> int:
         ]
     )
 
-    fold_kwargs = {"num_diffusion_samples": args.num_diffusion_samples, "seed": args.seed}
+    fold_kwargs = {"num_diffusion_samples": args.num_diffusion_samples}
     for key, value in (
         ("num_loops", args.num_loops),
         ("num_sampling_steps", args.num_sampling_steps),
@@ -298,21 +316,26 @@ def main() -> int:
         if value is not None:
             fold_kwargs[key] = value
 
-    with torch.inference_mode():
-        results = builder.fold(model, spi, **fold_kwargs)
-    if not isinstance(results, list):
-        results = [results]
-
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    for i, result in enumerate(results):
-        prefix = write_sample(args.output_dir, args.name, args.seed, i, sample_outputs(result, specs, args.seed, i))
-        log.info(
-            "%s: pLDDT %.3f pTM %s ipTM %s",
-            prefix,
-            float(result.plddt.mean()) if result.plddt is not None else float("nan"),
-            f"{result.ptm:.3f}" if result.ptm is not None else "n/a",
-            f"{result.iptm:.3f}" if result.iptm is not None else "n/a",
-        )
+    # One fold() call per seed, with the model already resident. The input is built
+    # once as well: nothing in spi depends on the seed.
+    for seed in seeds:
+        with torch.inference_mode():
+            results = builder.fold(model, spi, seed=seed, **fold_kwargs)
+        if not isinstance(results, list):
+            results = [results]
+
+        for i, result in enumerate(results):
+            prefix = write_sample(
+                args.output_dir, args.name, seed, i, sample_outputs(result, specs, seed, i)
+            )
+            log.info(
+                "%s: pLDDT %.3f pTM %s ipTM %s",
+                prefix,
+                float(result.plddt.mean()) if result.plddt is not None else float("nan"),
+                f"{result.ptm:.3f}" if result.ptm is not None else "n/a",
+                f"{result.iptm:.3f}" if result.iptm is not None else "n/a",
+            )
     return 0
 
 

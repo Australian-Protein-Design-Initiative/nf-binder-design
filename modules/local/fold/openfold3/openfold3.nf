@@ -31,7 +31,7 @@ process OPENFOLD3 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/)) { return null }
+            if (!FoldNaming.isModelStructure('openfold3', bn)) { return null }
             return "${FoldNaming.flatPrefix('openfold3', meta)}${bn}"
         }
     )
@@ -50,7 +50,7 @@ process OPENFOLD3 {
     tuple val(meta), path('output/**/*_confidences_aggregated.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (params.openfold3_batch_size ?: 5)
+    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'openfold3_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
@@ -124,10 +124,12 @@ process OPENFOLD3 {
     mkdir -p "\${TRITON_CACHE_DIR}" "\${TORCH_EXTENSIONS_DIR}"
 
     # OpenFold3 takes seeds from the runner YAML, not the query JSON; the default
-    # is a fixed [42], so each batch gets its own seed from OPENFOLD3_FOLD. Its
-    # default of 10 DataLoader workers ignores the task's CPU allocation.
+    # is a fixed [42], so each batch gets its own seed from OPENFOLD3_FOLD. The field
+    # is a list, so a job may carry every seed at once and load the model once
+    # (meta.openfold3_seeds; see lib/FoldSeeds.groovy). Its default of 10 DataLoader
+    # workers ignores the task's CPU allocation.
     printf 'experiment_settings:\\n  seeds: [%s]\\ndata_module_args:\\n  num_workers: %s\\n' \\
-        "${meta.openfold3_seed}" "${task.cpus}" >runner.yml
+        "${meta.openfold3_seeds ?: meta.openfold3_seed}" "${task.cpus}" >runner.yml
 
     # CIF-direct templates: OpenFold3 looks each one up as
     # <structure_directory>/<stem>.cif and would otherwise download <stem> from RCSB.

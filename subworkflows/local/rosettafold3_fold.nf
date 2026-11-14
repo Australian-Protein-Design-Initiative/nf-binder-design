@@ -33,6 +33,11 @@ workflow ROSETTAFOLD3_FOLD {
     take:
     ch_for_rf3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [a3m...])
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
     ch_mono = ch_for_rf3.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
@@ -41,8 +46,11 @@ workflow ROSETTAFOLD3_FOLD {
     GENERATE_RF3_FOLD_INPUT_COMPLEX(ch_multi, ch_templates)
     ch_with_json = GENERATE_RF3_FOLD_INPUT.out.with_json.mix(GENERATE_RF3_FOLD_INPUT_COMPLEX.out.with_json)
 
-    def batches = foldPredictionBatches(params.rf3_batch_size, 5, params.n_predictions)
-    def base_seed = params.rf3_seed ? (params.rf3_seed as int) : null
+    // Via FoldParams so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see lib/FoldParams.groovy).
+    def batches = foldPredictionBatches(FoldParams.engine(params, 'rf3_batch_size'), 5, params.n_predictions)
+    def rf3_seed = FoldParams.engine(params, 'rf3_seed')
+    def base_seed = rf3_seed ? (rf3_seed as int) : null
 
     ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json, rf3_templates ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
@@ -117,7 +125,7 @@ workflow ROSETTAFOLD3_FOLD {
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
-        name: 'rf3_fold_scores.tsv',
+        name: "${publish_label ? publish_label + '_' : ''}rf3_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/rf3",
         keepHeader: true,
         skip: 1,

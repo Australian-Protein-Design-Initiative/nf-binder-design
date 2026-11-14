@@ -24,7 +24,7 @@ process BOLTZ {
         saveAs: { filename ->
             if (!step_name.toString().endsWith('/boltz')) { return null }
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_model_\d+\.(cif|pdb)/)) { return null }
+            if (!FoldNaming.isModelStructure('boltz', bn)) { return null }
             return "${FoldNaming.flatPrefix('boltz', meta)}${bn}"
         }
     )
@@ -73,8 +73,8 @@ process BOLTZ {
     // profile-merge quirk). Per-job sample count and seed come from meta when
     // BOLTZ_FOLD fans --n_predictions across --boltz_batch_size jobs; params
     // remain unset for callers that do not fan out (no flag added - a no-op).
-    def diffusion_samples = meta.fold_batch_size ?: params.boltz_batch_size
-    def seed = meta.boltz_seed != null ? meta.boltz_seed : params.boltz_seed
+    def diffusion_samples = meta.fold_batch_size ?: FoldParams.engine(params, 'boltz_batch_size')
+    def seed = meta.boltz_seed != null ? meta.boltz_seed : FoldParams.engine(params, 'boltz_seed')
     def fmt = output_format.toString().toLowerCase()
     def out_fmt = (fmt in ['cif', 'mmcif']) ? 'cif' : 'pdb'
     // Boltz CLI value for mmCIF is 'mmcif' (files are still written as .cif).

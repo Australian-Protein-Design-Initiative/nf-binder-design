@@ -55,6 +55,7 @@ workflow FOLD_PULLDOWN_CORE {
         FOLD_PULLDOWN_MSA.out.for_esmfold2_fast,
         FOLD_TEMPLATES.out.templates,
         methods,
+        '',
     )
 
     FOLD_PULLDOWN_MERGE_SCORES(FOLD_PREDICT.out.scores, ch_pairs_tsv)

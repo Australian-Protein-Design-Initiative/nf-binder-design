@@ -34,6 +34,11 @@ workflow PROTENIX_FOLD {
     take:
     ch_for_protenix // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
     ch_mono = ch_for_protenix.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
@@ -42,14 +47,24 @@ workflow PROTENIX_FOLD {
     GENERATE_PROTENIX_INPUT_COMPLEX(ch_multi, ch_templates)
     ch_with_json = GENERATE_PROTENIX_INPUT.out.with_json.mix(GENERATE_PROTENIX_INPUT_COMPLEX.out.with_json)
 
-    def batches = foldPredictionBatches(params.protenix_batch_size, 5, params.n_predictions)
+    // Via FoldParams so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see lib/FoldParams.groovy).
+    def batches = foldPredictionBatches(FoldParams.engine(params, 'protenix_batch_size'), 5, params.n_predictions)
 
-    // Comma-separated --protenix_seeds is already a hard error in
-    // FoldValidation.groovy (Protenix names structures without the seed, so
-    // several seeds in one job overwrite each other in fold/predictions/ and
-    // mis-pair confidence files) - by the time this workflow runs, only a
-    // single seed value can reach here.
-    def base_seed = params.protenix_seeds ? (params.protenix_seeds.toString().trim() as int) : null
+    // --protenix_seeds may be a comma list; the first value is the base the per-batch
+    // fan-out counts from, as for the other engines.
+    def protenix_seeds = FoldParams.engine(params, 'protenix_seeds')
+    def base_seed = protenix_seeds \
+        ? (protenix_seeds.toString().split(',')[0].trim() as int) : null
+
+    // runner/inference.py loops `for seed in seeds:` with the model resident, so the
+    // one-job-per-seed fan-out collapses into a single job (lib/FoldSeeds.groovy).
+    // This is only safe because the seed is put back into the published and scored
+    // names above - Protenix itself separates seeds by directory alone.
+    def seed_list = FoldSeeds.collapse('protenix', batches, base_seed, params.fold_seed_list)
+    if (seed_list) {
+        batches = [batches[0]]
+    }
 
     ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json, protenix_templates ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
@@ -67,7 +82,7 @@ workflow PROTENIX_FOLD {
                     fold_namespaced: namespaced,
                 ]
                 if (base_seed != null) {
-                    m = m + [protenix_seeds: "${base_seed + i}"]
+                    m = m + [protenix_seeds: seed_list ? seed_list.join(',') : "${base_seed + i}"]
                 }
                 if (depth != null) {
                     def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
@@ -103,26 +118,34 @@ workflow PROTENIX_FOLD {
     def no_ipsae_pae = file("${projectDir}/assets/dummy_files/no_ipsae_pae.json")
     def no_ipsae_struct = file("${projectDir}/assets/dummy_files/no_ipsae_structure.cif")
 
+    // Keyed by seed as well as basename: a multi-seed job writes one
+    // <name>_sample_<r>.cif per seed, all with the same basename, under different
+    // seed_<N>/ directories. Keying on the basename alone would make every seed's
+    // row point at whichever file was indexed last.
     ch_conf = PROTENIX_FOLD_PROCESS.out.predictions.flatMap { meta, files ->
         def all = files instanceof List ? files : [files]
         def byName = [:]
-        all.each { f -> byName[f.name] = f }
+        all.each { f -> byName["${FoldNaming.protenixSeedBit(f)}${f.name}".toString()] = f }
         all.findAll { it.name ==~ /.*_summary_confidence_sample_\d+\.json$/ }
             .collect { j ->
+                def seed_bit = FoldNaming.protenixSeedBit(j)
                 def mm = (j.name =~ /_summary_confidence_sample_(\d+)\.json$/)
                 def idx = mm ? mm[0][1] : '0'
                 def struct = j.name.replaceFirst(/_summary_confidence_sample_(\d+)\.json$/, '_sample_$1.cif')
                 def paeName = j.name.replaceFirst(/_summary_confidence_sample_(\d+)\.json$/, '_full_data_sample_$1.json')
-                def pae = byName[paeName]
-                def cif = byName[struct]
+                def pae = byName["${seed_bit}${paeName}".toString()]
+                def cif = byName["${seed_bit}${struct}".toString()]
                 def doIpsae = (pae != null && cif != null)
-                def pred = "${FoldNaming.flatPrefix('protenix', meta)}${struct}"
-                [meta, 'protenix', "sample_${idx}", struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
+                def pred = "${FoldNaming.flatPrefix('protenix', meta)}${seed_bit}${struct}"
+                // The model label carries the seed so one design's samples stay distinct
+                // in the score table, as they do for every other engine.
+                def model = "${seed_bit}sample_${idx}".toString()
+                [meta, 'protenix', model, struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
-        name: 'protenix_fold_scores.tsv',
+        name: "${publish_label ? publish_label + '_' : ''}protenix_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/protenix",
         keepHeader: true,
         skip: 1,

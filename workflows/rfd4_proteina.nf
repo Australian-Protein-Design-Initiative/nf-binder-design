@@ -53,39 +53,95 @@ params.rfd4_filters = false
 params.rfd4_target_chain = false
 params.rfd4_binder_chain = false
 
-// Boltz full refolding params
-params.full_refold_with = '' // comma-separated list of methods, e.g., 'boltz'
+// --- Refold scoring (REFOLD) ---
+// Nextflow does not evaluate top-level params statements in an included script, so this
+// block lives here rather than in subworkflows/local/refold.nf. Copy it when adopting
+// that subworkflow in another workflow.
+//
+// One engine list, whichever engines it names: each is folded, compared against the
+// design and interface-scored the same way. The fold stack's own parameters
+// (--n_predictions, --msa_method, --create_target_msa, --use_msa_server, --templates and
+// each engine's flags) govern how the refold folds.
+params.full_refold_with = ''  // comma-separated engines, eg 'boltz,esmfold2'
 params.full_refold_max = false
-params.full_refold_filter_sort = 'pair_pae_min'
+
+// The refold's outputs and the fold stack's own outputs share a directory: the fold
+// stack reads fold_publish_dir directly in its modules, so the two are kept equal.
+params.refold_publish_dir = 'rfd4_proteina/refold'
+params.fold_publish_dir = 'rfd4_proteina/refold'
+
+params.refold_target_id = 'target'
+params.refold_metrics = 'iptm_max,iptm_mean,ipsae_max,ipsae_mean,plddt_max,plddt_mean,ptm_max,pae_mean,n'
+// Several samples per design (--n_predictions > 1) reduce to one row per design. The
+// confidence columns are aggregates over the samples (iptm_max and friends). The
+// structural columns - RMSD against the design, and the interface metrics - are not:
+// they describe one set of coordinates, so they are all read from the single
+// best-ranked sample, by --consensus_metric. A statistic per metric would give a row
+// that no predicted structure matches, and the interface metrics have no shared
+// direction to take a best in anyway. min / mean / max / first still override it.
+// refold_sample_scores.tsv carries every sample's own values.
+params.refold_structure_stat = 'selected'
+// Fold the binder on its own as well, for the "does it hold its fold without the target"
+// comparison. Doubles the folding work, so it can be turned off.
+params.refold_binder_monomer = true
+params.refold_monomer_chain = 'A'
+params.refold_monomer_single_sequence = true
+params.refold_interface_scoring = true
+// Keep the superimposed structures from the RMSD comparisons, for looking at.
+params.output_rmsd_aligned = false
+params.refold_fasta_score_columns = 'consensus_z'
+
+params.uniref30 = false
+params.colabfold_envdb = false
+
+// --- deprecated: --refold_oracles was a second parameter for the same thing ---
+params.refold_oracles = ''
+params.refold_oracles_max = false
+params.refold_oracle_metrics = false
+params.refold_oracle_target_id = false
+// Refolding takes its MSA and template choices from the fold stack now, so these have no
+// equivalent of their own. They are still read, to fail with a message that says so.
 params.full_refold_use_msa_server = false
 params.full_refold_create_target_msa = false
 params.full_refold_target_templates = false
 params.full_refold_target_fasta = false
-params.full_refold_alignment = false  // external A3M file; bypasses MMseqs2 when set
-params.uniref30 = false
-params.colabfold_envdb = false
-
-// --- Oracle refold scoring (REFOLD_ORACLES) ---
-// Nextflow does not evaluate top-level params statements in an included script, so this
-// block lives here rather than in subworkflows/local/refold_oracles.nf. Copy it when
-// adopting that subworkflow in another workflow.
-params.fold_publish_dir = 'rfd4_proteina/refold_oracles'
-
-params.refold_oracles = ''
-params.refold_oracles_max = false
-params.refold_oracle_metrics = 'iptm_max,iptm_mean,ipsae_max,ipsae_mean,n'
-params.refold_oracle_target_id = 'target'
+params.full_refold_alignment = false
 
 // --- Shared fold-stack parameters (the fold / fold_pulldown entrypoints declare
 // their own copies; everything else these engines read lives in nextflow.config) ---
 params.msa_method = 'jackhmmer_af2'
 params.create_target_msa = false
 params.create_binder_msa = false
-params.n_predictions = 1
+// 5 structures per design per engine. Each is a separate job of one sample with its
+// own seed, not one job of five samples, because the engines that batch samples share
+// a single trunk / recycling pass across them: five samples from one seed vary only in
+// the diffusion noise, while five seeds re-run the whole prediction. The per-engine
+// batch sizes below are what forces the one-sample-per-job split (see
+// subworkflows/local/*_fold.nf foldPredictionBatches). The disadvantage is five model
+// loads instead of one, which for Boltz is roughly 45 s of fixed cost per sample.
+params.n_predictions = 5
 params.use_msa_server = false
 params.templates = false
 params.msa_subsample = false
 params.msa_subsample_include_full = true
+
+// One sample per job and a base seed, which together turn --n_predictions into
+// N seeds x 1 sample: the fold subworkflows split n_predictions into jobs of
+// batch_size samples and give job i seed base+i. These carry the full_refold_
+// prefix because the plain names are declared in nextflow.config for the fold /
+// fold_pulldown entrypoints, where a config declaration beats a workflow script's
+// default; the fold stack reads the prefixed name wherever it is declared (see
+// lib/FoldParams.groovy). Protenix's copies are this workflow's own declarations
+// further down, so they take the refold's defaults directly.
+params.full_refold_boltz_batch_size = 1
+params.full_refold_boltz_seed = 42
+params.full_refold_esmfold2_batch_size = 1
+params.full_refold_esmfold2_seeds = 42
+params.full_refold_chai1_batch_size = 1
+params.full_refold_chai1_seeds = 42
+params.full_refold_openfold3_batch_size = 1
+params.full_refold_openfold3_seeds = 42
+params.full_refold_af3_batch_size = 1
 
 // Ranking, as in fold_pulldown (see bin/fold_pulldown_summarise.py)
 params.consensus_metric = 'ipsae'
@@ -113,18 +169,23 @@ params.af2_monomer_model_preset = 'monomer_ptm'
 params.af2_chain_break_offset = 200
 
 // --- RF3 ---
-params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
-params.rf3_num_steps = 50
-params.rf3_n_recycles = 10
-params.rf3_batch_size = false
-params.rf3_early_stopping_plddt_threshold = 0.5
-params.rf3_seed = false
+// Prefixed, unlike the other engines': rfd3 declares --rf3_batch_size, --rf3_num_steps
+// and --rf3_n_recycles for its own design-time RF3 step with different meanings, and a
+// workflow's parameters are one flat namespace. The fold stack reads the prefixed names
+// wherever they are declared (lib/FoldParams.groovy), so plain --rf3_* has no effect
+// here.
+params.full_refold_rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
+params.full_refold_rf3_num_steps = 50
+params.full_refold_rf3_n_recycles = 10
+params.full_refold_rf3_batch_size = 1
+params.full_refold_rf3_early_stopping_plddt_threshold = 0.5
+params.full_refold_rf3_seed = 42
 
 // --- Protenix ---
-params.protenix_seeds = false
+params.protenix_seeds = 42
 params.protenix_cycle = 10
 params.protenix_step = 200
-params.protenix_batch_size = false
+params.protenix_batch_size = 1
 params.protenix_model_name = 'protenix_base_default_v1.0.0'
 params.protenix_use_msa = true
 params.protenix_need_atom_confidence = true
@@ -165,9 +226,8 @@ include { RFD4_GENERATE } from '../modules/local/rfd4_proteina/rfd4_generate'
 include { FILTER_DESIGNS as RFD4_FILTER_DESIGNS } from '../modules/local/rfd4_proteina/filter_designs'
 include { COMBINE_RFD4_SCORES } from '../modules/local/rfd4_proteina/combine_rfd4_scores'
 include { resolveRfd4Chains } from '../modules/local/rfd4_proteina/rfd4_utils'
-include { BOLTZ_REFOLD_SCORING_RFD4 } from '../subworkflows/local/boltz_refold_scoring_rfd4'
-// Needs the oracle/fold-stack params declared above.
-include { REFOLD_ORACLES } from '../subworkflows/local/refold_oracles'
+// Needs the refold / fold-stack params declared above.
+include { REFOLD } from '../subworkflows/local/refold'
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 
@@ -179,14 +239,22 @@ workflow RFD4_PROTEINA {
         throw new Exception('--rfd4_config and --input_pdb are mutually exclusive. Use --rfd4_config (input paths are read from the spec) or --input_pdb with --contigs.')
     }
 
-    if (params.full_refold_create_target_msa && params.full_refold_alignment) {
-        throw new Exception('--full_refold_create_target_msa and --full_refold_alignment are mutually exclusive. Use one or the other.')
-    }
-    if (params.full_refold_create_target_msa && !params.full_refold_alignment && !params.full_refold_use_msa_server && (!params.colabfold_envdb || !params.uniref30)) {
-        throw new Exception('--full_refold_create_target_msa with local MSA (no --full_refold_alignment) requires --colabfold_envdb and --uniref30.')
-    }
-    if (params.full_refold_use_msa_server && !params.full_refold_create_target_msa && !params.full_refold_alignment) {
-        throw new Exception('--full_refold_use_msa_server only has an effect when either --full_refold_create_target_msa is true or --full_refold_alignment is set.')
+    // Refolding is one path with one engine list now, so the parameters that existed
+    // only because it was two paths are gone. Each is still read, so a run that sets one
+    // stops with the replacement named rather than quietly ignoring it.
+    [
+        full_refold_use_msa_server: '--use_msa_server',
+        full_refold_create_target_msa: '--create_target_msa',
+        full_refold_target_templates: '--templates',
+        full_refold_alignment: '--create_target_msa with --msa_method mmseqs2_colabfold',
+        full_refold_target_fasta: 'a target sequence in the design structures themselves',
+    ].each { name, replacement ->
+        if (params[name]) {
+            error(
+                "rfd4_proteina: --${name} has been replaced. Refolding takes its MSA and " +
+                "template choices from the fold stack now; use ${replacement}."
+            )
+        }
     }
 
     // Show help message
@@ -237,40 +305,51 @@ workflow RFD4_PROTEINA {
             --rfd4_target_chain   Target chain id in the generated complex [default: derived from --contigs, else A]
             --rfd4_binder_chain   Binder chain id in the generated complex [default: derived from --contigs, else B]
 
-        Full refolding options (Boltz-2):
-            --full_refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.full_refold_with}]
-            --full_refold_max          Maximum designs to refold [default: ${params.full_refold_max}]
-            --boltz_refold_batch_size  Designs per Boltz refold task; >1 amortises Boltz model loading over the batch [default: ${params.boltz_refold_batch_size}]
-            --full_refold_create_target_msa  Create target MSA for refolding (runs MMseqs2) [default: ${params.full_refold_create_target_msa}]
-            --full_refold_alignment    External A3M file for refold target; bypasses MMseqs2 when set [default: ${params.full_refold_alignment}]
-            --full_refold_use_msa_server     Use ColabFold MMseqs2 API for refold target MSA (skip local MMseqs) [default: ${params.full_refold_use_msa_server}]
-            --full_refold_target_fasta       Full-length target FASTA for Boltz refold (headers match design basenames) [default: ${params.full_refold_target_fasta}]
-            --full_refold_target_templates   Directory of full-length target template PDB/CIF for Boltz [default: ${params.full_refold_target_templates}]
-            --colabfold_envdb          ColabFold environment database (local MSA when not using MSA server) [default: ${params.colabfold_envdb}]
-            --uniref30                 UniRef30 database (local MSA when not using MSA server) [default: ${params.uniref30}]
+        Refold scoring (--full_refold_with):
+            Folds each design's binder sequence against its target with the engines you
+            name, compares the result with the design, and scores the rebuilt interface.
+            Every engine gives the same columns in combined_scores.tsv, prefixed with the
+            engine name: confidence (iptm, ipSAE, plddt, ptm), RMSD against the design
+            (target-aligned binder and whole complex), the binder folded on its own, and
+            BindCraft interface metrics. A cross-engine consensus_z ranks designs when
+            more than one engine is named.
 
-        Oracle refold scoring (prototype; independent of --full_refold_with, both may be used):
-            Co-folds each design's binder sequence against the target with any set of folding
-            oracles, reusing the --method fold_pulldown machinery, and adds tool-prefixed
-            iptm / ipSAE columns plus a cross-tool consensus_z to combined_scores.tsv. It does
-            not give the RMSD-to-design or binder-monomer metrics --full_refold_with boltz does,
-            since it works from the binder sequence rather than the design structure.
-
-            --refold_oracles           Comma-separated oracles: af2, af2_mono, boltz, rf3,
-                                       protenix, af3, openfold3, chai1, esmfold2, esmfold2_fast
-                                       [default: disabled]
-            --refold_oracles_max       Maximum designs to score [default: --full_refold_max]
-            --refold_oracle_metrics    Summary columns carried into combined_scores.tsv
-                                       [default: ${params.refold_oracle_metrics}]
-            --n_predictions            Structures per design per oracle [default: ${params.n_predictions}]
-            --msa_method               jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
-            --create_target_msa        Build an MSA for the target [default: ${params.create_target_msa}]
-            --use_msa_server           Let the engine fetch its own MSA [default: ${params.use_msa_server}]
+            --full_refold_with     Comma-separated engines: af2, af2_mono, boltz, rf3,
+                                   protenix, af3, openfold3, chai1, esmfold2,
+                                   esmfold2_fast [default: ${params.full_refold_with}]
+            --full_refold_max      Maximum designs to refold [default: ${params.full_refold_max}]
+            --refold_metrics       Summary columns carried into combined_scores.tsv
+                                   [default: ${params.refold_metrics}]
+            --refold_structure_stat  How several samples per design reduce to one RMSD
+                                   and one interface score: selected|min|first|mean|max
+                                   [default: ${params.refold_structure_stat}, both read
+                                   from the best-ranked sample]
+            --refold_binder_monomer  Also fold each binder alone, for the monomer-vs-complex
+                                   and monomer-vs-design comparisons [default: ${params.refold_binder_monomer}]
+            --refold_monomer_single_sequence  Fold that monomer from sequence alone, with no
+                                   MSA search [default: ${params.refold_monomer_single_sequence}]
+            --refold_interface_scoring  BindCraft interface metrics on the refolded complex
+                                   [default: ${params.refold_interface_scoring}]
+            --output_rmsd_aligned  Keep the superimposed structures from the RMSD
+                                   comparisons [default: ${params.output_rmsd_aligned}]
+            --n_predictions        Structures per design per engine, run as that many
+                                   seeds of one sample each [default: ${params.n_predictions}]
+            --msa_method           jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
+            --create_target_msa    Build an MSA for the target [default: ${params.create_target_msa}]
+            --use_msa_server       Let the engine fetch its own MSA [default: ${params.use_msa_server}]
             --consensus_metric / --z_stat / --z_scope / --min_pool
-                                       Ranking, as in --method fold_pulldown
+                                   Ranking, as in --method fold_pulldown
+            --colabfold_envdb      ColabFold environment database (local MSA) [default: ${params.colabfold_envdb}]
+            --uniref30             UniRef30 database (local MSA) [default: ${params.uniref30}]
 
-            Every engine flag from --method fold --help (--af2_*, --boltz_*, --rf3_*,
-            --protenix_*, --af3_*, --openfold3_*, --chai1_*, --esmfold2_*) applies here too.
+            Every engine flag from --method fold --help (--af2_*, --boltz_*,
+            --protenix_*, --af3_*, --openfold3_*, --chai1_*, --esmfold2_*) applies here
+            too. RF3's are the exception: use --full_refold_rf3_* (ckpt_path, num_steps,
+            n_recycles, batch_size, early_stopping_plddt_threshold, seed), since plain
+            --rf3_* names are taken by the design-time RF3 step in other workflows.
+
+            --refold_oracles is deprecated: it named the same thing as --full_refold_with,
+            which now takes an engine list.
 
         FoldSeek structural search (optional, enabled with --do_foldseek):
             --do_foldseek                 Enable FoldSeek search on the same designs selected for full refolding
@@ -295,21 +374,44 @@ workflow RFD4_PROTEINA {
         exit(1)
     }
 
-    def refold_methods = params.full_refold_with ? params.full_refold_with.toString().split(',').collect { it.trim() } : []
-    def refold_oracles = params.refold_oracles
-        ? FoldValidation.parseMethods(params.refold_oracles)
-        : []
-    if (refold_oracles) {
+    // One engine list. --refold_oracles named the same thing and is accepted for now,
+    // folded into --full_refold_with rather than running a second path beside it.
+    def refold_engines = FoldValidation.parseMethods(params.full_refold_with ?: '')
+    if (params.refold_oracles) {
+        log.warn(
+            "rfd4_proteina: --refold_oracles is deprecated and will be removed; it is the " +
+            "same thing as --full_refold_with, which now takes a list of engines. Adding " +
+            "'${params.refold_oracles}' to it."
+        )
+        refold_engines = (refold_engines + FoldValidation.parseMethods(params.refold_oracles)).unique()
+    }
+    // A local, because params are read directly by the processes and assigning to one
+    // here would not reach them.
+    def refold_max = params.full_refold_max
+    if (params.refold_oracles_max) {
+        log.warn('rfd4_proteina: --refold_oracles_max is deprecated; use --full_refold_max.')
+        refold_max = params.full_refold_max ?: params.refold_oracles_max
+    }
+    [
+        refold_oracle_metrics: '--refold_metrics',
+        refold_oracle_target_id: '--refold_target_id',
+    ].each { name, replacement ->
+        if (params[name]) {
+            error("rfd4_proteina: --${name} has been renamed; use ${replacement}.")
+        }
+    }
+
+    if (refold_engines) {
         // Every design pair here is a 2-chain complex and the binder is folded query-only,
         // exactly as in --method fold_pulldown, so pulldown: true applies for the same reasons.
-        def (oracle_errors, oracle_warnings) = FoldValidation.validate(params, refold_oracles, [
+        def (refold_errors, refold_warnings) = FoldValidation.validate(params, refold_engines, [
             hasMultimer: true,
             af2DbPath: params.af2_db_path,
             pulldown: true,
         ])
-        oracle_warnings.each { log.warn("rfd4_proteina: --refold_oracles: ${it}") }
-        if (oracle_errors) {
-            error("rfd4_proteina: --refold_oracles: ${oracle_errors.join('\nrfd4_proteina: --refold_oracles: ')}")
+        refold_warnings.each { log.warn("rfd4_proteina: --full_refold_with: ${it}") }
+        if (refold_errors) {
+            error("rfd4_proteina: --full_refold_with: ${refold_errors.join('\nrfd4_proteina: --full_refold_with: ')}")
         }
     }
 
@@ -413,50 +515,23 @@ workflow RFD4_PROTEINA {
         tuple([id: cif.name.replaceFirst(/\.(cif|cif\.gz|cif\.zst)$/, '')], cif)
     }
 
-    def ch_boltz_complex = Channel.empty()
-    def ch_boltz_monomer = Channel.empty()
-    def ch_boltz_rmsd_target_aligned_binder = Channel.empty()
-    def ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
-
-    if (refold_methods.contains('boltz')) {
-        BOLTZ_REFOLD_SCORING_RFD4(
+    // Refold scoring: fold each design's binder against its target with every engine in
+    // --full_refold_with, compare the result with the design, and score the interface.
+    def ch_refold_scores = Channel.empty()
+    if (refold_engines) {
+        REFOLD(
             ch_designs_with_meta,
             rfd4BinderChain,
             rfd4TargetChain,
-            params.full_refold_max,
-            params.full_refold_create_target_msa,
-            params.full_refold_use_msa_server,
-            params.full_refold_alignment,
-            params.full_refold_target_fasta,
-            params.full_refold_target_templates,
-            params.colabfold_envdb,
-            params.uniref30,
-            params.outdir,
-        )
-        ch_boltz_complex = BOLTZ_REFOLD_SCORING_RFD4.out.boltz_scores_complex
-        ch_boltz_monomer = BOLTZ_REFOLD_SCORING_RFD4.out.boltz_scores_monomer
-        ch_boltz_rmsd_target_aligned_binder = BOLTZ_REFOLD_SCORING_RFD4.out.rmsd_target_aligned_binder
-        ch_boltz_rmsd_monomer_vs_complex = BOLTZ_REFOLD_SCORING_RFD4.out.rmsd_monomer_vs_complex
-    }
-
-    // Oracle-agnostic refold scoring: co-fold each design's binder sequence against the
-    // target with any set of folding oracles. Independent of --full_refold_with, which
-    // drives the Boltz-specific RMSD/ipSAE/BindCraft path above; a run can use both.
-    def ch_oracle_scores = Channel.empty()
-    if (refold_oracles) {
-        REFOLD_ORACLES(
-            ch_designs_with_meta,
-            rfd4BinderChain,
-            rfd4TargetChain,
-            params.refold_oracles_max ?: params.full_refold_max,
-            refold_oracles,
+            refold_max,
+            refold_engines,
             params.msa_method,
         )
-        ch_oracle_scores = REFOLD_ORACLES.out.scores
+        ch_refold_scores = REFOLD.out.scores
     }
 
     if (params.do_foldseek) {
-        def foldseek_max = (params.foldseek_search_max ?: params.full_refold_max)
+        def foldseek_max = (params.foldseek_search_max ?: refold_max)
         def ch_foldseek_input = foldseek_max
             ? ch_designs.take(foldseek_max as int)
             : ch_designs
@@ -479,18 +554,14 @@ workflow RFD4_PROTEINA {
         .map { cifs -> [cifs as List] }
 
     def ch_combine_input = ch_design_table
-        .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_complex")))
-        .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer")))
-        .combine(ch_boltz_rmsd_target_aligned_binder.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_target_aligned_binder")))
-        .combine(ch_boltz_rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer_vs_complex")))
-        .combine(ch_oracle_scores.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_refold_oracles")))
+        .combine(ch_refold_scores.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_refold")))
         .combine(Channel.value(rfd4BinderChain))
         .combine(ch_design_cifs)
-        .map { designs, boltz_cx, boltz_mono, boltz_rmsd_tab, boltz_rmsd_mono, oracle_scores, binder_chain, cifs_wrapped ->
+        .map { designs, refold_scores, binder_chain, cifs_wrapped ->
             def cifs = (cifs_wrapped instanceof List && cifs_wrapped.size() == 1 && cifs_wrapped[0] instanceof List)
                 ? cifs_wrapped[0]
                 : cifs_wrapped
-            tuple(designs, boltz_cx, boltz_mono, boltz_rmsd_tab, boltz_rmsd_mono, oracle_scores, binder_chain, cifs)
+            tuple(designs, refold_scores, binder_chain, cifs)
         }
 
     COMBINE_RFD4_SCORES(ch_combine_input)

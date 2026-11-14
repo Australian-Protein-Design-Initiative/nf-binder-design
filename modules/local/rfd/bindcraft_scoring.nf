@@ -22,7 +22,8 @@ process BINDCRAFT_SCORING {
       --dssp-path /app/BindCraft/functions/dssp \
       ${pdb_file}
 
-    # We don't use this, just the default (which is already CX)
-    # --omit-aas ${params.pmpnn_omit_aas}
+    # --omit-aas is left at its default, which is already CX. Note that a \$-less
+    # reference to a param here would be interpolated by Groovy even inside a shell
+    # comment, and warn about an undefined parameter on every run.
     """
 }

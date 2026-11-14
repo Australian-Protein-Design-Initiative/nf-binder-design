@@ -28,7 +28,7 @@ process ESMFOLD2 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/)) { return null }
+            if (!FoldNaming.isModelStructure(meta.esmfold2_tool ?: 'esmfold2', bn)) { return null }
             return "${FoldNaming.flatPrefix(meta.esmfold2_tool, meta)}${bn}"
         }
     )
@@ -47,7 +47,7 @@ process ESMFOLD2 {
     tuple val(meta), path('output/*_summary_confidences.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (params.esmfold2_batch_size ?: 5)
+    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'esmfold2_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
@@ -127,7 +127,7 @@ process ESMFOLD2 {
         --name '${meta.id}' \\
         --output-dir output \\
         --model '${meta.esmfold2_model}' \\
-        --seed ${meta.esmfold2_seed} \\
+        --seed ${meta.esmfold2_seeds ?: meta.esmfold2_seed} \\
         --num-diffusion-samples ${n_samples} \\
         --kernel-backend '${params.esmfold2_kernel_backend}' \\
         ${a3m_arg} \\

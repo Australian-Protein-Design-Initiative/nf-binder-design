@@ -40,8 +40,10 @@ process PROTENIX_FOLD {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_sample_\d+\.cif/)) { return null }
-            return "${FoldNaming.flatPrefix('protenix', meta)}${bn}"
+            if (!FoldNaming.isModelStructure('protenix', bn)) { return null }
+            // The seed goes back into the name here: Protenix keeps its seeds apart by
+            // directory only, so a multi-seed job's samples all share a basename.
+            return "${FoldNaming.flatPrefix('protenix', meta)}${FoldNaming.protenixSeedBit(filename)}${bn}"
         }
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
@@ -62,10 +64,10 @@ process PROTENIX_FOLD {
     script:
     // Per-job sample count from fold fan-out meta, else --protenix_batch_size /
     // default 5 when neither n_predictions nor batch size set a meta override.
-    def sample = meta.fold_batch_size ?: (params.protenix_batch_size ?: 5)
+    def sample = meta.fold_batch_size ?: (FoldParams.engine(params, 'protenix_batch_size') ?: 5)
     // Seed from meta when fold fans a pinned --protenix_seeds across batches;
     // else params; unset -> omit (protenix default, -resume-stable).
-    def seeds = meta.protenix_seeds != null ? meta.protenix_seeds : params.protenix_seeds
+    def seeds = meta.protenix_seeds != null ? meta.protenix_seeds : FoldParams.engine(params, 'protenix_seeds')
     def seeds_arg = seeds ? "--seeds ${seeds}" : ''
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null

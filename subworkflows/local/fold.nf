@@ -11,12 +11,14 @@ include { FOLD_TEMPLATES } from './fold_templates'
 
 workflow FOLD {
     take:
-    ch_input   // tuple(meta, fasta)
-    methods    // List<String>
-    msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
+    ch_input      // tuple(meta, fasta)
+    methods       // List<String>
+    msa_method    // 'jackhmmer_af2' | 'mmseqs2_colabfold'
+    publish_label // String: prefix for the merged scores file ('' for the only fold run)
+    single_sequence // Boolean: fold from sequence alone, with no MSA search
 
     main:
-    FOLD_MSA(ch_input, methods, msa_method)
+    FOLD_MSA(ch_input, methods, msa_method, single_sequence)
     FOLD_TEMPLATES(ch_input.map { _meta, fasta -> fasta })
 
     def a3m_stub = file("${projectDir}/assets/dummy_files/empty")
@@ -45,6 +47,7 @@ workflow FOLD {
         FOLD_MSA.out.for_esmfold2_fast,
         FOLD_TEMPLATES.out.templates,
         methods,
+        publish_label,
     )
 
     emit:

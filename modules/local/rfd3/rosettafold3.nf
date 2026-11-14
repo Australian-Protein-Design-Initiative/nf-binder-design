@@ -45,6 +45,15 @@ process ROSETTAFOLD3 {
     fi
     nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 
+    # Caches and the user lookup, for a uid with no passwd entry - see
+    # modules/local/fold/rf3/rf3_fold.nf for why.
+    export USER="\${USER:-nfbd}"
+    export XDG_CACHE_HOME="\$(pwd)/.cache"
+    export XDG_CONFIG_HOME="\$(pwd)/.config"
+    export TRITON_CACHE_DIR="\$(pwd)/.triton_cache"
+    export TORCHINDUCTOR_CACHE_DIR="\$(pwd)/.torchinductor_cache"
+    mkdir -p \$XDG_CACHE_HOME \$XDG_CONFIG_HOME \$TRITON_CACHE_DIR \$TORCHINDUCTOR_CACHE_DIR
+
     mkdir -p output
 
     rf3 fold \\

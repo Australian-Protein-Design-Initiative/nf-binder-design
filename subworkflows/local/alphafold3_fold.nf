@@ -39,6 +39,11 @@ workflow ALPHAFOLD3_FOLD {
     take:
     ch_for_af3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
     // A comma list in --af3_seeds means "all of these seeds, in one job" (Germinal
@@ -48,9 +53,12 @@ workflow ALPHAFOLD3_FOLD {
     // would produce len(seeds) x n_predictions structures instead of
     // len(seeds) x --af3_batch_size.
     def literal_seeds = AF3Input.literalSeeds(params)
+    // Via FoldParams so a refolding workflow can namespace the batch size away from
+    // its own same-named design-time parameter (see lib/FoldParams.groovy).
+    def af3_batch_size = FoldParams.engine(params, 'af3_batch_size')
     def batches = literal_seeds \
-        ? [(params.af3_batch_size ?: 5) as int] \
-        : foldPredictionBatches(params.af3_batch_size, 5, params.n_predictions)
+        ? [(af3_batch_size ?: 5) as int] \
+        : foldPredictionBatches(af3_batch_size, 5, params.n_predictions)
 
     ch_batched = ch_for_af3.flatMap { meta, fasta, msa ->
         def is_mono = (meta.n_chains ?: 1) == 1
@@ -124,7 +132,7 @@ workflow ALPHAFOLD3_FOLD {
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
-        name: 'af3_fold_scores.tsv',
+        name: "${publish_label ? publish_label + '_' : ''}af3_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af3",
         keepHeader: true,
         skip: 1,

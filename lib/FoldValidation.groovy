@@ -77,11 +77,13 @@ class FoldValidation {
 
         ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size', 'openfold3_batch_size',
          'chai1_batch_size', 'esmfold2_batch_size'].each { pname ->
-            def v = params[pname]
+            // Via FoldParams so a workflow that namespaces an engine's flags is checked on
+            // the names it actually reads, and is not warned about a name it never declared.
+            def v = FoldParams.engine(params, pname)
             if (v != null && !(v instanceof Boolean)) {
                 def n = v as int
                 if (n < 1) {
-                    errors << "--${pname} must be >= 1 (got '${v}')"
+                    errors << "--${FoldParams.nameFor(params, pname)} must be >= 1 (got '${v}')"
                 }
             }
         }
@@ -113,30 +115,41 @@ class FoldValidation {
             }
             errors.addAll(af3DataPipelineErrors(params))
         }
-        // Protenix names its structures without the seed, so several seeds in one job
-        // overwrite each other in fold/predictions/ and mis-pair confidence files.
-        if ('protenix' in methods && params.protenix_seeds && params.protenix_seeds.toString().contains(',')) {
-            errors << (
-                "--protenix_seeds takes a single seed (got '${params.protenix_seeds}'). For more " +
-                "structures use --n_predictions / --protenix_batch_size; batches use seed, seed+1, ..."
-            )
+        // Protenix takes a seed list in one invocation. It separates the seeds by
+        // directory rather than in the file name, so PROTENIX_FOLD puts the seed back
+        // into the names it publishes and scores; without that the samples collide in
+        // fold/predictions/ and mis-pair their confidence files.
+        // Seeds are read through FoldParams for the same reason as the batch sizes above.
+        def protenix_seeds = FoldParams.engine(params, 'protenix_seeds')
+        if ('protenix' in methods && protenix_seeds) {
+            def bad = protenix_seeds.toString().split(',')
+                .collect { it.trim() }.findAll { !(it ==~ /^\d+$/) }
+            if (bad) {
+                errors << (
+                    "--${FoldParams.nameFor(params, 'protenix_seeds')} must be an integer, or a comma list " +
+                    "of them (got '${protenix_seeds}')"
+                )
+            }
         }
-        if ('openfold3' in methods && params.openfold3_seeds && params.openfold3_seeds.toString().contains(',')) {
+        def openfold3_seeds = FoldParams.engine(params, 'openfold3_seeds')
+        if ('openfold3' in methods && openfold3_seeds && openfold3_seeds.toString().contains(',')) {
             warnings << (
-                "--openfold3_seeds takes a single base seed; only '${params.openfold3_seeds.toString().split(',')[0].trim()}' " +
+                "--${FoldParams.nameFor(params, 'openfold3_seeds')} takes a single base seed; only '${openfold3_seeds.toString().split(',')[0].trim()}' " +
                 "is used (batches use seed, seed+1, ...)."
             )
         }
-        if ('chai1' in methods && params.chai1_seeds && params.chai1_seeds.toString().contains(',')) {
+        def chai1_seeds = FoldParams.engine(params, 'chai1_seeds')
+        if ('chai1' in methods && chai1_seeds && chai1_seeds.toString().contains(',')) {
             warnings << (
-                "--chai1_seeds takes a single base seed; only '${params.chai1_seeds.toString().split(',')[0].trim()}' " +
+                "--${FoldParams.nameFor(params, 'chai1_seeds')} takes a single base seed; only '${chai1_seeds.toString().split(',')[0].trim()}' " +
                 "is used (batches use seed, seed+1, ...)."
             )
         }
         if (('esmfold2' in methods) || ('esmfold2_fast' in methods)) {
-            if (params.esmfold2_seeds && params.esmfold2_seeds.toString().contains(',')) {
+            def esmfold2_seeds = FoldParams.engine(params, 'esmfold2_seeds')
+            if (esmfold2_seeds && esmfold2_seeds.toString().contains(',')) {
                 warnings << (
-                    "--esmfold2_seeds takes a single base seed; only '${params.esmfold2_seeds.toString().split(',')[0].trim()}' " +
+                    "--${FoldParams.nameFor(params, 'esmfold2_seeds')} takes a single base seed; only '${esmfold2_seeds.toString().split(',')[0].trim()}' " +
                     "is used (batches use seed, seed+1, ...)."
                 )
             }
