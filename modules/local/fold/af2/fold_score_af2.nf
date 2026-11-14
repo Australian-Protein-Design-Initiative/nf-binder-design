@@ -6,7 +6,7 @@
 process FOLD_SCORE_AF2 {
     tag "${meta.af2_tool ?: 'af2'} ${meta.id} run${meta.af2_run}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     // run_files is the ALPHAFOLD2 predictions glob (out/<id>/**); Nextflow stages

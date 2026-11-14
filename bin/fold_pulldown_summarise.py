@@ -42,6 +42,13 @@ import sys
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
+# Aggregated the same way as iptm/ipsae, but never standardised: they describe the
+# whole complex rather than its interface, so a z-score over them would rank a design
+# on how confidently its target folds. Refold scoring carries them into
+# combined_scores.tsv, where they stand in for the columns the Boltz-only refold path
+# used to produce (plddt, pair_pae_min and friends).
+EXTRA_METRICS = ("plddt", "ptm", "pae", "ranking_score", "pdockq", "pdockq2", "lis")
+
 
 def _f(v: str) -> Optional[float]:
     if v is None or v == "":
@@ -98,11 +105,24 @@ def main() -> int:
              "[default: target]",
     )
     p.add_argument(
+        "--metrics", default=",".join(EXTRA_METRICS),
+        help="Further canonical score columns to aggregate alongside iptm/ipsae, as "
+             "<metric>_mean/_median/_max/_sd. Only iptm and ipsae are standardised "
+             f"[default: {','.join(EXTRA_METRICS)}]",
+    )
+    p.add_argument(
         "--min-pool", type=int, default=10,
         help="Pools holding fewer than this many complexes are flagged z_pool_small "
              "in the summary and warned about on stderr [default: 10]",
     )
     args = p.parse_args()
+
+    # iptm and ipsae are aggregated unconditionally and standardised, so asking for
+    # them again here would only duplicate columns.
+    extra_metrics = [
+        m.strip() for m in args.metrics.split(",")
+        if m.strip() and m.strip() not in ("iptm", "ipsae")
+    ]
 
     pairs: Dict[str, Tuple[str, str]] = {}
     with open(args.pairs) as f:
@@ -159,7 +179,7 @@ def main() -> int:
     for (target, binder, tool), rows in sorted(groups.items()):
         iptms = [v for v in (_f(r.get("iptm", "")) for r in rows) if v is not None]
         ipsaes = [v for v in (_f(r.get("ipsae", "")) for r in rows) if v is not None]
-        summary_rows.append({
+        summary = {
             "target": target,
             "binder": binder,
             "tool": tool,
@@ -172,7 +192,14 @@ def main() -> int:
             "ipsae_median": _median(ipsaes),
             "ipsae_max": _max(ipsaes),
             "ipsae_sd": _sd(ipsaes),
-        })
+        }
+        for metric in extra_metrics:
+            vals = [v for v in (_f(r.get(metric, "")) for r in rows) if v is not None]
+            summary[f"{metric}_mean"] = _mean(vals)
+            summary[f"{metric}_median"] = _median(vals)
+            summary[f"{metric}_max"] = _max(vals)
+            summary[f"{metric}_sd"] = _sd(vals)
+        summary_rows.append(summary)
 
     # Standardise within each pool. The pool is (target, tool) by default: raw
     # co-folding scores are not comparable across targets, so pooling them makes a
@@ -282,6 +309,10 @@ def main() -> int:
         "target", "binder", "tool", "n",
         "iptm_mean", "iptm_median", "iptm_max", "iptm_sd", "iptm_z", "iptm_n_pool",
         "ipsae_mean", "ipsae_median", "ipsae_max", "ipsae_sd", "ipsae_z", "ipsae_n_pool",
+    ]
+    for metric in extra_metrics:
+        sum_cols += [f"{metric}_mean", f"{metric}_median", f"{metric}_max", f"{metric}_sd"]
+    sum_cols += [
         "consensus_z", "consensus_z_metric", "n_tools", "z_basis", "n_pool", "z_pool_small",
     ]
     with open(args.summary_out, "w", newline="") as f:

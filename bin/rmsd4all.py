@@ -83,15 +83,30 @@ def _parse_chains_arg(chains_arg: Optional[str]) -> Optional[List[str]]:
 def _filter_structure_by_chains(
     structure: struc.AtomArray, chains: Optional[Iterable[str]]
 ) -> struc.AtomArray:
-    """Return structure filtered to specified chain IDs. If chains is None, return unchanged."""
+    """Return structure filtered to specified chain IDs, in the order given.
+
+    The order matters. rmsd_all pairs atoms by position, so a multi-chain comparison
+    is only meaningful when both structures' atoms arrive chain-for-chain; the two
+    --*-chains lists are how the caller states which chain corresponds to which.
+    Masking in file order instead would make the result depend on which chain each
+    file happens to list first - two complexes with the same chain ids but written in
+    the opposite order would be compared binder-against-target.
+    """
     if chains is None:
         return structure
     chain_ids = getattr(structure, "chain_id", None)
     if chain_ids is None:
         return structure
     chain_ids_str = chain_ids.astype(str)
-    mask = np.isin(chain_ids_str, np.array(list(chains), dtype=str))
-    filtered = structure[mask]
+
+    parts = [structure[chain_ids_str == chain] for chain in chains]
+    present = [part for part in parts if len(part) > 0]
+    if not present:
+        return cast(struc.AtomArray, structure[np.zeros(len(structure), dtype=bool)])
+
+    filtered = present[0]
+    for part in present[1:]:
+        filtered = filtered + part
     return cast(struc.AtomArray, filtered)
 
 

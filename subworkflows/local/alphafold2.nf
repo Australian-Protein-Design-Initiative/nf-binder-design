@@ -25,6 +25,11 @@ workflow ALPHAFOLD2 {
     // predictions, score TSVs and FoldNaming prefixes apart.
     tool
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
     def complex_mode = (tool == 'af2_mono') ? 'chainbreak' : 'multimer'
@@ -113,7 +118,7 @@ workflow ALPHAFOLD2 {
     FOLD_SCORE_AF2(ch_score_in)
 
     ch_tsv = FOLD_SCORE_AF2.out.collectFile(
-        name: "${tool}_fold_scores.tsv",
+        name: "${publish_label ? publish_label + '_' : ''}${tool}_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${tool}",
         keepHeader: true,
         skip: 1,

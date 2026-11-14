@@ -1,7 +1,7 @@
 process FOLD_PULLDOWN_REPORTING {
     publishDir "${params.outdir}/${params.fold_publish_dir ?: 'fold_pulldown'}", mode: 'copy'
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     path('fold_pulldown_reporting.qmd')

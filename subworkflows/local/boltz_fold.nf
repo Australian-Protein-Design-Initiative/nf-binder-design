@@ -36,6 +36,11 @@ workflow BOLTZ_FOLD {
     take:
     ch_for_boltz // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [csv...])
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
     ch_mono = ch_for_boltz.filter { meta, fasta, msa -> (meta.n_chains ?: 1) == 1 }
@@ -53,8 +58,11 @@ workflow BOLTZ_FOLD {
     // empty-placeholder file.
     // default_batch = 5: with --n_predictions unset, emit 5 samples like RF3 /
     // Protenix (Boltz's own native default is 1; we lift it for cross-engine parity).
-    def batches = foldPredictionBatches(params.boltz_batch_size, 5, params.n_predictions)
-    def base_seed = params.boltz_seed ? (params.boltz_seed as int) : null
+    // Via FoldParams so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see lib/FoldParams.groovy).
+    def batches = foldPredictionBatches(FoldParams.engine(params, 'boltz_batch_size'), 5, params.n_predictions)
+    def boltz_seed = FoldParams.engine(params, 'boltz_seed')
+    def base_seed = boltz_seed ? (boltz_seed as int) : null
 
     ch_boltz_input = ch_yaml.flatMap { meta, yaml, msa ->
         def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
@@ -129,7 +137,7 @@ workflow BOLTZ_FOLD {
     FOLD_PARSE_BOLTZ_CONFIDENCE(ch_conf_per_model)
 
     ch_tsv = FOLD_PARSE_BOLTZ_CONFIDENCE.out.collectFile(
-        name: 'boltz_fold_scores.tsv',
+        name: "${publish_label ? publish_label + '_' : ''}boltz_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/boltz",
         keepHeader: true,
         skip: 1,

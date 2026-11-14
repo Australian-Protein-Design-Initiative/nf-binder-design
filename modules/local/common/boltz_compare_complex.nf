@@ -32,6 +32,9 @@ process BOLTZ_COMPARE_COMPLEX {
 
     script:
     def metaList = metas instanceof List ? metas : [metas]
+    // Dataloader workers; see params.boltz_num_workers. On some platforms the workers
+    // deadlock and the run sits at 0% GPU without ever failing.
+    def num_workers = params.boltz_num_workers != null ? (params.boltz_num_workers as int) : task.cpus
     def pdbList = pdbs instanceof List ? pdbs : [pdbs]
 
     // One line per design, consumed by the shell loops below. Built here rather
@@ -147,7 +150,7 @@ NFBD_MANIFEST_EOF
     boltz predict \\
         ${args} \\
         --preprocessing-threads ${task.cpus} \\
-        --num_workers ${task.cpus} \\
+        --num_workers ${num_workers} \\
         --output_format pdb \\
         ${use_msa_server_flag} \\
         --out_dir boltz_batch \\

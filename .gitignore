@@ -7,6 +7,8 @@ models/rfdiffusion
 models/HyperMPNN
 models/alphafold3
 containers/
+# Downloaded FoldSeek databases (--foldseek_databases_path)
+foldseek_dbs/
 
 .venv
 __pycache__

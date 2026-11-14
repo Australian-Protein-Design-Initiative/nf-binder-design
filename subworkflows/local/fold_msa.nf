@@ -34,12 +34,14 @@ include { AF2_MSAS_TO_A3M as AF2_MSAS_TO_A3M_PERCHAIN } from '../../modules/loca
 include { SPLIT_COMPLEX_FASTA } from '../../modules/local/fold/common/split_complex_fasta'
 include { ANNOTATE_MSA } from '../../modules/local/fold/common/annotate_msa'
 include { AF2_STAGE_COLABFOLD_MULTIMER_MSAS } from '../../modules/local/fold/af2/af2_stage_colabfold_multimer_msas'
+include { SINGLE_SEQ_A3M } from '../../modules/local/fold/common/single_seq_a3m'
 
 workflow FOLD_MSA {
     take:
-    ch_input   // tuple(meta, fasta)
-    methods    // List<String>, subset of FoldValidation.VALID_METHODS
-    msa_method // 'jackhmmer_af2' | 'mmseqs2_colabfold'
+    ch_input        // tuple(meta, fasta)
+    methods         // List<String>, subset of FoldValidation.VALID_METHODS
+    msa_method      // 'jackhmmer_af2' | 'mmseqs2_colabfold'
+    single_sequence // Boolean: skip the search and give every engine a query-only a3m
 
     main:
     // af2_mono consumes the same per-chain AF2 msas dir as af2; only the in-task
@@ -71,7 +73,22 @@ workflow FOLD_MSA {
     ch_a3m_mono = Channel.empty()
 
     // ==================== MONOMER (unchanged Phase-1 path) ====================
-    if (msa_method == 'jackhmmer_af2') {
+    // Query-only: no search at all, every engine gets an a3m holding just the query.
+    // This is what --method fold_pulldown does with binders by default (a de novo binder
+    // has no homologs worth finding), and what the refold does with the binder monomer.
+    if (single_sequence) {
+        // Same gate as the search branches below: when nothing consumes an a3m at all
+        // (ESMFold2-Fast on its own, say), do not write one for nobody.
+        if (need_af2_msas || need_a3m) {
+            SINGLE_SEQ_A3M(ch_mono)
+            ch_a3m_mono = SINGLE_SEQ_A3M.out.a3m
+        }
+        if (need_af2_msas) {
+            COLABFOLD_A3M_TO_AF2_MSAS(ch_a3m_mono)
+            ch_af2_msas_mono = COLABFOLD_A3M_TO_AF2_MSAS.out.msas
+        }
+    }
+    else if (msa_method == 'jackhmmer_af2') {
         // Both gates are false only when nothing consumes an MSA at all
         // (single-sequence ESMFold2 as the sole engine), so skip the search rather
         // than run it for nobody. The msa_method branch itself must stay, or an

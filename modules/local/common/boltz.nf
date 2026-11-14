@@ -24,7 +24,7 @@ process BOLTZ {
         saveAs: { filename ->
             if (!step_name.toString().endsWith('/boltz')) { return null }
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_model_\d+\.(cif|pdb)/)) { return null }
+            if (!FoldNaming.isModelStructure('boltz', bn)) { return null }
             return "${FoldNaming.flatPrefix('boltz', meta)}${bn}"
         }
     )
@@ -63,6 +63,9 @@ process BOLTZ {
     script:
     def use_msa_server_flag = params.use_msa_server ? '--use_msa_server' : ''
     def args = task.ext.args ?: ''
+    // Dataloader workers. A duplicate --num_workers in ext.args would not win, so this is a
+    // parameter: on some platforms the workers deadlock and the run sits at 0% GPU forever.
+    def num_workers = params.boltz_num_workers != null ? (params.boltz_num_workers as int) : task.cpus
     // fold.nf's --boltz_* knobs are resolved here in the module (reading params /
     // meta) rather than via a withName ext.args closure: ext.args set on the
     // subworkflow-qualified `BOLTZ_FOLD:BOLTZ` selector is silently dropped once
@@ -70,8 +73,8 @@ process BOLTZ {
     // profile-merge quirk). Per-job sample count and seed come from meta when
     // BOLTZ_FOLD fans --n_predictions across --boltz_batch_size jobs; params
     // remain unset for callers that do not fan out (no flag added - a no-op).
-    def diffusion_samples = meta.fold_batch_size ?: params.boltz_batch_size
-    def seed = meta.boltz_seed != null ? meta.boltz_seed : params.boltz_seed
+    def diffusion_samples = meta.fold_batch_size ?: FoldParams.engine(params, 'boltz_batch_size')
+    def seed = meta.boltz_seed != null ? meta.boltz_seed : FoldParams.engine(params, 'boltz_seed')
     def fmt = output_format.toString().toLowerCase()
     def out_fmt = (fmt in ['cif', 'mmcif']) ? 'cif' : 'pdb'
     // Boltz CLI value for mmCIF is 'mmcif' (files are still written as .cif).
@@ -152,7 +155,7 @@ process BOLTZ {
         ${boltz_flags} \
         ${use_msa_server_flag} \
         --preprocessing-threads ${task.cpus} \
-        --num_workers ${task.cpus} \
+        --num_workers ${num_workers} \
         --output_format ${out_fmt_cli} \
         ${yaml_file} 2>&1 | tee "\$BOLTZ_PREDICT_LOG"
     boltz_rc=\${PIPESTATUS[0]}

@@ -39,7 +39,7 @@ process RF3_FOLD {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!(bn ==~ /.*_sample-\d+_model\.cif/)) { return null }
+            if (!FoldNaming.isModelStructure('rf3', bn)) { return null }
             return "${FoldNaming.flatPrefix('rf3', meta)}${bn}"
         }
     )
@@ -59,14 +59,17 @@ process RF3_FOLD {
     path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:
+    // Engine flags via FoldParams, so a workflow that refolds can namespace them
+    // away from its own same-named design-time parameters (see lib/FoldParams.groovy).
+    def rf3_batch_size = FoldParams.engine(params, 'rf3_batch_size')
     // Per-job sample count from BOLTZ-style fan-out meta (fold.nf), else the
     // fold --rf3_batch_size / legacy default of 5 when neither n_predictions
     // nor batch size drove a meta override.
-    def diffusion_batch_size = meta.fold_batch_size ?: (params.rf3_batch_size ?: 5)
+    def diffusion_batch_size = meta.fold_batch_size ?: (rf3_batch_size ?: 5)
     // Seed from meta when fold fans a pinned --rf3_seed across batches
     // (seed, seed+1, ...); else params; unset -> omit (RF3 draws its own,
     // task hash stays stable for -resume).
-    def seed = meta.rf3_seed != null ? meta.rf3_seed : params.rf3_seed
+    def seed = meta.rf3_seed != null ? meta.rf3_seed : FoldParams.engine(params, 'rf3_seed')
     def seed_arg = seed ? "seed=${seed}" : ''
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
@@ -122,17 +125,29 @@ process RF3_FOLD {
     fi
     nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 
+    # Running the container as the host user (needed under Docker so the task can write its
+    # own work dir) leaves the uid with no passwd entry, which breaks two lookups:
+    #   HOME becomes /, so cuequivariance dies on "Permission denied: '/.cache'"
+    #   getpass.getuser() raises KeyError, which PyTorch calls to name its inductor cache
+    # Point the caches at the task directory, and give getuser() a name to find first.
+    export USER="\${USER:-nfbd}"
+    export XDG_CACHE_HOME="\$(pwd)/.cache"
+    export XDG_CONFIG_HOME="\$(pwd)/.config"
+    export TRITON_CACHE_DIR="\$(pwd)/.triton_cache"
+    export TORCHINDUCTOR_CACHE_DIR="\$(pwd)/.torchinductor_cache"
+    mkdir -p \$XDG_CACHE_HOME \$XDG_CONFIG_HOME \$TRITON_CACHE_DIR \$TORCHINDUCTOR_CACHE_DIR
+
     mkdir -p output
 
     rf3 fold \\
         inputs=${rf3_input_json} \\
         out_dir=output \\
-        ckpt_path=${params.rf3_ckpt_path} \\
-        num_steps=${params.rf3_num_steps} \\
-        n_recycles=${params.rf3_n_recycles} \\
+        ckpt_path=${FoldParams.engine(params, 'rf3_ckpt_path')} \\
+        num_steps=${FoldParams.engine(params, 'rf3_num_steps')} \\
+        n_recycles=${FoldParams.engine(params, 'rf3_n_recycles')} \\
         diffusion_batch_size=${diffusion_batch_size} \\
         ${seed_arg} \\
-        early_stopping_plddt_threshold=${params.rf3_early_stopping_plddt_threshold} \\
+        early_stopping_plddt_threshold=${FoldParams.engine(params, 'rf3_early_stopping_plddt_threshold')} \\
         annotate_b_factor_with_plddt=true \\
         one_model_per_file=true \\
         ${task.ext.args ?: ''}

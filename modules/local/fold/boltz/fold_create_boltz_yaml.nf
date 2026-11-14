@@ -5,7 +5,7 @@
 process FOLD_CREATE_BOLTZ_YAML {
     tag "${meta.id}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     tuple val(meta), path(fasta), path(a3m)

@@ -1,0 +1,69 @@
+nextflow_function {
+
+    name "Test Function resolveRfd4Chains"
+    script "modules/local/rfd4_proteina/rfd4_utils.nf"
+    function "resolveRfd4Chains"
+
+    tag "rfd4_proteina"
+    tag "rfd4_utils"
+
+    // The chain params default to boolean false, and false.toString() is the non-empty, therefore
+    // truthy, string "false". Taking them at face value made every chain id literally "false", so
+    // filter metrics were computed on a chain that does not exist and the binder sequence was read
+    // from the wrong chain.
+    test("unset chain params fall through to the A/B default") {
+        when {
+            function {
+                """
+                input[0] = [rfd4_target_chain: false, rfd4_binder_chain: false, contigs: false]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['A', 'B']
+        }
+    }
+
+    test("unset chain params fall through to the contig derivation") {
+        when {
+            function {
+                """
+                input[0] = [rfd4_target_chain: false, rfd4_binder_chain: false, contigs: '50-120, /0, A17-131']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['A', 'B']
+        }
+    }
+
+    test("explicit chain ids win over the default") {
+        when {
+            function {
+                """
+                input[0] = [rfd4_target_chain: 'C', rfd4_binder_chain: 'D', contigs: false]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['C', 'D']
+        }
+    }
+
+    test("one explicit chain id is combined with the derived other") {
+        when {
+            function {
+                """
+                input[0] = [rfd4_target_chain: false, rfd4_binder_chain: 'Z', contigs: false]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['A', 'Z']
+        }
+    }
+}

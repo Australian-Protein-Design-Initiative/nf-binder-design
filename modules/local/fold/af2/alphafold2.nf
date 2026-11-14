@@ -58,17 +58,11 @@ process ALPHAFOLD2 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            def keep_best = meta.af2_keep_models == 'best'
             def no_relax = params.af2_no_relax instanceof Boolean \
                 ? params.af2_no_relax \
                 : params.af2_no_relax.toString().toBoolean()
-            def match = false
-            if (no_relax) {
-                match = keep_best ? (bn == 'ranked_0.cif') : (bn ==~ /unrelaxed_model_.*\.cif/)
-            } else {
-                match = bn ==~ /relaxed_model_.*\.cif/
-            }
-            if (!match) { return null }
+            def opts = [keep_best: meta.af2_keep_models == 'best', no_relax: no_relax]
+            if (!FoldNaming.isModelStructure(meta.af2_tool ?: 'af2', bn, opts)) { return null }
             return "${FoldNaming.af2Prefix(meta)}${bn}"
         }
     )

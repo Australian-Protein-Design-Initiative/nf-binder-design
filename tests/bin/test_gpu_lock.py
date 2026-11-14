@@ -207,3 +207,46 @@ def test_second_slot_only_used_once_every_gpu_is_busy(tmp_path, env):
     assert sorted(counts.values()) == [1, 2], (
         f"three tasks over two GPUs should place 1 and 2, got {counts}"
     )
+
+
+@pytest.mark.skipif(shutil.which("flock") is None, reason="flock not available")
+def test_lock_files_are_writable_by_other_users(tmp_path, env):
+    """Tasks sharing a lock do not all run as the same user.
+
+    Some containers run as root and others are pinned to the invoking user, so
+    whichever task creates the lock files decides who can open them afterwards.
+    Created under the default umask they come out owner-writable only, and
+    every task running as anyone else then blocks until the timeout.
+    """
+    lock_dir = tmp_path / "locks"
+    subprocess.run(
+        ["bash", "-c",
+         f'umask 022; source {GPU_LOCK}; nfbd_acquire_gpu "0" "{lock_dir}" 1 5'],
+        env=env, check=True, capture_output=True,
+    )
+    assert lock_dir.stat().st_mode & 0o777 == 0o777
+    for f in lock_dir.glob("*.lock"):
+        assert f.stat().st_mode & 0o666 == 0o666, f"{f.name} is not world-writable"
+
+
+@pytest.mark.skipif(shutil.which("flock") is None, reason="flock not available")
+@pytest.mark.skipif(os.geteuid() == 0, reason="root can write regardless of mode")
+def test_unwritable_lock_fails_immediately(tmp_path, env):
+    """A lock this task cannot open is not something waiting can fix.
+
+    Treating it as contention means every task blocks for the whole of
+    --gpu_lock_timeout before failing, which on the default is four hours.
+    """
+    lock_dir = tmp_path / "locks"
+    lock_dir.mkdir()
+    (lock_dir / "gpu0.slot0.lock").touch(mode=0o444)
+    (lock_dir / "gpu0.slot0.lock").chmod(0o444)
+
+    result = subprocess.run(
+        ["bash", "-c",
+         f'source {GPU_LOCK}; nfbd_acquire_gpu "0" "{lock_dir}" 1 600'],
+        env=env, capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 2
+    assert "not writable" in result.stderr
+    assert "no usable lock file" in result.stderr

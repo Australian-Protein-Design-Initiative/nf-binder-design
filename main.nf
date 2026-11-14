@@ -31,6 +31,8 @@ if (params.method == "rfd") {
     include { FOLD_PULLDOWN } from './workflows/fold_pulldown'
 } else if (params.method == "rfd3") {
     include { RFD3 } from './workflows/rfd3'
+} else if (params.method == "rfd4_proteina") {
+    include { RFD4_PROTEINA } from './workflows/rfd4_proteina'
 } else if (params.method == "foldseek") {
     include { FOLDSEEK } from './workflows/foldseek'
 }
@@ -71,6 +73,7 @@ workflow {
             rfd             RFDiffusion-based binder design
             rfd_partial     RFDiffusion partial diffusion for binder optimization
             rfd3            RFDiffusion3-based binder design
+            rfd4_proteina   RFD4-Proteina binder design (sequence-structure co-design)
             bindcraft       BindCraft binder design
             germinal        Germinal antibody/nanobody design
             boltzgen        BoltzGen binder design
@@ -105,11 +108,13 @@ workflow {
         FOLD_PULLDOWN()
     } else if (params.method == "rfd3") {
         RFD3()
+    } else if (params.method == "rfd4_proteina") {
+        RFD4_PROTEINA()
     } else if (params.method == "foldseek") {
         FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, rfd3, bindcraft, germinal, boltzgen, fold, fold_pulldown, foldseek")
+        log.info("Available methods: rfd, rfd_partial, rfd3, rfd4_proteina, bindcraft, germinal, boltzgen, fold, fold_pulldown, foldseek")
         exit(1)
     }
 

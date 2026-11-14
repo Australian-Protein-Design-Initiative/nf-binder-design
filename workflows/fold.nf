@@ -360,7 +360,7 @@ workflow FOLD {
         [[id: f.baseName, n_chains: chain_counts[f.toString()]], f]
     }
 
-    FOLD_CORE(ch_input, methods, params.msa_method)
+    FOLD_CORE(ch_input, methods, params.msa_method, '', false)
 
     emit:
     scores = FOLD_CORE.out.scores

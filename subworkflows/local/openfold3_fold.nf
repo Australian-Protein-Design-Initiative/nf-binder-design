@@ -34,10 +34,28 @@ workflow OPENFOLD3_FOLD {
     take:
     ch_for_openfold3 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
-    def batches = foldPredictionBatches(params.openfold3_batch_size, 5, params.n_predictions)
-    def base_seed = params.openfold3_seeds ? (params.openfold3_seeds.toString().split(',')[0].trim() as int) : 42
+    // Via FoldParams so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see lib/FoldParams.groovy).
+    def batches = foldPredictionBatches(FoldParams.engine(params, 'openfold3_batch_size'), 5, params.n_predictions)
+    def openfold3_seeds = FoldParams.engine(params, 'openfold3_seeds')
+    def base_seed = openfold3_seeds ? (openfold3_seeds.toString().split(',')[0].trim() as int) : 42
+
+    // The runner YAML's experiment_settings.seeds is a list, and OpenFold3 writes each
+    // seed to its own output/<name>/seed_<S>/ with the seed in the file names too, so
+    // the one-job-per-seed fan-out collapses into a single job (lib/FoldSeeds.groovy).
+    // Nothing downstream changes: the confidence rows and the flat predictions/ gather
+    // both already key on a basename that carries the seed.
+    def seed_list = FoldSeeds.collapse('openfold3', batches, base_seed, params.fold_seed_list)
+    if (seed_list) {
+        batches = [batches[0]]
+    }
 
     GENERATE_OPENFOLD3_INPUT(ch_for_openfold3.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) == 1 }, ch_templates)
     GENERATE_OPENFOLD3_INPUT_COMPLEX(ch_for_openfold3.filter { meta, _fasta, _msa -> (meta.n_chains ?: 1) > 1 }, ch_templates)
@@ -60,6 +78,7 @@ workflow OPENFOLD3_FOLD {
                     fold_batch_size: n_samples,
                     fold_namespaced: namespaced,
                     openfold3_seed: base_seed + i,
+                    openfold3_seeds: seed_list ? seed_list.join(',') : null,
                 ]
                 if (depth != null) {
                     def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
@@ -106,7 +125,7 @@ workflow OPENFOLD3_FOLD {
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
-        name: 'openfold3_fold_scores.tsv',
+        name: "${publish_label ? publish_label + '_' : ''}openfold3_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/openfold3",
         keepHeader: true,
         skip: 1,

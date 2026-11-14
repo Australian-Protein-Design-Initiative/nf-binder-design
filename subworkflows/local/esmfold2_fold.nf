@@ -40,10 +40,28 @@ workflow ESMFOLD2_FOLD {
     take:
     ch_for_esmfold2 // monomer: tuple(meta, fasta, a3m); multimer: tuple(meta, fasta, [paired...+unpaired...])
     tool            // 'esmfold2' | 'esmfold2_fast'
+    // publish_label keeps two fold runs that share an output directory apart: the refold
+    // folds the complexes and then the binder monomers, and both write their per-engine
+    // score table to the same storeDir. Without a label the second overwrites the first,
+    // and the merge downstream then sees rows for complexes it never folded.
+    publish_label
 
     main:
-    def batches = foldPredictionBatches(params.esmfold2_batch_size, 5, params.n_predictions)
-    def base_seed = params.esmfold2_seeds ? (params.esmfold2_seeds.toString().split(',')[0].trim() as int) : 42
+    // Via FoldParams so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see lib/FoldParams.groovy).
+    def batches = foldPredictionBatches(FoldParams.engine(params, 'esmfold2_batch_size'), 5, params.n_predictions)
+    def esmfold2_seeds = FoldParams.engine(params, 'esmfold2_seeds')
+    def base_seed = esmfold2_seeds ? (esmfold2_seeds.toString().split(',')[0].trim() as int) : 42
+
+    // run_esmfold2.py folds each seed in turn with the model resident, so the
+    // one-job-per-seed fan-out collapses into a single job carrying the whole list
+    // (see lib/FoldSeeds.groovy). The model load is most of the wall time here -
+    // measured at 1m 8s per task for a 2-chain complex on a GB10, nearly all of it
+    // startup - so this is the difference between one load and --n_predictions of them.
+    def seed_list = FoldSeeds.collapse(tool, batches, base_seed, params.fold_seed_list)
+    if (seed_list) {
+        batches = [batches[0]]
+    }
 
     def is_fast = tool == 'esmfold2_fast'
     def single_sequence = is_fast || params.esmfold2_single_sequence
@@ -79,6 +97,7 @@ workflow ESMFOLD2_FOLD {
                     fold_batch_size: n_samples,
                     fold_namespaced: namespaced,
                     esmfold2_seed: base_seed + i,
+                    esmfold2_seeds: seed_list ? seed_list.join(',') : null,
                     esmfold2_tool: tool,
                     esmfold2_model: hf_model,
                     esmfold2_single_sequence: single_sequence,
@@ -138,7 +157,7 @@ workflow ESMFOLD2_FOLD {
     }
     FOLD_PARSE_CONFIDENCE(ch_conf)
     ch_tsv = FOLD_PARSE_CONFIDENCE.out.collectFile(
-        name: "${tool}_fold_scores.tsv",
+        name: "${publish_label ? publish_label + '_' : ''}${tool}_fold_scores.tsv",
         storeDir: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${tool}",
         keepHeader: true,
         skip: 1,
