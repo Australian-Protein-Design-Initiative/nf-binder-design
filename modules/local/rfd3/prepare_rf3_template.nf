@@ -4,7 +4,7 @@
 // 1) Trim to contigs so the template matches what RFDiffusion3 sees (trim_to_contigs.py; supports RFD3 v3 contig syntax)
 // 2) Rename all chains to target_chain (gemmi) so the template chain_id matches RFD3 output for the target polymer
 process PREPARE_RF3_TEMPLATE {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     tuple path(structure), path(contigs_or_config), val(contigs_string), val(target_chain)
@@ -61,7 +61,7 @@ process PREPARE_RF3_TEMPLATE {
 // User-supplied RF3 template: rename/select chains to rfd3TargetChain; map template_selection
 // from the user's file chain IDs to the prepared chain ID (written to rf3_template_selection_mapped.txt).
 process RENAME_RF3_TEMPLATE_CHAINS {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     tuple path(structure), val(target_chain), val(template_selection_b64)

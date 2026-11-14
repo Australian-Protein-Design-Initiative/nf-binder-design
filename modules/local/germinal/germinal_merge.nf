@@ -3,7 +3,7 @@ process GERMINAL_MERGE {
 
     publishDir "${params.outdir}/germinal", mode: 'copy', overwrite: true
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.5'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     path 'batch_dirs/*'

@@ -9,7 +9,7 @@
 process ANNOTATE_MSA {
     tag "${meta.id}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     // Publish the rendered per-chain paired/unpaired MSAs so pairing depth is
     // inspectable (the msa_taxonomy.py stderr log also reports it per chain).

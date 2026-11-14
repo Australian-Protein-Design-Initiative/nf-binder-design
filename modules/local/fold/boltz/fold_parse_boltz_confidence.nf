@@ -11,7 +11,7 @@
 process FOLD_PARSE_BOLTZ_CONFIDENCE {
     tag "${meta.id}${meta.fold_batch ? "_batch${meta.fold_batch}" : ''}_model_${model}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.6'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
     tuple val(meta), val(model), val(original_file), val(predictions_file), path(json_file), path(ipsae_tsv)
