@@ -66,7 +66,20 @@ nfbd_acquire_gpu() {
         return 2
     fi
 
-    mkdir -p "${lock_dir}" || { echo "gpu_lock: cannot create ${lock_dir}" >&2; return 2; }
+    # The lock dir is shared by tasks that do not all run as the same user:
+    # some images run as root, others are pinned to the host uid (see the
+    # containerOptions in conf/platforms/arm64.config), and whichever task gets
+    # there first creates the dir and the files. Create both world-writable,
+    # otherwise a root-created lock is read-only to every later task, which
+    # cannot open it for write and spins below until the timeout.
+    local prev_umask
+    prev_umask="$(umask)"
+    umask 000
+    mkdir -p "${lock_dir}" || {
+        umask "${prev_umask}"
+        echo "gpu_lock: cannot create ${lock_dir}" >&2
+        return 2
+    }
 
     # Build the slot list SLOT-MAJOR: slot 0 of every GPU, then slot 1 of every
     # GPU, and so on. Scanning it in order therefore fills every card's first
@@ -96,14 +109,39 @@ nfbd_acquire_gpu() {
     done
     local n=${#slot_gpu[@]}
 
+    # Create the files up front, under the permissive umask set above, and
+    # check this task can actually write them. A lock left behind by a task
+    # running as another user is not an error to wait out: no amount of
+    # waiting makes it openable, so say which file and stop.
+    local f idx writable=0
+    for (( idx = 0; idx < n; idx++ )); do
+        f="${slot_file[$idx]}"
+        [[ -e "${f}" ]] || : > "${f}" 2>/dev/null
+        if [[ -w "${f}" ]]; then
+            writable=$(( writable + 1 ))
+        else
+            echo "gpu_lock: ${f} is not writable by uid $(id -u); it belongs to a task that ran as a different user." >&2
+        fi
+    done
+    umask "${prev_umask}"
+    if (( writable == 0 )); then
+        echo "gpu_lock: no usable lock file in ${lock_dir}. Delete that directory and rerun." >&2
+        return 2
+    fi
+
     local deadline=$(( SECONDS + timeout ))
     local announced=0
     while :; do
-        local idx fd
+        local fd
         for (( idx = 0; idx < n; idx++ )); do
             # Open first, then try the lock. If the lock fails the descriptor is
             # closed again, otherwise it stays open and the claim persists.
-            exec {fd}>"${slot_file[$idx]}" || continue
+            # Errors are silent here: an unopenable slot was already reported
+            # once above, and this loop runs until the timeout. The suppression
+            # is scoped to the group on purpose - a redirection written on the
+            # `exec` itself would apply to this shell from here on, taking the
+            # timeout message and everything the task prints with it.
+            { exec {fd}>"${slot_file[$idx]}"; } 2>/dev/null || continue
             if flock -n "${fd}"; then
                 export CUDA_VISIBLE_DEVICES="${slot_gpu[$idx]}"
                 echo "gpu_lock: acquired GPU ${slot_gpu[$idx]} via $(basename "${slot_file[$idx]}")"
@@ -153,7 +191,15 @@ nfbd_record_gpu_trace() {
 
     [[ -n "${trace_dir}" ]] || return 0
     command -v nvidia-smi >/dev/null 2>&1 || return 0
-    mkdir -p "${trace_dir}" 2>/dev/null || return 0
+
+    # World-writable for the same reason as the lock dir: tasks do not all run
+    # as the same user, and a root-created trace dir would otherwise silently
+    # swallow every row written by a task pinned to the host uid.
+    local prev_umask
+    prev_umask="$(umask)"
+    umask 000
+    mkdir -p "${trace_dir}" 2>/dev/null || { umask "${prev_umask}"; return 0; }
+    umask "${prev_umask}"
 
     # The task hash is not available as `task.hash` here: the script text is
     # itself an input to the hash, so at render time Nextflow interpolates the

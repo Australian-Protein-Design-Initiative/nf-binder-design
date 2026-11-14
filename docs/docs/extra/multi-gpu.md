@@ -20,6 +20,12 @@ Leaving `--gpu_devices` unset (the default) disables GPU management entirely,
 which is what you want under SLURM or any other scheduler that sets
 `CUDA_VISIBLE_DEVICES` itself.
 
+A single-GPU machine benefits from it too, for a different reason. With
+`--gpu_devices 0` the card's one slot admits one GPU task at a time, so two
+models cannot be loading onto it at once. Without it nothing serialises them,
+and a run naming several fold engines can die with `CUDA error: out of memory`
+while each of those engines runs comfortably on its own.
+
 !!! tip "Spreading work across GPUs is only half the problem"
 
     Roughly 25 seconds of every RosettaFold3 task is Python imports and
@@ -63,6 +69,16 @@ Two properties make this reliable where earlier approaches were not:
 
 If every slot is busy the task polls until one frees, up to
 `params.gpu_lock_timeout` seconds, then fails.
+
+The lock directory and its files are created world-writable, because the tasks
+sharing them do not all run as the same user: some images run as root, and
+others are pinned to the invoking user through `containerOptions` (as
+`conf/platforms/arm64.config` does under Docker). Whichever task gets there
+first creates the files, and a lock a later task cannot open for writing is
+useless to it. A task that meets one says so and fails immediately rather than
+waiting out `--gpu_lock_timeout`; if that happens, delete the lock directory
+and rerun. Locks hold no state between tasks, so deleting the directory costs
+nothing.
 
 ## What it is worth
 
