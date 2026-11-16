@@ -3,6 +3,7 @@
 # requires-python = ">=3.8"
 # dependencies = [
 #     "pandas",
+#     "numpy",
 # ]
 # ///
 
@@ -33,6 +34,13 @@ def main():
     parser.add_argument("--original-file", help="Engine-native structure filename (optional); adds 'original_file'")
     parser.add_argument("--predictions-file", help="Renamed name in fold/predictions/ (optional); adds 'predictions_file'")
     parser.add_argument("--merge-ipsae", help="Path to *_ipsae.tsv file to merge (optional)")
+    parser.add_argument(
+        "--pae-npz",
+        help="Path to the sample's pae_*.npz (optional); adds a 'pae' column holding the "
+        "mean of the PAE matrix. Boltz's confidence JSON carries no PAE, so without this "
+        "the pae column is empty for Boltz while every other engine fills it. A missing or "
+        "zero-byte file is treated as 'no PAE available'.",
+    )
 
     args = parser.parse_args()
 
@@ -80,6 +88,20 @@ def main():
         except Exception as e:
             print(f"Error merging IPSAE file: {e}", file=sys.stderr)
             sys.exit(1)
+
+    # Mean PAE off the matrix, as bin/fold/parse_fold_confidence.py does for the
+    # engines whose full confidences JSON carries one.
+    if args.pae_npz:
+        pae_path = Path(args.pae_npz)
+        if pae_path.exists() and pae_path.stat().st_size > 0:
+            try:
+                import numpy as np
+
+                with np.load(pae_path) as data:
+                    key = "pae" if "pae" in data else data.files[0]
+                    df_flat["pae"] = float(np.nanmean(np.asarray(data[key], dtype=float)))
+            except Exception as e:  # a readable structure with an unreadable PAE is not fatal
+                print(f"Warning: could not read PAE from {pae_path}: {e}", file=sys.stderr)
 
     # Add the metadata columns to the beginning of the DataFrame
     df_flat.insert(0, "id", args.id)

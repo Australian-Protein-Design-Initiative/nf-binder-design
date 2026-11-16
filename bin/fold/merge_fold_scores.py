@@ -38,6 +38,9 @@ BOLTZ_MAP = {
     "iptm": "iptm",
     "complex_plddt": "plddt",
     "complex_pde": "pde",
+    # Not in Boltz's confidence JSON: parse_boltz_confidence.py --pae-npz
+    # reads the mean off the sample's PAE matrix.
+    "pae": "pae",
     # bin/parse_boltz_confidence.py's --merge-ipsae only renames ipSAE ->
     # ipSAE_min; the other Type==min interface metrics keep ipsae.py's own
     # (mixed-case) column names.

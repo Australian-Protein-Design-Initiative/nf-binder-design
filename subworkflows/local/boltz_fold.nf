@@ -111,6 +111,9 @@ workflow BOLTZ_FOLD {
     // sample, a single path when 1; normalise, then tag each with its model
     // index parsed from the confidence_<id>_model_<N>.json filename.
     empty_ipsae_tsv = file("${projectDir}/assets/dummy_files/empty_ipsae.tsv")
+    // Zero bytes, and parse_boltz_confidence.py reads that as "no PAE matrix" rather
+    // than failing. Only reachable if Boltz stopped writing pae_*.npz.
+    empty_pae_npz = file("${projectDir}/assets/dummy_files/empty_pae.npz")
 
     // Pair each model's confidence JSON with its own ipSAE TSV (ipsae.py writes
     // one <model>_10_10_ipsae.tsv per diffusion sample - see boltz.nf's per-pae
@@ -118,9 +121,11 @@ workflow BOLTZ_FOLD {
     // filled for Boltz too, not just RF3/Protenix/AF3/OpenFold3.
     ch_conf_per_model = BOLTZ.out.confidence_json_all
         .join(BOLTZ.out.ipsae_tsv)
-        .flatMap { meta, jsons, ipsae_tsvs ->
+        .join(BOLTZ.out.pae_npz)
+        .flatMap { meta, jsons, ipsae_tsvs, pae_npzs ->
             def files = (jsons instanceof List) ? jsons : [jsons]
             def ipsae_files = (ipsae_tsvs instanceof List) ? ipsae_tsvs : [ipsae_tsvs]
+            def pae_files = (pae_npzs instanceof List) ? pae_npzs : [pae_npzs]
             files.collect { j ->
                 def m = (j.name =~ /_model_(\d+)\.json$/)
                 def idx = m ? m[0][1] : '0'
@@ -130,7 +135,9 @@ workflow BOLTZ_FOLD {
                 def pred = "${FoldNaming.flatPrefix('boltz', meta)}${struct}"
                 def stem = struct.replaceFirst(/\.(cif|pdb)$/, '')
                 def ipsae = ipsae_files.find { it.name.startsWith("${stem}_") && it.name.endsWith('_ipsae.tsv') }
-                [meta, idx, struct, pred, j, ipsae ?: empty_ipsae_tsv]
+                // Boltz names them pae_<stem>.npz, one per diffusion sample.
+                def pae_npz = pae_files.find { it.name == "pae_${stem}.npz" }
+                [meta, idx, struct, pred, j, ipsae ?: empty_ipsae_tsv, pae_npz ?: empty_pae_npz]
             }
         }
 

@@ -8,13 +8,17 @@
 // top-ranked model_0. ipSAE is merged from BOLTZ.out.ipsae_tsv (ipsae.py runs
 // unconditionally in boltz.nf, once per sample); for a monomer fold there are
 // no chain pairs, so the merge is a no-op (Type==min row absent).
+//
+// The 'pae' column comes from the sample's pae_*.npz rather than the confidence
+// JSON, which has no PAE in it: without that the summariser's pae_mean was blank
+// for Boltz while every other engine filled it.
 process FOLD_PARSE_BOLTZ_CONFIDENCE {
     tag "${meta.id}${meta.fold_batch ? "_batch${meta.fold_batch}" : ''}_model_${model}"
 
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
     input:
-    tuple val(meta), val(model), val(original_file), val(predictions_file), path(json_file), path(ipsae_tsv)
+    tuple val(meta), val(model), val(original_file), val(predictions_file), path(json_file), path(ipsae_tsv), path(pae_npz)
 
     output:
     stdout
@@ -33,6 +37,7 @@ process FOLD_PARSE_BOLTZ_CONFIDENCE {
         --msa-depth "${meta.msa_depth_tag ?: ''}" \
         --original-file "${original_file}" \
         --predictions-file "${predictions_file}" \
-        --merge-ipsae "${ipsae_tsv}"
+        --merge-ipsae "${ipsae_tsv}" \
+        --pae-npz "${pae_npz}"
     """
 }

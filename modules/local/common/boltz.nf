@@ -57,6 +57,10 @@ process BOLTZ {
     // a non-breaking superset of confidence_json above.
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/confidence_${yaml_file.baseName}_model_*.json"), emit: confidence_json_all
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae.tsv"), emit: ipsae_tsv
+    // The per-sample PAE matrices. Boltz's confidence JSON has no PAE of its own, so
+    // the mean PAE that every other engine reports is read from these (see
+    // bin/parse_boltz_confidence.py --pae-npz); ipsae.py already reads the same files.
+    tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/pae_${yaml_file.baseName}_model_*.npz"), emit: pae_npz
     tuple val(meta), path("boltz_results_${yaml_file.baseName}/predictions/${yaml_file.baseName}/*_ipsae_byres.tsv"), emit: ipsae_byres_tsv
     path("*_ids.txt"), emit: msa_ids, optional: true
 
