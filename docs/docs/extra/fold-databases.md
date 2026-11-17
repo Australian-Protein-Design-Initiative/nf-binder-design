@@ -71,8 +71,8 @@ The fold workflow defaults the per-DB relative paths to this DeepMind
 download-script layout (e.g. `mgnify/mgy_clusters_2022_05.fa`,
 `uniref30/UniRef30_2021_03`); `--af2_uniref30_subpath`, `--af2_mgnify_subpath`,
 `--af2_uniprot_subpath`, `--af2_pdb_seqres_subpath` and `--af2_pdb70_subpath`
-override an individual one when a snapshot uses different filenames — needed
-for AF2 multimer against the 2021 snapshot, whose HHblits DB is `uniclust30`.
+override an individual path when a snapshot uses different filenames (needed
+for AF2 multimer against the 2021 snapshot, whose HHblits DB is `uniclust30`).
 
 On M3, `-profile m3` defaults to `alphafold_20211129`, which has `uniprot/` +
 `pdb_seqres/` for AF2 multimer, together with its sub-paths (`uniclust30`,
@@ -80,7 +80,7 @@ On M3, `-profile m3` defaults to `alphafold_20211129`, which has `uniprot/` +
 those two DBs differently, so pointing `--af2_db_path` at it under
 `-profile m3` also needs `--af2_uniref30_subpath uniref30/UniRef30_2021_03
 --af2_mgnify_subpath mgnify/mgy_clusters_2022_05.fa` (as
-`examples/fold/nextflow.m3.config` does). Both live under `/mnt/datasets/alphafold/` (group
+`examples/fold/nextflow.m3.config` does). Both reside under `/mnt/datasets/alphafold/` (group
 `alphafold`); bind-mount that path in Apptainer `runOptions` when using
 `-profile m3` (see `examples/fold/nextflow.m3.config` /
 `examples/fold-multimer/nextflow.m3.config`).
@@ -134,8 +134,8 @@ chmod +x setup_databases.sh
 
 Databases provided by ColabFold (see [colabfold.mmseqs.com](https://colabfold.mmseqs.com/)):
 
-1. **UniRef30** — 30% identity clustered UniRef100
-2. **ColabFold env DB** — environmental sequences (BFD/MGnify-derived plus
+1. **UniRef30**: 30% identity clustered UniRef100
+2. **ColabFold env DB**: environmental sequences (BFD/MGnify-derived plus
    metagenomic sources); alternatively BFD/MGnify-only archives are listed on
    the download page
 3. Optional template DBs (PDB100, etc.)

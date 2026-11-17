@@ -18,7 +18,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - **Fold Pulldown** - an AlphaPulldown-like target × binder pulldown across multiple folding engines (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2)
 - **Fold** - multi-method structure prediction (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2) with shared MSAs and EnGens clustering
 
-Every design workflow above can also run [refold scoring](subworkflows/refold.md) (`--refold_with`): a held-out second opinion that folds selected designs again with one or more independent predictors, on top of the workflow's own cofold.
+Every design workflow above can also run [refold scoring](subworkflows/refold.md) (`--refold_with`): an independent validation step that folds selected designs again with one or more external predictors in addition to the workflow's initial evaluation.
 
 ![RFdiffusion workflow](images/rfd-workflow.png)
 

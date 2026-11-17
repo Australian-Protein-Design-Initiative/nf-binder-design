@@ -44,11 +44,11 @@ uv run bin/complex_sasa.py \
 
 ### create_bindcraft_settings.py
 
-`bin/bindcraft/create_bindcraft_settings.py` — generates BindCraft configuration files.
+`bin/bindcraft/create_bindcraft_settings.py`: generates BindCraft configuration files.
 
 ### add_bindcraft_target_column.py
 
-`bin/bindcraft/add_bindcraft_target_column.py` — adds a `Target` column (input structure filename) to per-batch BindCraft stats CSVs before they are merged.
+`bin/bindcraft/add_bindcraft_target_column.py`: adds a `Target` column (input structure filename) to per-batch BindCraft stats CSVs before they are merged.
 
 ### create_boltz_yaml.py
 
@@ -82,7 +82,7 @@ Trims protein structures to specified contig regions, using the RFdiffusion cont
 
 ### bindcraft_scoring.py
 
-`bin/bindcraft/bindcraft_scoring.py` — design scoring code extracted from BindCraft; outputs a subset of BindCraft's scores for any set of designs. Requires PyRosetta — should be run using the BindCraft container.
+`bin/bindcraft/bindcraft_scoring.py`: design scoring code extracted from BindCraft; outputs a subset of BindCraft's scores for any set of designs. Requires PyRosetta and should be executed using the BindCraft container.
 
 
 ## Filter Plugins

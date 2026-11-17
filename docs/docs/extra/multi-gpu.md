@@ -1,9 +1,9 @@
 # Multiple GPUs on one machine
 
 Nextflow has no built-in notion of a GPU as a consumable resource on the `local`
-executor. If two tasks start at once on a two-GPU workstation, nothing in
-Nextflow stops both from choosing the same card. This page describes how the
-pipeline solves that, and how to configure it.
+executor. If two tasks start at once on a two-GPU workstation, Nextflow does
+not prevent both from choosing the same card. This page describes how the
+pipeline coordinates GPU assignment and how to configure it.
 
 ## Quick start
 
@@ -13,169 +13,159 @@ Pass the GPUs the pipeline may use, and select a local profile:
 nextflow run main.nf --gpu_devices 0,1 -profile local -c nextflow.dual-gpu.config
 ```
 
-That is the whole configuration. Tasks claim a GPU on startup, hold it for their
-lifetime, and release it when they exit.
+Tasks allocate an available GPU on startup, retain it during execution, and
+release it upon exit.
 
 Leaving `--gpu_devices` unset (the default) disables GPU management entirely,
-which is what you want under SLURM or any other scheduler that sets
-`CUDA_VISIBLE_DEVICES` itself.
+which is appropriate under SLURM or any other scheduler that sets
+`CUDA_VISIBLE_DEVICES` externally.
 
-A single-GPU machine benefits from it too, for a different reason. With
-`--gpu_devices 0` the card's one slot admits one GPU task at a time, so two
-models cannot be loading onto it at once. Without it nothing serialises them,
-and a run naming several fold engines can die with `CUDA error: out of memory`
-while each of those engines runs comfortably on its own.
+A single-GPU machine also benefits from this configuration. With
+`--gpu_devices 0`, the card admits one GPU task at a time, preventing multiple
+models from loading concurrently. Without this constraint, runs that execute
+multiple fold engines concurrently can trigger out-of-memory errors even when
+each engine fits within GPU memory on its own.
 
-!!! tip "Spreading work across GPUs is only half the problem"
+!!! tip "Throughput bottlenecks during task initialization"
 
-    Roughly 25 seconds of every RosettaFold3 task is Python imports and
-    checkpoint loading before any GPU work starts, and that cost is paid once
-    per task no matter which card it lands on. On a `-profile local` multi-GPU
-    run, **raising batch sizes buys more throughput than any amount of
-    scheduling.**
+    Approximately 25 seconds of every RosettaFold3 task is spent importing Python
+    modules and loading model checkpoints before GPU execution begins. This
+    initialization occurs once per task regardless of card assignment. On a
+    `-profile local` multi-GPU run, **increasing batch sizes yields greater
+    throughput improvements than scheduling adjustments alone.**
 
-    - `--rf3_batch_size` groups already-generated sequences into one `rf3 fold`
-      call. This is the one to reach for first: it amortises the startup cost
-      with **no effect on design diversity** and no extra VRAM. At batch size 4
-      an rfd3 task spends about 7 s of overhead per design instead of 28 s.
-    - `--mpnn_batch_size` likewise generates several sequences per backbone in
-      one call.
-    - `--rfd3_batch_size` batches too, **but costs diversity**: every design in
-      an RFdiffusion3 batch is sampled at the *same length*, so `--rfd3_batch_size 2`
-      over 100 designs gives 50 independent length draws rather than 100. Raise
-      it only if you are willing to trade binder length diversity for speed.
+    - `--rf3_batch_size` groups generated sequences into a single `rf3 fold`
+      execution. This amortises startup overhead without altering design
+      diversity or requiring extra VRAM. At batch size 4, an rfd3 task spends
+      about 7 seconds of overhead per design instead of 28 seconds.
+    - `--mpnn_batch_size` generates several sequences per backbone in a single call.
+    - `--rfd3_batch_size` also batches generation, but restricts diversity:
+      every design in an RFdiffusion3 batch is sampled at the *same length*, so
+      `--rfd3_batch_size 2` across 100 designs yields 50 independent length draws
+      instead of 100. Increase this parameter only when uniform length is acceptable.
 
-    The trade-off to know about: one failing design fails its whole batch.
+    Batch failure trade-off: a failure in one design causes the entire batch task
+    to fail.
 
-## How allocation works
+## Allocation mechanism
 
 Each GPU task sources [`bin/gpu_lock.sh`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/bin/gpu_lock.sh)
-and calls `nfbd_acquire_gpu`. That function keeps one lock file per GPU slot in
-`params.gpu_lock_dir` (by default `<workDir>/.gpu_locks`) and claims one with
+and calls `nfbd_acquire_gpu`. That function maintains one lock file per GPU slot in
+`params.gpu_lock_dir` (default: `<workDir>/.gpu_locks`) and claims a slot using
 `flock`.
 
-Two properties make this reliable where earlier approaches were not:
+Key design properties:
 
-- **The claim is atomic.** `flock` either grants the lock or it does not, so two
-  tasks starting in the same millisecond cannot both win the same card.
-- **The kernel owns the release.** The lock lives on an open file descriptor
-  held by the task shell. When the task exits the descriptor closes and the lock
-  drops -- including when the task is killed, or the machine loses power. There
-  are no stale lock files to clean up and no PID bookkeeping to go wrong.
-- **Slots fill breadth-first.** The scan tries slot 0 of every GPU before slot 1
-  of any of them, so a task always prefers an idle card over a second slot on a
-  busy one. The GPU order is rotated per task so simultaneous starts do not all
-  probe the same card first.
+- Atomic locking: `flock` either grants the lock or rejects it immediately,
+  preventing two tasks starting at the exact same millisecond from acquiring the
+  same device.
+- Kernel-managed release: the lock is tied to an open file descriptor held by
+  the task process. When the process terminates, the operating system closes
+  the descriptor and releases the lock automatically, even if the task is killed
+  or the host system loses power. There are no stale lock files or PID tracking
+  tables to clean up.
+- Breadth-first slot assignment: the acquisition routine checks slot 0 across
+  all GPUs before evaluating slot 1 on any device, preferring an idle GPU over a
+  second process on an active card. GPU search order is rotated per task to
+  prevent concurrent starts from contending on the first device.
 
-If every slot is busy the task polls until one frees, up to
-`params.gpu_lock_timeout` seconds, then fails.
+When all slots are occupied, the task polls until a slot becomes available or
+until `params.gpu_lock_timeout` seconds elapse, after which the task fails.
 
-The lock directory and its files are created world-writable, because the tasks
-sharing them do not all run as the same user: some images run as root, and
-others are pinned to the invoking user through `containerOptions` (as
-`conf/platforms/arm64.config` does under Docker). Whichever task gets there
-first creates the files, and a lock a later task cannot open for writing is
-useless to it. A task that meets one says so and fails immediately rather than
-waiting out `--gpu_lock_timeout`; if that happens, delete the lock directory
-and rerun. Locks hold no state between tasks, so deleting the directory costs
-nothing.
+The lock directory and lock files are created world-writable because tasks may run
+under different user IDs: certain container images run as root, whereas others
+run as the invoking user via `containerOptions` (such as `conf/platforms/arm64.config`
+under Docker). The first task to execute creates the files. If a subsequent task
+cannot access a lock file for writing, it reports an error and exits immediately
+rather than waiting for the timeout. In that scenario, delete the lock directory
+and restart the run; locks maintain no state across tasks, so deleting the
+directory does not lose data.
 
-## What it is worth
+## Benchmark results
 
 Measured on a dual RTX 3060 workstation, running the same rfd3 workload twice
-with **only the allocation mechanism changed** -- identical `maxForks`,
-`memory`, `queueSize`, `pollInterval` and `submitRateLimit`:
+with identical settings (`maxForks`, `memory`, `queueSize`, `pollInterval`,
+`submitRateLimit`) and varying only the allocation mechanism:
 
-| | static round-robin | flock allocation |
+| Metric | Static round-robin | flock allocation |
 | --- | --- | --- |
-| wall time | 967 s | 960 s |
-| both GPUs working | 15.9% | **27.0%** |
-| one card stacked while the other idles | 15.7% | **3.9%** |
-| mean GPU utilisation | 21.3% | 23.1% |
+| Wall time | 967 s | 960 s |
+| Both GPUs active | 15.9% | **27.0%** |
+| One GPU active while other idles | 15.7% | **3.9%** |
+| Mean GPU utilisation | 21.3% | 23.1% |
 
-Wall time is unchanged; what changes is that the work is spread properly. The
-benefit grows with how contended the machine is -- on a full 800-design run the
-static round-robin left one card stacked and the other idle for **41% of the
-wall clock**.
+While overall wall time remains similar, work distribution across devices improves
+substantially. The difference becomes pronounced on heavily contended systems:
+on an 800-design run, static round-robin left one card saturated and the other
+idle for 41% of total elapsed time.
 
-Note the low absolute utilisation in both columns. That is not a scheduling
-failure: roughly 25 s of every ~64 s task is Python imports and checkpoint
-loading before any GPU work starts. Batching is the lever for that, not
-scheduling -- see the throughput notes below.
+Overall utilisation numbers reflect Python initialization and checkpoint loading
+overhead (roughly 25 seconds of every ~64-second task). Addressing this latency
+requires larger batch sizes rather than scheduling changes.
 
 ## Parameters
 
 | Parameter | Default | Meaning |
 | --- | --- | --- |
-| `--gpu_devices` | `''` | GPUs this pipeline may claim: `0,1`, or `all`. Empty disables GPU management. |
-| `--gpu_slots_per_device` | `1` | Concurrent tasks allowed per GPU. Override per process with `ext.gpu_slots`. |
-| `--gpu_lock_timeout` | `14400` | Seconds a task waits for a free GPU before failing. |
-| `--gpu_lock_dir` | `<workDir>/.gpu_locks` | Where lock files live. Must be shared by all tasks and visible inside containers. |
-| `--gpu_trace_dir` | `<workDir>/.gpu_trace` | Where per-task GPU records are written before aggregation. Same constraints as `--gpu_lock_dir`. |
+| `--gpu_devices` | `''` | GPUs available to the pipeline: `0,1`, or `all`. Empty disables GPU management. |
+| `--gpu_slots_per_device` | `1` | Concurrent tasks allowed per GPU. Can be overridden per process with `ext.gpu_slots`. |
+| `--gpu_lock_timeout` | `14400` | Seconds a task waits for an available GPU before failing. |
+| `--gpu_lock_dir` | `<workDir>/.gpu_locks` | Directory containing lock files. Must be shared across tasks and mounted inside containers. |
+| `--gpu_trace_dir` | `<workDir>/.gpu_trace` | Directory for per-task GPU records before aggregation. Must be shared across tasks and mounted inside containers. |
 | `--gpu_trace_file` | `<outdir>/logs/gpu_trace_<datestamp>.txt` | Aggregated GPU trace for the run. |
 
-Every process that runs a model claims a GPU, including MPNN. That matters
-because MPNN's inference engine falls back to `torch.device("cuda")`, i.e. the
-first visible device, so without a claim every MPNN task lands on GPU 0
-regardless of what the heavier processes are doing.
+Every process that executes a neural network model claims a GPU, including MPNN.
+This prevents contention: MPNN falls back to `torch.device("cuda")` (the first
+visible device), so without explicit allocation every MPNN task executes on GPU 0
+regardless of other active workloads.
 
-For BoltzGen, note that `--devices` is a *count* of GPUs, not an index. A task
-pinned to one card sees exactly one device, so leave `--devices` at 1 (or
-unset); asking for 2 while the allocator has granted one will fail.
+For BoltzGen, `--devices` specifies a GPU count rather than a device index.
+Because each task is pinned to a single card, keep `--devices` set to 1 (or unset);
+specifying 2 while only one device is allocated causes an error.
 
-### What `gpu_slots_per_device` is for
+### Managing concurrency with `gpu_slots_per_device`
 
-It decides **how many tasks may share a card**, and it defaults to `1` so that a
-run can never fail from two tasks competing for VRAM on the same device.
+`--gpu_slots_per_device` defines the maximum number of concurrent tasks assigned to
+a single GPU card. It defaults to `1` to avoid VRAM exhaustion from concurrent tasks.
 
-It is a VRAM cap, not the way to control concurrency. The lock decides *where* a
-task runs; `maxForks` and the executor's memory budget decide *how many* run.
-Conflating the two is the easiest way to make things slower -- if `maxForks`
-exceeds the total slot count, the surplus tasks are dispatched only to block on
-the lock while holding their memory reservation.
+This setting functions as a VRAM guard rather than an overall concurrency limiter.
+The file lock determines *where* a task executes, whereas `maxForks` and executor
+memory configurations determine *how many* tasks run in total. If `maxForks`
+exceeds the available slots, surplus tasks launch and block waiting for locks
+while continuing to consume host RAM.
 
-Raising it is worth doing for processes whose VRAM footprint is small relative
-to the card. A task holds its GPU allocated but idle for roughly 25 s of Python
-imports and checkpoint loading, and a second task can fill that gap. Because
-that headroom is a property of the *process*, not the run, override it per
-process rather than globally:
+Increasing slot counts is effective for processes with modest VRAM usage relative
+to available card capacity. Because task initialization leaves the GPU largely idle
+for the first ~25 seconds, a second task can run concurrently without saturating
+compute resources. Configure this per process rather than globally:
 
 ```groovy
 process {
-    // Measured peak VRAM ~3.4 GB on a 12 GB card, so two fit with room to spare.
+    // Peak VRAM ~3.4 GB on a 12 GB card; two instances run comfortably.
     withName: RFDIFFUSION3 { ext.gpu_slots = 2; maxForks = 4 }
     withName: MPNN         { ext.gpu_slots = 2; maxForks = 4 }
 }
 ```
 
-Raise that process's `maxForks` alongside it, to `gpu_slots x nGPU`, or the
-extra slots simply go unused.
+Increase the corresponding `maxForks` setting to `gpu_slots * nGPU` to ensure the
+additional slots are utilised.
 
-One asymmetry to keep in mind: **`maxForks` is per process, but slots are
-global.** Several GPU processes are usually eligible at once -- RFDIFFUSION3,
-ROSETTAFOLD3 and BOLTZ_COMPARE_* all run in the same phase -- so what competes
-for slots is the *sum* of their in-flight tasks, not any one `maxForks`. If that
-sum exceeds the slot count the surplus blocks on the lock. In practice the
-executor's `memory` budget usually binds first, which is another reason to
-declare process memory accurately.
+Note that `maxForks` is evaluated per process, whereas lock slots are global across
+all processes. When multiple GPU processes run concurrently (such as `RFDIFFUSION3`,
+`ROSETTAFOLD3`, and `BOLTZ_COMPARE_*`), total slot demand equals the sum of their
+in-flight tasks. Set process `memory` directives accurately: under-declaring memory
+allows Nextflow to dispatch more tasks than host RAM can support, resulting in swap
+thrashing that degrades performance far more than an idle GPU.
 
-Check the VRAM headroom before raising it for a process. Host RAM is usually the
-real ceiling anyway: a RosettaFold3 task peaks around **11.5 GB of host RAM**
-against 3.4 GB of VRAM, so a 26 GB executor budget already caps concurrency at
-two heavy tasks whatever the slot count says. Declare process `memory` honestly
--- under-declaring lets Nextflow dispatch more tasks than fit and the machine
-swaps, which costs far more than an idle GPU.
+## GPU allocation tracing
 
-## Recording which GPU ran what
+Nextflow's `trace_*.txt` reports resource usage per task, but does not identify the
+assigned GPU device because trace observers execute in the parent process while device
+assignment occurs inside the container. To record this information, each task logs
+its assigned device directly.
 
-Nextflow's `trace_*.txt` records what every task cost, but never which device it
-ran on, and there is no way to add that as a trace column: trace observers run
-in the head process, while the device is chosen inside the container. So each
-task records it itself.
-
-Every GPU task writes one row to `<outdir>/logs/gpu_trace_<datestamp>.txt`,
-which shares its datestamp with the `trace_`, `report_` and `timeline_` files
-from the same run:
+Every GPU task appends one line to `<outdir>/logs/gpu_trace_<datestamp>.txt`, sharing
+the datestamp with the run's `trace_`, `report_`, and `timeline_` files:
 
 ```
 timestamp             hash       process            hostname  n_gpus  gpu_index  gpu_uuid        gpu_name                 driver_version  memory_total_mib  cuda_visible_devices
@@ -183,8 +173,8 @@ timestamp             hash       process            hostname  n_gpus  gpu_index 
 2026-09-10T07:04:27Z  92/235fbd  RFD3:MPNN          vrboxen   1       1          GPU-86d6fdb2..  NVIDIA GeForce RTX 3060  580.173.02      12288             1
 ```
 
-The `hash` column is the same short hash Nextflow prints and puts in the trace
-file, so the two join directly:
+The `hash` column matches Nextflow's task hash, allowing direct joins with standard
+trace files:
 
 ```bash
 join -1 1 -2 2 -t $'\t' \
@@ -192,128 +182,86 @@ join -1 1 -2 2 -t $'\t' \
   <(tail -n +2 results/logs/gpu_trace_*.txt | sort -k2,2)
 ```
 
-Notes on how it behaves:
+Tracing details:
 
-- **It records regardless of who chose the device.** The row is written whether
-  the GPU came from the lock, from SLURM, or from nothing at all. On a
-  heterogeneous cluster that is the point -- the model of card a task landed on
-  explains a lot of otherwise puzzling variance in `realtime`.
-- **`cuda_visible_devices` is `-` when nothing set it.** The task could see
-  every GPU on the node and PyTorch picked one unsupervised, so `gpu_index`
-  lists them all and `n_gpus` counts them all. A column of `-` under
-  `-profile local` means `--gpu_devices` was never passed.
-- **`-resume` keeps the history.** Records live in the work directory, one file
-  per task hash, so a resumed run still reports the GPU its cached tasks ran on
-  when they actually executed. A re-run task overwrites only its own record.
-- **It cannot fail a task or a run.** This is diagnostic output, so every
-  failure degrades to a missing row. The recording call is `|| true`, which in
-  bash also suspends `set -e` for the whole function body, so nothing inside it
-  can abort the script. Tested: `nvidia-smi` absent, returning garbage, exiting
-  non-zero, or hanging forever; a bogus `CUDA_VISIBLE_DEVICES`; an unwritable,
-  missing or non-directory trace path; and no `hostname` command. In each case
-  the task ran to completion.
+- Universal logging: a trace record is generated regardless of allocation method,
+  whether from the lock script, SLURM environment variables, or default selection.
+  On heterogeneous clusters, recording device models helps explain variance in task runtimes.
+- Unset environment variables: `cuda_visible_devices` records `-` when unset. In this
+  case, the task accesses all host GPUs and PyTorch chooses a default; `gpu_index`
+  and `n_gpus` report all detected devices. A column of `-` under `-profile local`
+  indicates that `--gpu_devices` was not supplied.
+- Resume support: records reside in the work directory (one file per task hash),
+  ensuring resumed runs retain the original execution device for cached tasks. Re-run
+  tasks overwrite only their corresponding record.
+- Fault tolerance: tracing commands never cause a task or workflow to fail. The
+  logging call appends `|| true` to prevent shell exit under `set -e`. The invocation
+  is wrapped in `timeout 10` to avoid hangs if the driver or `nvidia-smi` stalls.
+  Similarly, aggregation inside `workflow.onComplete` catches exceptions and emits a
+  warning instead of failing the pipeline. Incomplete or malformed records are discarded.
 
-    A wedged driver is the one worth calling out. `nvidia-smi` can block
-    indefinitely, and a task hanging forever while holding a Nextflow slot is
-    worse than one that skips a row, so the call is wrapped in `timeout 10`.
+!!! warning "Lock acquisition failure is fatal"
 
-    Aggregation is equally contained. An exception escaping
-    `workflow.onComplete` is reported as `Failed to invoke workflow.onComplete
-    event handler`, which makes a successful run look failed, so the whole
-    handler is wrapped and degrades to a warning. Records that cannot be read
-    are skipped individually, and rows whose column count does not match the
-    header are dropped rather than written into the output.
+    If `--gpu_devices` is provided but `bin/gpu_lock.sh` cannot be sourced, the task
+    terminates immediately. When GPU locking is enabled, failing to acquire a lock
+    would allow uncoordinated GPU sharing. Device allocation is mandatory when
+    configured, even though trace logging remains optional.
 
-!!! warning "One thing here is deliberately fatal"
+## Limitations of runtime GPU detection with `nvidia-smi`
 
-    If `--gpu_devices` is set and `bin/gpu_lock.sh` cannot be sourced, the task
-    fails. A GPU claim was asked for and could not be made, and running anyway
-    would put tasks on the same card. Only the recording is optional; the
-    allocation is not.
+Querying active tasks via `nvidia-smi` inside containers is ineffective: Apptainer
+launches containers with `--pid`, isolating the container PID namespace. As a result,
+`nvidia-smi --query-compute-apps` reports no running processes even under heavy load.
 
-## Why not detect busy GPUs with `nvidia-smi`?
+Checking `memory.used` dynamically is similarly unreliable: tasks spend approximately
+25 seconds loading Python libraries and weights before allocating VRAM. Multiple tasks
+launching within that initialization window observe identical idle VRAM readings and
+contend for the same card.
 
-Because under containers it cannot see the tasks. Apptainer is invoked with
-`--pid`, so each container has its own PID namespace and
-`nvidia-smi --query-compute-apps` inside it reports `No running processes found`
-however loaded the card is. Across one 800-design run, 250 of 250 task logs
-reported no processes while the cards each held 3.2 GB.
+Static round-robin allocation (`CUDA_VISIBLE_DEVICES = task.index % nGPU`) also fails
+in practice. Because task execution times vary, submission order diverges quickly from
+completion order: tasks 1 and 2 take GPUs 0 and 1; task 1 finishes and task 3 claims
+GPU 0; task 3 finishes and task 4 claims GPU 1 while task 2 is still running on it.
+Across full runs, this imbalance leaves cards idle while others run multiple concurrent jobs.
 
-Reading `memory.used` instead does not work either: a task spends roughly 25
-seconds importing Python modules and loading its checkpoint before it allocates
-any VRAM, so every task that starts inside that window sees the same idle card
-and takes it.
+## Throughput considerations
 
-A static round-robin (`CUDA_VISIBLE_DEVICES = task.index % nGPU`) is worth
-understanding because it looks correct and is not. It assigns by *submission*
-order, which drifts out of phase with *completion* order as soon as task
-durations vary: tasks 1 and 2 take GPU 0 and 1, task 1 finishes and task 3 takes
-GPU 0, task 3 finishes and task 4 takes GPU 1 -- where task 2 is still running.
-Measured over a full run, that put two tasks on one card while the other sat
-completely idle for 41% of the wall clock, even though each card received
-exactly the same *number* of tasks.
+To maximize GPU utilisation on local systems, local execution profiles use the
+following settings:
 
-## Throughput notes
+- Unconstrained dispatch: `submitRateLimit` is disabled. Launch throttling is
+  unnecessary because lock acquisition manages concurrency directly.
+- Low polling interval: `pollInterval` is set to 1-2 seconds (rather than 30 seconds),
+  allowing tasks to launch immediately when a card becomes available.
+- Flow control via `maxForks`: exclusivity is guaranteed by `flock`. Setting
+  `maxForks` to one above total GPU count allows the subsequent task to start its
+  initialization while the previous task completes GPU compute.
+- Batch size optimization: per-task initialization dominates execution time; grouping
+  multiple designs per task amortises this overhead substantially.
 
-Anything that delays dispatch is idle GPU time, so the local profiles avoid it:
+## HyperQueue integration
 
-- **No `submitRateLimit`.** Throttling launches caps dispatch regardless of how
-  free the GPUs are -- at `'1/10sec'`, six a minute. It was only ever there to
-  space out the old VRAM probe, and the lock has no race to space out.
-- **Short `pollInterval`.** This is the delay between a task finishing and the
-  next being dispatched, which lands directly on a card that just went free.
-  The local profiles use 1-2 seconds rather than the 30 seconds some earlier
-  configs used.
-- **`maxForks` is flow control, not safety.** Exclusivity comes from the lock.
-  `maxForks` only stops Nextflow dispatching a crowd of tasks that would sit
-  blocked on the lock holding memory reservations. Setting it one above the GPU
-  count lets the next task run its startup while the current one still owns the
-  card, so the GPU is handed over warm.
-- **Batch sizes matter more than any of this.** See the note at the top of the
-  page -- per-task startup dominates, and batching is the only thing that
-  amortises it.
+[HyperQueue](https://it4innovations.github.io/hyperqueue/stable/) provides resource-aware
+job queuing, tracking GPUs as indexed resources and dispatching tasks only when devices
+become free. `conf/platforms/hyperqueue.config` configures this integration.
 
-## Using HyperQueue instead
+However, container execution presents a challenge for direct HyperQueue GPU assignment:
+environment variables set by HyperQueue are stripped by container isolation.
+Specifically:
 
-[HyperQueue](https://it4innovations.github.io/hyperqueue/stable/) looks like the
-right tool for this: it models GPUs as indexed resources, hands each task a
-distinct one, and will not dispatch a task until a GPU is actually free -- so
-unlike the lock, no Nextflow slot ever sits blocked. `conf/platforms/hyperqueue.config`
-configures it.
+1. `apptainer.runOptions` specifies `--cleanenv`, which removes `CUDA_VISIBLE_DEVICES`.
+2. Nextflow's Apptainer integration executes commands via `env -`, preserving only a
+   strict allowlist of environment variables. Setting `APPTAINERENV_CUDA_VISIBLE_DEVICES`
+   in a `beforeScript` does not persist into the container invocation.
 
-It does allocate correctly. The problem is that **the allocation cannot reach
-the workload**, because it is communicated through the environment and this
-pipeline runs everything in containers. There are two independent barriers:
+Without additional coordination, the container cannot read HyperQueue's device assignment,
+and PyTorch defaults to GPU 0 for all concurrent tasks.
 
-1. `apptainer.runOptions` includes `--cleanenv`, which strips
-   `CUDA_VISIBLE_DEVICES` on the way into the container.
-2. Nextflow's Apptainer launcher wraps the call in `env -`, wiping the
-   environment down to a fixed allowlist (`PATH` and a few `APPTAINERENV_*`
-   variables). So even exporting `APPTAINERENV_CUDA_VISIBLE_DEVICES` in a
-   `beforeScript` does not survive to the `apptainer exec`.
+### HyperQueue with containerized lock allocation
 
-The result is that HyperQueue assigns GPU 1 to a task, the container never hears
-about it, the task sees both cards and PyTorch takes GPU 0 -- so everything
-piles onto one card even though the scheduler did its job. Nothing in the
-HyperQueue configuration can fix this; the value is discarded downstream of it.
-
-Two notes on things that are *not* the problem, since both look suspicious:
-
-- Nextflow's HyperQueue executor does translate the `accelerator` directive into
-  `--resource gpus=N`, while HyperQueue's auto-detected resource is named
-  `gpus/nvidia`. A task asking for `gpus` waits forever with no error. The
-  configs here already avoid this by setting `accelerator = null` and requesting
-  the resource through `clusterOptions` instead, which the executor appends
-  verbatim.
-- Nextflow logs `The support for HyperQueue is an experimental feature and it
-  may change in a future release`. That is expected.
-
-### Making HyperQueue work
-
-Use HyperQueue for queueing and the lock for device selection. They compose
-cleanly: HyperQueue ensures no more GPU tasks are dispatched than there are
-GPUs, and `gpu_lock.sh` -- which runs *inside* the container and so is immune to
-both barriers above -- decides which card each task takes.
+HyperQueue and the file lock mechanism can be combined effectively: HyperQueue manages
+task dispatch and queue concurrency, while `gpu_lock.sh` executes inside the container
+to determine device assignment:
 
 ```bash
 hq server start &
@@ -322,9 +270,7 @@ hq worker start &
 nextflow run main.nf -profile hyperqueue --gpu_devices 0,1
 ```
 
-Passing `--gpu_devices` is what enables the in-container allocator. Without it,
-tasks fall back to whatever PyTorch chooses, which is GPU 0 for all of them.
+Supplying `--gpu_devices` enables the in-container allocation script.
 
-The lock-based default needs no daemon, no version coordination between server
-and worker, and no second scheduler to reason about, which is why it is the
-default.
+The default lock-based setup requires no background daemons, worker coordination, or
+external scheduler configuration, making it suitable for standard local execution.

@@ -8,12 +8,12 @@ RosettaFold3, Protenix, AlphaFold3, OpenFold3, Chai-1 and ESMFold2, sharing one
 MSA-generation stage, then (by default) clusters the ensemble with EnGens.
 
 > **AlphaFold3** (`--methods af3`) needs model weights that you download yourself
-> under Google DeepMind's terms of use — see [AlphaFold3 weights](#alphafold3-weights).
+> under Google DeepMind's terms of use: see [AlphaFold3 weights](#alphafold3-weights).
 
 > **Multimer:** a FASTA with more than one record folds as a protein complex
 > (one record = one chain → chain IDs A, B, C, …; homo-oligomers = repeated
 > records; up to 26 chains). Each engine gets a taxonomically-paired MSA in its
-> native format — see [Multimer complexes](#multimer-complexes) below.
+> native format; see [Multimer complexes](#multimer-complexes) below.
 
 ## Overview
 
@@ -47,8 +47,8 @@ feed all selected predictors; optional MSA subsample and EnGens clustering
 produce a conformational ensemble from the combined predictions.
 
 `--n_predictions` sets how many structures each method produces per input,
-unset by default. See [Key Parameters](#key-parameters) below for how it maps
-onto each engine's own sampling knobs and batch size.
+unset by default. See [Key Parameters](#key-parameters) below for how this maps
+onto each engine's sampling and batch size settings.
 
 ## Setup
 
@@ -94,23 +94,23 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).
 
 | Engine | Weights | Multimer pairing | GPU per job | Relative cost |
 |--------|---------|-------------------|-------------|----------------|
-| **AF2** (`af2`) | Bundled in the container | Native multimer pipeline (needs the 2021 DB snapshot — see [below](#af2-multimer-needs-the-2021-db-snapshot)) | 1 | Low–medium; 5 models/run regardless of `--n_predictions` |
-| **AF2 monomer** (`af2_mono`) | Bundled in the container | None (chain-break trick, not a real multimer mode) | 1 | Same as AF2; not an independent engine — see [below](#af2_mono-af2-monomer-weights-on-a-complex-chain-break) |
+| **AF2** (`af2`) | Bundled in the container | Native multimer pipeline (requires the 2021 DB snapshot: see [below](#af2-multimer-needs-the-2021-db-snapshot)) | 1 | Low–medium; 5 models/run regardless of `--n_predictions` |
+| **AF2 monomer** (`af2_mono`) | Bundled in the container | None (chain-break method) | 1 | Same as AF2; not an independent engine: see [below](#af2_mono-af2-monomer-weights-on-a-complex-chain-break) |
 | **Boltz-2** (`boltz`) | Bundled in the container | Taxid-keyed CSV pairing (or its own MSA server with `--use_msa_server`) | 1 | Low |
 | **RosettaFold3** (`rf3`) | Bundled in the container | `TaxID=` a3m pairing | 1 | Medium |
 | **Protenix** (`protenix`) | Bundled in the container | Species-mnemonic paired/unpaired a3m | 1 | Medium |
-| **AlphaFold3** (`af3`) | You download separately — see [AlphaFold3 weights](#alphafold3-weights) | Species-mnemonic pairing rendered from the shared MSA | 1 | Medium–high |
+| **AlphaFold3** (`af3`) | Downloaded separately: see [AlphaFold3 weights](#alphafold3-weights) | Species-mnemonic pairing rendered from the shared MSA | 1 | Medium–high |
 | **OpenFold3** (`openfold3`) | Bundled in the container | Online species pairing from `uniprot_hits` | 1 | Medium; JIT-compiles Triton kernels on first use |
 | **Chai-1** (`chai1`) | Bundled in the container | Taxid pairing keys in per-chain MSA parquet files, paired by Chai-1 itself | 1 | Medium |
 | **ESMFold2** (`esmfold2`) | Bundled in the container | `key=<taxid>` a3m pairing, done by ESMFold2 itself | 1 | Medium |
-| **ESMFold2-Fast** (`esmfold2_fast`) | Bundled in the container | None — single-sequence only, no MSA (see [below](#esmfold2)) | 1 | Low |
+| **ESMFold2-Fast** (`esmfold2_fast`) | Bundled in the container | None: single-sequence only without MSA (see [below](#esmfold2)) | 1 | Low |
 
 Every predict job takes one GPU; concurrency across jobs is governed by
 `--gpu_devices` (comma-separated device list, or `all`), `--gpu_slots_per_device`
 (concurrent tasks per GPU, default 1) and `--gpu_lock_timeout` (seconds a task
-waits for a free slot before failing, default 14400). `af2_mono` is not an
-independent vote alongside the others — see the caveats in its own section
-below before including it in a consensus.
+waits for a free slot before failing, default 14400). `af2_mono` shares lineage
+with AF2 multimer: review the caveats below before including it in a consensus
+calculation.
 
 ## Multiple Sequence Alignments (MSAs)
 
@@ -171,7 +171,7 @@ occasional runs; for heavy use prefer local databases.
 `--colabfold_envdb` must contain `colabfold_envdb*` files (layout produced by
 [`scripts/download_colabfold_dbs.sh`](../extra/fold-databases.md#colabfold-mmseqs2-databases)).
 
-> There is no site-wide default ColabFold DB path on M3 yet — use
+> There is no site-wide default ColabFold DB path on M3 yet; use
 > `--use_remote_server true` or install local DBs yourself.
 
 ### MSA subsample (optional)
@@ -196,8 +196,8 @@ sequence's `>` header in the original a3m (disambiguates duplicate accessions).
 A FASTA with more than one record folds as a **protein complex**: each record is
 one chain, in file order, assigned chain IDs `A, B, C, …` (up to 26). A
 homo-oligomer is expressed as **repeated identical records** (a `count:`
-shorthand is not implemented yet). No ligands / nucleic acids this round —
-protein complexes only.
+shorthand is not implemented yet). Ligands and nucleic acids are not supported in
+this release: protein complexes only.
 
 ```bash
 nextflow run /path/to/nf-binder-design --method fold \
@@ -207,14 +207,14 @@ nextflow run /path/to/nf-binder-design --method fold \
   -profile slurm,m3
 ```
 
-### Paired MSAs (how each engine differs)
+### Paired MSAs by prediction engine {#paired-msas-how-each-engine-differs}
 
-For a complex, co-evolutionary **pairing** across chains is what carries the
-interface signal. Each engine consumes a paired MSA in a *different* native
-format, so the fold workflow searches each chain independently and then renders
-each engine's format from one canonical taxonomy parse. When `af2` or `af2_mono`
-is also selected under `jackhmmer_af2`, the per-chain MSAs come from AF2's own
-multimer search of the complex rather than a second search of each chain:
+For a complex, co-evolutionary pairing across chains provides the interface signal.
+Each engine consumes a paired MSA in a different native format, so the fold
+workflow searches each chain independently and then renders each engine's format from
+one canonical taxonomy parse. When `af2` or `af2_mono` is also selected under
+`jackhmmer_af2`, per-chain MSAs come from AF2's multimer search of the complex
+rather than a second search of each chain:
 
 | Engine | How it pairs | What the fold workflow feeds it |
 |--------|--------------|--------------------------|
@@ -236,8 +236,8 @@ are not published under `msa/paired/`.
 > **Use `--msa_method jackhmmer_af2` for paired multimers.** Only the jackhmmer
 > route produces the rich UniProt/UniRef headers (`TaxID=`, `RepID=`,
 > `sp|/tr|…_SPECIES`) that taxonomy pairing needs. The ColabFold route emits
-> taxonomy-less headers, so under `mmseqs2_colabfold` the chains fold **unpaired**
-> — for a ColabFold-style multimer use `--use_msa_server true` instead (Boltz
+> taxonomy-less headers, so under `mmseqs2_colabfold` the chains fold **unpaired**;
+> for a ColabFold-style multimer, use `--use_msa_server true` instead (Boltz
 > fetches and pairs its own MSA; drop `af2` from `--methods`).
 
 ### AF2 multimer needs the 2021 DB snapshot
@@ -249,11 +249,11 @@ monomer-only (no `uniprot/`), so the fold workflow fails fast if `af2` (or
 `af2_mono` under `jackhmmer_af2`) is requested for a multimer without a
 `uniprot/`-bearing `--af2_db_path`. Point it at the 2021 snapshot
 (`/mnt/datasets/alphafold/alphafold_20211129` on M3), whose HHblits DB is
-`uniclust30` rather than `uniref30` — override `--af2_uniref30_subpath` (and
+`uniclust30` rather than `uniref30`: override `--af2_uniref30_subpath` (and
 `--af2_mgnify_subpath`, `--af2_uniprot_subpath`, `--af2_pdb_seqres_subpath`)
 accordingly. The `alphafold2` container bundles **multimer_v3** model weights
 (`params_model_*_multimer_v3.npz`) alongside the monomer/ptm weights, so
-`--af2_data_dir` does not need to be overridden for multimer mode — it only
+`--af2_data_dir` does not need to be overridden for multimer mode: it only
 needs pointing at a host `params/` directory if you are running without the
 bundled weights. See [`examples/fold-multimer/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer)
 (`nextflow.m3.config` + `run-m3.sh`) for a working set of overrides.
@@ -266,13 +266,13 @@ applies in multimer mode.
 (`--af2_monomer_model_preset`, default `monomer_ptm`): the chains are concatenated
 into one sequence and separated only by a jump of `--af2_chain_break_offset`
 (default 200) in `residue_index`. AF2 clips relative positions at 32, so anything
-above that reads as "not covalently connected". The MSA is block diagonal — each
-chain's own hits, gapped outside that chain's columns. Output is split back into
+above that reads as "not covalently connected". The MSA is block diagonal, containing
+each chain's own hits, gapped outside that chain's columns. Output is split back into
 real chains automatically, renumbered `1..L` per chain, so it feeds ipSAE and
 everything else exactly like the other engines.
 
 It reuses the same per-chain MSAs as `af2`; only `features.pkl` differs. You can
-run both in one pipeline — their predictions, score TSVs (`tool` column `af2` vs
+run both in one pipeline: their predictions, score TSVs (`tool` column `af2` vs
 `af2_mono`) and `fold/predictions/` filenames are kept separate. It works with
 either MSA route (`jackhmmer_af2` or `mmseqs2_colabfold`), with `--msa_subsample`,
 and with homo-oligomer inputs; under `jackhmmer_af2` a multimer still needs a
@@ -280,22 +280,20 @@ and with homo-oligomer inputs; under `jackhmmer_af2` a multimer still needs a
 `af2_mono`'s per-chain MSAs come from AF2's multimer search even though the
 predict step then uses the monomer weights.
 
-**When this is worth reaching for.** AF2-multimer pairs MSA rows across chains
-by taxonomy. If one chain has no homologs — a de novo designed binder, say —
-there is nothing to pair, so the merged MSA is block diagonal anyway.
-`af2_mono` carries the same information without the multimer head, as a
-controlled contrast.
+**Use cases.** AF2-multimer pairs MSA rows across chains by taxonomy. If one chain
+has no homologs (such as a de novo designed binder), there is nothing to pair,
+so the merged MSA is block diagonal anyway. `af2_mono` carries the same information
+without the multimer head, providing a controlled comparison.
 
-**Two things to know before using it.**
+**Usage considerations:**
 
-1. **Pair it with `--af2_keep_models best`.** Without an initial guess the monomer
-   models have no reason to dock the chains, and frequently don't — ranking
-   (mean pLDDT for monomer presets) reliably separates a docked pose from a
-   failed one, but `all` would inject the failed poses into any downstream
-   consensus. The workflow warns if you select `af2_mono` without `best`.
-2. **It is not an independent engine.** `monomer_ptm` and `multimer` share an
-   architecture family and a training corpus. Treat it as a second opinion from the
-   same lineage, never as another vote alongside Boltz / RF3 / Protenix.
+1. **Pair it with `--af2_keep_models best`.** Without an initial guess, monomer
+   models frequently do not dock the chains. Ranking by mean pLDDT separates docked
+   poses from uncomplexed chains; selecting `all` would inject undocked poses into
+   any downstream consensus. The workflow warns if you select `af2_mono` without `best`.
+2. **Architecture lineage.** `monomer_ptm` and `multimer` share an architecture
+   family and training corpus. Treat it as an evaluation within the AF2 lineage
+   rather than an independent predictor alongside Boltz, RF3, or Protenix.
 
 Monomer presets do template search with hhsearch over `pdb70` rather than hmmsearch
 over `pdb_seqres`, so `--af2_pdb70_subpath` must resolve under `--af2_db_path`
@@ -318,8 +316,8 @@ The pipeline looks for the weights in `--af3_model_dir`, which defaults to
 `models/alphafold3/` in your copy of the pipeline. That default resolves
 relative to the pipeline checkout, so if you launch the pipeline by revision
 (`nextflow run Australian-Protein-Design-Initiative/nf-binder-design ...`)
-rather than from a local clone, pass `--af3_model_dir` explicitly — the
-default would otherwise point inside Nextflow's own cached copy of the
+rather than from a local clone, pass `--af3_model_dir` explicitly: the
+default would otherwise point inside Nextflow's cached copy of the
 pipeline under `~/.nextflow/assets/`. To download the weights there:
 
 ```bash
@@ -356,12 +354,12 @@ Or download `af3.bin.zst` manually and put it in a directory of its own. Notes:
 
 ### Germinal AF3 parity {#germinal-af3-parity}
 
-Germinal's own AF3 call is deliberately bare
-(`germinal/filters/af3.py`) - only `--model_dir`, `--db_dir`, `--output_dir` and
-`--json_path`. Three things follow from that, and by default this pipeline does
-none of them:
+Germinal's native AF3 call specifies minimal options
+(`germinal/filters/af3.py`): `--model_dir`, `--db_dir`, `--output_dir`, and
+`--json_path`. The differences between Germinal's invocation and default pipeline
+settings are:
 
-| | Germinal | `fold` / `fold_pulldown` default |
+| Setting | Germinal | `fold` / `fold_pulldown` default |
 |---|---|---|
 | cross-chain pairing | none: `"pairedMsa": ""` on every chain | a paired a3m per chain |
 | templates | no `templates` key, so **AF3 searches** `pdb_seqres` + `mmcif_files` on every chain | `"templates": []`, or inlined from `--templates` |
@@ -384,24 +382,22 @@ nextflow run main.nf --method fold_pulldown \
     --msa_method mmseqs2_colabfold --use_remote_server true
 ```
 
-The template search is the part that matters most: it is why a parity run needs
-the full ~630 GB database set even though the MSAs still come from the JSON. AF3
-validates all nine default database paths before it reads the input, so a
-missing or partial `--af3_db_dir` fails with a bare `FileNotFoundError` inside
-the job; the pipeline checks for all nine up front instead.
+Template search requires the full ~630 GB database collection even when MSAs
+are supplied via JSON. AlphaFold3 validates all nine default database paths
+before reading input files; an incomplete `--af3_db_dir` causes `FileNotFoundError`
+during task execution. The pipeline verifies that all nine paths exist prior
+to launch.
 
-Each knob is an ordinary parameter and can be set on its own —
-`--af3_paired_msa false`, `--af3_templates inline|none|search`,
-`--af3_run_data_pipeline true` — so the profile is only a convenient name for
-one combination, not a mode the pipeline knows about.
+Each setting can be configured independently (`--af3_paired_msa false`,
+`--af3_templates inline|none|search`, `--af3_run_data_pipeline true`); the profile
+simply bundles these options.
 
-!!! note "What parity does not reproduce"
-    Germinal draws its seeds randomly in `[0, 999999)` - pass `--af3_seeds` only
-    if you need specific values; for matched sampling the count is what matters.
-    Germinal also keeps the **worst** of its sampled structures by
-    `ranking_score` (`af3_structure_select_mode: "worst"`), whereas this pipeline
-    keeps and scores all of them. Reduce afterwards if you want Germinal's single
-    number.
+!!! note "Differences from native Germinal execution"
+    Germinal samples random seeds in `[0, 999999)`. Specify `--af3_seeds` when
+    particular seed values are required; for sample matching, the seed count
+    is the relevant parameter. Additionally, Germinal selects the lowest-scoring
+    sampled structure by `ranking_score` (`af3_structure_select_mode: "worst"`),
+    whereas this pipeline scores and preserves all generated structures.
 
 ## OpenFold3
 
@@ -417,9 +413,9 @@ download or weights flag is needed.
 - `--openfold3_batch_size` sets diffusion samples per job
   (`--num-diffusion-samples`); `--n_predictions` splits across jobs as for the
   other diffusion engines.
-- OpenFold3 JIT-compiles Triton kernels on first use. By default the cache lives
+- OpenFold3 JIT-compiles Triton kernels on first use. By default the cache is stored
   in each task's work directory; `--openfold3_kernel_cache_dir /some/shared/dir`
-  keeps it between tasks.
+  persists it across tasks.
 
 ## Chai-1
 
@@ -446,58 +442,58 @@ under `/models/chai`, so no download or weights flag is needed.
 
 ## ESMFold2
 
-ESMFold2 comes as two engines, run through the `esm` package (v3.4.1.post1).
+ESMFold2 provides two engines through the `esm` package (v3.4.1.post1).
 Select either or both, e.g. `--methods esmfold2,esmfold2_fast` to compare them:
 
 | Method | Checkpoint | Container | MSA |
 |--------|------------|-----------|-----|
 | `esmfold2` | `biohub/ESMFold2` | `esmfold2:3.4.1.post1_nv-cuda13_full_weights` | Yes (multimers paired by ESMFold2 itself) |
-| `esmfold2_fast` | `biohub/ESMFold2-Fast` | `esmfold2:3.4.1.post1_nv-cuda13_fast_weights` | Never — always folds from sequence alone |
+| `esmfold2_fast` | `biohub/ESMFold2-Fast` | `esmfold2:3.4.1.post1_nv-cuda13_fast_weights` | None: folds from sequence alone |
 
 - Weights (including the ESMC-6B language-model encoder) are baked into each
-  container, so nothing is downloaded at run time. `--esmfold2_weights_dir`
+  container, so weights are not downloaded at run time. `--esmfold2_weights_dir`
   (exported as `HF_HOME`) points both engines at an external HuggingFace cache
   instead.
 - `esmfold2_fast` has no MSA encoder, so it never uses or triggers an MSA
   search: on its own it skips the MSA stage entirely, and alongside other
   engines it ignores the MSAs they share. The pipeline logs a warning to that
   effect whenever it is selected.
-- `--esmfold2_single_sequence` also folds `esmfold2` (the full checkpoint)
-  from the sequence alone, skipping its MSA — a useful comparison against
+- `--esmfold2_single_sequence` folds `esmfold2` (the full checkpoint)
+  from the sequence alone, skipping its MSA, providing a direct comparison against
   `esmfold2_fast`.
-- The `esm` package ships no command-line tool, so the pipeline drives its
+- The `esm` package provides no command-line interface, so the pipeline calls its
   Python API through `bin/fold/run_esmfold2.py`.
 - `--esmfold2_kernel_backend` (`fused` default, `cuequivariance`, or `none`):
-  `fused` is roughly 3.5x faster and falls back silently to the reference path
+  `fused` is roughly 3.5x faster and falls back to the reference path
   if Triton is unavailable.
 - The options below are shared by both engines (`--esmfold2_msa_max_depth`
   only affects `esmfold2`). `--esmfold2_batch_size` sets diffusion samples per job; `--n_predictions`
   splits across jobs as for the other diffusion engines. `--esmfold2_seeds`
   sets the base seed (default 42); batch *i* uses `seed + i`.
   `--esmfold2_num_loops`, `--esmfold2_num_sampling_steps` and
-  `--esmfold2_msa_max_depth` default to the `esm` package's own values (20,
+  `--esmfold2_msa_max_depth` default to the `esm` package defaults (20,
   200, 1024 respectively).
-- ESMFold2 reports **no ranking score** — its `ranking_score` column is blank
-  in the fold score table, so rank on `iptm` / `plddt` / `ipsae` instead. It
-  does report ptm, iptm, per-token pLDDT and a PAE matrix, plus a per-chain-pair
-  ipTM matrix, so ipSAE is computed as usual.
+- ESMFold2 reports no ranking score: the `ranking_score` column is blank
+  in the score table. Rank on `iptm`, `plddt`, or `ipsae` instead. It
+  reports ptm, iptm, per-token pLDDT, a PAE matrix, and a per-chain-pair
+  ipTM matrix, and ipSAE is computed accordingly.
 
 ## Templates
 
 `--templates` takes known structures (`.pdb` or `.cif`, optionally gzipped) as a
-directory or a glob. Files may hold single chains or whole complexes, and no
-mapping file is needed.
+directory or a glob. Files may contain single chains or complete complexes without
+requiring a mapping file.
 
-- Every protein chain in every file is aligned to every chain being folded, much
-  as AF2's template search does against the PDB.
-- A template is kept for a chain when its alignment passes all of the cutoffs
-  below; the best `--template_max_per_chain` by identity × coverage are used.
-- Templates inform each chain's own structure only. No engine takes the
-  arrangement between chains from them.
-- The normalised template files and the full report are published to
-  `<outdir>/fold/templates/`. `templates_matched.tsv` lists every chain and
-  template pair considered, with its identity, coverage and aligned length, and
-  why it was accepted or rejected.
+- Every protein chain in each file is aligned to every chain being folded, matching
+  AF2's template search behavior against the PDB.
+- A template is retained for a chain when its alignment satisfies all cutoffs
+  below; the top `--template_max_per_chain` templates by identity × coverage are used.
+- Templates inform individual chain conformations only; inter-chain spatial
+  arrangements are not transferred from templates.
+- Normalised template files and summary reports are published to
+  `<outdir>/fold/templates/`. `templates_matched.tsv` records each evaluated
+  chain and template pair, including identity, coverage, aligned length, and
+  filtering decisions.
 
 ### Match cutoffs
 
@@ -515,18 +511,16 @@ nextflow run main.nf --method fold ... \
     --template_max_per_chain 1
 ```
 
-- Raise `--template_min_identity` (say `0.8`) when only a near-identical
-  structure should count, which is the usual case for a known target.
-- `--template_min_coverage` is a fraction, so it scales away on short chains:
-  30% of a 60-residue binder is only 18 residues. `--template_min_aligned` is
-  the absolute floor underneath it, so a de novo design aligning to a 26-33
-  residue stretch of an unrelated structure no longer counts as a template.
-- A chain shorter than `--template_min_aligned` must be covered end to end
-  instead, so peptide templates still work without lowering the floor.
-- A long but mediocre alignment can still get close to the defaults: in the
-  pulldown example the two unrelated targets align over 70 residues at 28.6%
-  identity, just under the identity cutoff. Check `templates_matched.tsv`, and
-  raise `--template_min_identity` when only a close template should count.
+- Increase `--template_min_identity` (such as `0.8`) when only near-identical
+  structures should be considered, which is standard for known targets.
+- `--template_min_coverage` specifies a fraction, meaning short chains require
+  fewer residues: 30% of a 60-residue binder corresponds to 18 residues.
+  `--template_min_aligned` establishes the minimum threshold so that short
+  alignments against unrelated structures are excluded.
+- Chains shorter than `--template_min_aligned` require full-length coverage,
+  allowing short peptide templates to be utilized without lowering the global threshold.
+- Alignments near the threshold should be inspected in `templates_matched.tsv`,
+  and `--template_min_identity` adjusted upward when higher stringency is needed.
 
 ### How each engine uses them
 
@@ -541,30 +535,29 @@ nextflow run main.nf --method fold ... \
 | `rf3` | 1 (the best match) | The chain itself, built with the template's coordinates |
 | `esmfold2`, `esmfold2_fast` | none | No template input; folds without them, with a warning |
 
-Engine-specific notes:
+Engine-specific template handling:
 
-- **AF2:** 4 is the most any AF2 model uses, so user templates can displace ones
-  AF2 found on the `jackhmmer_af2` route. Only monomer models 1 and 2 use
-  templates; all multimer models do. Shallow `--msa_subsample` jobs fold without
-  user templates.
-- **Boltz-2:** Boltz aligns the template itself and uses only its longest
-  gap-free match, so a template with missing loops contributes one segment.
-  `--boltz_template_force` holds the chain within `--boltz_template_threshold`
-  (default 1.0 Å) of the template. It is off by default in `--method fold`, so
-  the template guides the prediction without over-biasing it, and on by default
-  in `--method fold_pulldown`, where the chain structures are known and the
-  binding pose is what is being predicted.
-- **Protenix:** needs the container built from upstream commit 85767b8 or later.
-  The v2.0.0 release cannot take structure-file templates.
-- **RosettaFold3:** RF3 has no separate template input, so the chain is supplied
-  as a structure file: its own sequence, carrying the template's coordinates on
-  aligned residues (backbone only where the residue differs). Residues the
-  template lacks are kept but not templated.
-- **OpenFold3:** the pipeline points OpenFold3's template structure directory at
-  the staged files and turns off downloads from RCSB.
-- **Chai-1:** the matched CIFs are placed in Chai-1's template folder before the
-  run, so Chai-1 never downloads from RCSB. Chai-1 uses at most 4 templates per
-  chain and logs (rather than fails on) a template it cannot load.
+- AF2: models accept at most 4 templates; user-supplied templates displace
+  templates found during automated search. Only monomer models 1 and 2 use
+  templates; all multimer models support them. Shallow `--msa_subsample` jobs fold
+  without user templates.
+- Boltz-2: Boltz aligns templates directly and uses only the longest gap-free match;
+  templates with missing loops contribute a single continuous segment.
+  `--boltz_template_force` constrains the chain within `--boltz_template_threshold`
+  (default 1.0 Å) of the template. This constraint is disabled by default in
+  `--method fold` to guide predictions without over-biasing, and enabled by default
+  in `--method fold_pulldown` where individual subunit structures are known.
+- Protenix: requires container builds from upstream commit 85767b8 or later.
+  Release v2.0.0 cannot parse structure-file templates.
+- RosettaFold3: RF3 lacks a dedicated template input parameter. Instead, the chain
+  is supplied as a coordinate file containing the target sequence with template
+  coordinates mapped onto aligned residues (backbone coordinates only when residues
+  differ). Residues lacking template coverage remain unconstrained.
+- OpenFold3: the pipeline configures OpenFold3's template directory to point to
+  staged files, disabling RCSB downloads.
+- Chai-1: matched CIF files are copied to Chai-1's template directory prior to execution,
+  preventing RCSB network requests. Chai-1 uses at most 4 templates per chain and
+  logs a warning if a template cannot be loaded.
 
 ## EnGens clustering
 
@@ -630,27 +623,24 @@ for cross-engine parity), while AF2 does a single run and keeps per
 pin every diffusion engine to exactly N, split across jobs by that engine's own
 `--*_batch_size` (e.g. `--n_predictions 10 --boltz_batch_size 5` runs Boltz as
 two jobs of 5 samples each; leaving `--*_batch_size` unset runs one job of N).
-AF2 has no in-run sampling knob — it always emits its 5 trained models per run,
-and `--af2_keep_models` decides how many runs that takes to reach N (`best`
-keeps the top-ranked model/run → N runs; `all` keeps all 5/run → `ceil(N/5)`
-runs).
+AF2 generates its 5 trained models per execution; `--af2_keep_models` determines
+how many executions are required to produce N predictions (`best` keeps the
+top-ranked model per run, requiring N runs; `all` keeps all 5 per run, requiring
+`ceil(N/5)` runs).
 
-**Seeds** are unset by default so each engine draws its own random seed (pin
+Seeds are unset by default so each engine draws its own random seed (pin
 `--af2_random_seed` / `--boltz_seed` / `--rf3_seed` / `--protenix_seeds` /
-`--chai1_seeds` for
-reproducibility; do not inject a fresh random seed on every CLI invocation if
-you want `-resume` to cache). AlphaFold3, OpenFold3 and ESMFold2 always need a
-seed in their input, so they default to a fixed base seed (`--af3_seeds 1`,
-`--openfold3_seeds 42`, `--esmfold2_seeds 42`); batch *i* uses `seed + i`.
-`--protenix_seeds` and `--chai1_seeds` take the same single-base-seed convention.
-Without `--chai1_seeds`, each Chai-1 job draws its own seed and records it in
-its file names.
+`--chai1_seeds` for reproducibility; avoid injecting a fresh random seed on every
+CLI invocation when using `-resume`). AlphaFold3, OpenFold3, and ESMFold2 require
+seed inputs and default to fixed base seeds (`--af3_seeds 1`, `--openfold3_seeds 42`,
+`--esmfold2_seeds 42`); batch *i* uses `seed + i`. `--protenix_seeds` and
+`--chai1_seeds` use the same convention. Without `--chai1_seeds`, each Chai-1 job
+generates its own seed and records it in output filenames.
 
 ## Output
 
-Default layout under `--outdir` (`params.json` and `logs/` sit at the outdir
-root, alongside `fold/`, not inside it — they are shared across every
-`--method`):
+Default directory layout under `--outdir` (`params.json` and `logs/` are written
+to the outdir root alongside `fold/`, as they are shared across all workflows):
 
 ```
 results/
@@ -689,7 +679,7 @@ used), the engine-native `original_file`, and the renamed `predictions_file` in
 
 Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix `chain_pair_iptm`, Boltz `pair_chains_iptm`) are intentionally
-omitted — only the overall values are reported.
+omitted; only overall values are reported.
 
 ## Related
 

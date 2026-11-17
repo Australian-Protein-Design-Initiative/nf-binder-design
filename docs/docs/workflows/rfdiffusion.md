@@ -211,7 +211,7 @@ These can be adapted to other HPC clusters - pull requests are welcome !
 
 ## FoldSeek Structural Search (Optional)
 
-After AF2 initial guess scoring, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the designs. The binder chain is automatically extracted from each AF2IG complex — only the binder is searched, not the full target–binder complex.
+After AF2 initial guess scoring, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the designs. The binder chain is automatically extracted from each AF2IG complex: only the binder is searched, not the full target–binder complex.
 
 FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
 

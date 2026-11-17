@@ -49,7 +49,7 @@ You can use `"hotspot_subsample": 0.66` instead of `rfd3_hotspot_subsample` (for
 ### Config Mode (`--rfd3_config`)
 
 In this mode you provide a full RFDiffusion3 input file (JSON or YAML) that follows the Foundry documentation  
-[`RFdiffusion3 — Protein binder design examples`](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
+[`RFdiffusion3: Protein binder design examples`](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
 
 Example (single-target JSON, adapted from the Foundry docs):
 
@@ -125,7 +125,7 @@ After MPNN, RosettaFold3 input JSON uses the same **target** and **binder** chai
   - Accepts a comma-separated list of residue IDs, e.g. `--hotspot_res "A56,A115,A123"`.  
   - The internal config generator converts these to `select_hotspots` entries with `"ALL"` atoms for each residue (all atoms of each residue are targeted).  
   - In many cases it is preferable to target **specific atoms** (e.g. `CG,OH` for a tyrosine). To do this with RFD3, you should instead use a full JSON/YAML config with an explicit `select_hotspots` dictionary, as described in the official RFD3 documentation:  
-    [`RFdiffusion3 — Protein binder design examples`](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
+    [`RFdiffusion3: Protein binder design examples`](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html).
 
 - **Hotspot subsampling (`--rfd3_hotspot_subsample`, alias `--hotspot_subsample`)**  
   - Optional fraction in `[0.0, 1.0]` (default `1.0`: use all hotspots). **`--rfd3_hotspot_subsample`**. the number of hotspots kept is `max(1, ceil(N × fraction))`, chosen with `random.sample` **once per RFDiffusion3 batch** (each parallel Nextflow task gets a different subset).  
@@ -216,7 +216,7 @@ Common options:
 - **`--mpnn_weights_noise`**  
   Selects the **training-time coordinate noise** tier used to train that checkpoint (filename suffix in the bundled weights). Allowed values: **`005`**, **`010`**, **`020`**, **`030`**, corresponding to **0.05 Å**, **0.1 Å**, **0.2 Å**, and **0.3 Å**. **`false`** (default) means **`020`**.
 
-  **Quoting:** use a string—JSON in **`-params-file`** (`"mpnn_weights_noise": "005"`) or a quoted CLI value (`--mpnn_weights_noise '005'`). Bare `005` on the CLI may become integer `5`; the workflow normalises valid tiers to `005`/`010`/… anyway. Vanilla/soluble **`005`** loads `*_002.pt`; hyper has no **`005`** tier (table below).
+  **Quoting:** use a string: JSON in **`-params-file`** (`"mpnn_weights_noise": "005"`) or a quoted CLI value (`--mpnn_weights_noise '005'`). Bare `005` on the CLI may become integer `5`; the workflow normalises valid tiers to `005`/`010`/… anyway. Vanilla/soluble **`005`** loads `*_002.pt`; hyper has no **`005`** tier (table below).
 
 | `--mpnn_weights_noise` | Training noise (Å) | Vanilla / soluble filename suffix | Hyper filename (epoch 300) |
 |------------------------|--------------------|-----------------------------------|----------------------------|
@@ -273,7 +273,7 @@ When `--rf3_create_target_msa` is `true`, `--rf3_target_msa` is not set, and `--
 
 #### Refold scoring parameters
 
-The workflow supports an optional **refold** step: a held-out second opinion on the RosettaFold3 predictions, folding selected designs again with one or more independent predictors. The full parameter set is documented in [Refold Scoring](../subworkflows/refold.md); the ones most used here are:
+The workflow supports an optional **refold** step: independent validation of RosettaFold3 predictions by folding selected designs again with external predictors. The full parameter set is documented in [Refold Scoring](../subworkflows/refold.md); the ones most used here are:
 
 - **`--refold_with`**  
   Comma-separated engines to refold with, eg `boltz` or `boltz,chai1`. **Default:** unset (no refolding).
@@ -296,7 +296,7 @@ The workflow supports an optional **refold** step: a held-out second opinion on 
 !!! warning "Behaviour change: `--refold_max` no longer implies a ranking"
     `--full_refold_filter_sort` used to default to `pair_pae_min`, so a capped refold took the best designs by that metric. Its replacement `--refold_sort_by` defaults to unset, so `--refold_max` on its own now takes the **first N designs to finish**, in whatever order that is. The run warns when a cap is set without a ranking. Add `--refold_sort_by='pair_pae_min'` to keep the old selection.
 
-The refold takes its MSA and template choices from the fold stack (`--create_target_msa`, `--target_msa`, `--use_msa_server`, `--msa_method`, `--templates`). The old refold-specific copies - `--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`, `--refold_target_templates` - are gone, and a run that sets one stops with the replacement named. `--refold_target_fasta` is still there under its own name: it refolds the selected designs against a target other than the one they were built against, which is how a design made against a truncated construct is checked against the full-length protein. See [What the designs are refolded against](../subworkflows/refold.md#what-the-designs-are-refolded-against). The whole `--full_refold_*` family has been renamed to `--refold_*`.
+The refold takes its MSA and template choices from the fold stack (`--create_target_msa`, `--target_msa`, `--use_msa_server`, `--msa_method`, `--templates`). The old refold-specific copies - `--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`, `--refold_target_templates` - are gone, and a run that sets one stops with the replacement named. `--refold_target_fasta` is still there under its own name: it refolds the selected designs against a target other than the one they were built against, which is how a design made against a truncated construct is checked against the full-length protein. See [Target sequence configuration](../subworkflows/refold.md#target-sequence-configuration). The whole `--full_refold_*` family has been renamed to `--refold_*`.
 
 #### RMSD (design vs refold)
 
@@ -327,7 +327,7 @@ By default outputs are written under `results/rfd3/` (or the directory specified
   > **Note:** If using a `--rf3_target_template` that is a different length to the `--input_pdb` target used by RFD3, the `rf3_rmsd_complex_rmsd_all` and `rf3_rmsd_target_aligned_target_rmsd_all` cannot be computed and will be empty in `combined_scores.tsv`.
 
 - **Refold scoring (optional)**  
-  When `--refold_with` names at least one engine, `rfd3/refold/` holds `refold_scores.tsv` (one row per design, merged into `combined_scores.tsv`), `refold_sample_scores.tsv` (one row per refolded sample, nothing reduced), `refold_selection.tsv` (every design with its selection verdict, rank and sort value) and `predictions/` (the refolded complexes and binder monomers). See [Refold Scoring](../subworkflows/refold.md).
+  When `--refold_with` names at least one engine, `rfd3/refold/` contains `refold_scores.tsv` (one row per design, merged into `combined_scores.tsv`), `refold_sample_scores.tsv` (one row per refolded sample, unaggregated), `refold_selection.tsv` (every design with its selection verdict, rank and sort value) and `predictions/` (the refolded complexes and binder monomers). See [Refold Scoring](../subworkflows/refold.md).
 
 - **`binders.fasta`**  
   Binder sequences, with the columns named by `--refold_fasta_score_columns` (default `consensus_z`) in the headers.
@@ -338,7 +338,7 @@ The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffu
 
 After RosettaFold3 predictions, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the top designs to identify structurally similar proteins and annotate designs with known structural folds.
 
-The binder chain is automatically extracted from each RF3 complex — only the binder is searched, not the full target–binder complex.
+The binder chain is automatically extracted from each RF3 complex: only the binder is searched, not the full target–binder complex.
 
 ### Enabling FoldSeek
 

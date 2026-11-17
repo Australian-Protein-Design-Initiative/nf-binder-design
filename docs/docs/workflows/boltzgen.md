@@ -99,7 +99,7 @@ Results are saved to `results/boltzgen/filtered/final_ranked_designs/`.
 
 ## FoldSeek Structural Search (Optional)
 
-After filtering, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the final designs. The design (shorter/binder) chain is automatically extracted from each complex mmCIF — only the binder is searched, not the full target–binder complex.
+After filtering, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on the final designs. The design (shorter/binder) chain is automatically extracted from each complex mmCIF: only the binder is searched, not the full target–binder complex.
 
 FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
 

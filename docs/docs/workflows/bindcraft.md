@@ -64,7 +64,7 @@ For running on SLURM, you can use the `-profile slurm` flag instead of `-profile
 | `--binder_length_range` | Range of binder lengths to design |
 | `--bindcraft_n_traj` | Number of trajectories to run per input PDB |
 | `--bindcraft_batch_size` | Number of trajectories per batch |
-| `--gpu_devices` | Specify multiple GPUs, e.g., `--gpu_devices=0,1` — use only for `-profile local` |
+| `--gpu_devices` | Specify multiple GPUs, e.g., `--gpu_devices=0,1` (use only for `-profile local`) |
 
 ## BindCraft Presets
 
@@ -127,10 +127,10 @@ A summary report is generated as `bindcraft_report.html`.
 
 ## Refold Scoring (Optional)
 
-BindCraft runs its own AF2 passes and gates designs on their scores, which is what decides
-which reach `accepted/`. `--refold_with` adds a held-out second opinion on top of that: the
-accepted designs are folded again with one or more independent predictors, compared with the
-design, and their rebuilt interfaces scored.
+BindCraft runs its own AF2 passes and gates designs on their scores, which determines
+which candidates reach `accepted/`. `--refold_with` provides independent validation:
+accepted designs are folded again with one or more external predictors, compared with the
+design pose, and interface metrics are re-scored.
 
 ```bash
 nextflow run main.nf --method bindcraft \
@@ -141,15 +141,15 @@ nextflow run main.nf --method bindcraft \
 ```
 
 This is the shared [refold scoring](../subworkflows/refold.md) step, with the same
-`--refold_filter`, `--refold_sort_by` and `--refold_max` selection parameters as every other
-design workflow. The gate and the ranking read BindCraft's `final_design_stats.csv` columns.
+`--refold_filter`, `--refold_sort_by` and `--refold_max` selection parameters as other
+design workflows. The gate and ranking read BindCraft's `final_design_stats.csv` columns.
 BindCraft has no chain derivation of its own, so `--refold_binder_chain` (default `B`) and
-`--refold_target_chain` (default `A`) name the chains if yours differ. Outputs land under
-`bindcraft/refold/`.
+`--refold_target_chain` (default `A`) name the chains if yours differ. Outputs are saved
+under `bindcraft/refold/`.
 
 ## FoldSeek Structural Search (Optional)
 
-After BindCraft completes, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex — only the binder is searched, not the full target–binder complex.
+After BindCraft completes, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex: only the binder is searched, not the full target–binder complex.
 
 FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See [FoldSeek output format](../subworkflows/foldseek.md#output-format) for details.
 

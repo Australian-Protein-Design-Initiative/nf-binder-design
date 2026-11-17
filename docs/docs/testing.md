@@ -135,7 +135,7 @@ Useful warnings include unused variables and parameters (prefix unused closure
 parameters with `_` to silence them).
 
 `nextflow lint` parses with the strict (v2) syntax, so it also flags constructs
-kept for Nextflow 24.04.3 compatibility — the conditional `include` statements in
+kept for Nextflow 24.04.3 compatibility: the conditional `include` statements in
 `main.nf`, `@Field`/`import` in `modules/local/rfd3/rfd3_utils.nf`, and multi-name
 function includes (shown as `... is not defined`). Those are expected and should
 **not** be changed in ways that break 24.04.3. Only run `nextflow lint -format`

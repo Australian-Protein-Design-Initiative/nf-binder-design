@@ -82,11 +82,11 @@ nextflow run main.nf --method foldseek --help
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--foldseek_gzip_output` | `false` | Gzip the TSV output (`.tsv.gz`) |
-| `--foldseek_include_html_output` | `false` | Include HTML alignment report (off by default — HTML can be 100s of MB for large result sets) |
+| `--foldseek_include_html_output` | `false` | Include HTML alignment report (off by default: HTML reports can reach hundreds of megabytes for large result sets) |
 
 ### CATH Annotation
 
-When using a database whose name starts with `CATH` (e.g. `CATH50`), FoldSeek results are **automatically** annotated with CATH hierarchy descriptions. No flag needed — it just works.
+When using a database whose name starts with `CATH` (e.g. `CATH50`), FoldSeek results are **automatically** annotated with CATH hierarchy descriptions without requiring additional flags.
 
 By default (`--foldseek_maxaccept 1`), only the top FoldSeek hit per design is returned, so the CATH annotation describes the most structurally similar known fold. This is useful for quickly surveying what structural class your designs resemble.
 
@@ -102,17 +102,17 @@ Databases available via `foldseek databases`:
 |------|--------|------------|-------------|
 | `CATH50` | [CATH](https://www.cath.info) | `cath50` | CATH domain structures at 50% sequence identity clustering. Good balance of coverage and speed. **Default.** |
 | `PDB` | [RCSB PDB](https://www.rcsb.org) | `pdb100` (complex-aware) | Full Protein Data Bank (local); PDB100 (complex-aware, incl. multimers) via remote. |
-| `Alphafold/UniProt` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | — | All AlphaFold predicted structures. Very large. Only available locally. |
+| `Alphafold/UniProt` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | None | All AlphaFold predicted structures. Very large. Only available locally. |
 | `Alphafold/UniProt50` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | `afdb50` | AlphaFold structures at 50% clustering. Reduced redundancy. |
-| `Alphafold/UniProt50-minimal` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | — | Minimal version. Only available locally. |
+| `Alphafold/UniProt50-minimal` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | None | Minimal version. Only available locally. |
 | `Alphafold/Proteome` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | `afdb-proteome` | AlphaFold proteome-level structures. |
 | `Alphafold/Swiss-Prot` | [AlphaFold DB](https://alphafold.ebi.ac.uk/) | `afdb-swissprot` | AlphaFold structures for Swiss-Prot reviewed proteins. |
 | `ESMAtlas30` | [ESM Atlas](https://esmatlas.com) | `mgnify_esm30` | ESM Metagenomic Atlas at 30% clustering. Metagenomic predicted structures. |
 | `BFMD` | [BFMD](https://foldseek.steineggerlab.workers.dev/bfmd.version) | `bfmd` | BFMD database. |
 | `BFVD` | [BFVD](https://bfvd.steineggerlab.workers.dev) | `BFVD` | BFVD database. |
-| `ProstT5` | [HuggingFace](https://huggingface.co/Rostlab/ProstT5) | — | Protein language model for 3Di prediction. Not a search database — only available locally. |
+| `ProstT5` | [HuggingFace](https://huggingface.co/Rostlab/ProstT5) | None | Protein language model for 3Di prediction. Not a search database: only available locally. |
 
-> **Tip:** For binder design validation, `CATH50` is a good default — it covers known structural domains and is fast. Use `PDB` for comprehensive searches against all experimentally determined structures.
+> **Tip:** For binder design validation, `CATH50` is a suitable default: it covers known structural domains and provides fast execution. Use `PDB` for comprehensive searches against all experimentally determined structures.
 
 ## Database Caching
 
@@ -170,7 +170,7 @@ Tab-separated with column headers (`--format-mode 4`):
 
 ### HTML (`foldseek_results.html`)
 
-Pretty-printed interactive alignment report (`--format-mode 3`). Can be very large for big result sets — set `--foldseek_include_html_output true` to enable.
+Interactive alignment report (`--format-mode 3`). Can be very large for big result sets: set `--foldseek_include_html_output true` to enable.
 
 ### Annotated TSV (`foldseek_results_annotated.tsv`)
 

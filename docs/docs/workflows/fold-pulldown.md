@@ -87,7 +87,7 @@ matched to target chains automatically by sequence; see
 - Only the **target** chain is templated by default. `--binder_templates true`
   also matches binder chains against the same files, e.g. when a complex
   structure includes a known binder.
-- Boltz holds templated chains close to their template by default
+- Boltz constrains templated chains close to their template by default
   (`--boltz_template_force`, 1.0 Å), because the chain structures are known and
   the binding pose is what is being predicted. Pass `--boltz_template_force false`
   to let Boltz depart from them.
@@ -127,7 +127,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--consensus_metric` | `ipsae` | `ipsae` or `iptm`; which metric's per-tool z-scores are averaged into `consensus_z` |
 | `--z_stat` | `max` | `max` or `mean`; the per-complex statistic over samples that gets standardised |
 | `--z_scope` | `target` | `target` standardises within `(target, tool)`; `global` pools all targets into one distribution |
-| `--min_pool` | `10` | Pools holding fewer complexes than this are flagged `z_pool_small` in the summary and warned about on stderr |
+| `--min_pool` | `10` | Pools containing fewer complexes than this threshold are flagged `z_pool_small` in the summary table |
 
 Every pair is a 2-chain complex, so `af2` and `af2_mono` under
 `--msa_method jackhmmer_af2` both need a `uniprot/`-bearing `--af2_db_path`
@@ -139,17 +139,19 @@ pair.
 
 Every method-specific flag documented under `--method fold --help` (`--af2_*`,
 `--boltz_*`, `--rf3_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`,
-`--chai1_*`, `--esmfold2_*`) applies here too — the same engines, run per target×binder pair instead of per input FASTA.
-One worth knowing about: `--af2_keep_models` controls which of AF2's 5 models
-per run are kept. It defaults to `all` here, so one AF2 run yields the 5
-structures `--n_predictions` asks for at no extra cost (`--method fold` defaults
-to `best`). For `af2_mono`, `best` may still be preferable — without an initial
-guess its monomer models often fail to dock, and ranking is what separates the
-good pose.
+`--chai1_*`, `--esmfold2_*`) applies here too: the same engines run per target×binder
+pair instead of per input FASTA.
+
+`--af2_keep_models` controls which of AF2's 5 models per run are kept. It defaults
+to `all` here, so one AF2 execution yields the 5 structures specified by
+`--n_predictions` without additional runs (`--method fold` defaults to `best`).
+For `af2_mono`, `best` is typically preferred: without an initial guess, monomer
+models frequently fail to dock, and ranking isolates docked poses from failed
+predictions.
 
 ## Output
 
-Default layout under `--outdir` (`params.json` and `logs/` sit at the outdir
+Default layout under `--outdir` (`params.json` and `logs/` are written to the outdir
 root, alongside `fold_pulldown/`):
 
 ```
@@ -157,7 +159,7 @@ results/
 ├── params.json
 ├── logs/
 └── fold_pulldown/
-    ├── pairs.tsv                    # id, target, binder — one row per co-folded pair
+    ├── pairs.tsv                    # id, target, binder (one row per co-folded pair)
     ├── msa/<msa_method>/             # shared target + binder MSAs
     ├── msa/paired/                   # per-chain MSA rendered into each engine's native format
     ├── <tool>/<target>_and_<binder>/ # per-tool, per-pair engine outputs (raw + confidence JSON)
@@ -168,65 +170,55 @@ results/
     └── fold_pulldown_report.html      # Quarto overview
 ```
 
-Each co-folded pair gets a complex id `<target>_and_<binder>` (from the
-sanitised FASTA header ids), used for its `<tool>/<target>_and_<binder>/`
-directory and as the stem of its files under `predictions/`. `pairs.tsv` maps
-each id back to its `target` and `binder`, and is what a downstream join
-against `fold_pulldown_scores.tsv` should use.
+Each co-folded pair receives a complex identifier `<target>_and_<binder>` (derived from
+sanitised FASTA headers), used for its `<tool>/<target>_and_<binder>/` directory and
+as the stem for predicted structures in `predictions/`. `pairs.tsv` maps each ID back
+to its `target` and `binder`, facilitating downstream joins against `fold_pulldown_scores.tsv`.
 
-`msa/paired/` holds those per-chain renders (RF3 `TaxID=` a3m, Protenix
-mnemonic-headers a3m, Boltz `key,sequence` CSV). Each chain is written on its
-own; whether an engine then pairs them is covered in
-[Taxonomic pairing](#taxonomic-pairing). AF3, OpenFold3, Chai-1 and ESMFold2 re-render
-their pairing input inside the predict task, so those a3ms are not published
-here.
+`msa/paired/` contains per-chain renders (RF3 `TaxID=` a3m, Protenix mnemonic-headers a3m,
+Boltz `key,sequence` CSV). Each chain is generated independently; pairing behavior is
+detailed in [Taxonomic pairing](#taxonomic-pairing). AF3, OpenFold3, Chai-1, and ESMFold2
+re-render their pairing input within the predict task and do not publish separate MSAs here.
 
 ## Interpreting scores
 
-Different predictors have different absolute score scales. The summary table
-provides **within-tool z-scores** (`iptm_z`, `ipsae_z`) so complexes can be
-compared on a common footing inside each model, and a **`consensus_z`** (the mean
-over tools of one metric's per-tool z for that complex) for a cross-model ranking.
-Both z-columns are always written, whichever metric `consensus_z` is built from.
-The two aggregations are separate steps: `--z_stat` picks the statistic over
-*samples* within one tool (`max` by default), and `consensus_z` is always the
-mean of the resulting z-scores across *tools*.
+Different predictors use distinct raw score ranges. The summary table provides
+**within-tool z-scores** (`iptm_z`, `ipsae_z`) so complexes can be evaluated on a common
+scale within each model, along with **`consensus_z`** (the mean per-tool z-score for a
+given complex) for cross-model ranking. Both z-columns are recorded regardless of which
+metric defines `consensus_z`. The two aggregations are separate: `--z_stat` selects
+the statistic across samples within a tool (`max` by default), and `consensus_z` averages
+the resulting z-scores across tools.
 
-Three defaults decide that ranking, and each can be reverted:
+Ranking behavior is governed by three primary settings:
 
-- **`--consensus_metric ipsae`.** ipSAE ([Dunbrack
-  2025](https://doi.org/10.1101/2025.02.10.637595)) normalises by interface size and
-  isolates the interface from whole-complex confidence, which `iptm` and `ptm` mix
-  together. Pass `--consensus_metric iptm` to rank on ipTM instead.
-- **`--z_stat max`.** One diffusion sample per complex is noisy, so the statistic
-  worth standardising is the best of the samples rather than their average. This is
-  also what makes `--n_predictions > 1` valuable. Pass `--z_stat mean` for the
-  average - but be aware `mean` can be heavily impacted by outliers with poor scores.
-- **`--z_scope target`.** The default is to pool only within-target scores, since raw co-folding scores are typically not comparable across targets, and the distribution of between-target scores often varies more than within-target scores, so pooling several targets into one distribution makes a complex rank partly on which target it was paired with. If you'd like to pool all targets together anyway, use `--z_scope global`.
+- `--consensus_metric ipsae`: ipSAE ([Dunbrack 2025](https://doi.org/10.1101/2025.02.10.637595))
+  normalises by interface size and isolates interface quality from whole-complex confidence.
+  Specify `--consensus_metric iptm` to rank on ipTM instead.
+- `--z_stat max`: individual diffusion samples per complex exhibit stochastic variation,
+  so standardising the top-scoring sample is typically preferred over the mean. Increasing
+  `--n_predictions` provides additional sampling depth. Specify `--z_stat mean` for sample
+  averages, noting that low-scoring outlier conformations can reduce the mean.
+- `--z_scope target`: pools scores within each target, avoiding distortions from baseline
+  score differences across divergent target proteins. To pool all targets into a single
+  distribution, specify `--z_scope global`.
 
-Each summary row records `z_basis` (metric, statistic and scope, e.g.
-`ipsae_max/target`), `n_pool`, the number of complexes that actually contributed a
-value to that z-score's `--consensus_metric` (not just the pool's row count —
-`iptm_n_pool` / `ipsae_n_pool` give the count for each metric individually), and
-`z_pool_small`, `True` where that pool was smaller than `--min_pool`.
-Watch those two: with *k* complexes in a pool the largest possible absolute z is
-(*k*−1)/√*k*, so a two-complex pool can only ever report ±0.707 and the z-score
-carries the ordering and nothing else.
+Each summary row records `z_basis` (metric, statistic, and scope, e.g. `ipsae_max/target`),
+`n_pool` (the number of complexes that contributed values to that z-score's `--consensus_metric`),
+and `z_pool_small` (`True` when the pool contains fewer complexes than `--min_pool`).
+With *k* complexes in a pool, the maximum possible absolute z-score is (*k*−1)/√*k*;
+consequently, a two-complex pool yields only ±0.707 and reflects rank ordering alone.
 
-`consensus_z` falls back from `--consensus_metric` to the other metric only when
-an entire `(target, tool)` pool lacks the primary metric (e.g. a tool that never
-emits `ipsae`) — never per-complex, so one complex's z is never averaged from a
-different metric than its pool-mates. `consensus_z_metric` records which metric
-actually contributed each row (comma-joined if tools within the same pair
-contributed via different metrics), and `n_tools` is the number of tools that
-contributed a non-missing value to that complex's `consensus_z`. `iptm_sd` /
-`ipsae_sd` are blank for a complex with only one replicate — a single point has no
-spread to report.
+`consensus_z` falls back from `--consensus_metric` to the alternate metric only when
+an entire `(target, tool)` pool lacks the primary metric (such as a tool that does not emit
+`ipsae`), never on a per-complex basis. This ensures each complex's z-score is calculated
+consistently with other complexes in its pool. `consensus_z_metric` records the metric
+used for each row, and `n_tools` records the number of tools contributing to `consensus_z`.
+`iptm_sd` and `ipsae_sd` remain blank for complexes with only one replicate.
 
-For custom statistics (Mann–Whitney, mixed models, score calibration), use
-`fold_pulldown_scores.tsv` / `fold_pulldown_summary.tsv` directly — the HTML
-report stays deliberately simple.
+For downstream statistical modeling or score calibration, use `fold_pulldown_scores.tsv`
+and `fold_pulldown_summary.tsv` directly; the HTML report provides a streamlined summary.
 
 ## Related
 
-- [Fold](fold.md) — fold individual FASTA complexes (no target × binder fan-out)
+- [Fold](fold.md): fold individual FASTA complexes (without target × binder fan-out)

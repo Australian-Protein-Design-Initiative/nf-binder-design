@@ -4,7 +4,7 @@ Parallel [Germinal](https://github.com/SantiagoMille/germinal) execution for ant
 
 ## Overview
 
-The `--method germinal` workflow runs Germinal trajectories in parallel across multiple GPUs — ideal for HPC clusters or multi-GPU workstations. Configuration is supplied via a Germinal Hydra YAML file (combined or partial config with Hydra default groups).
+The `--method germinal` workflow runs Germinal trajectories in parallel across multiple GPUs, suitable for HPC clusters or multi-GPU workstations. Configuration is supplied via a Germinal Hydra YAML file (combined or partial config with Hydra default groups).
 
 ## Key Differences
 
@@ -79,12 +79,12 @@ This requires the `-af3` germinal image, which the workflow already pins
 
 | Setting | Value | Provided by |
 |---------|-------|-------------|
-| `af3_repo_path` | `"/app/alphafold"` | **In the container — leave as-is** |
-| `af3_sif_path` | `"/usr/local/bin/singularity"` | **Dummy wrapper, in the container — leave as-is** |
-| `af3_model_dir` | `"/root/models"` | Mount point — **you bind the weights here** |
-| `af3_db_dir` | `"/root/public_databases"` | Mount point — **you bind the databases here** |
-| `msa_db_dir` | `null` | Only used by `msa_mode: "local"` |
-| `use_metagenomic_db` | `false` | — |
+| `af3_repo_path` | `"/app/alphafold"` | In-container path (leave unchanged) |
+| `af3_sif_path` | `"/usr/local/bin/singularity"` | In-container wrapper shim (leave unchanged) |
+| `af3_model_dir` | `"/root/models"` | Target container mount point for model weights |
+| `af3_db_dir` | `"/root/public_databases"` | Target container mount point for databases |
+| `msa_db_dir` | `null` | Used only by `msa_mode: "local"` |
+| `use_metagenomic_db` | `false` | Unused |
 | `cache_binder_msa` | `false` | Requires `msa_mode: "colabfold"` |
 
 All five paths are already set to these values in the container's own
@@ -116,12 +116,12 @@ process {
 }
 ```
 
-**Weights** — a directory holding exactly one `af3.bin.zst` (or `af3.bin`).
+**Weights**: a directory holding exactly one `af3.bin.zst` (or `af3.bin`).
 Obtain them under the AlphaFold3 Model Parameters Terms of Use; see
 [AlphaFold3 weights](fold.md#alphafold3-weights) for `models/download_af3_weights.sh`
 and the licensing conditions.
 
-**Databases** — the full AlphaFold3 public database set (~630 GB), as produced by
+**Databases**: the full AlphaFold3 public database set (~630 GB), as produced by
 AlphaFold3's own `fetch_databases.sh`. All nine entries are required *even though
 Germinal supplies the MSAs itself*, because `run_alphafold.py` validates every
 default database path against `--db_dir` before it reads the input. An empty or
@@ -139,16 +139,16 @@ The directory must contain `bfd-first_non_consensus_sequences.fasta`,
 `rnacentral_active_seq_id_90_cov_80_linclust.fasta`, `uniprot_all_2021_04.fa`
 and `uniref90_2022_05.fa`.
 
-### What AF3 actually runs
+### AlphaFold 3 execution details {#what-af3-actually-runs}
 
-`msa_mode` controls the MSA, which **Germinal** generates before calling AF3 —
-`"target"` (the default) builds one for the target chain only and leaves the
+`msa_mode` controls the MSA, which **Germinal** generates before calling AF3:
+`"target"` (the default) builds an MSA for the target chain only and leaves the
 binder single-sequence. AF3's own MSA search is therefore unused, but its data
 pipeline still runs and performs a **template search for both chains** against
 `pdb_seqres` and `mmcif_files`.
 
-On M3 the databases are already installed cluster-wide — see
-[AlphaFold3 databases on M3](../extra/m3-hpc-examples.md#alphafold3-databases).
+On M3 the databases are installed cluster-wide (see
+[AlphaFold3 databases on M3](../extra/m3-hpc-examples.md#alphafold3-databases)).
 
 A complete worked example is in `examples/pdl1-germinal/`
 (`configs/pdl1_vhh_af3.yaml` and `run-af3.sh`).
@@ -177,7 +177,7 @@ results/germinal/
 
 ## Hotspot numbering
 
-`target.target_hotspots` in the Germinal config (e.g. `"A37,A39,A41"`) uses **1-indexed positions relative to the start of each target chain** — the Nth residue in that chain as loaded, not arbitrary PDB/mmCIF auth residue numbers.
+`target.target_hotspots` in the Germinal config (e.g. `"A37,A39,A41"`) uses **1-indexed positions relative to the start of each target chain**: the Nth residue in that chain as loaded, rather than arbitrary PDB/mmCIF auth residue numbers.
 
 Germinal's hotspot proximity filter (`find_nearby_residues_from_pdb`) maps each hotspot to pose residue `chain_start + index - 1`. Residue indices must therefore be contiguous from 1 with **no gaps**. If your input PDB is numbered from a non-1 start, has numbering gaps (e.g. missing residues left as holes in the numbering), or otherwise does not match 1…N sequential order, hotspot values will not refer to the residues you intend.
 
@@ -214,12 +214,12 @@ the same `--refold_filter`, `--refold_sort_by` and `--refold_max` selection
 parameters as every other design workflow, and adds the same engine-prefixed
 columns. Germinal has no chain derivation of its own, so
 `--refold_binder_chain` (default `B`) and `--refold_target_chain` (default `A`)
-name the chains if yours differ. Outputs land under `germinal/refold/`.
+name the chains if yours differ. Outputs are saved under `germinal/refold/`.
 
-### As a separate job: `--method fold_pulldown`
+### Separate evaluation with `--method fold_pulldown`
 
-To refold designs from a run that has already finished, or to control the pairing
-yourself, run a separate `--method fold_pulldown` job over them instead.
+To refold designs from a completed run, or to control pairing directly, run
+a separate `--method fold_pulldown` job over them.
 
 Build a FASTA of the target and a FASTA of the binder sequences (from
 `accepted/designs.csv`, or the `trajectory_sequence` column of
@@ -235,9 +235,9 @@ nextflow run main.nf --method fold_pulldown \
     --outdir results_refold
 ```
 
-`--create_target_msa true --create_binder_msa false` is Germinal's
-`msa_mode: "target"` — an MSA for the target chain only, binder left
-single-sequence — so the MSA conditioning matches what the Germinal run used.
+`--create_target_msa true --create_binder_msa false` corresponds to Germinal's
+`msa_mode: "target"` (an MSA for the target chain only, binder left
+single-sequence), matching the MSA conditioning that the Germinal run used.
 
 ### Matching Germinal's AF3 settings
 
@@ -245,7 +245,7 @@ If AlphaFold3 is one of the predictors and you intend to compare its numbers
 against the ones in `all_trajectories.csv`, the default `fold_pulldown` settings
 are **not** a like-for-like comparison. Germinal's AF3 call supplies no
 cross-chain pairing and omits the `templates` key, so AF3 searches the PDB for
-templates on both chains (see [What AF3 actually runs](#what-af3-actually-runs));
+templates on both chains (see [AlphaFold 3 execution details](#what-af3-actually-runs));
 `fold_pulldown` defaults to inference-only with a paired MSA and no templates.
 
 `-profile af3_germinal_parity` switches all three, and bundles them with the MSA
@@ -260,22 +260,20 @@ nextflow run main.nf --method fold_pulldown \
     --outdir results_refold
 ```
 
-It composes with any platform profile, in either order — Nextflow merges
-profiles in the order they are declared in `nextflow.config`, not the order you
-list them, and the feature profiles are declared last. That matters because this
-profile raises the AF3 walltime: with the data pipeline on, AF3 runs a template
-search before inference, which the platform formulas (sized for inference only)
-do not allow for.
+It composes with any platform profile: Nextflow merges profiles in declaration
+order from `nextflow.config` rather than CLI order, and feature profiles are
+declared last. This profile raises the AF3 walltime because AF3 runs a template
+search before inference, which default platform formulas do not account for.
 
 See [Germinal AF3 parity](fold.md#germinal-af3-parity) for the full mapping.
 
 ### Comparing the numbers
 
-- **Structure selection.** Germinal keeps the **worst** of its sampled
-  structures by `ranking_score` (`af3_structure_select_mode: "worst"`) and
-  reports every metric from that one, while `fold_pulldown` keeps and scores all
-  of them. A per-sample score from one is not comparable to a Germinal number
-  from the other until you reduce it the same way.
+- Structure selection: Germinal keeps the lowest-scoring sampled structure by
+  `ranking_score` (`af3_structure_select_mode: "worst"`) and reports metrics from
+  that single structure, whereas `fold_pulldown` keeps and scores all samples.
+  A per-sample score is therefore not directly comparable to a Germinal report
+  until reduced using the same selection method.
 
 No rescaling is needed beyond that: `fold_pulldown` already computes `plddt` as
 the mean over all atom pLDDTs and `pae` as the mean of the whole PAE matrix,
@@ -286,4 +284,4 @@ which are Germinal's definitions, and runs ipSAE at the same 10/10 cutoffs.
 - The nanobody scaffold (`nb.pdb`) is copied from the container into `pdb_dir` if missing.
 - `target.target_pdb_path` in the config should be relative (e.g. `pdbs/pdl1.pdb`) so paths resolve from the process working directory.
 - Stopping criteria per batch: whichever of `max_trajectories`, `max_hallucinated_trajectories`, or `max_passing_designs` is reached first.
-- Do not set `seq_entropy_threshold: 0` in the Germinal YAML config to disable the sequence entropy filter. Germinal reads the value, and on zero replaces it with `None` and prints "Sequence entropy threshold set to 0, disabling filter" (`germinal/design/design.py:154-157`), but the two places that use it, at lines 286 and 317, then compare a float against `None` without a guard. The trajectory dies with `TypeError: '<' not supported between instances of 'float' and 'NoneType'`. Use a tiny non-zero value such as `1.0e-9` instead, which passes everything without taking the broken path. This is an upstream bug, not a pipeline one.
+- Do not set `seq_entropy_threshold: 0` in the Germinal YAML config to disable the sequence entropy filter. Germinal reads the value, and on zero replaces it with `None` and prints "Sequence entropy threshold set to 0, disabling filter" (`germinal/design/design.py:154-157`), but the two places that use it, at lines 286 and 317, then compare a float against `None` without a guard. The trajectory fails with `TypeError: '<' not supported between instances of 'float' and 'NoneType'`. Use a tiny non-zero value such as `1.0e-9` instead, which passes everything without taking the broken path. This is an upstream bug, not a pipeline one.

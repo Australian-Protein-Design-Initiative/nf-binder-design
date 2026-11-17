@@ -171,7 +171,7 @@ there is no need to download your own copy:
 
 All nine files AlphaFold3 3.0.4 expects are here including the `mmcif_files/` template structures.
 
-Access is restricted to the **`alphafold3` group** — request membership through
+Access is restricted to the **`alphafold3` group**: request membership through
 the [M3 IRAP dashboard](https://allocation.erc.monash.edu/) after accepting the AlphaFold3 terms of use. Without it, jobs reading the directory fail with `Permission denied`.
 
 The model parameters are *not* included; they are licensed separately and must

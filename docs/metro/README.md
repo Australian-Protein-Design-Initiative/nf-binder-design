@@ -20,7 +20,7 @@ nf-metro 2.1.0 aborts on some of them.
 Optional steps are marked two ways: the station label is wrapped in parentheses,
 and `%%metro marker: <station> | square, open` draws it as a sharp-cornered square
 instead of the usual rounded pill, with a matching `%%metro marker_legend:` row
-explaining the glyph. `(Taxonomy pairing)` in the pulldown map uses this -- it only
+explaining the glyph. `(Taxonomy pairing)` in the pulldown map uses this: it only
 runs for the engines that need paired MSAs, and only when `--create_target_msa` /
 `--create_binder_msa` are enabled (both default to `false`).
 
