@@ -105,6 +105,8 @@
               </ul>
               <p class="caption"><span class="caption-text">Subworkflows</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/refold/">Refold Scoring</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
                   </li>
               </ul>
@@ -341,6 +343,11 @@ matched to target chains automatically by sequence; see
 <td>Build MSA for each target</td>
 </tr>
 <tr>
+<td><code>--target_msa</code></td>
+<td>none</td>
+<td>An A3M for the target, built elsewhere, used instead of searching for one. Its first record must be the target sequence. Only one target: a run with several stops, since one file cannot describe them all. Not usable with <code>--create_target_msa</code></td>
+</tr>
+<tr>
 <td><code>--create_binder_msa</code></td>
 <td><code>false</code></td>
 <td>Build MSA for each binder (usually leave off for de novo binders). AF2/<code>af2_mono</code> always fold the binder chain query-only regardless of this flag (see <code>bin/fold/assemble_af2_multimer_msas.py</code>); if AF2/<code>af2_mono</code> are the only selected <code>--methods</code>, the pipeline warns and skips building the binder MSA entirely.</td>
@@ -471,7 +478,7 @@ report stays deliberately simple.</p>
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../fold/" class="btn btn-neutral float-left" title="Fold"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../../subworkflows/foldseek/" class="btn btn-neutral float-right" title="FoldSeek">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../../subworkflows/refold/" class="btn btn-neutral float-right" title="Refold Scoring">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>
@@ -501,7 +508,7 @@ report stays deliberately simple.</p>
       <span><a href="../fold/" style="color: #fcfcfc">&laquo; Previous</a></span>
     
     
-      <span><a href="../../subworkflows/foldseek/" style="color: #fcfcfc">Next &raquo;</a></span>
+      <span><a href="../../subworkflows/refold/" style="color: #fcfcfc">Next &raquo;</a></span>
     
   </span>
 </div>

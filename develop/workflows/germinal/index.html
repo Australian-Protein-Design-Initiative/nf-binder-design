@@ -92,7 +92,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#external-folding-validation">External folding validation (optional)</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#running-it">Running it</a>
+    <li class="toctree-l3"><a class="reference internal" href="#in-the-workflow-refold_with">In the workflow: --refold_with</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#as-a-separate-job-method-fold_pulldown">As a separate job: --method fold_pulldown</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#matching-germinals-af3-settings">Matching Germinal's AF3 settings</a>
     </li>
@@ -113,6 +115,8 @@
               </ul>
               <p class="caption"><span class="caption-text">Subworkflows</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/refold/">Refold Scoring</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
                   </li>
               </ul>
@@ -379,13 +383,27 @@ pipeline still runs and performs a <strong>template search for both chains</stro
 <p>After renumbering, set <code>target_hotspots</code> (and <code>hotspot_residue</code> if used) to match the new 1-based sequential numbers.</p>
 <h2 id="external-folding-validation">External folding validation (optional)</h2>
 <p>Germinal already re-predicts every design with one external predictor and gates
-on its scores — that is the filter stage described above, and it is what decides
+on its scores - that is the filter stage described above, and it is what decides
 which designs reach <code>accepted/</code>. This section is about an <strong>additional,
 independent re-fold afterwards</strong>, with predictors Germinal did not use.</p>
-<p>It is optional and sits outside the workflow today: you run it as a separate
-<code>--method fold_pulldown</code> job over the designs a Germinal run produced. It may
-become an option on the Germinal workflow itself in future.</p>
-<h3 id="running-it">Running it</h3>
+<h3 id="in-the-workflow-refold_with">In the workflow: <code>--refold_with</code></h3>
+<p>Add <code>--refold_with</code> to the Germinal run and the accepted designs are folded again
+in the same job, with the engines you name:</p>
+<pre><code class="language-bash">nextflow run main.nf --method germinal \
+    --germinal_config config.yaml \
+    --refold_with boltz,protenix \
+    --refold_max 50 \
+    --use_msa_server
+</code></pre>
+<p>This is the shared <a href="../../subworkflows/refold/">refold scoring</a> step, so it takes
+the same <code>--refold_filter</code>, <code>--refold_sort_by</code> and <code>--refold_max</code> selection
+parameters as every other design workflow, and adds the same engine-prefixed
+columns. Germinal has no chain derivation of its own, so
+<code>--refold_binder_chain</code> (default <code>B</code>) and <code>--refold_target_chain</code> (default <code>A</code>)
+name the chains if yours differ. Outputs land under <code>germinal/refold/</code>.</p>
+<h3 id="as-a-separate-job-method-fold_pulldown">As a separate job: <code>--method fold_pulldown</code></h3>
+<p>To refold designs from a run that has already finished, or to control the pairing
+yourself, run a separate <code>--method fold_pulldown</code> job over them instead.</p>
 <p>Build a FASTA of the target and a FASTA of the binder sequences (from
 <code>accepted/designs.csv</code>, or the <code>trajectory_sequence</code> column of
 <code>all_trajectories.csv</code>), then fold every pair with whichever predictors you want
@@ -439,6 +457,7 @@ which are Germinal's definitions, and runs ipSAE at the same 10/10 cutoffs.</p>
 <li>The nanobody scaffold (<code>nb.pdb</code>) is copied from the container into <code>pdb_dir</code> if missing.</li>
 <li><code>target.target_pdb_path</code> in the config should be relative (e.g. <code>pdbs/pdl1.pdb</code>) so paths resolve from the process working directory.</li>
 <li>Stopping criteria per batch: whichever of <code>max_trajectories</code>, <code>max_hallucinated_trajectories</code>, or <code>max_passing_designs</code> is reached first.</li>
+<li>Do not set <code>seq_entropy_threshold: 0</code> in the Germinal YAML config to disable the sequence entropy filter. Germinal reads the value, and on zero replaces it with <code>None</code> and prints "Sequence entropy threshold set to 0, disabling filter" (<code>germinal/design/design.py:154-157</code>), but the two places that use it, at lines 286 and 317, then compare a float against <code>None</code> without a guard. The trajectory dies with <code>TypeError: '&lt;' not supported between instances of 'float' and 'NoneType'</code>. Use a tiny non-zero value such as <code>1.0e-9</code> instead, which passes everything without taking the broken path. This is an upstream bug, not a pipeline one.</li>
 </ul>
               
             </div>

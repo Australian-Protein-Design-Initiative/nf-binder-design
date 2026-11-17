@@ -88,7 +88,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#rf3-msa-and-template-options">RF3 MSA and template options</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#full-refolding-parameters-boltz-2">Full refolding parameters (Boltz-2)</a>
+    <li class="toctree-l3"><a class="reference internal" href="#refold-scoring-parameters">Refold scoring parameters</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#rmsd-design-vs-refold">RMSD (design vs refold)</a>
     </li>
@@ -113,6 +113,8 @@
               </ul>
               <p class="caption"><span class="caption-text">Subworkflows</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/refold/">Refold Scoring</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
                   </li>
               </ul>
@@ -253,7 +255,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <li>Contig <code>50-120,/0,C18-132</code>: the first chain is the binder and the second is the target - in this case, the RFD3 output will have <strong>A</strong> = binder, <strong>B</strong> = target.</li>
 </ul>
 <p>The workflow default <strong><code>--mpnn_designed_chains='auto'</code></strong> infers which output chain is the binder (only the case where you are generating a single binder chain is supported). If you set <strong><code>--mpnn_designed_chains</code></strong> explicitly (e.g. <code>A</code> or <code>B</code>, or <code>A,B</code>) be sure you are choosing chain IDs that match the expected RFD3 output chain IDs. Use <code>task.ext.args</code> to pass any additional arguments to MPNN.</p>
-<p>After MPNN, RosettaFold3 input JSON uses the same <strong>target</strong> and <strong>binder</strong> chain IDs as RFDiffusion3 (first polymer <strong>A</strong>, second <strong>B</strong>, etc.): the trimmed template is renamed to the target letter, and the binder component uses the binder letter. Optional Boltz full refold, design-vs-refold RMSD, IPSAE, and <code>combined_scores.tsv</code> sequence extraction all use that same pair so chain IDs stay consistent end to end. <strong>Two polymers</strong> in the contig are required for this automatic pairing (see <code>bin/rfd3/stage_rfd3_config.py infer-rfd3-chain-pair</code>).</p>
+<p>After MPNN, RosettaFold3 input JSON uses the same <strong>target</strong> and <strong>binder</strong> chain IDs as RFDiffusion3 (first polymer <strong>A</strong>, second <strong>B</strong>, etc.): the trimmed template is renamed to the target letter, and the binder component uses the binder letter. Optional refold scoring, design-vs-refold RMSD, IPSAE, and <code>combined_scores.tsv</code> sequence extraction all use that same pair so chain IDs stay consistent end to end. <strong>Two polymers</strong> in the contig are required for this automatic pairing (see <code>bin/rfd3/stage_rfd3_config.py infer-rfd3-chain-pair</code>).</p>
 <ul>
 <li><strong>Hotspots (<code>--hotspot_res</code>)</strong>  </li>
 <li>Accepts a comma-separated list of residue IDs, e.g. <code>--hotspot_res "A56,A115,A123"</code>.  </li>
@@ -448,20 +450,20 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   When <code>true</code>, create a target-chain MSA for RF3 via local ColabFold/MMseqs2 or an external MSA server. <strong>Default:</strong> <code>false</code>.</p>
 </li>
 <li>
-<p><strong><code>--rf3_alignment</code></strong><br />
-  Path to an external A3M-format MSA file for the target chain. When set, this file is used as the RF3 target MSA and no MMseqs2/ColabFold search is run for RF3. <code>--rf3_create_target_msa</code> and <code>--rf3_alignment</code> are mutually exclusive.</p>
+<p><strong><code>--rf3_target_msa</code></strong><br />
+  Path to an external A3M-format MSA file for the target chain. When set, this file is used as the RF3 target MSA and no MMseqs2/ColabFold search is run for RF3. <code>--rf3_create_target_msa</code> and <code>--rf3_target_msa</code> are mutually exclusive.</p>
 </li>
 <li>
 <p><strong><code>--rf3_use_msa_server</code></strong><br />
-  When <code>true</code> and <code>--rf3_create_target_msa</code> is set (and <code>--rf3_alignment</code> is not), the workflow queries the ColabFold MMseqs2 API (https://api.colabfold.com) via <code>bin/colabfold_remote_msa.py</code> to obtain target MSAs instead of running local ColabFold/MMseqs2. No local <code>--colabfold_envdb</code> or <code>--uniref30</code> are required in this case. <strong>Default:</strong> <code>false</code>.</p>
+  When <code>true</code> and <code>--rf3_create_target_msa</code> is set (and <code>--rf3_target_msa</code> is not), the workflow queries the ColabFold MMseqs2 API (https://api.colabfold.com) via <code>bin/colabfold_remote_msa.py</code> to obtain target MSAs instead of running local ColabFold/MMseqs2. No local <code>--colabfold_envdb</code> or <code>--uniref30</code> are required in this case. <strong>Default:</strong> <code>false</code>.</p>
 </li>
 <li>
 <p><strong><code>--rf3_target_fasta</code></strong><br />
-  Optional path to a target FASTA file used when building the RF3 target MSA (only when <code>--rf3_create_target_msa</code> is set and <code>--rf3_alignment</code> is not). If unset, the query sequence is taken from <strong><code>--input_pdb</code></strong> / config <code>input</code> (chain <strong>A</strong>), or from the <strong>prepared</strong> <strong><code>--rf3_target_template</code></strong> structure (same as the RF3 template step) with the inferred target chain when that option is set. <strong>Mutually exclusive with <code>--rf3_target_template</code></strong> (you cannot pass both flags).</p>
+  Optional path to a target FASTA file used when building the RF3 target MSA (only when <code>--rf3_create_target_msa</code> is set and <code>--rf3_target_msa</code> is not). If unset, the query sequence is taken from <strong><code>--input_pdb</code></strong> / config <code>input</code> (chain <strong>A</strong>), or from the <strong>prepared</strong> <strong><code>--rf3_target_template</code></strong> structure (same as the RF3 template step) with the inferred target chain when that option is set. <strong>Mutually exclusive with <code>--rf3_target_template</code></strong> (you cannot pass both flags).</p>
 </li>
 <li>
 <p><strong><code>--rf3_target_template</code></strong><br />
-  Path to an alternative PDB or CIF to use as the RosettaFold3 template instead of the default structure from <strong><code>--input_pdb</code></strong> / the <code>--rfd3_config</code> <code>input</code> path. This file is <strong>not</strong> trimmed to contigs. Chains are aligned to the target chain from your contigs / RFD3 output): <strong>single-chain</strong> files are renamed if needed; <strong>multi-chain</strong> files require <strong><code>--rf3_template_selection</code></strong> naming the target chain <strong>as it appears in this file</strong> (only one chain may be referenced). If the contig target letter already exists on the template and you omit <strong><code>--rf3_template_selection</code></strong>, that chain is kept (same behaviour as before). The target sequence RF3 uses is taken from this template (RF3 does not allow a separate target <code>seq</code> component alongside the same chain in the template). <strong>Mutually exclusive with <code>--rf3_target_fasta</code>.</strong> When <strong><code>--rf3_create_target_msa</code></strong> is set (and <strong><code>--rf3_alignment</code></strong> is not), the target MSA query sequence is taken from the <strong>prepared</strong> template with <strong><code>rfd3TargetChain</code></strong>.</p>
+  Path to an alternative PDB or CIF to use as the RosettaFold3 template instead of the default structure from <strong><code>--input_pdb</code></strong> / the <code>--rfd3_config</code> <code>input</code> path. This file is <strong>not</strong> trimmed to contigs. Chains are aligned to the target chain from your contigs / RFD3 output): <strong>single-chain</strong> files are renamed if needed; <strong>multi-chain</strong> files require <strong><code>--rf3_template_selection</code></strong> naming the target chain <strong>as it appears in this file</strong> (only one chain may be referenced). If the contig target letter already exists on the template and you omit <strong><code>--rf3_template_selection</code></strong>, that chain is kept (same behaviour as before). The target sequence RF3 uses is taken from this template (RF3 does not allow a separate target <code>seq</code> component alongside the same chain in the template). <strong>Mutually exclusive with <code>--rf3_target_fasta</code>.</strong> When <strong><code>--rf3_create_target_msa</code></strong> is set (and <strong><code>--rf3_target_msa</code></strong> is not), the target MSA query sequence is taken from the <strong>prepared</strong> template with <strong><code>rfd3TargetChain</code></strong>.</p>
 </li>
 <li>
 <p><strong><code>--rf3_template_selection</code></strong><br />
@@ -469,49 +471,40 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </li>
 </ul>
 <p>By default, the target structure from <strong><code>--input_pdb</code></strong> (or the config <code>input</code> path) is used as the single RF3 template (one template per chain; RF3 does not accept multiple templates per chain). Override with <strong><code>--rf3_target_template</code></strong> when you want a different structure. In the default case, the workflow prepares that template so it matches what RFDiffusion3 sees: if the input is mmCIF it is converted to PDB (gemmi); the structure is trimmed to the same contig ranges as RFD3 (see <strong><code>--contigs</code></strong> or the config’s <code>contig</code> field) via <code>bin/trim_to_contigs.py</code> (supports both v1 and v3 contig syntax); then all chain IDs in the trimmed structure are renamed to the <strong>target</strong> chain letter inferred from contig polymer order (e.g. <strong>A</strong> when the target is the first polymer, <strong>B</strong> when the target is the second), matching the chain ID of the target in RFD3/MPNN design CIFs.</p>
-<p>When <code>--rf3_create_target_msa</code> is <code>true</code>, <code>--rf3_alignment</code> is not set, and <code>--rf3_use_msa_server</code> is <code>false</code>, you must provide <strong><code>--colabfold_envdb</code></strong> and <strong><code>--uniref30</code></strong> (same as for the optional Boltz full refold step).</p>
-<h4 id="full-refolding-parameters-boltz-2">Full refolding parameters (Boltz-2)</h4>
-<p>The workflow supports an optional <strong>full refolding</strong> step (e.g. using Boltz-2) to validate the ROSETTAFOLD3 predicted structures, optionally using a non-truncated target sequence, with an optional target MSA and/or target template structure.</p>
+<p>When <code>--rf3_create_target_msa</code> is <code>true</code>, <code>--rf3_target_msa</code> is not set, and <code>--rf3_use_msa_server</code> is <code>false</code>, you must provide <strong><code>--colabfold_envdb</code></strong> and <strong><code>--uniref30</code></strong> (same as for the optional refold step).</p>
+<h4 id="refold-scoring-parameters">Refold scoring parameters</h4>
+<p>The workflow supports an optional <strong>refold</strong> step: a held-out second opinion on the RosettaFold3 predictions, folding selected designs again with one or more independent predictors. The full parameter set is documented in <a href="../../subworkflows/refold/">Refold Scoring</a>; the ones most used here are:</p>
 <ul>
 <li>
-<p><strong><code>--full_refold_with</code></strong><br />
-  Tool to use for full refolding (e.g. <code>boltz</code>). <strong>Default:</strong> disabled.</p>
+<p><strong><code>--refold_with</code></strong><br />
+  Comma-separated engines to refold with, eg <code>boltz</code> or <code>boltz,chai1</code>. <strong>Default:</strong> unset (no refolding).</p>
 </li>
 <li>
-<p><strong><code>--full_refold_max</code></strong><br />
-  Maximum number of top scoring ROSETTAFOLD3 designs to pass to the full refolding step.</p>
+<p><strong><code>--refold_filter</code></strong><br />
+  Threshold gate on the RosettaFold3 per-design scores, semicolon-separated, in the same syntax as <code>--rfd3_filters</code>, eg <code>'pair_pae_min&lt;=10'</code>. Decided per design, so refolding starts while the rest of the set is still being scored. <strong>Default:</strong> unset.</p>
 </li>
 <li>
-<p><strong><code>--full_refold_filter_sort</code></strong><br />
-  The metric used to sort the ROSETTAFOLD3 outputs before prioritizing them for full refolding via <code>--full_refold_max</code>.<br />
-  Use a <code>-</code> prefix to sort in descending order (e.g. <code>-plddt</code>).<br />
-<strong>Default:</strong> <code>pair_pae_min</code> (ascending).</p>
+<p><strong><code>--refold_sort_by</code></strong><br />
+  Rank the designs that pass the gate by one metric before <code>--refold_max</code> takes the best of them. A <code>-</code> prefix sorts descending (eg <code>-plddt</code>); metrics where low is good (<code>pair_pae_min</code>) need no prefix. On its own it selects nothing, since without a cap every design that passes the gate is refolded anyway. <strong>Default:</strong> unset.</p>
 </li>
 <li>
-<p><strong><code>--full_refold_alignment</code></strong><br />
-  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step. Mutually exclusive with <strong><code>--full_refold_create_target_msa</code></strong>.</p>
-</li>
-<li>
-<p><strong><code>--full_refold_create_target_msa</code></strong><br />
-  When <code>true</code>, create a target-chain MSA for the Boltz refold step via local ColabFold/MMseqs2 or an external MSA server. <strong>Default:</strong> <code>false</code>.</p>
-</li>
-<li>
-<p><strong><code>--full_refold_use_msa_server</code></strong><br />
-  When <code>true</code> and <strong><code>--full_refold_create_target_msa</code></strong> is set (and <strong><code>--full_refold_alignment</code></strong> is not), obtain refold target MSAs from the ColabFold MMseqs2 API instead of local MMseqs2. No <strong><code>--colabfold_envdb</code></strong> or <strong><code>--uniref30</code></strong> are required in this case. <strong>Default:</strong> <code>false</code>.</p>
-</li>
-<li>
-<p><strong><code>--full_refold_target_fasta</code></strong><br />
-  FASTA file with full-length target sequence(s) for Boltz refold (headers should match PDB basenames in <strong><code>--full_refold_target_templates</code></strong>). <strong>Default:</strong> disabled.</p>
-</li>
-<li>
-<p><strong><code>--full_refold_target_templates</code></strong><br />
-  Directory of full-length target template PDB/CIF files for Boltz-2 (improves target prediction when the RFD3 input is a cropped domain). <strong>Default:</strong> disabled.</p>
+<p><strong><code>--refold_max</code></strong><br />
+  Cap on how many designs are refolded. With <code>--refold_sort_by</code>, the best N; without it, the first N to be scored. A cap cannot stream, so it makes the refold wait for every design to be scored.</p>
 </li>
 <li>
 <p><strong><code>--colabfold_envdb</code></strong> / <strong><code>--uniref30</code></strong><br />
-  Paths to ColabFold environmental and UniRef30 databases. Required when creating MSAs locally for RF3 (<strong><code>--rf3_create_target_msa</code></strong>) or Boltz refold (<strong><code>--full_refold_create_target_msa</code></strong>) without an external MSA server and without <strong><code>--rf3_alignment</code></strong> / <strong><code>--full_refold_alignment</code></strong>.</p>
+  Paths to ColabFold environmental and UniRef30 databases. Required when creating MSAs locally for RF3 (<strong><code>--rf3_create_target_msa</code></strong>) or for the refold (<strong><code>--create_target_msa</code></strong>) without an external MSA server.</p>
 </li>
 </ul>
+<div class="admonition warning">
+<p class="admonition-title">Write <code>--refold_sort_by</code> with an <code>=</code></p>
+<p>Use <code>--refold_sort_by='pair_pae_min'</code> or <code>--refold_sort_by='-plddt'</code>. Without the <code>=</code>, Nextflow reads a leading <code>-</code> as the start of one of its own options.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Behaviour change: <code>--refold_max</code> no longer implies a ranking</p>
+<p><code>--full_refold_filter_sort</code> used to default to <code>pair_pae_min</code>, so a capped refold took the best designs by that metric. Its replacement <code>--refold_sort_by</code> defaults to unset, so <code>--refold_max</code> on its own now takes the <strong>first N designs to finish</strong>, in whatever order that is. The run warns when a cap is set without a ranking. Add <code>--refold_sort_by='pair_pae_min'</code> to keep the old selection.</p>
+</div>
+<p>The refold takes its MSA and template choices from the fold stack (<code>--create_target_msa</code>, <code>--target_msa</code>, <code>--use_msa_server</code>, <code>--msa_method</code>, <code>--templates</code>). The old refold-specific copies - <code>--refold_create_target_msa</code>, <code>--refold_use_msa_server</code>, <code>--refold_alignment</code>, <code>--refold_target_templates</code> - are gone, and a run that sets one stops with the replacement named. <code>--refold_target_fasta</code> is still there under its own name: it refolds the selected designs against a target other than the one they were built against, which is how a design made against a truncated construct is checked against the full-length protein. See <a href="../../subworkflows/refold/#what-the-designs-are-refolded-against">What the designs are refolded against</a>. The whole <code>--full_refold_*</code> family has been renamed to <code>--refold_*</code>.</p>
 <h4 id="rmsd-design-vs-refold">RMSD (design vs refold)</h4>
 <p>After RosettaFold3, the workflow compares the C-alpha RMSD of each design (MPNN output) to the refolded structure (RF3 output).</p>
 <h3 id="key-outputs">Key Outputs</h3>
@@ -544,15 +537,21 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </li>
 <li>
 <p><strong><code>combined_scores.tsv</code></strong><br />
-  A single TSV under <code>rfd3/</code> merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. <code>ranking_score</code>, <code>iptm</code>, <code>plddt</code>, <code>pair_pae_min</code>, <code>ptm_binder</code>), sorted by <code>pair_pae_min</code>. The RMSD values (MPNN design vs RosettaFold3 refold) are also included as <code>rf3_rmsd_*</code> columns. When Boltz refolding is enabled (<code>refold_methods</code> includes <code>boltz</code>), Boltz confidence metrics appear as <code>boltz_complex_*</code> and <code>boltz_monomer_*</code>, and the same Boltz RMSD metrics as the <code>rfd</code> workflow’s <code>combined_scores.tsv</code> are merged from <code>boltz_refold/rmsd/</code>: <code>boltz_target_aligned_binder_rmsd_pruned</code>, <code>boltz_target_aligned_binder_rmsd_all</code> (design vs Boltz complex), and <code>boltz_monomer_vs_complex_rmsd_pruned</code>, <code>boltz_monomer_vs_complex_rmsd_all</code> (binder monomer vs complex). <code>rmsd_complex_vs_rf3.tsv</code> and <code>rmsd_monomer_vs_rf3.tsv</code> are not merged into this table.</p>
+  A single TSV under <code>rfd3/</code> merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. <code>ranking_score</code>, <code>iptm</code>, <code>plddt</code>, <code>pair_pae_min</code>, <code>ptm_binder</code>), sorted by <code>pair_pae_min</code>. The RMSD values (MPNN design vs RosettaFold3 refold) are also included as <code>rf3_rmsd_*</code> columns. When refolding is enabled, each engine named in <code>--refold_with</code> adds its own set of engine-prefixed columns: <code>&lt;tool&gt;_iptm_max</code>, <code>&lt;tool&gt;_ipsae_max</code> and the rest of <code>--refold_metrics</code>, <code>&lt;tool&gt;_target_aligned_binder_rmsd_all</code> and <code>&lt;tool&gt;_complex_rmsd_all</code> (refold vs design), <code>&lt;tool&gt;_monomer_vs_design_rmsd_all</code> and <code>&lt;tool&gt;_monomer_vs_complex_rmsd_all</code> (binder monomer), and <code>&lt;tool&gt;_interface_dG</code> and the other BindCraft interface metrics. A cross-engine <code>consensus_z</code> is added when more than one engine is named. These replace the four Boltz-specific tables (<code>boltz_complex_*</code>, <code>boltz_monomer_*</code>, <code>boltz_target_aligned_binder_*</code>, <code>boltz_monomer_vs_complex_*</code>) that earlier versions merged. <code>rmsd_complex_vs_rf3.tsv</code> and <code>rmsd_monomer_vs_rf3.tsv</code> are not merged into this table.</p>
 </li>
 </ul>
 <blockquote>
 <p><strong>Note:</strong> If using a <code>--rf3_target_template</code> that is a different length to the <code>--input_pdb</code> target used by RFD3, the <code>rf3_rmsd_complex_rmsd_all</code> and <code>rf3_rmsd_target_aligned_target_rmsd_all</code> cannot be computed and will be empty in <code>combined_scores.tsv</code>.</p>
 </blockquote>
 <ul>
-<li><strong>Boltz full refold (optional)</strong><br />
-  When <code>--full_refold_with</code> includes <code>boltz</code>, see <code>boltz_refold/</code> for Boltz confidence TSVs, RMSD tables, aggregated <code>boltz_complex_extra_scores.tsv</code>, and per-design BindCraft interface scores under <code>boltz_refold/extra_scores/</code>.</li>
+<li>
+<p><strong>Refold scoring (optional)</strong><br />
+  When <code>--refold_with</code> names at least one engine, <code>rfd3/refold/</code> holds <code>refold_scores.tsv</code> (one row per design, merged into <code>combined_scores.tsv</code>), <code>refold_sample_scores.tsv</code> (one row per refolded sample, nothing reduced), <code>refold_selection.tsv</code> (every design with its selection verdict, rank and sort value) and <code>predictions/</code> (the refolded complexes and binder monomers). See <a href="../../subworkflows/refold/">Refold Scoring</a>.</p>
+</li>
+<li>
+<p><strong><code>binders.fasta</code></strong><br />
+  Binder sequences, with the columns named by <code>--refold_fasta_score_columns</code> (default <code>consensus_z</code>) in the headers.</p>
+</li>
 </ul>
 <p>The exact directory layout follows the <code>modules/local/rfd3/</code> processes (<code>rfdiffusion3</code>, <code>mpnn</code>, <code>rosettafold3</code>); you can examine those modules or a completed run for the precise structure.</p>
 <h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
@@ -565,21 +564,24 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --do_foldseek
 </code></pre>
 <h3 id="design-selection-for-foldseek">Design Selection for FoldSeek</h3>
-<p>FoldSeek operates on the <strong>same set of designs</strong> that would be selected for Boltz-2 full refolding. Designs are sorted by <code>--full_refold_filter_sort</code> (default: <code>pair_pae_min</code>) and the top N are selected based on <code>--foldseek_search_max</code>:</p>
+<p>FoldSeek selects designs on the <strong>same basis as the refold</strong>: the same <code>--refold_filter</code> gate and the same <code>--refold_sort_by</code> ranking, with its own cap.</p>
 <ul>
-<li><strong><code>--foldseek_search_max</code></strong>: maximum designs to search with FoldSeek. Defaults to <code>--full_refold_max</code> if not set.</li>
-<li><strong>If neither <code>--foldseek_search_max</code> nor <code>--full_refold_max</code> is set</strong>: all RF3 designs are searched.</li>
+<li><strong><code>--foldseek_search_max</code></strong>: maximum designs to search with FoldSeek. Defaults to <code>--refold_max</code> if not set.</li>
+<li><strong>If neither <code>--foldseek_search_max</code> nor <code>--refold_max</code> is set</strong>: all designs that pass <code>--refold_filter</code> are searched, and if that is unset too, all RF3 designs are.</li>
+<li>Without <code>--refold_sort_by</code>, a cap takes the first N designs to be scored, not the best N. Set <code>--refold_sort_by='pair_pae_min'</code> (note the <code>=</code>) to rank them first.</li>
 </ul>
-<pre><code class="language-bash"># FoldSeek searches top 50 designs (same as full refold selection)
+<pre><code class="language-bash"># FoldSeek searches the same 100 designs as the refold
 nextflow run main.nf --method rfd3 \
   --input_pdb target.pdb --contigs &quot;A17-131,/0,50-120&quot; \
-  --full_refold_max 100 \
+  --refold_max 100 \
+  --refold_sort_by='pair_pae_min' \
   --do_foldseek
 
 # Or search a larger set than is refolded
 nextflow run main.nf --method rfd3 \
   --input_pdb target.pdb --contigs &quot;A17-131,/0,50-120&quot; \
-  --full_refold_max 50 \
+  --refold_max 50 \
+  --refold_sort_by='pair_pae_min' \
   --foldseek_search_max 200 \
   --do_foldseek
 </code></pre>
@@ -600,7 +602,7 @@ nextflow run main.nf --method rfd3 \
 </tr>
 <tr>
 <td><code>--foldseek_search_max</code></td>
-<td><em>(uses <code>--full_refold_max</code>)</em></td>
+<td><em>(uses <code>--refold_max</code>)</em></td>
 <td>Maximum designs to search with FoldSeek</td>
 </tr>
 </tbody>

@@ -87,6 +87,8 @@
               </ul>
               <p class="caption"><span class="caption-text">Subworkflows</span></p>
               <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="subworkflows/refold/">Refold Scoring</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="subworkflows/foldseek/">FoldSeek</a>
                   </li>
               </ul>
@@ -145,16 +147,17 @@
 <h2 id="overview">Overview</h2>
 <p>This project provides Nextflow workflows for <em>de novo</em> design of protein binders:</p>
 <ul>
-<li><strong>RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding</strong> pipeline</li>
-<li><strong>RFdiffusion Partial Diffusion → Boltz-2 refolding</strong> for diversification and optimization</li>
-<li><strong>RFdiffusion3</strong> — <a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html">RosettaCommons/foundry</a> binder workflow: <code>rfd3</code> (RFdiffusion3) → <code>mpnn</code> → <code>rf3</code> (RosettaFold3) (→ Boltz-2 refolding)</li>
-<li><strong>RFD4-Proteina</strong> - <a href="https://rfd4-proteina.org/">RosettaCommons/RFD4-Proteina</a> sequence-structure co-design: <code>rfd4_proteina</code> (then Boltz-2 refolding)</li>
+<li><strong>RFdiffusion → ProteinMPNN → AlphaFold2(initial guess)</strong> pipeline</li>
+<li><strong>RFdiffusion Partial Diffusion</strong> for diversification and optimization</li>
+<li><strong>RFdiffusion3</strong> - <a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html">RosettaCommons/foundry</a> binder workflow: <code>rfd3</code> (RFdiffusion3) → <code>mpnn</code> → <code>rf3</code> (RosettaFold3)</li>
+<li><strong>RFD4-Proteina</strong> - <a href="https://rfd4-proteina.org/">RosettaCommons/RFD4-Proteina</a> sequence-structure co-design: <code>rfd4_proteina</code></li>
 <li><strong>BindCraft</strong> - parallel execution across multiple GPUs</li>
 <li><strong>Germinal</strong> - antibody/nanobody design in parallel across multiple GPUs</li>
 <li><strong>BoltzGen</strong> - design proteins and complexes using BoltzGen</li>
 <li><strong>Fold Pulldown</strong> - an AlphaPulldown-like target × binder pulldown across multiple folding engines (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2)</li>
 <li><strong>Fold</strong> - multi-method structure prediction (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2) with shared MSAs and EnGens clustering</li>
 </ul>
+<p>Every design workflow above can also run <a href="subworkflows/refold/">refold scoring</a> (<code>--refold_with</code>): a held-out second opinion that folds selected designs again with one or more independent predictors, on top of the workflow's own cofold.</p>
 <p><img alt="RFdiffusion workflow" src="images/rfd-workflow.png" /></p>
 <p><img alt="BindCraft workflow" src="images/bindcraft-workflow.png" /></p>
 <h2 id="features">Features</h2>
@@ -176,6 +179,7 @@
 <li><a href="workflows/boltzgen/">BoltzGen Workflow</a></li>
 <li><a href="workflows/fold-pulldown/">Fold Pulldown</a></li>
 <li><a href="workflows/fold/">Fold</a></li>
+<li><a href="subworkflows/refold/">Refold Scoring</a></li>
 <li><a href="subworkflows/foldseek/">FoldSeek</a></li>
 <li><a href="testing/">Testing</a></li>
 <li><a href="extra/development/">Development</a></li>
@@ -327,5 +331,5 @@
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2026-11-14 23:50:10.883260+00:00
+Build Date UTC : 2026-11-17 09:29:19.824828+00:00
 -->
