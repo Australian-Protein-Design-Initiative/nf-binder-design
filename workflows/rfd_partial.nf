@@ -38,18 +38,17 @@ params.pmpnn_omit_aas = 'CX'
 params.max_rg = false
 params.rfd_filters = false
 
-params.refold_af2ig_filters = false
 params.af2ig_recycle = 3
 
-params.refold_max = false
-params.refold_use_msa_server = false
-params.refold_create_target_msa = false
-params.refold_target_templates = false
-params.refold_target_fasta = false
-params.uniref30 = false
-params.colabfold_envdb = false
 
-params.output_rmsd_aligned = false
+
+// Refold scoring. The knobs themselves - --refold_with, --refold_filter,
+// --refold_sort_by, --refold_max - are shared by every design workflow and live in
+// conf/refold.config; only the output directory differs per workflow. The refold's
+// outputs and the fold stack's own outputs share it, and the fold stack reads
+// fold_publish_dir directly in its modules, so the two are kept equal.
+params.refold_publish_dir = 'rfd_partial/refold'
+params.fold_publish_dir = 'rfd_partial/refold'
 
 params.require_gpu = true
 params.gpu_devices = ''
@@ -68,7 +67,14 @@ include { AF2IG_SCORE_FILTER } from '../modules/local/rfd/af2ig_score_filter'
 
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 
-include { BOLTZ_REFOLD_SCORING } from '../subworkflows/local/boltz_refold_scoring_rfd'
+include { AF2IG_SCORING } from '../subworkflows/local/af2ig_scoring'
+include { REFOLD } from '../subworkflows/local/refold'
+include {
+    checkRefoldParamRenames
+    refoldEngines
+    refoldHelpText
+    refoldSelection
+} from '../modules/local/common/refold_select_utils'
 
 // Validate numeric parameters
 def validate_numeric(param_name, value) {
@@ -146,17 +152,10 @@ workflow RFD_PARTIAL {
             --pmpnn_omit_aas      A string of all residue types (one letter case-insensitive) that should not appear in the design [default: ${params.pmpnn_omit_aas}]
             --rfd_filters         Semicolon-separated list of filters for RFDiffusion backbones, eg "rg<25;compactness>0.8" [default: disabled]
 
-            --refold_af2ig_filters       Semicolon-separated list of filters for AF2 initial guess designs, eg "pae_interaction<=10;plddt_binder>=80" [default: disabled]
             --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
-            
-            --refold_max          Maximum number of designs to refold with Boltz-2 [default: disabled]
-            --refold_use_msa_server Use Boltz MSA server for target sequences [default: ${params.refold_use_msa_server}]
-            --refold_create_target_msa Create MSA for target sequences [default: ${params.refold_create_target_msa}]
-            --refold_target_templates Templates directory with .cif files for Boltz-2 [default: ${params.refold_target_templates}]
-            --refold_target_fasta  FASTA file with full-length target sequences (headers should match PDB basenames) [default: ${params.refold_target_fasta}]
-            --uniref30            UniRef30 database path for MSA creation [default: ${params.uniref30}]
-            --colabfold_envdb     ColabFold environment database path for MSA creation [default: ${params.colabfold_envdb}]
-            --output_rmsd_aligned Output aligned PDB files from RMSD calculations [default: ${params.output_rmsd_aligned}]
+
+        ${refoldHelpText(params)}
+
             --require_gpu           Fail tasks that go too slow without a GPU if no GPU is detected [default: ${params.require_gpu}]
             --gpu_devices           GPU devices to use (comma-separated list or 'all') [default: ${params.gpu_devices}]
             --gpu_slots_per_device  Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
@@ -165,6 +164,28 @@ workflow RFD_PARTIAL {
         """.stripIndent()
         )
         exit(1)
+    }
+
+    // Refolding is the held-out second opinion after AF2 initial guess has already
+    // cofolded every design, so --refold_with takes any engine the fold stack knows.
+    checkRefoldParamRenames(params, 'rfd_partial')
+    refold_engines = refoldEngines(params, 'rfd_partial', log)
+    refold_selection = refoldSelection(params, 'rfd_partial', log)
+
+    if (refold_engines) {
+        // Every design pair is a 2-chain complex and the binder is folded query-only,
+        // exactly as in --method fold_pulldown.
+        refold_validation = FoldValidation.validate(params, refold_engines, [
+            hasMultimer: true,
+            af2DbPath: params.af2_db_path,
+            pulldown: true,
+        ])
+        refold_errors = refold_validation[0]
+        refold_warnings = refold_validation[1]
+        refold_warnings.each { log.warn("rfd_partial: --refold_with: ${it}") }
+        if (refold_errors) {
+            error("rfd_partial: --refold_with: ${refold_errors.join('\nrfd_partial: --refold_with: ')}")
+        }
     }
 
     // Generate unique ID for this run
@@ -297,24 +318,45 @@ workflow RFD_PARTIAL {
             skip: 1,
         )
 
-    // Run Boltz-2 refolding and scoring (or just AF2IG scoring if no refolding filters)
-    BOLTZ_REFOLD_SCORING(
-        AF2_INITIAL_GUESS.out.pdbs_with_scores,
+    // Refold scoring: a held-out second opinion on the designs AF2 initial guess has
+    // already cofolded, with whatever engines --refold_with names. Which designs go
+    // through is chosen from the AF2IG scores by --refold_filter / --refold_sort_by /
+    // --refold_max (see subworkflows/local/refold_select.nf).
+    //
+    // The design id is the AF2IG name without its _model_0 suffix, which is what the
+    // AF2IG score table calls `description` and what combined_scores.tsv merges on.
+    def ch_af2ig_score_rows = AF2_INITIAL_GUESS.out.pdbs_with_scores
+        .map { _pdbs, scores -> scores }
+        .splitCsv(header: true, sep: '\t')
+        .map { row -> tuple(row.description.toString(), row as Map) }
+
+    def ch_af2ig_scored = AF2_INITIAL_GUESS.out.pdbs
+        .flatten()
+        .map { pdb -> tuple(pdb.baseName.replaceFirst(/_model_0$/, ''), pdb) }
+        .join(ch_af2ig_score_rows)
+        .map { id, pdb, scores -> tuple([id: id], pdb, scores) }
+
+    ch_refold_scores = Channel.empty()
+    if (refold_engines) {
+        REFOLD(
+            ch_af2ig_scored,
+            binder_chain_for_contigs,
+            'B',  // target_chain
+            refold_selection,
+            refold_engines,
+            params.msa_method,
+        )
+        ch_refold_scores = REFOLD.out.scores
+    }
+
+    AF2IG_SCORING(
         AF2_INITIAL_GUESS.out.pdbs,
         AF2_INITIAL_GUESS.out.scores,
-        binder_chain_for_contigs,  // binder_chain
-        'B',  // target_chain
-        params.refold_af2ig_filters,
-        params.refold_max,
-        params.refold_create_target_msa,
-        params.refold_use_msa_server,
-        params.refold_target_fasta,
-        params.refold_target_templates,
-        params.colabfold_envdb,
-        params.uniref30,
+        binder_chain_for_contigs,
+        ch_refold_scores.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
         params.outdir,
     )
 
     emit:
-    scores = BOLTZ_REFOLD_SCORING.out.scores
+    scores = AF2IG_SCORING.out.scores
 }

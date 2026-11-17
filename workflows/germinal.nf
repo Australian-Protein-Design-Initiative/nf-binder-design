@@ -18,6 +18,14 @@ params.germinal_n_traj = 10
 params.germinal_batch_size = 1
 params.germinal_max_passing_designs = 10000
 params.germinal_max_hallucinated_trajectories = 10000
+// Refold scoring. The knobs themselves - --refold_with, --refold_filter,
+// --refold_sort_by, --refold_max - are shared by every design workflow and live in
+// conf/refold.config; only the output directory differs per workflow. The refold's
+// outputs and the fold stack's own outputs share it, and the fold stack reads
+// fold_publish_dir directly in its modules, so the two are kept equal.
+params.refold_publish_dir = 'germinal/refold'
+params.fold_publish_dir = 'germinal/refold'
+
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_slots_per_device = 1
@@ -25,6 +33,14 @@ params.gpu_lock_timeout = 14400
 
 include { GERMINAL as GERMINAL_PROCESS } from '../modules/local/germinal/germinal'
 include { GERMINAL_MERGE } from '../modules/local/germinal/germinal_merge'
+include { REFOLD } from '../subworkflows/local/refold'
+include {
+    checkRefoldParamRenames
+    refoldEngines
+    refoldHelpText
+    refoldIdColumn
+    refoldSelection
+} from '../modules/local/common/refold_select_utils'
 
 def resolveGerminalPdbDir(config_path) {
     if (params.germinal_pdb_dir) {
@@ -67,8 +83,32 @@ workflow GERMINAL {
             --gpu_slots_per_device         Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
             --gpu_lock_timeout             Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
+        ${refoldHelpText(params)}
+
         """.stripIndent()
         exit 1
+    }
+
+    // Refolding is the held-out second opinion after Germinal's own AF2 pass has
+    // already cofolded every accepted design.
+    checkRefoldParamRenames(params, 'germinal')
+    refold_engines = refoldEngines(params, 'germinal', log)
+    refold_selection = refoldSelection(params, 'germinal', log)
+
+    if (refold_engines) {
+        // Every design pair is a 2-chain complex and the binder is folded query-only,
+        // exactly as in --method fold_pulldown.
+        refold_validation = FoldValidation.validate(params, refold_engines, [
+            hasMultimer: true,
+            af2DbPath: params.af2_db_path,
+            pulldown: true,
+        ])
+        refold_errors = refold_validation[0]
+        refold_warnings = refold_validation[1]
+        refold_warnings.each { log.warn("germinal: --refold_with: ${it}") }
+        if (refold_errors) {
+            error("germinal: --refold_with: ${refold_errors.join('\ngerminal: --refold_with: ')}")
+        }
     }
 
     if (params.germinal_n_traj < 1) {
@@ -102,9 +142,60 @@ workflow GERMINAL {
         GERMINAL_PROCESS.out.batch_dir.collect(),
     )
 
+    // Refold scoring (optional). Germinal has already cofolded every accepted design
+    // with its own AF2 pass, so this is the held-out second opinion: fold the binder
+    // against the target again with the engines --refold_with names, and score the
+    // result the way every other workflow does.
+    //
+    // accepted_designs.csv is Germinal's own verdict on each design, and what
+    // --refold_filter and --refold_sort_by select on. GERMINAL_MERGE produces it only
+    // once every batch has finished, so refolding cannot overlap designing here.
+    ch_refold_scores = Channel.empty()
+    if (refold_engines) {
+        def ch_germinal_score_rows = GERMINAL_MERGE.out.accepted_designs
+            // quote: '"' because these are real CSVs, not comma-joined columns:
+            // BindCraft writes InterfaceResidues as "B16,B19,B20,..." and several
+            // amino-acid-count fields as quoted Python dicts. Nextflow's splitCsv does
+            // no quote handling unless asked, so without this every embedded comma
+            // starts a new column and each row's later fields shift left by however
+            // many commas that row happened to contain. Nothing errors: the metrics
+            // just silently come from the wrong columns, and a sort on Average_i_pTM
+            // ranks designs on Average_pTM instead.
+            .splitCsv(header: true, quote: '"')
+            .map { row ->
+                def id_column = refoldIdColumn(
+                    row as Map,
+                    ['design_name', 'design', 'Design', 'description', 'id', 'name'],
+                    'germinal',
+                )
+                tuple(row[id_column].toString(), row as Map)
+            }
+
+        // remainder: true so a design with no row in the merged table still reaches the
+        // refold rather than vanishing from it; the filter drops the mirror case, a row
+        // whose structure was not among the accepted PDBs.
+        def ch_germinal_scored = GERMINAL_PROCESS.out.accepted_pdbs
+            .flatten()
+            .map { pdb -> tuple(pdb.baseName, pdb) }
+            .join(ch_germinal_score_rows, remainder: true)
+            .filter { _id, pdb, _scores -> pdb != null }
+            .map { id, pdb, scores -> tuple([id: id], pdb, (scores ?: [:]) as Map) }
+
+        REFOLD(
+            ch_germinal_scored,
+            params.refold_binder_chain ?: 'B',
+            params.refold_target_chain ?: 'A',
+            refold_selection,
+            refold_engines,
+            params.msa_method,
+        )
+        ch_refold_scores = REFOLD.out.scores
+    }
+
     emit:
     all_trajectories = GERMINAL_MERGE.out.all_trajectories
     accepted_designs = GERMINAL_MERGE.out.accepted_designs
     failure_counts = GERMINAL_MERGE.out.failure_counts
     accepted_pdbs = GERMINAL_PROCESS.out.accepted_pdbs
+    refold_scores = ch_refold_scores
 }

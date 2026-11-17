@@ -125,6 +125,28 @@ Results are saved to `--outdir` in the `bindcraft/` subdirectory:
 
 A summary report is generated as `bindcraft_report.html`.
 
+## Refold Scoring (Optional)
+
+BindCraft runs its own AF2 passes and gates designs on their scores, which is what decides
+which reach `accepted/`. `--refold_with` adds a held-out second opinion on top of that: the
+accepted designs are folded again with one or more independent predictors, compared with the
+design, and their rebuilt interfaces scored.
+
+```bash
+nextflow run main.nf --method bindcraft \
+    --input_pdb 'input/PDL1.pdb' --target_chains "A" --hotspot_res "A56,A125" \
+    --refold_with boltz \
+    --refold_max 50 \
+    --use_msa_server
+```
+
+This is the shared [refold scoring](../subworkflows/refold.md) step, with the same
+`--refold_filter`, `--refold_sort_by` and `--refold_max` selection parameters as every other
+design workflow. The gate and the ranking read BindCraft's `final_design_stats.csv` columns.
+BindCraft has no chain derivation of its own, so `--refold_binder_chain` (default `B`) and
+`--refold_target_chain` (default `A`) name the chains if yours differ. Outputs land under
+`bindcraft/refold/`.
+
 ## FoldSeek Structural Search (Optional)
 
 After BindCraft completes, you can optionally run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex — only the binder is searched, not the full target–binder complex.

@@ -7,7 +7,7 @@
 - [Contig Syntax](#contig-syntax)
 - [Hotspot Residues](#hotspot-residues)
 - [Design Filters](#design-filters)
-- [Boltz-2 Refolding](#boltz-2-refolding)
+- [Refold Scoring](#refold-scoring)
 - [RMSD Comparisons](#rmsd-comparisons)
 - [Custom Filter Plugins](#custom-filter-plugins)
 - [Complete Examples](#complete-examples)
@@ -16,12 +16,12 @@
 
 ## Method: rfd (Full Pipeline)
 
-**Pipeline**: RFdiffusion → ProteinMPNN → AlphaFold2 (initial guess) → (optional) Boltz-2 refolding
+**Pipeline**: RFdiffusion → ProteinMPNN → AlphaFold2 (initial guess) → (optional) refold scoring
 
 ### VRAM Requirements
 
 - **~400–500 total residues** (target + max binder length) is the ceiling for 12 GB VRAM at `--rfd_batch_size 1`. Larger targets need more VRAM or further cropping.
-- AF2 initial guess and Boltz-2 refolding are also VRAM-intensive; they run one at a time per GPU regardless of batch size.
+- AF2 initial guess and refold scoring are also VRAM-intensive; they run one at a time per GPU regardless of batch size.
 
 
 ### All Parameters
@@ -58,15 +58,18 @@ Use `--method rfd --help` for the definitive list. Key parameters:
 |-----------|-------------|---------|
 | `--af2ig_recycle` | Number of AF2 recycles | 1 |
 
-#### Boltz-2 Refolding (optional)
+#### Refold Scoring (optional)
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--refold_af2ig_filters` | Score filters to select designs for refolding | None (no refolding) |
-| `--refold_max` | Maximum designs to refold | No limit |
-| `--refold_use_msa_server` | Use ColabFold MMSeqs2 server for MSA | `false` |
-| `--refold_target_fasta` | Full-length target FASTA for refolding | None (uses truncated target from PDB) |
-| `--refold_target_templates` | Directory of template PDBs for target | None |
+| `--refold_with` | Comma-separated engines to refold with: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast` | None (no refolding) |
+| `--refold_filter` | Threshold gate on the AF2IG scores, semicolon-separated | None |
+| `--refold_sort_by` | Rank by one metric before `--refold_max` takes the best; `-` prefix for descending. Write it with an `=` | None |
+| `--refold_max` | Maximum designs to refold. With `--refold_sort_by` the best N, without it the first N to be scored | No limit |
+| `--use_msa_server` | Use ColabFold MMseqs2 server for MSA | `false` |
+| `--templates` | Known structures, matched to the folded chains by sequence alignment | None |
 | `--output_rmsd_aligned` | Output RMSD-aligned structures | `false` |
+
+`--refold_with` turns refolding on; the filter and the cap only select which designs go through it. Refolding is a held-out second opinion **in addition to** AF2 initial guess, not a replacement. See the Refold Scoring section below.
 
 #### SLURM
 | Parameter | Description | Default |
@@ -164,13 +167,15 @@ Filter RFdiffusion backbone designs before passing to ProteinMPNN and AF2 initia
 
 Available metrics for backbone filtering: `rg` (radius of gyration), plus any custom filter plugins.
 
-### AF2 Initial Guess Score Filters (`--refold_af2ig_filters`)
+### AF2 Initial Guess Score Filters (`--refold_filter`)
 
-Filter AF2 initial guess designs before Boltz-2 refolding. Semicolon-separated conditions:
+Select AF2 initial guess designs for refolding. Semicolon-separated conditions:
 
 ```bash
---refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80"
+--refold_filter="pae_interaction<=10;plddt_binder>=80"
 ```
+
+(`--refold_af2ig_filters` is the old name. It still works and warns.)
 
 Available AF2IG scores:
 - `pae_interaction` — PAE between binder and target (lower is better)
@@ -195,36 +200,52 @@ Multiple filters separated by `;` (AND logic).
 
 ---
 
-## Boltz-2 Refolding
+## Refold Scoring
 
-When `--refold_af2ig_filters` is set, designs passing the filters are re-predicted using Boltz-2:
+When `--refold_with` names at least one engine, the selected designs are re-predicted with it:
 - Complex prediction (binder + target)
-- Monomer prediction (binder alone)
+- Monomer prediction (binder alone), with `--refold_binder_monomer` (default `true`)
 
-This provides an orthogonal validation — if Boltz-2 independently predicts a similar complex structure, the design is more likely to work experimentally.
+This provides an orthogonal validation: if an independent predictor reproduces a similar complex structure, the design is more likely to work experimentally. It runs in addition to AF2 initial guess, which still scores every design.
+
+### Which designs are refolded
+
+Three parameters that compose, all optional; with none set, every design is refolded.
+
+- `--refold_filter 'pae_interaction<=10;plddt_binder>=80'` - threshold gate on the AF2IG scores. Decided per design, so refolding starts while the rest of the set is still being scored.
+- `--refold_sort_by='-ipsae'` - rank by one metric, `-` prefix for descending. Cannot stream; the refold waits for every design to be scored. **Write it with an `=`**, otherwise Nextflow parses the leading `-` as its own option.
+- `--refold_max 100` - cap. With `--refold_sort_by` the best N, without it the first N to be scored.
+
+`<outdir>/rfd/refold/refold_selection.tsv` records every design's verdict, rank and sort value.
 
 ### Refolding Tips
 
-- Use `--refold_target_fasta` with the **full-length** target sequence (not the truncated PDB) for better target prediction
-- Use `--refold_target_templates` pointing to a directory of full-length target PDB templates
-- `--refold_use_msa_server=true` uses the public ColabFold MMSeqs2 server for MSA generation (recommended for targets with known homologues)
+- `--use_msa_server=true` uses the public ColabFold MMseqs2 server for MSA generation (recommended for targets with known homologues)
+- `--templates 'input/templates/'` passes known structures, matched to the folded chains by sequence alignment, which helps when the design input was a cropped domain
+- Name more than one engine (`--refold_with boltz,chai1`) to get a cross-engine `consensus_z` column
+
+### Renamed and removed
+
+The `--full_refold_*` family is now `--refold_*` throughout. `--refold_af2ig_filters` (use `--refold_filter`), `--refold_oracles` (use `--refold_with`) and `--refold_oracles_max` (use `--refold_max`) still work and warn. These are **removed**, and a run that sets one stops with the replacement named: `--refold_create_target_msa` (use `--create_target_msa`), `--refold_use_msa_server` (use `--use_msa_server`), `--refold_target_templates` (use `--templates`), `--refold_alignment` (use `--create_target_msa` with `--msa_method mmseqs2_colabfold`), `--refold_target_fasta` (no replacement; the target sequence is read from the design structures). `--boltz_refold_batch_size` is also gone.
 
 ---
 
 ## RMSD Comparisons
 
-When Boltz-2 refolding is enabled, several C-alpha RMSD comparisons are calculated:
+When refold scoring is enabled, several C-alpha RMSD comparisons are calculated and merged into `combined_scores.tsv` as engine-prefixed columns (`<tool>` is the engine name, eg `boltz`):
 
-| File | Superimpose On | Measure | Interpretation |
-|------|----------------|---------|----------------|
-| `rmsd_target_aligned_binder.tsv` | Target (B) | Binder (A) | Binding pose deviation after refolding |
-| `rmsd_complex_vs_af2ig.tsv` | Both (A,B) | Both (A,B) | Overall structural agreement AF2IG vs Boltz |
-| `rmsd_monomer_vs_af2ig.tsv` | Binder (A) | Binder (A) | Binder fold change (monomer vs AF2IG) |
-| `rmsd_monomer_vs_complex.tsv` | Binder (A) | Binder (A) | Binder fold change (monomer vs Boltz complex) |
+| Column | Superimpose On | Measure | Interpretation |
+|--------|----------------|---------|----------------|
+| `<tool>_target_aligned_binder_rmsd_all` | Target | Binder | Binding pose deviation after refolding |
+| `<tool>_complex_rmsd_all` | Both chains | Both chains | Overall structural agreement, design vs refold |
+| `<tool>_monomer_vs_design_rmsd_all` | Binder | Binder | Binder fold change, monomer vs the design |
+| `<tool>_monomer_vs_complex_rmsd_all` | Binder | Binder | Binder fold change, monomer vs the refolded complex |
 
 **Key quality metrics**:
-- `boltz_target_aligned_binder_rmsd_all` < ~3.5 Å → binder maintains its binding pose
-- `boltz_monomer_vs_complex_rmsd_all` < ~3.5 Å → binder structure is stable whether bound or unbound
+- `<tool>_target_aligned_binder_rmsd_all` < ~3.5 Å → binder maintains its binding pose
+- `<tool>_monomer_vs_complex_rmsd_all` < ~3.5 Å → binder structure is stable whether bound or unbound
+
+The confidence columns alongside them are `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_plddt_max` and the rest of `--refold_metrics`, plus `<tool>_interface_dG` and the other BindCraft interface metrics on the refolded complex, and `consensus_z` across engines.
 
 ---
 
@@ -249,7 +270,7 @@ The `filter_designs.py` script automatically discovers plugins in `bin/filters.d
 
 ### Cropped Target with Full-Length Refolding
 
-When designing against a cropped target, validate the binder against the **full-length** target to ensure it does not clash with removed domains:
+When designing against a cropped target, validate the binder against the **full-length** target to ensure it does not clash with removed domains. `--templates` takes the full-length structures, matched to the folded chains by sequence alignment:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
@@ -260,10 +281,10 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --hotspot_res "A56" \
   --rfd_n_designs 100 \
   --rfd_filters "rg<=20" \
-  --refold_af2ig_filters "pae_interaction<=10;plddt_binder>=80" \
-  --refold_target_fasta 'input/full_target.fasta' \
-  --refold_target_templates 'input/templates/' \
-  --refold_use_msa_server true \
+  --refold_with boltz \
+  --refold_filter "pae_interaction<=10;plddt_binder>=80" \
+  --templates 'input/templates/' \
+  --use_msa_server true \
   -profile local -resume
 ```
 
@@ -281,7 +302,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   -resume
 ```
 
-### Full Pipeline with Boltz-2 Refolding (Local)
+### Full Pipeline with Refold Scoring (Local)
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
@@ -295,12 +316,13 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --pmpnn_seqs_per_struct=2 \
   --pmpnn_relax_cycles=3 \
   --rfd_filters="rg<=20" \
-  --refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
   --af2ig_recycle=3 \
+  --refold_with=boltz \
+  --refold_filter="pae_interaction<=10;plddt_binder>=80" \
+  --refold_sort_by='pae_interaction' \
   --refold_max=100 \
-  --refold_use_msa_server=true \
-  --refold_target_fasta='input/full/target.fasta' \
-  --refold_target_templates='input/full/' \
+  --use_msa_server=true \
+  --templates='input/full/' \
   --output_rmsd_aligned=true \
   -profile local \
   -resume
@@ -321,10 +343,12 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --pmpnn_seqs_per_struct=2 \
   --pmpnn_relax_cycles=3 \
   --rfd_filters="rg<=20" \
-  --refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
   --af2ig_recycle=3 \
+  --refold_with=boltz \
+  --refold_filter="pae_interaction<=10;plddt_binder>=80" \
+  --refold_sort_by='pae_interaction' \
   --refold_max=100 \
-  --refold_use_msa_server=true \
+  --use_msa_server=true \
   -profile slurm \
   -resume
 ```
@@ -355,10 +379,12 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --pmpnn_seqs_per_struct=1 \
   --pmpnn_relax_cycles=3 \
   --rfd_filters="rg<=20" \
-  --refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
   --af2ig_recycle=3 \
+  --refold_with=boltz \
+  --refold_filter="pae_interaction<=10;plddt_binder>=80" \
+  --refold_sort_by='pae_interaction' \
   --refold_max=100 \
-  --refold_use_msa_server=true \
+  --use_msa_server=true \
   -profile local \
   -resume
 ```

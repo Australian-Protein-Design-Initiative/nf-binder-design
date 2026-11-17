@@ -30,7 +30,7 @@ process RFD4_GENERATE {
     // '~metrics' drops the metrics group so no refolding oracle is constructed, which otherwise
     // needs an AlphaFold 3 / OpenFold3 environment that is not in this image. Hydra errors if the
     // group was never composed, and the quickstart preset does not compose it, so it is omitted
-    // there. Refolding is done downstream with Boltz-2 instead (--full_refold_with boltz).
+    // there. Refolding is done downstream with Boltz-2 instead (--refold_with boltz).
     def metrics_arg = params.rfd4_metrics_tags
         ? "metrics_tags='[${params.rfd4_metrics_tags}]'"
         : (experiment == 'quickstart' ? '' : "'~metrics'")

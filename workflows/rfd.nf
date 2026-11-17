@@ -40,27 +40,17 @@ params.rfd_filters = false
 
 params.af2ig_recycle = 3
 
-params.refold_af2ig_filters = false
-params.refold_max = false
-params.refold_use_msa_server = false
-params.refold_create_target_msa = false
-params.refold_target_templates = false
-params.refold_target_fasta = false
-params.uniref30 = false
-params.colabfold_envdb = false
 
-params.output_rmsd_aligned = false
 
-params.do_foldseek = false
 params.foldseek_af2ig_filters = false
-params.foldseek_database = 'CATH50'
-params.foldseek_databases_path = false
-params.foldseek_use_webserver = false
-params.foldseek_mode = '3diaa'
-params.foldseek_maxaccept = 1
-params.foldseek_gzip_output = false
-params.foldseek_include_html_output = false
-params.foldseek_cath_names_path = false
+
+// Refold scoring. The knobs themselves - --refold_with, --refold_filter,
+// --refold_sort_by, --refold_max - are shared by every design workflow and live in
+// conf/refold.config; only the output directory differs per workflow. The refold's
+// outputs and the fold stack's own outputs share it, and the fold stack reads
+// fold_publish_dir directly in its modules, so the two are kept equal.
+params.refold_publish_dir = 'rfd/refold'
+params.fold_publish_dir = 'rfd/refold'
 
 params.require_gpu = true
 params.gpu_devices = ''
@@ -78,7 +68,14 @@ include { AF2IG_SCORE_FILTER } from '../modules/local/rfd/af2ig_score_filter'
 
 include { UNIQUE_ID } from '../modules/local/common/unique_id'
 
-include { BOLTZ_REFOLD_SCORING } from '../subworkflows/local/boltz_refold_scoring_rfd'
+include { AF2IG_SCORING } from '../subworkflows/local/af2ig_scoring'
+include { REFOLD } from '../subworkflows/local/refold'
+include {
+    checkRefoldParamRenames
+    refoldEngines
+    refoldHelpText
+    refoldSelection
+} from '../modules/local/common/refold_select_utils'
 
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
@@ -121,22 +118,14 @@ workflow RFD {
                 --max_rg              Maximum radius of gyration for backbone filtering [default: disabled]
                 --rfd_filters         Semicolon-separated list of filters for RFDiffusion backbones, eg "rg<25;compactness>0.8" [default: disabled]
                 
-                --refold_af2ig_filters       Semicolon-separated list of filters for AF2 initial guess designs, eg "pae_interaction<=10;plddt_binder>=80" [default: disabled]
                 --af2ig_recycle       Number of recycle cycles for AF2 initial guess [default: ${params.af2ig_recycle}]
-                    
-                --refold_max          Maximum number of designs to refold with Boltz-2 [default: disabled]
-                --refold_use_msa_server Use Boltz MSA server for target sequences [default: ${params.refold_use_msa_server}]
-                --refold_create_target_msa Create MSA for target sequences [default: ${params.refold_create_target_msa}]
-                --refold_target_templates Templates directory with .cif files for Boltz-2 [default: ${params.refold_target_templates}]
-                --refold_target_fasta  FASTA file with full-length target sequences (headers should match PDB basenames) [default: ${params.refold_target_fasta}]
-                --uniref30            UniRef30 database path for MSA creation [default: ${params.uniref30}]
-                --colabfold_envdb     ColabFold environment database path for MSA creation [default: ${params.colabfold_envdb}]
-                --output_rmsd_aligned Output aligned PDB files from RMSD calculations [default: ${params.output_rmsd_aligned}]
+
+            ${refoldHelpText(params)}
 
             FoldSeek (optional, enabled with --do_foldseek):
                 --do_foldseek                 Enable FoldSeek structural similarity search on AF2IG designs
                 --foldseek_af2ig_filters      Semicolon-separated filters to select AF2IG designs for FoldSeek
-                                              [default: uses --refold_af2ig_filters if set, otherwise disabled]
+                                              [default: uses --refold_filter if set, otherwise disabled]
                 --foldseek_database           Database to search [default: CATH50]
                                               Local search (default):
                                                 - CATH50 (default) — CATH domain DB, combined AF2+PDB at 50% seq.id.
@@ -164,6 +153,28 @@ workflow RFD {
         """.stripIndent()
         )
         exit(1)
+    }
+
+    // Refolding is the held-out second opinion after AF2 initial guess has already
+    // cofolded every design, so --refold_with takes any engine the fold stack knows.
+    checkRefoldParamRenames(params, 'rfd')
+    refold_engines = refoldEngines(params, 'rfd', log)
+    refold_selection = refoldSelection(params, 'rfd', log)
+
+    if (refold_engines) {
+        // Every design pair is a 2-chain complex and the binder is folded query-only,
+        // exactly as in --method fold_pulldown.
+        refold_validation = FoldValidation.validate(params, refold_engines, [
+            hasMultimer: true,
+            af2DbPath: params.af2_db_path,
+            pulldown: true,
+        ])
+        refold_errors = refold_validation[0]
+        refold_warnings = refold_validation[1]
+        refold_warnings.each { log.warn("rfd: --refold_with: ${it}") }
+        if (refold_errors) {
+            error("rfd: --refold_with: ${refold_errors.join('\nrfd: --refold_with: ')}")
+        }
     }
 
     // Generate unique ID for this run
@@ -268,28 +279,50 @@ workflow RFD {
             skip: 1,
         )
 
-    // Run Boltz-2 refolding and scoring (or just AF2IG scoring if no refolding filters)
-    BOLTZ_REFOLD_SCORING(
-        AF2_INITIAL_GUESS.out.pdbs_with_scores,
+    // Refold scoring: a held-out second opinion on the designs AF2 initial guess has
+    // already cofolded, with whatever engines --refold_with names. Which designs go
+    // through is chosen from the AF2IG scores by --refold_filter / --refold_sort_by /
+    // --refold_max (see subworkflows/local/refold_select.nf).
+    //
+    // The design id is the AF2IG name without its _model_0 suffix, which is what the
+    // AF2IG score table calls `description` and what combined_scores.tsv merges on.
+    def ch_af2ig_score_rows = AF2_INITIAL_GUESS.out.pdbs_with_scores
+        .map { _pdbs, scores -> scores }
+        .splitCsv(header: true, sep: '\t')
+        .map { row -> tuple(row.description.toString(), row as Map) }
+
+    def ch_af2ig_scored = AF2_INITIAL_GUESS.out.pdbs
+        .flatten()
+        .map { pdb -> tuple(pdb.baseName.replaceFirst(/_model_0$/, ''), pdb) }
+        .join(ch_af2ig_score_rows)
+        .map { id, pdb, scores -> tuple([id: id], pdb, scores) }
+
+    ch_refold_scores = Channel.empty()
+    if (refold_engines) {
+        REFOLD(
+            ch_af2ig_scored,
+            'A',  // binder_chain
+            'B',  // target_chain
+            refold_selection,
+            refold_engines,
+            params.msa_method,
+        )
+        ch_refold_scores = REFOLD.out.scores
+    }
+
+    AF2IG_SCORING(
         AF2_INITIAL_GUESS.out.pdbs,
         AF2_INITIAL_GUESS.out.scores,
         'A',  // binder_chain
-        'B',  // target_chain
-        params.refold_af2ig_filters,
-        params.refold_max,
-        params.refold_create_target_msa,
-        params.refold_use_msa_server,
-        params.refold_target_fasta,
-        params.refold_target_templates,
-        params.colabfold_envdb,
-        params.uniref30,
+        ch_refold_scores.ifEmpty(file("${projectDir}/assets/dummy_files/empty")),
         params.outdir,
     )
 
     // FoldSeek structural search on AF2IG-filtered designs (optional)
     if (params.do_foldseek) {
-        // Determine filters: use foldseek-specific filters, or fall back to refold filters
-        def foldseek_filters = params.foldseek_af2ig_filters ?: params.refold_af2ig_filters
+        // Determine filters: use foldseek-specific filters, or fall back to the
+        // refold's own threshold gate
+        def foldseek_filters = params.foldseek_af2ig_filters ?: refold_selection.filter
 
         if (foldseek_filters) {
 
@@ -315,7 +348,7 @@ workflow RFD {
     }
 
     emit:
-    scores = BOLTZ_REFOLD_SCORING.out.scores
+    scores = AF2IG_SCORING.out.scores
     foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
     foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
     foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()

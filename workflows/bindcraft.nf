@@ -24,20 +24,19 @@ params.bindcraft_n_traj = 10
 params.bindcraft_batch_size = 1
 params.bindcraft_compress_html = true
 params.bindcraft_compress_pdb = true
+// Refold scoring. The knobs themselves - --refold_with, --refold_filter,
+// --refold_sort_by, --refold_max - are shared by every design workflow and live in
+// conf/refold.config; only the output directory differs per workflow. The refold's
+// outputs and the fold stack's own outputs share it, and the fold stack reads
+// fold_publish_dir directly in its modules, so the two are kept equal.
+params.refold_publish_dir = 'bindcraft/refold'
+params.fold_publish_dir = 'bindcraft/refold'
+
 params.require_gpu = true
 params.gpu_devices = ''
 params.gpu_slots_per_device = 1
 params.gpu_lock_timeout = 14400
 
-params.do_foldseek = false
-params.foldseek_database = 'CATH50'
-params.foldseek_databases_path = false
-params.foldseek_use_webserver = false
-params.foldseek_mode = '3diaa'
-params.foldseek_maxaccept = 1
-params.foldseek_gzip_output = false
-params.foldseek_include_html_output = false
-params.foldseek_cath_names_path = false
 
 include { TRIM_TO_CONTIGS } from '../modules/local/common/trim_to_contigs'
 include { BINDCRAFT_CREATE_SETTINGS } from '../modules/local/bindcraft/bindcraft_create_settings'
@@ -46,6 +45,15 @@ include { BINDCRAFT_REPORTING } from '../modules/local/bindcraft/bindcraft_repor
 include { resolveInputPdbs; makeBindcraftBatchId } from '../modules/local/bindcraft/bindcraft_utils'
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
+include { REFOLD } from '../subworkflows/local/refold'
+include {
+    checkRefoldParamRenames
+    refoldEngines
+    refoldHelpText
+    refoldIdColumn
+    refoldStripModelSuffix
+    refoldSelection
+} from '../modules/local/common/refold_select_utils'
 
 // Function to validate hotspot_res parameter format
 def parseHotspotResidues(hotspot_res) {
@@ -222,6 +230,8 @@ workflow BINDCRAFT {
             --gpu_slots_per_device  Concurrent tasks allowed per GPU [default: ${params.gpu_slots_per_device}]
             --gpu_lock_timeout      Seconds a task waits for a free GPU [default: ${params.gpu_lock_timeout}]
 
+        ${refoldHelpText(params)}
+
         FoldSeek (optional, enabled with --do_foldseek):
             --do_foldseek                 Enable FoldSeek structural similarity search on accepted designs
             --foldseek_database           Database to search [default: CATH50]
@@ -246,6 +256,28 @@ workflow BINDCRAFT {
 
         """.stripIndent()
         exit 1
+    }
+
+    // Refolding is the held-out second opinion after BindCraft's own AF2 pass has
+    // already cofolded every accepted design.
+    checkRefoldParamRenames(params, 'bindcraft')
+    refold_engines = refoldEngines(params, 'bindcraft', log)
+    refold_selection = refoldSelection(params, 'bindcraft', log)
+
+    if (refold_engines) {
+        // Every design pair is a 2-chain complex and the binder is folded query-only,
+        // exactly as in --method fold_pulldown.
+        refold_validation = FoldValidation.validate(params, refold_engines, [
+            hasMultimer: true,
+            af2DbPath: params.af2_db_path,
+            pulldown: true,
+        ])
+        refold_errors = refold_validation[0]
+        refold_warnings = refold_validation[1]
+        refold_warnings.each { log.warn("bindcraft: --refold_with: ${it}") }
+        if (refold_errors) {
+            error("bindcraft: --refold_with: ${refold_errors.join('\nbindcraft: --refold_with: ')}")
+        }
     }
 
     // Validate parameters
@@ -405,6 +437,63 @@ workflow BINDCRAFT {
         ch_trajectory_stats_merged
     )
 
+    // Phase: refold scoring (optional). BindCraft has already cofolded every accepted
+    // design with its own AF2 pass, so this is the held-out second opinion: fold the
+    // binder against the target again with the engines --refold_with names, and score
+    // the result the way every other workflow does.
+    //
+    // final_design_stats.csv is BindCraft's own verdict on each design, and what
+    // --refold_filter and --refold_sort_by select on. It exists only once every batch
+    // has finished, so refolding here cannot overlap designing the way it does in rfd.
+    ch_refold_scores = Channel.empty()
+    if (refold_engines) {
+        ch_bindcraft_score_rows = ch_final_stats_merged
+            // quote: '"' because these are real CSVs, not comma-joined columns:
+            // BindCraft writes InterfaceResidues as "B16,B19,B20,..." and several
+            // amino-acid-count fields as quoted Python dicts. Nextflow's splitCsv does
+            // no quote handling unless asked, so without this every embedded comma
+            // starts a new column and each row's later fields shift left by however
+            // many commas that row happened to contain. Nothing errors: the metrics
+            // just silently come from the wrong columns, and a sort on Average_i_pTM
+            // ranks designs on Average_pTM instead.
+            .splitCsv(header: true, quote: '"')
+            .map { row ->
+                def id_column = refoldIdColumn(
+                    row as Map,
+                    ['Design', 'design', 'design_name', 'description', 'id', 'name'],
+                    'bindcraft',
+                )
+                tuple(refoldStripModelSuffix(row[id_column].toString()), row as Map)
+            }
+
+        // remainder: true so a design with no row in the stats table still reaches the
+        // refold rather than vanishing from it; the filter drops the mirror case, a
+        // stats row whose structure was not among the accepted PDBs.
+        //
+        // Joined on the design name with BindCraft's _model<N> suffix removed: the
+        // accepted structure is bindcraft_design_..._mpnn1_model2.pdb and its stats row
+        // is bindcraft_design_..._mpnn1, so joining on the bare filename matches nothing
+        // and every design reaches the refold with no scores to select on. The design id
+        // keeps the suffix, because which model was accepted is part of what the design
+        // is.
+        ch_bindcraft_scored = BINDCRAFT_PROCESS.out.accepted_pdbs
+            .flatten()
+            .map { pdb -> tuple(refoldStripModelSuffix(pdb.baseName), pdb) }
+            .join(ch_bindcraft_score_rows, remainder: true)
+            .filter { _key, pdb, _scores -> pdb != null }
+            .map { _key, pdb, scores -> tuple([id: pdb.baseName], pdb, (scores ?: [:]) as Map) }
+
+        REFOLD(
+            ch_bindcraft_scored,
+            params.refold_binder_chain ?: 'B',
+            params.refold_target_chain ?: 'A',
+            refold_selection,
+            refold_engines,
+            params.msa_method,
+        )
+        ch_refold_scores = REFOLD.out.scores
+    }
+
     // Phase: FoldSeek structural search on accepted designs (optional)
     if (params.do_foldseek) {
         // Accepted PDBs are full complexes — extract design (shorter/binder) chains
@@ -420,6 +509,7 @@ workflow BINDCRAFT {
 
     emit:
     final_stats = ch_final_stats_merged
+    refold_scores = ch_refold_scores
     foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
     foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
     foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()

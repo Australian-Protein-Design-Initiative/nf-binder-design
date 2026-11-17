@@ -109,6 +109,31 @@ results/
     └── trajectory_stats.csv           # Trajectory statistics
 ```
 
+## Refold Scoring (Optional)
+
+`--refold_with` folds the accepted designs again with one or more independent predictors, after BindCraft's own AF2 passes and its accept/reject gate. It is a held-out second opinion, not a replacement, and BindCraft's own scores are what the selection reads.
+
+```bash
+--refold_with boltz,protenix
+--refold_filter 'i_pTM>=0.7'
+--refold_sort_by='-i_pTM'
+--refold_max 50
+--use_msa_server
+```
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--refold_with` | Comma-separated engines: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast` | None (no refolding) |
+| `--refold_filter` | Threshold gate on the `final_design_stats.csv` columns, semicolon-separated. Per-design, so it streams. A metric that table does not have stops the run | None |
+| `--refold_sort_by` | Rank by one metric, `-` prefix for descending. Does not stream. **Write it with an `=`** | None |
+| `--refold_max` | Cap. With `--refold_sort_by` the best N, without it the first N to be scored | No limit |
+| `--refold_binder_chain` | Binder chain id in the accepted complexes | `B` |
+| `--refold_target_chain` | Target chain id in the accepted complexes | `A` |
+
+BindCraft is one of the two workflows with no chain derivation of its own, which is why `--refold_binder_chain` / `--refold_target_chain` matter here.
+
+Outputs go to `results/bindcraft/refold/`: `refold_scores.tsv` (engine-prefixed columns `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_target_aligned_binder_rmsd_all`, `<tool>_interface_dG`, ... plus `consensus_z`), `refold_sample_scores.tsv` and `refold_selection.tsv`.
+
 ## Complete Example
 
 ### Local Workstation

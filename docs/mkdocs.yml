@@ -17,6 +17,7 @@ nav:
       - Fold: workflows/fold.md
       - Fold Pulldown: workflows/fold-pulldown.md
   - Subworkflows:
+      - Refold Scoring: subworkflows/refold.md
       - FoldSeek: subworkflows/foldseek.md
   - Extra:
       - Examples: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md

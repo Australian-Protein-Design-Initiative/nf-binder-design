@@ -21,13 +21,12 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rf3_template_selection='A/*/18-26,A/*/42-53,A/*/132-137,A/*/184-190,A/*/226-229' \
   --rf3_use_msa_server \
   --rf3_create_target_msa \
-  --full_refold_with 'boltz' \
-  --full_refold_filter_sort='pair_pae_min' \
-  --full_refold_max=2 \
-  --full_refold_create_target_msa \
-  --full_refold_use_msa_server \
-  --full_refold_target_fasta='input/full/3BIK_B.fasta' \
-  --full_refold_target_templates='input/full/' \
+  --refold_with 'boltz' \
+  --refold_sort_by='pair_pae_min' \
+  --refold_max=2 \
+  --create_target_msa \
+  --use_msa_server \
+  --templates='input/full/' \
   --do_foldseek \
   --foldseek_database=CATH50 \
   --foldseek_databases_path="$(pwd)/../databases/foldseek" \

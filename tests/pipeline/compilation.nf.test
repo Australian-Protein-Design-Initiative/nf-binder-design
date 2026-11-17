@@ -372,4 +372,60 @@ nextflow_pipeline {
             assert workflow.success
         }
     }
+    // germinal and rfd4_proteina, with the refold enabled, because every workflow
+    // reaches the shared REFOLD subworkflow through its own `refold_engines` block and
+    // these two were the methods a parser regression there went unnoticed in.
+    test("germinal method compiles with a refold") {
+        options "-preview"
+        when {
+            params {
+                method = "germinal"
+                germinal_config = "${projectDir}/examples/pdl1-germinal/configs/pdl1_vhh.yaml"
+                germinal_pdb_dir = "${projectDir}/examples/pdl1-germinal/pdbs"
+                germinal_n_traj = 2
+                germinal_batch_size = 1
+                refold_with = "boltz"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("rfd4_proteina method compiles with a refold") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd4_proteina"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30, /0, 10-20"
+                hotspot_res = "A10"
+                rfd4_n_designs = 2
+                refold_with = "boltz"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("rfd method compiles with a refold") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30/0 10-20"
+                hotspot_res = "A10"
+                rfd_n_designs = 2
+                refold_with = "boltz"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
 }

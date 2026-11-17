@@ -27,8 +27,6 @@ params.metrics_override = []
 params.additional_filters = []
 params.size_buckets = []
 params.refolding_rmsd_threshold = false
-params.do_foldseek = false
-params.foldseek_cath_names_path = false
 
 include { BOLTZGEN_DESIGN } from '../modules/local/boltzgen/boltzgen_design'
 include { BOLTZGEN_INVERSE_FOLDING } from '../modules/local/boltzgen/boltzgen_inverse_folding'

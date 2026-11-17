@@ -77,6 +77,30 @@ results/germinal/
 └── batches/0/{experiment_name}/
 ```
 
+## Refold Scoring (Optional)
+
+`--refold_with` folds the accepted designs again with one or more independent predictors, after Germinal's own AF2/AF3 pass and its accept/reject gate. It is a held-out second opinion, not a replacement, and Germinal's own scores are what the selection reads.
+
+```bash
+--refold_with boltz,protenix
+--refold_sort_by='-<metric>'
+--refold_max 50
+--use_msa_server
+```
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--refold_with` | Comma-separated engines: `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast` | None (no refolding) |
+| `--refold_filter` | Threshold gate on the `accepted_designs.csv` columns, semicolon-separated. Per-design, so it streams. Check the column names in that file before writing one: a metric it does not have stops the run | None |
+| `--refold_sort_by` | Rank by one `accepted_designs.csv` metric, `-` prefix for descending. Does not stream. **Write it with an `=`** | None |
+| `--refold_max` | Cap. With `--refold_sort_by` the best N, without it the first N to be scored | No limit |
+| `--refold_binder_chain` | Binder chain id in the accepted complexes | `B` |
+| `--refold_target_chain` | Target chain id in the accepted complexes | `A` |
+
+Germinal is one of the two workflows with no chain derivation of its own, which is why `--refold_binder_chain` / `--refold_target_chain` matter here.
+
+Outputs go to `results/germinal/refold/`: `refold_scores.tsv` (engine-prefixed columns `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_target_aligned_binder_rmsd_all`, `<tool>_interface_dG`, ... plus `consensus_z`), `refold_sample_scores.tsv` and `refold_selection.tsv`.
+
 ## Hotspot numbering
 
 `target.target_hotspots` uses **1-indexed positions relative to the start of each target chain** (Nth residue in that chain as loaded), not arbitrary PDB auth residue numbers. Germinal's hotspot proximity filter maps hotspots via sequential indices (`chain_start + index - 1`), so numbering must be contiguous from 1 with **no gaps**.

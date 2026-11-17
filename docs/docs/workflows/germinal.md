@@ -192,15 +192,34 @@ After renumbering, set `target_hotspots` (and `hotspot_residue` if used) to matc
 ## External folding validation (optional) {#external-folding-validation}
 
 Germinal already re-predicts every design with one external predictor and gates
-on its scores — that is the filter stage described above, and it is what decides
+on its scores - that is the filter stage described above, and it is what decides
 which designs reach `accepted/`. This section is about an **additional,
 independent re-fold afterwards**, with predictors Germinal did not use.
 
-It is optional and sits outside the workflow today: you run it as a separate
-`--method fold_pulldown` job over the designs a Germinal run produced. It may
-become an option on the Germinal workflow itself in future.
+### In the workflow: `--refold_with`
 
-### Running it
+Add `--refold_with` to the Germinal run and the accepted designs are folded again
+in the same job, with the engines you name:
+
+```bash
+nextflow run main.nf --method germinal \
+    --germinal_config config.yaml \
+    --refold_with boltz,protenix \
+    --refold_max 50 \
+    --use_msa_server
+```
+
+This is the shared [refold scoring](../subworkflows/refold.md) step, so it takes
+the same `--refold_filter`, `--refold_sort_by` and `--refold_max` selection
+parameters as every other design workflow, and adds the same engine-prefixed
+columns. Germinal has no chain derivation of its own, so
+`--refold_binder_chain` (default `B`) and `--refold_target_chain` (default `A`)
+name the chains if yours differ. Outputs land under `germinal/refold/`.
+
+### As a separate job: `--method fold_pulldown`
+
+To refold designs from a run that has already finished, or to control the pairing
+yourself, run a separate `--method fold_pulldown` job over them instead.
 
 Build a FASTA of the target and a FASTA of the binder sequences (from
 `accepted/designs.csv`, or the `trajectory_sequence` column of

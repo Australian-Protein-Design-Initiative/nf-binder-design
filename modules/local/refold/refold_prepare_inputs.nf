@@ -9,7 +9,14 @@ process REFOLD_PREPARE_INPUTS {
     publishDir path: "${params.outdir}/${params.refold_publish_dir ?: 'refold'}/input", mode: 'copy'
 
     input:
-    path designs, stageAs: 'designs/*'
+    // One directory per design rather than one shared one: not every workflow gives its
+    // designs distinct filenames. RFdiffusion3 writes every design to model.cif inside
+    // its own directory, so staging them side by side fails the task outright with
+    // "multiple input files for each of the following file names: designs/model.cif",
+    // and anything that deduplicated the names silently would make both designs answer
+    // to the id "model".
+    path designs, stageAs: 'staged/d*/'
+    val design_ids
     val binder_chain
     val target_chain
     val target_id
@@ -19,8 +26,27 @@ process REFOLD_PREPARE_INPUTS {
     path 'binders.fasta', emit: binders
 
     script:
+    // A one-element input arrives as a single Path and a single String, not as lists.
+    def design_files = (designs instanceof List) ? designs : [designs]
+    def ids = (design_ids instanceof List) ? design_ids : [design_ids]
+    if (design_files.size() != ids.size()) {
+        throw new IllegalArgumentException(
+            "REFOLD_PREPARE_INPUTS got ${design_files.size()} designs and ${ids.size()} ids."
+        )
+    }
+    // prepare_inputs.py names each record after the file it read, so the link name is
+    // what ends up in binders.fasta and in every score table downstream. The extension
+    // has to survive because that is how the structure's format is recognised.
+    def links = [ids, design_files].transpose().collect { id, design ->
+        def name = design.name
+        def ext = ['.cif.gz', '.pdb.gz', '.cif', '.pdb'].find { name.endsWith(it) } ?: ''
+        "ln -s '../${design}' 'designs/${id}${ext}'"
+    }.join('\n    ')
     """
     set -euo pipefail
+
+    mkdir -p designs
+    ${links}
 
     python ${projectDir}/bin/refold/prepare_inputs.py designs/ \\
         --binder-chain '${binder_chain}' \\

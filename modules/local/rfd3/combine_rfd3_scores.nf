@@ -11,10 +11,7 @@ process COMBINE_RFD3_SCORES {
           path(rmsd_complex_tsv, stageAs: 'rmsd_complex.tsv'),
           path(rmsd_binder_aligned_binder_tsv, stageAs: 'rmsd_binder_aligned_binder.tsv'),
           path(rmsd_target_aligned_target_tsv, stageAs: 'rmsd_target_aligned_target.tsv'),
-          path(boltz_scores_complex, stageAs: 'boltz_scores_complex.tsv'),
-          path(boltz_scores_monomer, stageAs: 'boltz_scores_monomer.tsv'),
-          path(boltz_rmsd_target_aligned_binder, stageAs: 'boltz_rmsd_target_aligned_binder.tsv'),
-          path(boltz_rmsd_monomer_vs_complex, stageAs: 'boltz_rmsd_monomer_vs_complex.tsv'),
+          path(refold_scores, stageAs: 'refold_scores.tsv'),
           val(binder_seq_chain),
           path(mpnn_cifs, stageAs: 'cifs/*')
 
@@ -61,60 +58,32 @@ process COMBINE_RFD3_SCORES {
         -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
-    if [[ -s ${boltz_scores_complex} ]] || [[ -s ${boltz_scores_monomer} ]] \\
-        || [[ -s ${boltz_rmsd_target_aligned_binder} ]] || [[ -s ${boltz_rmsd_monomer_vs_complex} ]]; then
+    # Refold scores: already one row per design, with engine-prefixed columns for
+    # confidence, RMSD against the design and interface metrics (REFOLD_SCORES_WIDE).
+    # This replaces the four separate Boltz tables that BOLTZ_REFOLD_CORE produced, and
+    # carries every engine in --refold_with rather than Boltz alone.
+    #
+    # Keyed on merge_id: this table's `filename` is <design>_rf3.cif, while the refold
+    # names each row by the design id it started from.
+    if [[ -s ${refold_scores} ]]; then
       csvtk mutate -t -f filename -n merge_id -p '^(.+)\$' combined_scores.tsv \\
         | csvtk replace -t -f merge_id -p '^.*/' -r '' \\
         | csvtk replace -t -f merge_id -p '_rf3\\.cif' -r '' \\
         -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
-    fi
 
-    if [[ -s ${boltz_scores_complex} ]]; then
-      cp ${boltz_scores_complex} tmp_boltz_complex.tsv
       python ${projectDir}/bin/merge_scores.py \\
-        combined_scores.tsv tmp_boltz_complex.tsv \\
+        combined_scores.tsv ${refold_scores} \\
         --keys merge_id,id \\
-        --column-prefix boltz_complex_ \\
-        --drop-columns 'boltz_complex_target,boltz_complex_binder,boltz_complex_state,boltz_complex_ptm,boltz_complex_iptm,boltz_complex_ligand_iptm,boltz_complex_protein_iptm,boltz_complex_has_clash' \\
         -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
-    fi
 
-    if [[ -s ${boltz_scores_monomer} ]]; then
-      csvtk replace -t -f id -p "_monomer\$" -r "" ${boltz_scores_monomer} > tmp_boltz_monomer.tsv
-      python ${projectDir}/bin/merge_scores.py \\
-        combined_scores.tsv tmp_boltz_monomer.tsv \\
-        --keys merge_id,id \\
-        --column-prefix boltz_monomer_ \\
-        --drop-columns 'boltz_monomer_target,boltz_monomer_binder,boltz_monomer_state,boltz_monomer_ptm,boltz_monomer_ligand_iptm,boltz_monomer_protein_iptm,boltz_monomer_has_clash' \\
-        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
-    fi
-
-    if [[ -s ${boltz_rmsd_target_aligned_binder} ]]; then
-      python ${projectDir}/bin/rfd3/merge_rmsd_columns.py \\
-        combined_scores.tsv \\
-        "${boltz_rmsd_target_aligned_binder}=boltz_target_aligned_binder_" \\
-        --keys merge_id,structure1 \\
-        --strip-suffix '(\\.pdb|\\.cif)\$' \\
-        --value-columns rmsd_pruned,rmsd_all \\
-        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
-    fi
-
-    if [[ -s ${boltz_rmsd_monomer_vs_complex} ]]; then
-      python ${projectDir}/bin/rfd3/merge_rmsd_columns.py \\
-        combined_scores.tsv \\
-        "${boltz_rmsd_monomer_vs_complex}=boltz_monomer_vs_complex_" \\
-        --keys merge_id,structure1 \\
-        --strip-suffix '(_model_0\\.pdb|_monomer)\$' \\
-        --value-columns rmsd_pruned,rmsd_all \\
-        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
-    fi
-
-    if [[ -s combined_scores.tsv ]] && grep -q 'merge_id' combined_scores.tsv; then
-      csvtk -t cut -f -merge_id combined_scores.tsv -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
+      csvtk -t cut -f -merge_id combined_scores.tsv -o combined_scores.tmp.tsv \\
+        && mv combined_scores.tmp.tsv combined_scores.tsv
     fi
 
     if [[ -s combined_scores.tsv ]] && grep -q 'sequence' combined_scores.tsv; then
-      python ${projectDir}/bin/rfd3/tsv_to_binders_fasta.py combined_scores.tsv -o binders.fasta
+      python ${projectDir}/bin/rfd3/tsv_to_binders_fasta.py combined_scores.tsv \\
+        --scores '${params.refold_fasta_score_columns}' \\
+        -o binders.fasta
     else
       touch binders.fasta
     fi

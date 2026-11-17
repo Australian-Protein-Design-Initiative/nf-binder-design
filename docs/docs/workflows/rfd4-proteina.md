@@ -13,8 +13,9 @@ complex that already carries a binder sequence.
 1. **Generate**: `rfd4-generate` samples designs from a condition spec. The requested designs are
    split across Nextflow tasks, each with its own seed, so they run in parallel across GPUs.
 2. **Filter** (optional): structural filters on the generated binder chain, for example `rg<25`.
-3. **Refold** (optional): Boltz-2 refolds the complex and the binder alone, giving confidence and
-   RMSD metrics. This reuses the same scoring machinery as the RFdiffusion workflows.
+3. **Refold** (optional): one or more independent predictors fold the complex and the binder alone,
+   giving confidence, RMSD and interface metrics. This is the same
+   [refold scoring](../subworkflows/refold.md) every design workflow runs.
 4. **FoldSeek** (optional): structural similarity search against CATH50 or another database.
 5. **Combine**: one `combined_scores.tsv` with the binder sequences and every metric computed.
 
@@ -124,13 +125,17 @@ AlphaFold 3 / OpenFold3 environment that is not in the container. Designs are sc
 instead, by folding them again: each design's binder sequence is folded against its target, the
 result is compared with the design, and the rebuilt interface is scored.
 
-`--full_refold_with` names the engines:
+This is the same refold step every design workflow runs; see [Refold Scoring](../subworkflows/refold.md) for the shared parameters. What follows is how it behaves here.
+
+`--refold_with` names the engines:
 
 ```bash
-  --full_refold_with boltz,chai1,openfold3 \
-  --full_refold_max 50 \
+  --refold_with boltz,chai1,openfold3 \
+  --refold_max 50 \
   --use_msa_server
 ```
+
+`--refold_filter`, `--refold_sort_by` and `--refold_max` choose which designs go through. Unlike the other design workflows, this one has no cofold of its own, so the scores those two select on are the structural metrics `--rfd4_filters` computes (`rg` and the rest of `bin/filters.d/`), and they exist only when `--rfd4_filters` is set. Without it, use `--refold_max` on its own, which takes the first N designs to be generated. Write `--refold_sort_by` with an `=`, as `--refold_sort_by='rg'`, otherwise Nextflow reads a leading `-` as one of its own options. Every design that reached the step is accounted for in `refold/refold_selection.tsv`.
 
 Any engine `--method fold` supports can go in the list: `af2`, `af2_mono`, `boltz`, `rf3`,
 `protenix`, `af3`, `openfold3`, `chai1`, `esmfold2`, `esmfold2_fast`. Every one of them produces
@@ -155,9 +160,9 @@ samples share a single trunk and recycling pass across them, so five samples fro
 only in the diffusion noise, while five seeds re-run the whole prediction. The disadvantage is five
 model loads rather than one - on a GB10, Boltz pays roughly 45 s of fixed cost per load.
 
-The split is set per engine by `--full_refold_<engine>_batch_size 1` (and `--protenix_batch_size`,
+The split is set per engine by `--refold_<engine>_batch_size 1` (and `--protenix_batch_size`,
 which this workflow declares itself). Setting one of them higher gives that engine a mixture:
-`--n_predictions 6 --full_refold_boltz_batch_size 3` is 2 seeds x 3 samples.
+`--n_predictions 6 --refold_boltz_batch_size 3` is 2 seeds x 3 samples.
 
 Where an engine takes every seed in one invocation, it is given them all rather than run once per
 seed, so the model is loaded once instead of five times. That applies to `esmfold2`,
@@ -189,8 +194,10 @@ the interface metrics.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `--full_refold_with` | none | Comma-separated engines |
-| `--full_refold_max` | all | Maximum designs to refold |
+| `--refold_with` | none | Comma-separated engines |
+| `--refold_filter` | none | Threshold gate on the design scores, eg `'rg<25'` (needs `--rfd4_filters`) |
+| `--refold_sort_by` | none | Rank by one metric before `--refold_max` takes the best; `-` prefix for descending |
+| `--refold_max` | all | Maximum designs to refold |
 | `--n_predictions` | `5` | Structures per design per engine, as that many seeds of one sample |
 | `--fold_seed_list` | `true` | Give an engine every seed in one invocation where it supports that |
 | `--refold_metrics` | iptm/ipsae/plddt/ptm/pae | Summary columns carried into `combined_scores.tsv` |
@@ -203,25 +210,30 @@ How the refold folds is governed by the fold-stack parameters - `--n_predictions
 `--msa_method`, `--create_target_msa`, `--use_msa_server`, `--templates` and each engine's own
 flags - the same ones `--method fold` and `--method fold_pulldown` use.
 
-RF3 is the one exception to "each engine's own flags": here they are `--full_refold_rf3_ckpt_path`,
-`--full_refold_rf3_num_steps`, `--full_refold_rf3_n_recycles`, `--full_refold_rf3_batch_size`,
-`--full_refold_rf3_early_stopping_plddt_threshold` and `--full_refold_rf3_seed`. The plain
+RF3 is the one exception to "each engine's own flags": here they are `--refold_rf3_ckpt_path`,
+`--refold_rf3_num_steps`, `--refold_rf3_n_recycles`, `--refold_rf3_batch_size`,
+`--refold_rf3_early_stopping_plddt_threshold` and `--refold_rf3_seed`. The plain
 `--rf3_*` names belong to the design-time RF3 step in `--method rfd3`, where they mean different
 things, and a workflow's parameters are one flat namespace. Where the prefixed names are declared
 the fold stack reads only those, so passing `--rf3_num_steps` here has no effect.
 
 Implemented by `subworkflows/local/refold.nf`, which holds nothing rfd4-specific. It takes designs
-as `tuple(meta, structure)`, so the other design workflows can adopt it unchanged. Nextflow does
-not apply `params` declarations made in an included script, so the adopting workflow also has to
-copy the parameter block marked "Refold scoring" from `workflows/rfd4_proteina.nf`.
+as `tuple(meta, structure, scores)`, and every design workflow uses it: `rfd`, `rfd_partial`,
+`rfd3`, `rfd4_proteina`, `bindcraft` and `germinal`. Nextflow does not apply `params` declarations
+made in an included script, so the shared defaults live in `conf/refold.config` and
+`conf/refold_fold_stack.config` rather than in each workflow; a workflow declares only its own
+`--refold_publish_dir`.
 
-!!! note "Replaces --refold_oracles"
-    `--refold_oracles` was a second parameter for the same idea, needed only because the refold
-    used to be a Boltz-specific process that could not take another engine. It is accepted for now
-    and folded into `--full_refold_with`, with a warning. The MSA and template parameters that
-    belonged to the Boltz path - `--full_refold_create_target_msa`, `--full_refold_use_msa_server`,
-    `--full_refold_alignment`, `--full_refold_target_fasta`, `--full_refold_target_templates` - are
-    gone; a run that sets one stops with the fold-stack replacement named.
+!!! note "Renamed and removed parameters"
+    The whole `--full_refold_*` family is now `--refold_*` (`--full_refold_with` is `--refold_with`,
+    `--full_refold_max` is `--refold_max`, `--full_refold_filter_sort` is `--refold_sort_by`).
+    `--refold_oracles` and `--refold_oracles_max` were second parameters for the same idea, needed
+    only because the refold used to be a Boltz-specific process that could not take another engine;
+    they are accepted for now, with a warning, and folded into `--refold_with` and `--refold_max`.
+    The MSA and template parameters that belonged to the Boltz path -
+    `--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`,
+    `--refold_target_fasta`, `--refold_target_templates` - are gone; a run that sets one stops with
+    the fold-stack replacement named.
 
 FoldSeek search is enabled with `--do_foldseek`. See the
 [FoldSeek subworkflow](../subworkflows/foldseek.md) for its options.
@@ -235,8 +247,9 @@ FoldSeek search is enabled with `--do_foldseek`. See the
 | `<outdir>/rfd4_proteina/combined_scores.tsv` | Every design with its sequence and metrics |
 | `<outdir>/rfd4_proteina/binders.fasta` | Binder sequences |
 | `<outdir>/rfd4_proteina/filter/` | Filter scores and accepted/rejected designs, with `--rfd4_filters` |
-| `<outdir>/rfd4_proteina/refold/` | Refolded structures, per-engine scores, RMSD and interface tables, with `--full_refold_with` |
+| `<outdir>/rfd4_proteina/refold/` | Refolded structures, per-engine scores, RMSD and interface tables, with `--refold_with` |
 | `<outdir>/rfd4_proteina/refold/refold_sample_scores.tsv` | One row per refolded sample, nothing reduced: `id`, `tool`, `batch`, `model` and every confidence, RMSD and interface score that sample has |
+| `<outdir>/rfd4_proteina/refold/refold_selection.tsv` | Every design considered for refolding, with its selection verdict, rank and sort value |
 
 Design file names are `<design_name>_<uid>_b<task>_<example>_<replicate>.cif`. The task index keeps
 ids unique across the parallel tasks.
@@ -267,7 +280,7 @@ remain:
 
 - FoldSeek runs on CPU, because upstream's GPU build is x86_64 only. The searches here are CPU
   searches, so this is a difference in speed rather than in what works.
-- `--full_refold_with` accepts engines that have no arm64 image. `boltz`, `esmfold2`,
+- `--refold_with` accepts engines that have no arm64 image. `boltz`, `esmfold2`,
   `esmfold2_fast`, `rf3` and `protenix` run on this platform; AF2, AF3, Chai-1 and OpenFold3 do
   not.
 

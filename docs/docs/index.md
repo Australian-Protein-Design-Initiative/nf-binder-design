@@ -8,15 +8,17 @@ Nextflow pipelines for de novo protein binder design.
 
 This project provides Nextflow workflows for _de novo_ design of protein binders:
 
-- **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess) → Boltz-2 refolding** pipeline
-- **RFdiffusion Partial Diffusion → Boltz-2 refolding** for diversification and optimization
-- **RFdiffusion3** — [RosettaCommons/foundry](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html) binder workflow: `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3) (→ Boltz-2 refolding)
-- **RFD4-Proteina** - [RosettaCommons/RFD4-Proteina](https://rfd4-proteina.org/) sequence-structure co-design: `rfd4_proteina` (then Boltz-2 refolding)
+- **RFdiffusion → ProteinMPNN → AlphaFold2(initial guess)** pipeline
+- **RFdiffusion Partial Diffusion** for diversification and optimization
+- **RFdiffusion3** - [RosettaCommons/foundry](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html) binder workflow: `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3)
+- **RFD4-Proteina** - [RosettaCommons/RFD4-Proteina](https://rfd4-proteina.org/) sequence-structure co-design: `rfd4_proteina`
 - **BindCraft** - parallel execution across multiple GPUs
 - **Germinal** - antibody/nanobody design in parallel across multiple GPUs
 - **BoltzGen** - design proteins and complexes using BoltzGen
 - **Fold Pulldown** - an AlphaPulldown-like target × binder pulldown across multiple folding engines (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2)
 - **Fold** - multi-method structure prediction (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2) with shared MSAs and EnGens clustering
+
+Every design workflow above can also run [refold scoring](subworkflows/refold.md) (`--refold_with`): a held-out second opinion that folds selected designs again with one or more independent predictors, on top of the workflow's own cofold.
 
 ![RFdiffusion workflow](images/rfd-workflow.png)
 
@@ -41,6 +43,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - [BoltzGen Workflow](workflows/boltzgen.md)
 - [Fold Pulldown](workflows/fold-pulldown.md)
 - [Fold](workflows/fold.md)
+- [Refold Scoring](subworkflows/refold.md)
 - [FoldSeek](subworkflows/foldseek.md)
 - [Testing](testing.md)
 - [Development](extra/development.md)

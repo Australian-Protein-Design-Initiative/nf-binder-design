@@ -5,7 +5,7 @@
 # which the post-generation steps fail with `exec format error`.
 #
 # boltz, esmfold2, esmfold2_fast and rf3 have arm64 images, so any of them can go in
-# --full_refold_with here. RF3's own flags are --full_refold_rf3_* in this workflow, since the
+# --refold_with here. RF3's own flags are --refold_rf3_* in this workflow, since the
 # plain --rf3_* names belong to the design-time RF3 step in --method rfd3.
 #
 # Kept small on purpose. Raise --rfd4_n_designs and drop the quickstart settings for a real run.
@@ -24,8 +24,8 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd4_inference_experiment=quickstart \
   --rfd4_compile_lengths=false \
   --rfd4_filters="rg<=25" \
-  --full_refold_with 'boltz,esmfold2_fast' \
-  --full_refold_max=2 \
+  --refold_with 'boltz,esmfold2_fast' \
+  --refold_max=2 \
   --use_msa_server \
   -profile local \
   -resume

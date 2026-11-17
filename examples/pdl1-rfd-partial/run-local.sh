@@ -14,9 +14,10 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --pmpnn_seqs_per_struct=1 \
   --pmpnn_relax_cycles=3 \
   --rfd_filters="rg<=20" \
-  --refold_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
+  --refold_with 'boltz' \
+  --refold_filter="pae_interaction<=10;plddt_binder>=80" \
   --af2ig_recycle=3 \
   --refold_max=100 \
-  --refold_use_msa_server=true \
+  --use_msa_server \
   -profile local \
   -resume

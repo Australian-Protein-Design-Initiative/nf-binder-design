@@ -7,10 +7,10 @@ process COMBINE_SCORES {
   input:
   path 'af2ig_scores/*'
   path 'extra_scores.tsv'
-  // TODO: boltz_scores must be optional, detected by dummy files ?
-  path 'boltz_scores_complex.tsv'
-  path 'rmsd_monomer_vs_complex.tsv'
-  path 'rmsd_target_aligned_binder.tsv'
+  // REFOLD's wide table, or an empty placeholder when nothing was refolded. One file
+  // rather than the three Boltz-specific tables this took before: the refold reduces
+  // every engine to one row per design, with engine-prefixed columns.
+  path 'refold_scores.tsv'
   path 'pdbs/*'
 
   output:
@@ -39,34 +39,14 @@ process COMBINE_SCORES {
       --strip-suffix '(\\.pdb|_model_0\\.pdb)\$' \
         >prerefold_combined_scores.tsv
 
-    # Only run this if the boltz scores and rmsd scores are non-empty files
-    if [[ -s boltz_scores_complex.tsv && -s rmsd_monomer_vs_complex.tsv && -s rmsd_target_aligned_binder.tsv ]]; then
-      # Merge boltz refolding scores with combined scores
+    # Refold scores, when --refold_with named any engines. Already one row per design,
+    # keyed by the design id, which is `description` on this side.
+    if [[ -s refold_scores.tsv ]]; then
       python ${projectDir}/bin/merge_scores.py \
-        prerefold_combined_scores.tsv boltz_scores_complex.tsv \
-        --column-prefix boltz_ \
-        --keys id,description \
-        >refold_combined_scores.tsv
-
-      csvtk -t cut -b -f structure1,rmsd_all rmsd_monomer_vs_complex.tsv >tmp_monomer_rmsd.tsv
-
-      python ${projectDir}/bin/merge_scores.py \
-        refold_combined_scores.tsv tmp_monomer_rmsd.tsv \
-        --column-prefix boltz_monomer_vs_complex_ \
-        --keys structure1,description \
-        --strip-suffix '(_model_0\\.pdb|_monomer)\$' \
-        >rmsd1_scores.tsv
-
-      csvtk -t cut -b -f structure1,rmsd_all rmsd_target_aligned_binder.tsv >tmp_target_aligned_binder_rmsd.tsv
-
-      python ${projectDir}/bin/merge_scores.py \
-        rmsd1_scores.tsv tmp_target_aligned_binder_rmsd.tsv \
-        --column-prefix boltz_target_aligned_binder_ \
-        --first-column filename,description,pae_interaction,plddt_binder,boltz_confidence_score,boltz_iptm,boltz_monomer_vs_complex_rmsd_all,boltz_target_aligned_binder_rmsd_all \
-        --keys structure1,description \
-        --strip-suffix '(\\.pdb|_model_0\\.pdb)\$' \
+        prerefold_combined_scores.tsv refold_scores.tsv \
+        --keys description,id \
+        --first-column filename,description,pae_interaction,plddt_binder \
         >combined_scores.tsv
-
     else
       cp prerefold_combined_scores.tsv combined_scores.tsv && \
       rm prerefold_combined_scores.tsv

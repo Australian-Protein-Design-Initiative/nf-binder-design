@@ -17,8 +17,8 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd4_n_designs=20 \
   --rfd4_designs_per_task=5 \
   --rfd4_filters="rg<=20" \
-  --full_refold_with 'boltz,chai1,openfold3' \
-  --full_refold_max=10 \
+  --refold_with 'boltz,chai1,openfold3' \
+  --refold_max=10 \
   --n_predictions=3 \
   --use_msa_server \
   --consensus_metric=ipsae \

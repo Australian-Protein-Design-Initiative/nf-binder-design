@@ -77,30 +77,13 @@ params.rf3_n_recycles = 10                       // default for rf3 cli is 10
 params.rf3_diffusion_batch_size = 5              // default for rf3 cli is 5
 params.rf3_batch_size = 1                        // MPNN designs per rf3 fold task (distinct from --rfd3_batch_size for diffusion)
 
-// Boltz full refolding params
-params.full_refold_with = '' // comma-separated list of methods, e.g., 'boltz'
-params.full_refold_max = false
-params.full_refold_filter_sort = 'pair_pae_min'
-params.full_refold_use_msa_server = false
-params.full_refold_create_target_msa = false
-params.full_refold_target_templates = false
-params.full_refold_target_fasta = false
-params.full_refold_alignment = false  // external A3M file; bypasses MMseqs2 when set
-params.uniref30 = false
-params.colabfold_envdb = false
-params.output_rmsd_aligned = false
-
-// FoldSeek params
-params.do_foldseek = false
-params.foldseek_search_max = false  // max designs for FoldSeek (defaults to full_refold_max)
-params.foldseek_database = 'CATH50'
-params.foldseek_databases_path = false
-params.foldseek_use_webserver = false
-params.foldseek_mode = '3diaa'
-params.foldseek_maxaccept = 1
-params.foldseek_gzip_output = false
-params.foldseek_include_html_output = false
-params.foldseek_cath_names_path = false
+// Refold scoring. The knobs themselves - --refold_with, --refold_filter,
+// --refold_sort_by, --refold_max - are shared by every design workflow and live in
+// conf/refold.config; only the output directory differs per workflow. The refold's
+// outputs and the fold stack's own outputs share it, and the fold stack reads
+// fold_publish_dir directly in its modules, so the two are kept equal.
+params.refold_publish_dir = 'rfd3/refold'
+params.fold_publish_dir = 'rfd3/refold'
 
 params.require_gpu = true
 params.gpu_devices = ''
@@ -128,7 +111,14 @@ include {
     resolveRfd3TargetBinderChains;
     validateRfd3MpnnPresetParams;
 } from '../modules/local/rfd3/rfd3_utils'
-include { BOLTZ_REFOLD_SCORING_RFD3 } from '../subworkflows/local/boltz_refold_scoring_rfd3'
+include { REFOLD } from '../subworkflows/local/refold'
+include { SELECT_FOR_REFOLD as SELECT_FOR_FOLDSEEK } from '../subworkflows/local/refold_select'
+include {
+    checkRefoldParamRenames
+    refoldEngines
+    refoldHelpText
+    refoldSelection
+} from '../modules/local/common/refold_select_utils'
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
 include { RFD3_STAGE_FOLDSEEK_CIF } from '../modules/local/rfd3/stage_foldseek_cif'
@@ -180,15 +170,10 @@ workflow RFD3 {
         throw new Exception('--rf3_batch_size must be >= 1')
     }
 
-    if (params.full_refold_create_target_msa && params.full_refold_alignment) {
-        throw new Exception('--full_refold_create_target_msa and --full_refold_alignment are mutually exclusive. Use one or the other.')
-    }
-    if (params.full_refold_create_target_msa && !params.full_refold_alignment && !params.full_refold_use_msa_server && (!params.colabfold_envdb || !params.uniref30)) {
-        throw new Exception('--full_refold_create_target_msa with local MSA (no --full_refold_alignment) requires --colabfold_envdb and --uniref30.')
-    }
-    if (params.full_refold_use_msa_server && !params.full_refold_create_target_msa && !params.full_refold_alignment) {
-        throw new Exception('--full_refold_use_msa_server only has an effect when either --full_refold_create_target_msa is true or --full_refold_alignment is set.')
-    }
+    // Refolding takes its MSA and template choices from the fold stack now, so the
+    // refold's own copies of them are gone; setting one stops the run with the
+    // replacement named.
+    checkRefoldParamRenames(params, 'rfd3')
 
     // Show help message
     if (params.input_pdb == false && params.rfd3_config == false) {
@@ -244,22 +229,11 @@ workflow RFD3 {
             --rf3_target_template      Alternative template PDB/CIF for RF3 (not trimmed to contigs; mutually exclusive with --rf3_target_fasta) [default: uses --input_pdb / config input]
             --rf3_template_selection   RF3 template_selection (comma-separated AtomSelection tokens). With --rf3_target_template use chain IDs as in that file; the workflow maps them to rfd3TargetChain for RF3. Omit for whole target chain (auto-mapped). Default without --rf3_target_template: whole target chain (rfd3TargetChain).
 
-        Full refolding options (Boltz-2):
-            --full_refold_with         Comma-separated list of refolding methods (valid options: 'boltz') [default: ${params.full_refold_with}]
-            --full_refold_max          Maximum designs to refold [default: ${params.full_refold_max}]
-            --boltz_refold_batch_size  Designs per Boltz refold task; >1 amortises Boltz model loading over the batch [default: ${params.boltz_refold_batch_size}]
-            --full_refold_filter_sort  Metric to sort by before refolding. Use '-' prefix for descending. [default: ${params.full_refold_filter_sort}]
-            --full_refold_create_target_msa  Create target MSA for refolding (runs MMseqs2) [default: ${params.full_refold_create_target_msa}]
-            --full_refold_alignment    External A3M file for refold target; bypasses MMseqs2 when set [default: ${params.full_refold_alignment}]
-            --full_refold_use_msa_server     Use ColabFold MMseqs2 API for refold target MSA (skip local MMseqs) [default: ${params.full_refold_use_msa_server}]
-            --full_refold_target_fasta       Full-length target FASTA for Boltz refold (headers match PDB basenames) [default: ${params.full_refold_target_fasta}]
-            --full_refold_target_templates   Directory of full-length target template PDB/CIF for Boltz [default: ${params.full_refold_target_templates}]
-            --colabfold_envdb          ColabFold environment database (local MSA for RF3/refold when not using MSA server) [default: ${params.colabfold_envdb}]
-            --uniref30                 UniRef30 database (local MSA for RF3/refold when not using MSA server) [default: ${params.uniref30}]
+        ${refoldHelpText(params)}
 
         FoldSeek structural search (optional, enabled with --do_foldseek):
             --do_foldseek                 Enable FoldSeek search on the same designs selected for full refolding
-            --foldseek_search_max         Maximum designs to search with FoldSeek [default: same as --full_refold_max]
+            --foldseek_search_max         Maximum designs to search with FoldSeek [default: same as --refold_max]
             --foldseek_database           Database to search [default: CATH50]
                                           (CATH50, PDB, Alphafold/UniProt50, etc.)
             --foldseek_databases_path     Path to local databases directory (auto-downloaded if unset)
@@ -281,7 +255,26 @@ workflow RFD3 {
         )
         exit(1)
     }
-    def refold_methods = params.full_refold_with ? params.full_refold_with.toString().split(',').collect{it.trim()} : []
+    // Refolding is the held-out second opinion after RF3 has already cofolded every
+    // design, so --refold_with takes any engine the fold stack knows, not just Boltz.
+    refold_engines = refoldEngines(params, 'rfd3', log)
+    refold_selection = refoldSelection(params, 'rfd3', log)
+
+    if (refold_engines) {
+        // Every design pair is a 2-chain complex and the binder is folded query-only,
+        // exactly as in --method fold_pulldown.
+        refold_validation = FoldValidation.validate(params, refold_engines, [
+            hasMultimer: true,
+            af2DbPath: params.af2_db_path,
+            pulldown: true,
+        ])
+        refold_errors = refold_validation[0]
+        refold_warnings = refold_validation[1]
+        refold_warnings.each { log.warn("rfd3: --refold_with: ${it}") }
+        if (refold_errors) {
+            error("rfd3: --refold_with: ${refold_errors.join('\nrfd3: --refold_with: ')}")
+        }
+    }
 
     def ch_input_pdb
     def target_pdb_path
@@ -498,95 +491,42 @@ workflow RFD3 {
         .combine(Channel.value(rfd3BinderChain))
     RFD3_RMSD(ch_rmsd_input)
 
-    ch_boltz_complex = Channel.empty()
-    ch_boltz_monomer = Channel.empty()
-    ch_boltz_rmsd_target_aligned_binder = Channel.empty()
-    ch_boltz_rmsd_monomer_vs_complex = Channel.empty()
+    ch_refold_scores = Channel.empty()
 
-    def rf3ScoreMapFromTsv = { score_tsv ->
-        score_tsv.splitCsv(header: true, sep: '\t')[0]
-    }
+    // RF3's per-design score row, which is what --refold_filter and --refold_sort_by
+    // select on: pair_pae_min, plddt and the rest of the first cofold's verdict.
+    def ch_rf3_scored = ch_rf3_refolded_cif
+        .join(ch_rf3_scores_with_meta)
+        .map { meta, cif, score_tsv ->
+            def rows = score_tsv.splitCsv(header: true, sep: '\t')
+            tuple(meta, cif, (rows ? rows[0] : [:]) as Map)
+        }
 
-    if (refold_methods.contains('boltz')) {
-        def ch_boltz_input = ch_rf3_refolded_cif
-            .join(ch_rf3_scores_with_meta)
-            .map { meta, cif, score_tsv -> [meta, cif, rf3ScoreMapFromTsv(score_tsv)] }
-            .toSortedList { a, b ->
-                def sort_key = params.full_refold_filter_sort ?: 'pair_pae_min'
-                def descending = false
-                if (sort_key.startsWith('-')) {
-                    descending = true
-                    sort_key = sort_key.substring(1)
-                }
-                def valA = a[2][sort_key]
-                def valB = b[2][sort_key]
-                
-                valA = valA && valA != 'None' && valA != '' ? valA.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
-                valB = valB && valB != 'None' && valB != '' ? valB.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
-
-                return descending ? valB <=> valA : valA <=> valB
-            }
-            .flatMap { list ->
-                if (params.full_refold_max) {
-                    return list.take(params.full_refold_max as int)
-                }
-                return list
-            }
-            .map { meta, cif, scoreMap -> tuple(meta, cif) }
-
-        BOLTZ_REFOLD_SCORING_RFD3(
-            ch_boltz_input,
+    if (refold_engines) {
+        REFOLD(
+            ch_rf3_scored,
             rfd3BinderChain,
             rfd3TargetChain,
-            params.full_refold_max,
-            params.full_refold_create_target_msa,
-            params.full_refold_use_msa_server,
-            params.full_refold_alignment,
-            params.full_refold_target_fasta,
-            params.full_refold_target_templates,
-            params.colabfold_envdb,
-            params.uniref30,
-            params.outdir
+            refold_selection,
+            refold_engines,
+            params.msa_method,
         )
-        ch_boltz_complex = BOLTZ_REFOLD_SCORING_RFD3.out.boltz_scores_complex
-        ch_boltz_monomer = BOLTZ_REFOLD_SCORING_RFD3.out.boltz_scores_monomer
-        ch_boltz_rmsd_target_aligned_binder = BOLTZ_REFOLD_SCORING_RFD3.out.rmsd_target_aligned_binder
-        ch_boltz_rmsd_monomer_vs_complex = BOLTZ_REFOLD_SCORING_RFD3.out.rmsd_monomer_vs_complex
+        ch_refold_scores = REFOLD.out.scores
     }
 
-    // FoldSeek structural search (optional) — uses same selection as full refold
+    // FoldSeek structural search (optional), on the same basis as the refold: the same
+    // filter and ranking, with its own cap when --foldseek_search_max is set.
     if (params.do_foldseek) {
-        // Reuse the same sorted/selected designs that go to full refold
-        def foldseek_max = (params.foldseek_search_max ?: params.full_refold_max) as int
-
-        def ch_foldseek_input = ch_rf3_refolded_cif
-            .join(ch_rf3_scores_with_meta)
-            .map { meta, cif, score_tsv -> [meta, cif, rf3ScoreMapFromTsv(score_tsv)] }
-            .toSortedList { a, b ->
-                def sort_key = params.full_refold_filter_sort ?: 'pair_pae_min'
-                def descending = false
-                if (sort_key.startsWith('-')) {
-                    descending = true
-                    sort_key = sort_key.substring(1)
-                }
-                def valA = a[2][sort_key]
-                def valB = b[2][sort_key]
-
-                valA = valA && valA != 'None' && valA != '' ? valA.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
-                valB = valB && valB != 'None' && valB != '' ? valB.toDouble() : (descending ? -Double.MAX_VALUE : Double.MAX_VALUE)
-
-                return descending ? valB <=> valA : valA <=> valB
-            }
-            .flatMap { list ->
-                if (foldseek_max) {
-                    return list.take(foldseek_max)
-                }
-                return list
-            }
-            .map { row -> [row[0], row[1]] }
+        SELECT_FOR_FOLDSEEK(
+            ch_rf3_scored,
+            refold_selection.filter,
+            refold_selection.sort_by,
+            params.foldseek_search_max ?: refold_selection.max,
+            'rfd3/foldseek',
+        )
 
         // RF3 outputs model.cif per design; rename in task work dir (not launchDir)
-        RFD3_STAGE_FOLDSEEK_CIF(ch_foldseek_input)
+        RFD3_STAGE_FOLDSEEK_CIF(SELECT_FOR_FOLDSEEK.out.selected)
 
         // Extract design (shorter/binder) chain from complexes
         FOLDSEEK_PREPARE_QUERIES(RFD3_STAGE_FOLDSEEK_CIF.out)
@@ -636,11 +576,8 @@ workflow RFD3 {
     ch_combine_core = ch_rf3_scores_merged
         .combine(ch_rfd3_scores_merged)
         .combine(ch_rmsd_tuple)
-        .combine(ch_boltz_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_complex")))
-        .combine(ch_boltz_monomer.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer")))
-        .combine(ch_boltz_rmsd_target_aligned_binder.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_rmsd_target_aligned_binder")))
-        .combine(ch_boltz_rmsd_monomer_vs_complex.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_boltz_monomer_vs_complex")))
-        .map { rf3, rfd3, rmsd_tab, rmsd_cx, rmsd_bab, rmsd_tat, boltz_cx, boltz_mono, boltz_rmsd_tab, boltz_rmsd_mono ->
+        .combine(ch_refold_scores.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_refold")))
+        .map { rf3, rfd3, rmsd_tab, rmsd_cx, rmsd_bab, rmsd_tat, refold ->
             [
                 rf3_scores: rf3,
                 rfd3_scores: rfd3,
@@ -648,10 +585,7 @@ workflow RFD3 {
                 rmsd_complex: rmsd_cx,
                 rmsd_binder_aligned_binder: rmsd_bab,
                 rmsd_target_aligned_target: rmsd_tat,
-                boltz_scores_complex: boltz_cx,
-                boltz_scores_monomer: boltz_mono,
-                boltz_rmsd_target_aligned_binder: boltz_rmsd_tab,
-                boltz_rmsd_monomer_vs_complex: boltz_rmsd_mono,
+                refold_scores: refold,
             ]
         }
 
@@ -671,10 +605,7 @@ workflow RFD3 {
                 scores.rmsd_complex,
                 scores.rmsd_binder_aligned_binder,
                 scores.rmsd_target_aligned_target,
-                scores.boltz_scores_complex,
-                scores.boltz_scores_monomer,
-                scores.boltz_rmsd_target_aligned_binder,
-                scores.boltz_rmsd_monomer_vs_complex,
+                scores.refold_scores,
                 binder_chain,
                 mpnn_cifs,
             )

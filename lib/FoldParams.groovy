@@ -4,7 +4,7 @@
  * The fold stack doubles as the refolding stack for binder-design workflows, and some
  * of those already declare parameters with the same names and different meanings:
  * rfd3's --rf3_batch_size is MPNN designs per RF3 task, not samples per fold job. A
- * workflow in that position declares the refold's copies with a full_refold_ prefix
+ * workflow in that position declares the refold's copies with a refold_ prefix
  * instead (see workflows/rfd4_proteina.nf).
  *
  * Where the prefixed name is declared it is the only one read, so a design-time
@@ -15,7 +15,7 @@ class FoldParams {
 
     /** The name in effect for an engine parameter: prefixed where that one is declared. */
     static String nameFor(Map params, String param) {
-        def prefixed = "full_refold_${param}".toString()
+        def prefixed = "refold_${param}".toString()
         return params.containsKey(prefixed) ? prefixed : param
     }
 

@@ -119,7 +119,7 @@ RFD3 assigns chain letters **A**, **B**, … in **contig polymer order** (polyme
 
 The workflow default **`--mpnn_designed_chains='auto'`** infers which output chain is the binder (only the case where you are generating a single binder chain is supported). If you set **`--mpnn_designed_chains`** explicitly (e.g. `A` or `B`, or `A,B`) be sure you are choosing chain IDs that match the expected RFD3 output chain IDs. Use `task.ext.args` to pass any additional arguments to MPNN.
 
-After MPNN, RosettaFold3 input JSON uses the same **target** and **binder** chain IDs as RFDiffusion3 (first polymer **A**, second **B**, etc.): the trimmed template is renamed to the target letter, and the binder component uses the binder letter. Optional Boltz full refold, design-vs-refold RMSD, IPSAE, and `combined_scores.tsv` sequence extraction all use that same pair so chain IDs stay consistent end to end. **Two polymers** in the contig are required for this automatic pairing (see `bin/rfd3/stage_rfd3_config.py infer-rfd3-chain-pair`).
+After MPNN, RosettaFold3 input JSON uses the same **target** and **binder** chain IDs as RFDiffusion3 (first polymer **A**, second **B**, etc.): the trimmed template is renamed to the target letter, and the binder component uses the binder letter. Optional refold scoring, design-vs-refold RMSD, IPSAE, and `combined_scores.tsv` sequence extraction all use that same pair so chain IDs stay consistent end to end. **Two polymers** in the contig are required for this automatic pairing (see `bin/rfd3/stage_rfd3_config.py infer-rfd3-chain-pair`).
 
 - **Hotspots (`--hotspot_res`)**  
   - Accepts a comma-separated list of residue IDs, e.g. `--hotspot_res "A56,A115,A123"`.  
@@ -269,40 +269,34 @@ RosettaFold3 structure prediction can use a target-chain MSA and/or structural t
 
 By default, the target structure from **`--input_pdb`** (or the config `input` path) is used as the single RF3 template (one template per chain; RF3 does not accept multiple templates per chain). Override with **`--rf3_target_template`** when you want a different structure. In the default case, the workflow prepares that template so it matches what RFDiffusion3 sees: if the input is mmCIF it is converted to PDB (gemmi); the structure is trimmed to the same contig ranges as RFD3 (see **`--contigs`** or the config’s `contig` field) via `bin/trim_to_contigs.py` (supports both v1 and v3 contig syntax); then all chain IDs in the trimmed structure are renamed to the **target** chain letter inferred from contig polymer order (e.g. **A** when the target is the first polymer, **B** when the target is the second), matching the chain ID of the target in RFD3/MPNN design CIFs.
 
-When `--rf3_create_target_msa` is `true`, `--rf3_alignment` is not set, and `--rf3_use_msa_server` is `false`, you must provide **`--colabfold_envdb`** and **`--uniref30`** (same as for the optional Boltz full refold step).
+When `--rf3_create_target_msa` is `true`, `--rf3_alignment` is not set, and `--rf3_use_msa_server` is `false`, you must provide **`--colabfold_envdb`** and **`--uniref30`** (same as for the optional refold step).
 
-#### Full refolding parameters (Boltz-2)
+#### Refold scoring parameters
 
-The workflow supports an optional **full refolding** step (e.g. using Boltz-2) to validate the ROSETTAFOLD3 predicted structures, optionally using a non-truncated target sequence, with an optional target MSA and/or target template structure.
+The workflow supports an optional **refold** step: a held-out second opinion on the RosettaFold3 predictions, folding selected designs again with one or more independent predictors. The full parameter set is documented in [Refold Scoring](../subworkflows/refold.md); the ones most used here are:
 
-- **`--full_refold_with`**  
-  Tool to use for full refolding (e.g. `boltz`). **Default:** disabled.
+- **`--refold_with`**  
+  Comma-separated engines to refold with, eg `boltz` or `boltz,chai1`. **Default:** unset (no refolding).
 
-- **`--full_refold_max`**  
-  Maximum number of top scoring ROSETTAFOLD3 designs to pass to the full refolding step.
+- **`--refold_filter`**  
+  Threshold gate on the RosettaFold3 per-design scores, semicolon-separated, in the same syntax as `--rfd3_filters`, eg `'pair_pae_min<=10'`. Decided per design, so refolding starts while the rest of the set is still being scored. **Default:** unset.
 
-- **`--full_refold_filter_sort`**  
-  The metric used to sort the ROSETTAFOLD3 outputs before prioritizing them for full refolding via `--full_refold_max`.  
-  Use a `-` prefix to sort in descending order (e.g. `-plddt`).  
-  **Default:** `pair_pae_min` (ascending).
+- **`--refold_sort_by`**  
+  Rank the designs that pass the gate by one metric before `--refold_max` takes the best of them. A `-` prefix sorts descending (eg `-plddt`); metrics where low is good (`pair_pae_min`) need no prefix. On its own it selects nothing, since without a cap every design that passes the gate is refolded anyway. **Default:** unset.
 
-- **`--full_refold_alignment`**  
-  Path to an external A3M-format MSA file for the target chain when running Boltz-2 full refolding. When set, this file is used as the target MSA and no MMseqs2/ColabFold search is run for the refold step. Mutually exclusive with **`--full_refold_create_target_msa`**.
-
-- **`--full_refold_create_target_msa`**  
-  When `true`, create a target-chain MSA for the Boltz refold step via local ColabFold/MMseqs2 or an external MSA server. **Default:** `false`.
-
-- **`--full_refold_use_msa_server`**  
-  When `true` and **`--full_refold_create_target_msa`** is set (and **`--full_refold_alignment`** is not), obtain refold target MSAs from the ColabFold MMseqs2 API instead of local MMseqs2. No **`--colabfold_envdb`** or **`--uniref30`** are required in this case. **Default:** `false`.
-
-- **`--full_refold_target_fasta`**  
-  FASTA file with full-length target sequence(s) for Boltz refold (headers should match PDB basenames in **`--full_refold_target_templates`**). **Default:** disabled.
-
-- **`--full_refold_target_templates`**  
-  Directory of full-length target template PDB/CIF files for Boltz-2 (improves target prediction when the RFD3 input is a cropped domain). **Default:** disabled.
+- **`--refold_max`**  
+  Cap on how many designs are refolded. With `--refold_sort_by`, the best N; without it, the first N to be scored. A cap cannot stream, so it makes the refold wait for every design to be scored.
 
 - **`--colabfold_envdb`** / **`--uniref30`**  
-  Paths to ColabFold environmental and UniRef30 databases. Required when creating MSAs locally for RF3 (**`--rf3_create_target_msa`**) or Boltz refold (**`--full_refold_create_target_msa`**) without an external MSA server and without **`--rf3_alignment`** / **`--full_refold_alignment`**.
+  Paths to ColabFold environmental and UniRef30 databases. Required when creating MSAs locally for RF3 (**`--rf3_create_target_msa`**) or for the refold (**`--create_target_msa`**) without an external MSA server.
+
+!!! warning "Write `--refold_sort_by` with an `=`"
+    Use `--refold_sort_by='pair_pae_min'` or `--refold_sort_by='-plddt'`. Without the `=`, Nextflow reads a leading `-` as the start of one of its own options.
+
+!!! warning "Behaviour change: `--refold_max` no longer implies a ranking"
+    `--full_refold_filter_sort` used to default to `pair_pae_min`, so a capped refold took the best designs by that metric. Its replacement `--refold_sort_by` defaults to unset, so `--refold_max` on its own now takes the **first N designs to finish**, in whatever order that is. The run warns when a cap is set without a ranking. Add `--refold_sort_by='pair_pae_min'` to keep the old selection.
+
+The refold takes its MSA and template choices from the fold stack (`--create_target_msa`, `--use_msa_server`, `--msa_method`, `--templates`). The old refold-specific copies - `--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`, `--refold_target_fasta`, `--refold_target_templates` - are gone, and a run that sets one stops with the replacement named. The whole `--full_refold_*` family has been renamed to `--refold_*`.
 
 #### RMSD (design vs refold)
 
@@ -328,12 +322,15 @@ By default outputs are written under `results/rfd3/` (or the directory specified
   Per-design TSVs are also published in the same directory.
 
 - **`combined_scores.tsv`**  
-  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. The RMSD values (MPNN design vs RosettaFold3 refold) are also included as `rf3_rmsd_*` columns. When Boltz refolding is enabled (`refold_methods` includes `boltz`), Boltz confidence metrics appear as `boltz_complex_*` and `boltz_monomer_*`, and the same Boltz RMSD metrics as the `rfd` workflow’s `combined_scores.tsv` are merged from `boltz_refold/rmsd/`: `boltz_target_aligned_binder_rmsd_pruned`, `boltz_target_aligned_binder_rmsd_all` (design vs Boltz complex), and `boltz_monomer_vs_complex_rmsd_pruned`, `boltz_monomer_vs_complex_rmsd_all` (binder monomer vs complex). `rmsd_complex_vs_rf3.tsv` and `rmsd_monomer_vs_rf3.tsv` are not merged into this table.
+  A single TSV under `rfd3/` merging RFDiffusion3 and RosettaFold3 per-design scores (e.g. `ranking_score`, `iptm`, `plddt`, `pair_pae_min`, `ptm_binder`), sorted by `pair_pae_min`. The RMSD values (MPNN design vs RosettaFold3 refold) are also included as `rf3_rmsd_*` columns. When refolding is enabled, each engine named in `--refold_with` adds its own set of engine-prefixed columns: `<tool>_iptm_max`, `<tool>_ipsae_max` and the rest of `--refold_metrics`, `<tool>_target_aligned_binder_rmsd_all` and `<tool>_complex_rmsd_all` (refold vs design), `<tool>_monomer_vs_design_rmsd_all` and `<tool>_monomer_vs_complex_rmsd_all` (binder monomer), and `<tool>_interface_dG` and the other BindCraft interface metrics. A cross-engine `consensus_z` is added when more than one engine is named. These replace the four Boltz-specific tables (`boltz_complex_*`, `boltz_monomer_*`, `boltz_target_aligned_binder_*`, `boltz_monomer_vs_complex_*`) that earlier versions merged. `rmsd_complex_vs_rf3.tsv` and `rmsd_monomer_vs_rf3.tsv` are not merged into this table.
 
   > **Note:** If using a `--rf3_target_template` that is a different length to the `--input_pdb` target used by RFD3, the `rf3_rmsd_complex_rmsd_all` and `rf3_rmsd_target_aligned_target_rmsd_all` cannot be computed and will be empty in `combined_scores.tsv`.
 
-- **Boltz full refold (optional)**  
-  When `--full_refold_with` includes `boltz`, see `boltz_refold/` for Boltz confidence TSVs, RMSD tables, aggregated `boltz_complex_extra_scores.tsv`, and per-design BindCraft interface scores under `boltz_refold/extra_scores/`.
+- **Refold scoring (optional)**  
+  When `--refold_with` names at least one engine, `rfd3/refold/` holds `refold_scores.tsv` (one row per design, merged into `combined_scores.tsv`), `refold_sample_scores.tsv` (one row per refolded sample, nothing reduced), `refold_selection.tsv` (every design with its selection verdict, rank and sort value) and `predictions/` (the refolded complexes and binder monomers). See [Refold Scoring](../subworkflows/refold.md).
+
+- **`binders.fasta`**  
+  Binder sequences, with the columns named by `--refold_fasta_score_columns` (default `consensus_z`) in the headers.
 
 The exact directory layout follows the `modules/local/rfd3/` processes (`rfdiffusion3`, `mpnn`, `rosettafold3`); you can examine those modules or a completed run for the precise structure.
 
@@ -355,22 +352,25 @@ nextflow run main.nf --method rfd3 \
 
 ### Design Selection for FoldSeek
 
-FoldSeek operates on the **same set of designs** that would be selected for Boltz-2 full refolding. Designs are sorted by `--full_refold_filter_sort` (default: `pair_pae_min`) and the top N are selected based on `--foldseek_search_max`:
+FoldSeek selects designs on the **same basis as the refold**: the same `--refold_filter` gate and the same `--refold_sort_by` ranking, with its own cap.
 
-- **`--foldseek_search_max`**: maximum designs to search with FoldSeek. Defaults to `--full_refold_max` if not set.
-- **If neither `--foldseek_search_max` nor `--full_refold_max` is set**: all RF3 designs are searched.
+- **`--foldseek_search_max`**: maximum designs to search with FoldSeek. Defaults to `--refold_max` if not set.
+- **If neither `--foldseek_search_max` nor `--refold_max` is set**: all designs that pass `--refold_filter` are searched, and if that is unset too, all RF3 designs are.
+- Without `--refold_sort_by`, a cap takes the first N designs to be scored, not the best N. Set `--refold_sort_by='pair_pae_min'` (note the `=`) to rank them first.
 
 ```bash
-# FoldSeek searches top 50 designs (same as full refold selection)
+# FoldSeek searches the same 100 designs as the refold
 nextflow run main.nf --method rfd3 \
   --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
-  --full_refold_max 100 \
+  --refold_max 100 \
+  --refold_sort_by='pair_pae_min' \
   --do_foldseek
 
 # Or search a larger set than is refolded
 nextflow run main.nf --method rfd3 \
   --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
-  --full_refold_max 50 \
+  --refold_max 50 \
+  --refold_sort_by='pair_pae_min' \
   --foldseek_search_max 200 \
   --do_foldseek
 ```
@@ -380,7 +380,7 @@ nextflow run main.nf --method rfd3 \
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--do_foldseek` | `false` | Enable FoldSeek search on selected RF3 designs |
-| `--foldseek_search_max` | *(uses `--full_refold_max`)* | Maximum designs to search with FoldSeek |
+| `--foldseek_search_max` | *(uses `--refold_max`)* | Maximum designs to search with FoldSeek |
 
 All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
 

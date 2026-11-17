@@ -6,16 +6,23 @@ against its target with a chosen predictor and asking the same questions whichev
 predictor that is: how confident is the interface, did the binder come back where it
 was designed to sit, does it hold its fold on its own, and what does the interface
 look like once rebuilt. This subworkflow is the single path for all of that, and
-`--full_refold_with` is the single parameter that chooses the engines.
+`--refold_with` is the single parameter that chooses the engines.
 
 It replaces the pair of paths that came before: BOLTZ_REFOLD_CORE, which folded and
 compared inside one Boltz-specific process, and REFOLD_ORACLES, which folded with any
 engine but only reported confidence. Nothing here is specific to one design method,
-so every design workflow can use it: it takes designs as tuple(meta, structure) and
-gives back one row per design.
+so every design workflow can use it: it takes designs as tuple(meta, structure, scores)
+and gives back one row per design.
+
+Refolding is the held-out second opinion, not a workflow's only cofold. Each design
+has already been folded once by the pipeline's own predictor - AF2 initial guess in
+rfd and rfd_partial, RF3 in rfd3, BindCraft's and Germinal's own AF2 passes - and the
+scores from that pass ride along with each design so that SELECT_FOR_REFOLD can choose
+which of them are worth the second, more expensive look.
 
 The pieces:
 
+  SELECT_FOR_REFOLD       which designs are worth refolding, from the first cofold
   REFOLD_PREPARE_INPUTS   target and binder sequences, read out of the designs
   FOLD_PULLDOWN_CORE      fold every (target, binder) pair with every engine
   FOLD (monomer)          fold each binder on its own with the same engines
@@ -26,13 +33,17 @@ The pieces:
   REFOLD_SAMPLE_SCORES    the same, unreduced: one row per sample
 
 Parameters are NOT declared here: Nextflow does not evaluate top-level `params.x = ...`
-statements in an included script, so a calling workflow must declare them itself. The
-block this subworkflow needs is in workflows/rfd4_proteina.nf under "Refold scoring";
-copy it when adopting this subworkflow elsewhere.
+statements in an included script. They live in conf/refold.config (the --refold_* knobs,
+for every entrypoint) and conf/refold_fold_stack.config (the fold stack this drives, for
+the design workflows only). A workflow adopting this subworkflow declares just two of
+its own, --refold_publish_dir and --fold_publish_dir, which name a different directory
+in each, and calls checkRefoldParamRenames / refoldEngines / refoldSelection from
+modules/local/common/refold_select_utils.nf to read the rest.
 */
 
 include { FOLD_PULLDOWN_CORE } from './fold_pulldown_core'
 include { FOLD as FOLD_BINDER_MONOMER } from './fold'
+include { SELECT_FOR_REFOLD } from './refold_select'
 include { REFOLD_PREPARE_INPUTS } from '../../modules/local/refold/refold_prepare_inputs'
 include { REFOLD_COMPARE_COMPLEX } from '../../modules/local/refold/refold_compare_complex'
 include { REFOLD_COMPARE_MONOMER } from '../../modules/local/refold/refold_compare_monomer'
@@ -44,30 +55,42 @@ include { REFOLD_SAMPLE_SCORES } from '../../modules/local/refold/refold_sample_
 workflow REFOLD {
 
     take:
-    ch_designs      // tuple(meta, structure): designs to score
+    ch_designs      // tuple(meta, structure, Map scores): designs and their first-cofold scores
     binder_chain    // String: binder chain id in the design
     target_chain    // String: target chain id in the design
-    refold_max      // Integer or false: cap on how many designs to score
+    selection       // Map: [filter: String, sort_by: String, max: Integer] - see SELECT_FOR_REFOLD
     engines         // List<String>: FOLD_PREDICT method names
     msa_method      // 'jackhmmer_af2' | 'mmseqs2_colabfold'
 
     main:
 
-    // collect/flatMap rather than .take(n): once a channel has more than one consumer
-    // Nextflow hands the subworkflow a DataflowStream read adapter, which has no take
-    // operator, and the call dies with "Missing process or function take(...)". Whether
-    // that happens depends on the order the consumers attach, so .take() here works or
-    // not depending on which other scoring paths the run enables. flat: false keeps each
-    // design a tuple rather than flattening (meta, structure) into the list.
-    ch_selected = refold_max
-        ? ch_designs.collect(flat: false).flatMap { designs -> designs.take(refold_max as Integer) }
-        : ch_designs
+    SELECT_FOR_REFOLD(
+        ch_designs,
+        selection.filter,
+        selection.sort_by,
+        selection.max,
+        params.refold_publish_dir ?: 'refold',
+    )
+    ch_selected = SELECT_FOR_REFOLD.out.selected
 
     // One task for the whole set: the target is read once and every binder sequence
     // comes out of the same pass, which also makes the "do the designs agree on the
     // target" check possible at all.
+    // Ids and structures as two lists built from one collect, so they stay in step:
+    // the process links each structure under its design id, because a workflow's own
+    // filenames are not always distinct (RF3 writes every design to model.cif).
+    ch_refold_inputs = ch_selected
+        .collect(flat: false)
+        .map { entries ->
+            tuple(
+                entries.collect { entry -> entry[1] },
+                entries.collect { entry -> entry[0].id.toString() },
+            )
+        }
+
     REFOLD_PREPARE_INPUTS(
-        ch_selected.map { _meta, structure -> structure }.collect(),
+        ch_refold_inputs.map { structures, _ids -> structures },
+        ch_refold_inputs.map { _structures, ids -> ids },
         binder_chain,
         target_chain,
         params.refold_target_id,
@@ -288,4 +311,5 @@ workflow REFOLD {
     summary = FOLD_PULLDOWN_CORE.out.summary
     predictions = FOLD_PULLDOWN_CORE.out.predictions
     rmsd = ch_rmsd_tables
+    selection = SELECT_FOR_REFOLD.out.report
 }

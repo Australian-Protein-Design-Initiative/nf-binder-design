@@ -18,14 +18,6 @@ Usage:
 
 // Workflow-level parameters
 params.input_pdbs = false
-params.foldseek_database = 'CATH50'
-params.foldseek_databases_path = false
-params.foldseek_use_webserver = false
-params.foldseek_mode = '3diaa'
-params.foldseek_maxaccept = 1
-params.foldseek_gzip_output = false
-params.foldseek_include_html_output = false
-params.foldseek_cath_names_path = false
 
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 

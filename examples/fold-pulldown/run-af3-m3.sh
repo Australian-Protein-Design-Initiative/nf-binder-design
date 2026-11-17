@@ -2,9 +2,12 @@
 set -euo pipefail
 # AlphaFold3 + Protenix target x binder pulldown (ColabFold remote MSAs for targets).
 
-# Pin Nextflow 24.10.0: site configs under conf/platforms/ still use top-level
-# `def`, which Nextflow >=26's default (strict) parser rejects.
-export NXF_VER=24.10.0
+# The site configs under conf/platforms/ still use top-level `def`, which Nextflow
+# >=26's default (strict) parser rejects, so ask for the v1 parser. Pinning an older
+# Nextflow instead does not work any more: the workflow scripts no longer compile
+# under 24.10.0, which rejects the `def` bindings in a workflow body with
+# "Variable `log` already defined in the process scope".
+export NXF_SYNTAX_PARSER=v1
 
 # AlphaFold3 weights are not bundled - fetch them once with
 # ../../models/download_af3_weights.sh (default location), or set AF3_MODEL_DIR.

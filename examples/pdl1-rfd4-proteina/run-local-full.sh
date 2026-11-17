@@ -14,11 +14,11 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd4_batch_size=1 \
   --rfd4_recycle_strategy='thinking_medium' \
   --rfd4_filters="rg<=20" \
-  --full_refold_with 'boltz' \
-  --full_refold_filter_sort='pair_pae_min' \
-  --full_refold_max=5 \
-  --full_refold_create_target_msa \
-  --full_refold_use_msa_server \
+  --refold_with 'boltz' \
+  --refold_sort_by='pair_pae_min' \
+  --refold_max=5 \
+  --create_target_msa \
+  --use_msa_server \
   --do_foldseek \
   --foldseek_database=CATH50 \
   --foldseek_databases_path="$(pwd)/../databases/foldseek" \
