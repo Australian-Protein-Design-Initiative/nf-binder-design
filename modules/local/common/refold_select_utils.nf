@@ -348,7 +348,13 @@ def refoldHelpText(Map params) {
                                    seeds of one sample each [default: ${params.n_predictions}]
             --msa_method           jackhmmer_af2|mmseqs2_colabfold [default: ${params.msa_method}]
             --create_target_msa    Build an MSA for the target [default: ${params.create_target_msa}]
+            --target_msa           An A3M for the target, built elsewhere, used instead of
+                                   searching for one. Its first record must be the target
+                                   sequence. Not with --create_target_msa.
+                                   [default: ${params.target_msa}]
             --use_msa_server       Let the engine fetch its own MSA [default: ${params.use_msa_server}]
+            --templates            Template structures for the refold, matched to the folded
+                                   chains by sequence [default: ${params.templates}]
             --consensus_metric / --z_stat / --z_scope / --min_pool
                                    Ranking, as in --method fold_pulldown
             --colabfold_envdb      ColabFold environment database (local MSA) [default: ${params.colabfold_envdb}]
@@ -360,6 +366,14 @@ def refoldHelpText(Map params) {
             n_recycles, batch_size, early_stopping_plddt_threshold, seed), since plain
             --rf3_* names are taken by the design-time RF3 step in other workflows.
 
+            --refold_target_fasta  Refold against this target instead of the one in the
+                                   designs, as a FASTA of exactly one record. This is how a
+                                   design made against a truncated construct is refolded
+                                   against the full-length protein; pair it with --templates
+                                   and --target_msa for that target's structure and
+                                   MSA. [default: ${params.refold_target_fasta}]
+            --refold_target_id     Name given to the target record [default: ${params.refold_target_id}]
+
             Renamed, still accepted with a warning: --refold_oracles and
             --refold_oracles_max are --refold_with and --refold_max;
             --refold_af2ig_filters is --refold_filter. Renamed and now an error:
@@ -367,9 +381,10 @@ def refoldHelpText(Map params) {
             --refold_target_id, and --boltz_refold_batch_size is
             --refold_boltz_batch_size (samples per fold job, not designs per task).
             Refolding takes its MSA and template choices from the fold stack, so
-            --refold_create_target_msa, --refold_use_msa_server, --refold_target_fasta,
-            --refold_target_templates and --refold_alignment are gone; use the fold
-            stack's own flags above."""
+            --refold_create_target_msa is --create_target_msa, --refold_use_msa_server
+            is --use_msa_server, --refold_target_templates is --templates and
+            --refold_alignment is --target_msa. (--refold_target_fasta is back
+            under its own name, above: only refolding has a target to replace.)"""
 }
 
 /*
@@ -411,8 +426,7 @@ def checkRefoldParamRenames(Map params, String workflow_name) {
         refold_use_msa_server: '--use_msa_server',
         refold_create_target_msa: '--create_target_msa',
         refold_target_templates: '--templates',
-        refold_alignment: '--create_target_msa with --msa_method mmseqs2_colabfold',
-        refold_target_fasta: 'a target sequence in the design structures themselves',
+        refold_alignment: '--target_msa',
     ].each { name, replacement ->
         if (params[name]) {
             throw new IllegalArgumentException(

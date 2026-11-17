@@ -52,9 +52,43 @@ Every design that reached the step is accounted for in `<refold_publish_dir>/ref
 | `refold_sort_metric` | The metric ranked on |
 | `refold_sort_value` | That design's value for it |
 
+!!! warning "Changing the selection on a `-resume` needs a fresh `--outdir`"
+    `refold_scores.tsv`, `refold_rmsd.tsv` and `refold_selection.tsv` are gathered with `collectFile(storeDir:)`, which reuses the file already in the output directory. Rerunning with different `--refold_filter` / `--refold_sort_by` / `--refold_max` values into the same `--outdir` leaves a `refold_scores.tsv` from the old selection sitting beside a `refold_selection.tsv` from the new one, and the two disagree with no error anywhere. Change the selection, change the `--outdir`.
+
 ## Which chain is the binder
 
 `--refold_binder_chain` and `--refold_target_chain` only apply to `--method bindcraft` and `--method germinal`, which have no derivation of their own (defaults: binder `B`, target `A`). `rfd3` and `rfd4_proteina` derive the chains from the contigs, and `rfd` and `rfd_partial` know them from how AF2 initial guess writes its complexes.
+
+## What the designs are refolded against
+
+By default the refold target is the target the designs were built against: the target chain is read back out of each selected design structure, and the sequence they agree on is what every binder is folded against. The design chains come from `--refold_binder_chain` / `--refold_target_chain` above. When the designs disagree on the target sequence, the run warns, names how many distinct sequences it saw and their lengths, and goes with the most common one.
+
+`--refold_target_fasta` replaces that sequence:
+
+```bash
+--refold_target_fasta full_length_target.fasta
+```
+
+This is the full-length versus truncated choice. A binder designed against a trimmed domain is refolded against that same trimmed domain unless this says otherwise, and "does the binder still sit there in the whole protein" is a different and harder question from the one the design run already answered.
+
+The file must hold **exactly one record**. Every binder is folded against every target, and one row per design in `refold_scores.tsv` depends on there being a single target, so comparing two targets means two runs into two `--outdir`s.
+
+The designs' own target is still read and checked. If the supplied sequence does not contain it as a subsequence, the run warns: that is the usual sign that `--refold_target_chain` is not the chain the run assumed, or that the FASTA is not the same protein. The refold still runs.
+
+### The target's structure and MSA
+
+Three fold-stack parameters go with it, and all three refer to the target actually being folded:
+
+| Parameter | What it does |
+|-----------|--------------|
+| `--templates` | Template structures, matched to the folded chains by sequence. A full-length target structure here is what makes an engine model the parts of the target `--refold_target_fasta` added back. Only the target chain is templated unless `--binder_templates` is set |
+| `--target_msa` | An A3M for the target, built elsewhere, used instead of searching for one. Its first record must be the target sequence being folded. Not usable with `--create_target_msa` |
+| `--create_target_msa` | Search for the target's MSA instead, with `--msa_method` and `--use_msa_server` / `--colabfold_envdb` / `--uniref30` |
+
+These carry no `--refold_` prefix because in a design workflow the fold stack only ever runs for the refold: `--templates` in `--method rfd3` is the refold's templates, not RFdiffusion3's (that one is `--rf3_target_template`).
+
+!!! warning "A longer target empties two RMSD columns"
+    With `--refold_target_fasta` giving a target longer than the design's, the refolded complex and the design are no longer the same molecule. The whole-complex columns that need equal residue counts - `<tool>_complex_rmsd_all` and `<tool>_complex_tm_score_all` - come back as `nan`. The structurally aligned `_pruned` variants still compute, and `<tool>_target_aligned_binder_rmsd_*`, the pose metric, is unaffected: the binder is the same molecule in both.
 
 ## Output columns
 
@@ -90,7 +124,7 @@ With `--refold_structure_stat selected`, the RMSD and interface columns are all 
 
 ## How the refold folds
 
-The refold drives the same fold stack as `--method fold` and `--method fold_pulldown`, so MSA and template choices come from the fold stack's own parameters: `--msa_method`, `--create_target_msa`, `--use_msa_server`, `--templates`, `--colabfold_envdb`, `--uniref30`. Every engine flag from `--method fold --help` (`--af2_*`, `--boltz_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`, `--chai1_*`, `--esmfold2_*`) applies here too.
+The refold drives the same fold stack as `--method fold` and `--method fold_pulldown`, so MSA and template choices come from the fold stack's own parameters: `--msa_method`, `--create_target_msa`, `--target_msa`, `--use_msa_server`, `--templates`, `--colabfold_envdb`, `--uniref30`. Every engine flag from `--method fold --help` (`--af2_*`, `--boltz_*`, `--protenix_*`, `--af3_*`, `--openfold3_*`, `--chai1_*`, `--esmfold2_*`) applies here too.
 
 RosettaFold3 is the one exception. Its refold flags are `--refold_rf3_ckpt_path`, `--refold_rf3_num_steps`, `--refold_rf3_n_recycles`, `--refold_rf3_batch_size`, `--refold_rf3_early_stopping_plddt_threshold` and `--refold_rf3_seed`. The plain `--rf3_*` names belong to the design-time RF3 step in `--method rfd3`, where they mean different things, and a workflow's parameters are one flat namespace. Where the prefixed names are declared, the fold stack reads only those.
 
@@ -106,15 +140,16 @@ Deprecated, still accepted with a warning:
 | `--refold_oracles` | `--refold_with` |
 | `--refold_oracles_max` | `--refold_max` |
 
-Removed. Refolding takes its MSA and template choices from the fold stack now, so these have no equivalent of their own. A run that sets one stops with the replacement named:
+Removed. Refolding takes its MSA and template choices from the fold stack now. A run that sets one stops with the replacement named:
 
 | Removed | Use instead |
 |---------|-------------|
 | `--refold_create_target_msa` | `--create_target_msa` |
 | `--refold_use_msa_server` | `--use_msa_server` |
 | `--refold_target_templates` | `--templates` |
-| `--refold_alignment` | `--create_target_msa` with `--msa_method mmseqs2_colabfold` |
-| `--refold_target_fasta` | No replacement; the target sequence is read from the design structures |
+| `--refold_alignment` | `--target_msa` |
+
+`--refold_target_fasta` is the exception: it is back under its own name, because only refolding has a target of its own to replace. See [What the designs are refolded against](#what-the-designs-are-refolded-against).
 
 `--boltz_refold_batch_size` is removed too. It batched several designs into one Boltz refold comparison task, and that Boltz-specific path no longer exists. The nearest equivalent is `--refold_boltz_batch_size`, which is samples per fold job rather than designs per task.
 

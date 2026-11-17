@@ -73,11 +73,44 @@ workflow FOLD_PULLDOWN_MSA {
     // ---------------- target a3m (+ optional AF2 msas dir) ----------------
     ch_target_a3m = Channel.empty()
     ch_target_af2_msas = Channel.empty() // tuple(target_id, msas_dir)
+
+    // An MSA built elsewhere, handed in rather than searched for. The target is one
+    // sequence shared by every pair, so one A3M covers the whole run: its first record
+    // must be that target sequence, since the engines read the rest of the file as
+    // aligned to it. Searching for an MSA and supplying one are alternatives, not a
+    // pair, so asking for both is an error rather than a silent preference.
+    def external_target_a3m = params.target_msa
+        ? file(params.target_msa, checkIfExists: true)
+        : null
+    if (external_target_a3m && params.create_target_msa) {
+        error(
+            '--target_msa and --create_target_msa are alternatives: one supplies the ' +
+            'target MSA, the other searches for it. Set only one.'
+        )
+    }
+
     // Nothing reads a target MSA when every selected engine folds from sequence
     // alone (esmfold2_fast, single-sequence esmfold2), so skip the search.
     def search_target_msa = params.create_target_msa && (need_af2 || need_annotate)
 
-    if (search_target_msa && msa_method == 'jackhmmer_af2') {
+    if (external_target_a3m) {
+        // One file, so it can only describe one target. Refolding always has exactly
+        // one; a pulldown over several would otherwise hand every target the same
+        // alignment, which is wrong everywhere but the one it was built for.
+        ch_targets.count().subscribe { n ->
+            if (n > 1) {
+                error(
+                    "--target_msa is a single A3M, but there are ${n} targets. " +
+                    'It can only describe one of them. Run one target at a time, or ' +
+                    'use --create_target_msa.'
+                )
+            }
+        }
+        ch_target_a3m = ch_targets.map { meta, fasta ->
+            [meta + [n_chains: 1], fasta, external_target_a3m]
+        }
+    }
+    else if (search_target_msa && msa_method == 'jackhmmer_af2') {
         ch_tin = ch_targets.map { meta, fasta ->
             [meta + [n_chains: 1, af2_force_monomer_msa: true], fasta]
         }
@@ -236,7 +269,16 @@ workflow FOLD_PULLDOWN_MSA {
             [meta.id.toString(), a3m]
         }
 
-        if (params.create_target_msa && msa_method == 'jackhmmer_af2') {
+        if (external_target_a3m) {
+            // Same slot the mmseqs2 branch uses: AF2 takes the target MSA as an a3m.
+            ch_assemble_in = ch_pairs_base
+                .map { pmeta, fasta, tid, _bid -> [tid, pmeta, fasta] }
+                .combine(ch_target_a3m_by_id, by: 0)
+                .map { _tid, pmeta, fasta, a3m ->
+                    [pmeta, fasta, empty_msa, a3m]
+                }
+        }
+        else if (params.create_target_msa && msa_method == 'jackhmmer_af2') {
             // combine(by: 0) not join() - see ch_engine_pairs above; every binder
             // paired with a given target must reuse that target's MSA.
             ch_assemble_in = ch_pairs_base

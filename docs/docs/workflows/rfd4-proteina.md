@@ -231,9 +231,11 @@ made in an included script, so the shared defaults live in `conf/refold.config` 
     only because the refold used to be a Boltz-specific process that could not take another engine;
     they are accepted for now, with a warning, and folded into `--refold_with` and `--refold_max`.
     The MSA and template parameters that belonged to the Boltz path -
-    `--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`,
-    `--refold_target_fasta`, `--refold_target_templates` - are gone; a run that sets one stops with
-    the fold-stack replacement named.
+    `--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment` and
+    `--refold_target_templates` - are gone; a run that sets one stops with the fold-stack
+    replacement named. `--refold_target_fasta` is not one of them: it kept its name and its
+    meaning, and refolds the selected designs against a target other than the one they were
+    built against.
 
 FoldSeek search is enabled with `--do_foldseek`. See the
 [FoldSeek subworkflow](../subworkflows/foldseek.md) for its options.

@@ -120,6 +120,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 | `--af3_paired_msa` / `--af3_templates` / `--af3_run_data_pipeline` | `true` / `inline` / `false` | How AF3 is fed and run. `-profile af3_germinal_parity` sets the combination Germinal uses (pairing off, AF3's own template search, data pipeline on) and needs `--af3_db_dir`; see [Germinal: external folding validation](germinal.md#external-folding-validation) |
 | `--msa_method` | `jackhmmer_af2` | `jackhmmer_af2` or `mmseqs2_colabfold` |
 | `--create_target_msa` | `false` | Build MSA for each target |
+| `--target_msa` | none | An A3M for the target, built elsewhere, used instead of searching for one. Its first record must be the target sequence. Only one target: a run with several stops, since one file cannot describe them all. Not usable with `--create_target_msa` |
 | `--create_binder_msa` | `false` | Build MSA for each binder (usually leave off for de novo binders). AF2/`af2_mono` always fold the binder chain query-only regardless of this flag (see `bin/fold/assemble_af2_multimer_msas.py`); if AF2/`af2_mono` are the only selected `--methods`, the pipeline warns and skips building the binder MSA entirely. |
 | `--n_predictions` | `5` | Samples per complex per method. Matches the native default of the diffusion engines, and with `--af2_keep_models all` it is what AF2's single run already produces |
 | `--skip_engens` | `true` | EnGens is off by default (would emit N × M reports) |

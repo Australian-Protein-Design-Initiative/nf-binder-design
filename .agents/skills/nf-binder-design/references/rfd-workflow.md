@@ -226,7 +226,7 @@ Three parameters that compose, all optional; with none set, every design is refo
 
 ### Renamed and removed
 
-The `--full_refold_*` family is now `--refold_*` throughout. `--refold_af2ig_filters` (use `--refold_filter`), `--refold_oracles` (use `--refold_with`) and `--refold_oracles_max` (use `--refold_max`) still work and warn. These are **removed**, and a run that sets one stops with the replacement named: `--refold_create_target_msa` (use `--create_target_msa`), `--refold_use_msa_server` (use `--use_msa_server`), `--refold_target_templates` (use `--templates`), `--refold_alignment` (use `--create_target_msa` with `--msa_method mmseqs2_colabfold`), `--refold_target_fasta` (no replacement; the target sequence is read from the design structures). `--boltz_refold_batch_size` is also gone.
+The `--full_refold_*` family is now `--refold_*` throughout. `--refold_af2ig_filters` (use `--refold_filter`), `--refold_oracles` (use `--refold_with`) and `--refold_oracles_max` (use `--refold_max`) still work and warn. These are **removed**, and a run that sets one stops with the replacement named: `--refold_create_target_msa` (use `--create_target_msa`), `--refold_use_msa_server` (use `--use_msa_server`), `--refold_target_templates` (use `--templates`), `--refold_alignment` (use `--target_msa`). `--boltz_refold_batch_size` is also gone. `--refold_target_fasta` is **not** removed: it kept its name, and refolds the selected designs against a target other than the one they were built against - without it the target is read back out of the design structures.
 
 ---
 

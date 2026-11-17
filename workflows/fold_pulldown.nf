@@ -73,6 +73,7 @@ params.colabfold_msa_publish_name = 'result'
 // --- Boltz ---
 params.use_msa_server = false
 params.templates = false
+params.target_msa = false  // external A3M for the target chain; bypasses the MSA search
 params.boltz_recycling = false
 params.boltz_batch_size = false
 params.boltz_sampling_steps = false
@@ -167,6 +168,10 @@ workflow FOLD_PULLDOWN {
             --use_msa_server      Boltz fetches its own MSA [default: ${params.use_msa_server}]
             --templates           Template structures (.pdb/.cif; dir or glob), matched to target chains
                                   by sequence alignment; not used by esmfold2 [default: ${params.templates}]
+            --target_msa          External A3M for the target chain, used instead of
+                                  searching for one. Its first record must be the target
+                                  sequence. Mutually exclusive with --create_target_msa.
+                                  [default: ${params.target_msa}]
             --binder_templates    Also match templates to binder chains [default: ${params.binder_templates}]
             --template_min_identity / --template_min_coverage / --template_min_aligned / --template_max_per_chain
                                   Matching thresholds [default: ${params.template_min_identity} / ${params.template_min_coverage} / ${params.template_min_aligned} / ${params.template_max_per_chain}]

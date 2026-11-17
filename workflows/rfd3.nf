@@ -42,7 +42,11 @@ params.rf3_ckpt_path = '/models/foundry/rf3_foundry_01_24_latest_remapped.ckpt'
 params.rf3_create_target_msa = false
 params.rf3_use_msa_server = false
 params.rf3_target_fasta = false
-params.rf3_alignment = false  // external A3M file; bypasses MMseqs2 when set
+params.rf3_target_msa = false  // external A3M file; bypasses MMseqs2 when set
+// Removed: --rf3_alignment is --rf3_target_msa. Still declared so that setting it stops
+// the run with the replacement named, rather than drawing Nextflow's generic
+// unknown-parameter warning while the run carries on without the MSA it was given.
+params.rf3_alignment = false
 params.rf3_target_template = false
 params.rf3_template_selection = false
 
@@ -135,14 +139,18 @@ workflow RFD3 {
         throw new Exception('--rfd3_is_non_loopy cannot be used with --rfd3_config. Put "is_non_loopy": true or "is_non_loopy": false in your JSON config file instead.')
     }
 
-    if (params.rf3_create_target_msa && params.rf3_alignment) {
-        throw new Exception('--rf3_create_target_msa and --rf3_alignment are mutually exclusive. Use one or the other.')
+    if (params.rf3_alignment) {
+        throw new Exception('--rf3_alignment has been renamed to --rf3_target_msa, for consistency with every other MSA parameter in the pipeline.')
     }
-    if (params.rf3_create_target_msa && !params.rf3_alignment && !params.rf3_use_msa_server && (!params.colabfold_envdb || !params.uniref30)) {
-        throw new Exception('--rf3_create_target_msa with local MSA (no --rf3_alignment) requires --colabfold_envdb and --uniref30.')
+
+    if (params.rf3_create_target_msa && params.rf3_target_msa) {
+        throw new Exception('--rf3_create_target_msa and --rf3_target_msa are mutually exclusive. Use one or the other.')
     }
-    if (params.rf3_use_msa_server && (!params.rf3_create_target_msa || params.rf3_alignment)) {
-        throw new Exception('--rf3_use_msa_server only has an effect when --rf3_create_target_msa is true and --rf3_alignment is not set.')
+    if (params.rf3_create_target_msa && !params.rf3_target_msa && !params.rf3_use_msa_server && (!params.colabfold_envdb || !params.uniref30)) {
+        throw new Exception('--rf3_create_target_msa with local MSA (no --rf3_target_msa) requires --colabfold_envdb and --uniref30.')
+    }
+    if (params.rf3_use_msa_server && (!params.rf3_create_target_msa || params.rf3_target_msa)) {
+        throw new Exception('--rf3_use_msa_server only has an effect when --rf3_create_target_msa is true and --rf3_target_msa is not set.')
     }
     if (params.rf3_target_template && params.rf3_target_fasta) {
         throw new Exception('--rf3_target_template and --rf3_target_fasta are mutually exclusive. The target sequence comes from the template file when --rf3_target_template is set.')
@@ -222,8 +230,8 @@ workflow RFD3 {
             --mpnn_weights_noise                       Training-noise tier string: prefer '005','010','020','030' (see docs); use -params-file JSON strings or quoted CLI values to avoid coercion to integers [default: ${params.mpnn_weights_noise}]
 
         RF3 MSA/template options:
-            --rf3_create_target_msa   Create target MSA for RF3 (once per target; runs MMseqs2) [default: ${params.rf3_create_target_msa}]
-            --rf3_alignment            External A3M file for target; bypasses MMseqs2 when set [default: ${params.rf3_alignment}]
+            --rf3_create_target_msa    Create target MSA for RF3 (once per target; runs MMseqs2) [default: ${params.rf3_create_target_msa}]
+            --rf3_target_msa           External A3M file for target; bypasses MMseqs2 when set [default: ${params.rf3_target_msa}]
             --rf3_use_msa_server       Use external MSA server for RF3 when creating MSA (skip local MMseqs) [default: ${params.rf3_use_msa_server}]
             --rf3_target_fasta         Target FASTA file for RF3 MSA creation [default: ${params.rf3_target_fasta}]
             --rf3_target_template      Alternative template PDB/CIF for RF3 (not trimmed to contigs; mutually exclusive with --rf3_target_fasta) [default: uses --input_pdb / config input]
@@ -425,8 +433,8 @@ workflow RFD3 {
 
     // Target MSA: once per target (single target supported). External a3m file, or build once early, or omit.
     def ch_single_rf3_msa
-    if (params.rf3_alignment) {
-        ch_single_rf3_msa = Channel.fromPath(params.rf3_alignment).first()
+    if (params.rf3_target_msa) {
+        ch_single_rf3_msa = Channel.fromPath(params.rf3_target_msa).first()
     } else if (params.rf3_create_target_msa) {
         def ch_target_fasta_with_meta
         if (params.rf3_target_fasta) {

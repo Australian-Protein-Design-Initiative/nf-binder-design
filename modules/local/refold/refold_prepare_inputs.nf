@@ -1,6 +1,11 @@
 // Extract the target and per-design binder sequences from a set of design complexes,
 // as the targets.fasta / binders.fasta pair FOLD_PULLDOWN_CORE takes. One task for
 // the whole set, so the target is read once and every design is checked against it.
+//
+// With --refold_target_fasta the target comes from that file instead, which is how a
+// design made against a truncated construct is refolded against the full-length
+// protein. The designs' own target is still read, so the script can say whether the
+// supplied one contains it.
 process REFOLD_PREPARE_INPUTS {
     tag "refold_inputs"
 
@@ -20,6 +25,9 @@ process REFOLD_PREPARE_INPUTS {
     val binder_chain
     val target_chain
     val target_id
+    // The target to fold against, when it is not the one in the designs. The
+    // empty placeholder means "read it back out of the designs", as before.
+    path target_fasta
 
     output:
     path 'targets.fasta', emit: targets
@@ -42,6 +50,7 @@ process REFOLD_PREPARE_INPUTS {
         def ext = ['.cif.gz', '.pdb.gz', '.cif', '.pdb'].find { name.endsWith(it) } ?: ''
         "ln -s '../${design}' 'designs/${id}${ext}'"
     }.join('\n    ')
+    def target_fasta_arg = target_fasta.name == 'no_refold_target.fasta' ? '' : "--target-fasta '${target_fasta}'"
     """
     set -euo pipefail
 
@@ -52,6 +61,7 @@ process REFOLD_PREPARE_INPUTS {
         --binder-chain '${binder_chain}' \\
         --target-chain '${target_chain}' \\
         --target-id '${target_id}' \\
+        ${target_fasta_arg} \\
         --targets-out targets.fasta \\
         --binders-out binders.fasta
     """

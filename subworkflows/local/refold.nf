@@ -88,12 +88,21 @@ workflow REFOLD {
             )
         }
 
+    // The target to fold against. Unset means the one the designs were built against,
+    // read back out of their target chain. --refold_target_fasta replaces it, which is
+    // how a design made against a truncated construct is refolded against the
+    // full-length protein; see REFOLD_PREPARE_INPUTS for the subsequence check.
+    def ch_target_fasta = params.refold_target_fasta
+        ? Channel.value(file(params.refold_target_fasta, checkIfExists: true))
+        : Channel.value(file("${projectDir}/assets/dummy_files/no_refold_target.fasta"))
+
     REFOLD_PREPARE_INPUTS(
         ch_refold_inputs.map { structures, _ids -> structures },
         ch_refold_inputs.map { _structures, ids -> ids },
         binder_chain,
         target_chain,
         params.refold_target_id,
+        ch_target_fasta,
     )
 
     // Re-read the FASTAs as (meta, single-record file) pairs, the shape

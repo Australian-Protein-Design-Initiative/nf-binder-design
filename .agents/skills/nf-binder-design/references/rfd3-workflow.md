@@ -189,7 +189,7 @@ A held-out second opinion on the RF3 predictions: the selected designs are folde
 
 **Behaviour change.** `--full_refold_filter_sort` defaulted to `pair_pae_min`, so `--refold_max` implicitly took the best designs. `--refold_sort_by` defaults to unset, so a cap alone now takes the first N to finish, in whatever order that is. The run warns about this. Add `--refold_sort_by='pair_pae_min'` to keep the old behaviour.
 
-The refold takes its MSA and template choices from the fold stack: `--create_target_msa`, `--use_msa_server`, `--msa_method`, `--templates`. The old refold-specific copies (`--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`, `--refold_target_fasta`, `--refold_target_templates`) are removed, and setting one stops the run with the replacement named. The `--full_refold_*` family is now `--refold_*` throughout.
+The refold takes its MSA and template choices from the fold stack: `--create_target_msa`, `--target_msa`, `--use_msa_server`, `--msa_method`, `--templates`. The old refold-specific copies (`--refold_create_target_msa`, `--refold_use_msa_server`, `--refold_alignment`, `--refold_target_templates`) are removed, and setting one stops the run with the replacement named. `--refold_target_fasta` kept its name and refolds against a target other than the one the designs were built against. The `--full_refold_*` family is now `--refold_*` throughout.
 
 ## Outputs
 

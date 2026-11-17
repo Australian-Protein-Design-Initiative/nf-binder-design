@@ -194,7 +194,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 See [Refold Scoring](../subworkflows/refold.md) for the rest, including the engine-prefixed output columns.
 
-> `--refold_af2ig_filters` is the old name for `--refold_filter`. It still works and warns. The Boltz-specific MSA and template options - `--refold_use_msa_server`, `--refold_create_target_msa`, `--refold_alignment`, `--refold_target_fasta`, `--refold_target_templates` - are gone; refolding takes those choices from the fold stack, and a run that sets one stops with the replacement named.
+> `--refold_af2ig_filters` is the old name for `--refold_filter`. It still works and warns. The Boltz-specific MSA and template options - `--refold_use_msa_server`, `--refold_create_target_msa`, `--refold_alignment`, `--refold_target_templates` - are gone; refolding takes those choices from the fold stack (`--create_target_msa`, `--target_msa`, `--use_msa_server`, `--templates`), and a run that sets one stops with the replacement named. `--refold_target_fasta` kept its name: it refolds the selected designs against a target other than the one they were built against.
 
 We use `-profile slurm,m3` to use pre-defined configuration files specific to the M3 HPC cluster.  You could also use the `-c` flag to point to a custom configuration file.
 
