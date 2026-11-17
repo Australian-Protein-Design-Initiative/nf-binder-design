@@ -322,7 +322,7 @@ The key advantage of this workflow is improved parallelization across multiple G
 <p>The <code>--config_yaml</code> and <code>--protocol</code> are auto-detected from <code>params.json</code> if not specified. All filtering parameters from the main workflow are available.</p>
 <p>Results are saved to <code>results/boltzgen/filtered/final_ranked_designs/</code>.</p>
 <h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
-<p>After filtering, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the final designs. The design (shorter/binder) chain is automatically extracted from each complex mmCIF — only the binder is searched, not the full target–binder complex.</p>
+<p>After filtering, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the final designs. The design (shorter/binder) chain is automatically extracted from each complex mmCIF: only the binder is searched, not the full target–binder complex.</p>
 <p>FoldSeek summary results are output to <code>{outdir}/foldseek/{database_name}/</code>. See <a href="../../subworkflows/foldseek/#output-format">FoldSeek output format</a> for details.</p>
 <h3 id="enabling-foldseek">Enabling FoldSeek</h3>
 <p>Add <code>--do_foldseek</code> to your boltzgen command:</p>

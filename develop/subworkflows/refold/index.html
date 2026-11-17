@@ -77,19 +77,19 @@
               <ul class="current">
                   <li class="toctree-l1 current"><a class="reference internal current" href="#">Refold Scoring</a>
     <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#choosing-the-engines">Choosing the engines</a>
+    <li class="toctree-l2"><a class="reference internal" href="#prediction-engines">Prediction engines</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#choosing-which-designs-are-refolded">Choosing which designs are refolded</a>
+    <li class="toctree-l2"><a class="reference internal" href="#candidate-selection">Candidate selection</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#the-selection-report">The selection report</a>
+    <li class="toctree-l3"><a class="reference internal" href="#selection-report">Selection report</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#which-chain-is-the-binder">Which chain is the binder</a>
+    <li class="toctree-l2"><a class="reference internal" href="#binder-chain-identification">Binder chain identification</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#what-the-designs-are-refolded-against">What the designs are refolded against</a>
+    <li class="toctree-l2"><a class="reference internal" href="#target-sequence-configuration">Target sequence configuration</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#the-targets-structure-and-msa">The target's structure and MSA</a>
+    <li class="toctree-l3"><a class="reference internal" href="#target-structures-and-msas">Target structures and MSAs</a>
     </li>
         </ul>
     </li>
@@ -97,9 +97,9 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#reporting-parameters">Reporting parameters</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#how-the-refold-folds">How the refold folds</a>
+    <li class="toctree-l2"><a class="reference internal" href="#fold-stack-configuration">Fold stack configuration</a>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#renamed-and-removed-parameters">Renamed and removed parameters</a>
+    <li class="toctree-l2"><a class="reference internal" href="#renamed-and-deprecated-parameters">Renamed and deprecated parameters</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#see-also">See also</a>
     </li>
@@ -159,17 +159,33 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="refold-scoring-refold_with">Refold Scoring (<code>--refold_with</code>)</h1>
-<p>Refolding is a held-out second opinion on designs the pipeline has already cofolded once with its own predictor.</p>
-<p>Every design workflow folds its designs before this point - AlphaFold2 initial guess in <code>--method rfd</code> and <code>--method rfd_partial</code>, RosettaFold3 in <code>--method rfd3</code>, and BindCraft's and Germinal's own AF2 passes. Refolding does not replace that step. It takes a chosen subset of the designs, folds each binder sequence against its target again with one or more <em>independent</em> predictors, compares the result with the design, and scores the rebuilt interface. The first cofold's scores are what the refold selects on.</p>
-<p>It is available in all six design workflows: <code>rfd</code>, <code>rfd_partial</code>, <code>rfd3</code>, <code>rfd4_proteina</code>, <code>bindcraft</code> and <code>germinal</code>. Every workflow takes the same <code>--refold_*</code> parameters and writes the same engine-prefixed columns into its own <code>combined_scores.tsv</code>.</p>
-<p>Refolding is off by default in every workflow, because it is extra GPU hours per design on top of the pipeline's own cofold.</p>
-<p>Implemented by <code>subworkflows/local/refold.nf</code> and <code>subworkflows/local/refold_select.nf</code>; the shared defaults are in <code>conf/refold.config</code> and <code>conf/refold_fold_stack.config</code>.</p>
-<h2 id="choosing-the-engines">Choosing the engines</h2>
+<p>Refolding provides independent structural validation for designs previously predicted
+during generation.</p>
+<p>Every design workflow evaluates its generated backbones before this stage: AlphaFold2
+initial guess in <code>--method rfd</code> and <code>--method rfd_partial</code>, RosettaFold3 in
+<code>--method rfd3</code>, and native AF2 prediction passes in BindCraft and Germinal. Refolding
+does not replace those initial evaluations. Instead, it takes selected designs,
+co-folds each binder sequence against the target using independent prediction engines,
+compares predicted conformations to the designed pose, and re-scores the interface.
+Initial prediction scores determine which candidates are selected for refolding.</p>
+<p>Refold scoring is available across six design workflows: <code>rfd</code>, <code>rfd_partial</code>,
+<code>rfd3</code>, <code>rfd4_proteina</code>, <code>bindcraft</code>, and <code>germinal</code>. Each workflow accepts the
+same <code>--refold_*</code> parameters and appends engine-prefixed score columns to its
+<code>combined_scores.tsv</code>.</p>
+<p>Refolding is disabled by default because it requires additional GPU compute per
+candidate design.</p>
+<p>The subworkflow is implemented in <code>subworkflows/local/refold.nf</code> and
+<code>subworkflows/local/refold_select.nf</code>, with shared defaults defined in
+<code>conf/refold.config</code> and <code>conf/refold_fold_stack.config</code>.</p>
+<h2 id="prediction-engines">Prediction engines</h2>
+<p>Specify engines as a comma-separated list:</p>
 <pre><code class="language-bash">--refold_with boltz,chai1,openfold3
 </code></pre>
-<p>Any engine <code>--method fold</code> supports can go in the list: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>, <code>chai1</code>, <code>esmfold2</code>, <code>esmfold2_fast</code>.</p>
-<h2 id="choosing-which-designs-are-refolded">Choosing which designs are refolded</h2>
-<p>Three parameters, and they compose. All are optional; with none of them set, every design is refolded.</p>
+<p>All engines supported by <code>--method fold</code> are available: <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>,
+<code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>, <code>chai1</code>, <code>esmfold2</code>, and <code>esmfold2_fast</code>.</p>
+<h2 id="candidate-selection">Candidate selection</h2>
+<p>Three parameters govern candidate selection and can be combined. When none are set,
+all designs are refolded:</p>
 <table>
 <thead>
 <tr>
@@ -182,45 +198,60 @@
 <tr>
 <td><code>--refold_filter</code></td>
 <td>none</td>
-<td>Threshold gate on the first cofold's scores, semicolon-separated, in the same syntax as <code>--rfd_filters</code>. For example <code>'ipsae&gt;=0.5;pae_interaction&lt;=10'</code></td>
+<td>Threshold filter applied to initial scores, semicolon-separated (e.g. <code>'ipsae&gt;=0.5;pae_interaction&lt;=10'</code>). Uses the same syntax as <code>--rfd_filters</code>.</td>
 </tr>
 <tr>
 <td><code>--refold_sort_by</code></td>
 <td>none</td>
-<td>Rank the designs that pass the gate by one metric, <code>-</code> prefix for descending</td>
+<td>Metric used to rank candidates passing the filter; prefix with <code>-</code> for descending order.</td>
 </tr>
 <tr>
 <td><code>--refold_max</code></td>
 <td>none</td>
-<td>Cap on how many designs are refolded</td>
+<td>Maximum number of designs to refold.</td>
 </tr>
 </tbody>
 </table>
+<p>Filtering and batching behaviour:</p>
 <ul>
-<li><strong><code>--refold_filter</code> streams.</strong> The gate is decided per design, so a design is refolded as soon as its own scores exist, while the rest of the set is still being scored.</li>
-<li><strong><code>--refold_max</code> does not stream.</strong> A cap makes the refold wait for the whole design set, with or without a ranking: "the best N" is not knowable until the last design has been scored, and "the first N" needs a count kept across every design. That trade-off is why the gate and the cap are separate parameters.</li>
-<li><strong><code>--refold_max</code> with <code>--refold_sort_by</code> takes the best N; without it, the first N to be scored</strong>, in whatever order they finish. The pipeline warns when a cap is set without a ranking.</li>
-<li><strong><code>--refold_sort_by</code> on its own selects nothing.</strong> With no cap every design that passes the gate is refolded anyway, so the ranking only changes an order nothing downstream depends on. That case keeps streaming rather than stalling for a ranking that decides nothing, and the pipeline warns.</li>
+<li>Streaming evaluation with <code>--refold_filter</code>: filters evaluate per design. A candidate
+  is submitted for refolding as soon as its initial scores are available, without waiting
+  for the remaining set.</li>
+<li>Global evaluation with <code>--refold_max</code>: capping the number of refolded designs requires
+  evaluating the full candidate set before dispatching refold jobs, because ranking
+  requires global comparison.</li>
+<li>Ranking with <code>--refold_max</code> and <code>--refold_sort_by</code>: the pipeline selects the top N
+  designs according to the specified metric. If <code>--refold_max</code> is specified without
+  <code>--refold_sort_by</code>, designs are selected in completion order, and the pipeline emits
+  a warning.</li>
+<li>Sorting without <code>--refold_max</code>: specifying <code>--refold_sort_by</code> without <code>--refold_max</code>
+  does not filter designs. All candidates passing the filter are refolded, and the
+  pipeline emits a warning.</li>
 </ul>
-<p>A filter naming a metric the score table does not have stops the run and lists the columns that are present, rather than silently rejecting every design.</p>
+<p>If a filter references a column missing from the score table, the pipeline terminates
+with an error listing available columns rather than excluding all designs without
+explanation.</p>
 <div class="admonition warning">
-<p class="admonition-title">Write <code>--refold_sort_by</code> with an <code>=</code></p>
-<p>Use <code>--refold_sort_by='-ipsae'</code>, not <code>--refold_sort_by '-ipsae'</code>. Without the <code>=</code>, Nextflow reads the leading <code>-</code> as the start of one of its own options.</p>
-<p>Metrics where low is good (<code>pae_interaction</code>, <code>pair_pae_min</code>, an RMSD) need no prefix.</p>
+<p class="admonition-title">Specify <code>--refold_sort_by</code> with an <code>=</code></p>
+<p>Use <code>--refold_sort_by='-ipsae'</code>, not <code>--refold_sort_by '-ipsae'</code>. Without the <code>=</code>,
+Nextflow interprets the leading hyphen as a Nextflow CLI option.</p>
+<p>Metrics where lower values are preferred (<code>pae_interaction</code>, <code>pair_pae_min</code>, RMSD)
+require no prefix.</p>
 </div>
-<h3 id="the-selection-report">The selection report</h3>
-<p>Every design that reached the step is accounted for in <code>&lt;refold_publish_dir&gt;/refold_selection.tsv</code>, so a thin refold set can be traced to the threshold or the ranking that caused it.</p>
+<h3 id="selection-report">Selection report</h3>
+<p>All candidate designs evaluated for refolding are logged in
+<code>&lt;refold_publish_dir&gt;/refold_selection.tsv</code>:</p>
 <table>
 <thead>
 <tr>
 <th>Column</th>
-<th>Contents</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>design_id</code></td>
-<td>The design</td>
+<td>Design identifier</td>
 </tr>
 <tr>
 <td><code>refold_selection</code></td>
@@ -228,106 +259,130 @@
 </tr>
 <tr>
 <td><code>refold_rank</code></td>
-<td>Position in the ranking, when <code>--refold_max</code> is set (ranked by <code>--refold_sort_by</code>, or arrival order without it)</td>
+<td>Rank position when <code>--refold_max</code> is set (ranked by <code>--refold_sort_by</code>, or arrival order without it)</td>
 </tr>
 <tr>
 <td><code>refold_sort_metric</code></td>
-<td>The metric ranked on</td>
+<td>Metric used for ranking</td>
 </tr>
 <tr>
 <td><code>refold_sort_value</code></td>
-<td>That design's value for it</td>
+<td>Metric value for that design</td>
 </tr>
 </tbody>
 </table>
 <div class="admonition warning">
-<p class="admonition-title">Changing the selection on a <code>-resume</code> needs a fresh <code>--outdir</code></p>
-<p><code>refold_scores.tsv</code>, <code>refold_rmsd.tsv</code> and <code>refold_selection.tsv</code> are gathered with <code>collectFile(storeDir:)</code>, which reuses the file already in the output directory. Rerunning with different <code>--refold_filter</code> / <code>--refold_sort_by</code> / <code>--refold_max</code> values into the same <code>--outdir</code> leaves a <code>refold_scores.tsv</code> from the old selection sitting beside a <code>refold_selection.tsv</code> from the new one, and the two disagree with no error anywhere. Change the selection, change the <code>--outdir</code>.</p>
+<p class="admonition-title">Modifying selection parameters on resume requires a new <code>--outdir</code></p>
+<p><code>refold_scores.tsv</code>, <code>refold_rmsd.tsv</code>, and <code>refold_selection.tsv</code> are gathered
+using <code>collectFile(storeDir:)</code>. Rerunning with modified selection parameters into an
+existing output directory retains previously gathered TSV files, causing mismatched
+reports. When changing selection criteria, specify a new <code>--outdir</code>.</p>
 </div>
-<h2 id="which-chain-is-the-binder">Which chain is the binder</h2>
-<p><code>--refold_binder_chain</code> and <code>--refold_target_chain</code> only apply to <code>--method bindcraft</code> and <code>--method germinal</code>, which have no derivation of their own (defaults: binder <code>B</code>, target <code>A</code>). <code>rfd3</code> and <code>rfd4_proteina</code> derive the chains from the contigs, and <code>rfd</code> and <code>rfd_partial</code> know them from how AF2 initial guess writes its complexes.</p>
-<h2 id="what-the-designs-are-refolded-against">What the designs are refolded against</h2>
-<p>By default the refold target is the target the designs were built against: the target chain is read back out of each selected design structure, and the sequence they agree on is what every binder is folded against. The design chains come from <code>--refold_binder_chain</code> / <code>--refold_target_chain</code> above. When the designs disagree on the target sequence, the run warns, names how many distinct sequences it saw and their lengths, and goes with the most common one.</p>
-<p><code>--refold_target_fasta</code> replaces that sequence:</p>
+<h2 id="binder-chain-identification">Binder chain identification</h2>
+<p><code>--refold_binder_chain</code> and <code>--refold_target_chain</code> apply specifically to
+<code>--method bindcraft</code> and <code>--method germinal</code> (defaults: binder <code>B</code>, target <code>A</code>).
+<code>rfd3</code> and <code>rfd4_proteina</code> infer chains from contig specifications, whereas <code>rfd</code>
+and <code>rfd_partial</code> identify chains from AF2 initial guess complexes.</p>
+<h2 id="target-sequence-configuration">Target sequence configuration</h2>
+<p>By default, the refold target sequence matches the target from design generation:
+the target chain sequence is parsed from selected design structures, and the consensus
+sequence across designs is used for refolding. When designs report divergent target
+sequences, the pipeline logs a warning and uses the most frequent sequence.</p>
+<p><code>--refold_target_fasta</code> supplies an alternate target sequence:</p>
 <pre><code class="language-bash">--refold_target_fasta full_length_target.fasta
 </code></pre>
-<p>This is the full-length versus truncated choice. A binder designed against a trimmed domain is refolded against that same trimmed domain unless this says otherwise, and "does the binder still sit there in the whole protein" is a different and harder question from the one the design run already answered.</p>
-<p>The file must hold <strong>exactly one record</strong>. Every binder is folded against every target, and one row per design in <code>refold_scores.tsv</code> depends on there being a single target, so comparing two targets means two runs into two <code>--outdir</code>s.</p>
-<p>The designs' own target is still read and checked. If the supplied sequence does not contain it as a subsequence, the run warns: that is the usual sign that <code>--refold_target_chain</code> is not the chain the run assumed, or that the FASTA is not the same protein. The refold still runs.</p>
-<h3 id="the-targets-structure-and-msa">The target's structure and MSA</h3>
-<p>Three fold-stack parameters go with it, and all three refer to the target actually being folded:</p>
+<p>This option allows testing binders against full-length targets when initial designs
+were generated against truncated domains, assessing whether binding geometry is
+maintained in the complete protein context.</p>
+<p>The FASTA file must contain <strong>exactly one record</strong>. Because each binder is folded
+against the target and scores are recorded one row per design in <code>refold_scores.tsv</code>,
+evaluating multiple target variants requires separate pipeline executions with
+distinct <code>--outdir</code> locations.</p>
+<p>The pipeline verifies that the target sequence from the design structures appears as
+a subsequence within the provided FASTA. If not found, a warning is logged.</p>
+<h3 id="target-structures-and-msas">Target structures and MSAs</h3>
+<p>Three fold-stack parameters configure target inputs:</p>
 <table>
 <thead>
 <tr>
 <th>Parameter</th>
-<th>What it does</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>--templates</code></td>
-<td>Template structures, matched to the folded chains by sequence. A full-length target structure here is what makes an engine model the parts of the target <code>--refold_target_fasta</code> added back. Only the target chain is templated unless <code>--binder_templates</code> is set</td>
+<td>Template structures matched to folded chains by sequence. Providing a full-length target structure enables prediction engines to model regions omitted during initial design. Only the target chain is templated unless <code>--binder_templates</code> is set.</td>
 </tr>
 <tr>
 <td><code>--target_msa</code></td>
-<td>An A3M for the target, built elsewhere, used instead of searching for one. Its first record must be the target sequence being folded. Not usable with <code>--create_target_msa</code></td>
+<td>Precomputed A3M alignment for the target. The first record must match the target sequence. Mutually exclusive with <code>--create_target_msa</code>.</td>
 </tr>
 <tr>
 <td><code>--create_target_msa</code></td>
-<td>Search for the target's MSA instead, with <code>--msa_method</code> and <code>--use_msa_server</code> / <code>--colabfold_envdb</code> / <code>--uniref30</code></td>
+<td>Generates a target MSA using <code>--msa_method</code> alongside <code>--use_msa_server</code>, <code>--colabfold_envdb</code>, or <code>--uniref30</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>These carry no <code>--refold_</code> prefix because in a design workflow the fold stack only ever runs for the refold: <code>--templates</code> in <code>--method rfd3</code> is the refold's templates, not RFdiffusion3's (that one is <code>--rf3_target_template</code>).</p>
+<p>These parameters omit the <code>--refold_</code> prefix because fold stack operations during
+design workflows pertain exclusively to refolding.</p>
 <div class="admonition warning">
-<p class="admonition-title">A longer target empties two RMSD columns</p>
-<p>With <code>--refold_target_fasta</code> giving a target longer than the design's, the refolded complex and the design are no longer the same molecule. The whole-complex columns that need equal residue counts - <code>&lt;tool&gt;_complex_rmsd_all</code> and <code>&lt;tool&gt;_complex_tm_score_all</code> - come back as <code>nan</code>. The structurally aligned <code>_pruned</code> variants still compute, and <code>&lt;tool&gt;_target_aligned_binder_rmsd_*</code>, the pose metric, is unaffected: the binder is the same molecule in both.</p>
+<p class="admonition-title">Full-complex RMSD columns require equal sequence lengths</p>
+<p>When <code>--refold_target_fasta</code> provides a target longer than the design structure,
+whole-complex alignment metrics requiring identical residue counts
+(<code>&lt;tool&gt;_complex_rmsd_all</code> and <code>&lt;tool&gt;_complex_tm_score_all</code>) evaluate to <code>NaN</code>.
+Structurally aligned pruned variants and target-aligned binder RMSD
+(<code>&lt;tool&gt;_target_aligned_binder_rmsd_*</code>) remain valid because the binder chain
+length is unchanged.</p>
 </div>
 <h2 id="output-columns">Output columns</h2>
-<p>Every engine produces the same columns in <code>combined_scores.tsv</code>, prefixed with the engine name:</p>
+<p>Prediction engines generate standardized columns in <code>combined_scores.tsv</code>, prefixed
+with the engine name:</p>
 <table>
 <thead>
 <tr>
 <th>Column</th>
-<th>What it says</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>&lt;tool&gt;_iptm_max</code>, <code>&lt;tool&gt;_ipsae_max</code>, <code>&lt;tool&gt;_plddt_max</code>, ...</td>
-<td>How confident the refold is, per <code>--refold_metrics</code></td>
+<td>Prediction confidence metrics, per <code>--refold_metrics</code></td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_target_aligned_binder_rmsd_all</code></td>
-<td>Superimpose on the target, score the binder: did it come back where it was designed to sit</td>
+<td>Binder RMSD relative to the design pose after superimposing on the target</td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_complex_rmsd_all</code></td>
-<td>The whole complex against the design</td>
+<td>Whole-complex RMSD relative to the design</td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_monomer_vs_design_rmsd_all</code></td>
-<td>The binder folded alone, against its designed conformation</td>
+<td>RMSD of binder folded alone versus its designed conformation</td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_monomer_vs_complex_rmsd_all</code></td>
-<td>The binder folded alone, against the binder in the refolded complex</td>
+<td>RMSD of binder folded alone versus binder in the refolded complex</td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_interface_dG</code>, <code>&lt;tool&gt;_interface_dSASA</code>, ...</td>
-<td>BindCraft interface metrics on the refolded complex</td>
+<td>BindCraft interface metrics evaluated on the refolded complex</td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_selected_batch</code>, <code>&lt;tool&gt;_selected_model</code></td>
-<td>Which sample the RMSD and interface columns describe</td>
+<td>Sample identifier corresponding to the reported RMSD and interface metrics</td>
 </tr>
 <tr>
 <td><code>consensus_z</code>, <code>n_tools</code></td>
-<td>Per design, not per engine: a cross-engine z-score, so a design several independent predictors agree on ranks above one only its designer liked</td>
+<td>Cross-engine consensus z-score and count of contributing tools, prioritizing designs supported by multiple independent predictors</td>
 </tr>
 </tbody>
 </table>
-<p><code>refold_sample_scores.tsv</code>, under the same directory, has one row per refolded sample (keyed by <code>id</code>, <code>tool</code>, <code>batch</code>, <code>model</code>) with nothing reduced, so any statistic over the samples can be computed from it afterwards.</p>
+<p><code>refold_sample_scores.tsv</code>, published in the same directory, records individual sample
+predictions (keyed by <code>id</code>, <code>tool</code>, <code>batch</code>, <code>model</code>) without aggregation, enabling
+custom post-processing.</p>
 <h2 id="reporting-parameters">Reporting parameters</h2>
 <table>
 <thead>
@@ -341,57 +396,73 @@
 <tr>
 <td><code>--refold_with</code></td>
 <td>none</td>
-<td>Comma-separated engines</td>
+<td>Comma-separated list of prediction engines</td>
 </tr>
 <tr>
 <td><code>--refold_metrics</code></td>
 <td>iptm/ipsae/plddt/ptm/pae</td>
-<td>Summary columns carried into <code>combined_scores.tsv</code></td>
+<td>Summary metrics included in <code>combined_scores.tsv</code></td>
 </tr>
 <tr>
 <td><code>--refold_structure_stat</code></td>
 <td><code>selected</code></td>
-<td>How several samples per design reduce to one RMSD and one interface score: <code>selected</code>, <code>min</code>, <code>first</code>, <code>mean</code> or <code>max</code></td>
+<td>Method for aggregating structural metrics across samples: <code>selected</code>, <code>min</code>, <code>first</code>, <code>mean</code>, or <code>max</code></td>
 </tr>
 <tr>
 <td><code>--refold_binder_monomer</code></td>
 <td><code>true</code></td>
-<td>Also fold each binder alone, for the monomer-vs-complex and monomer-vs-design comparisons</td>
+<td>Folds each binder alone for monomer-versus-complex and monomer-versus-design RMSD comparisons</td>
 </tr>
 <tr>
 <td><code>--refold_monomer_single_sequence</code></td>
 <td><code>true</code></td>
-<td>Fold that monomer from sequence alone, with no MSA search</td>
+<td>Predicts binder monomer structures from sequence alone without MSA generation</td>
 </tr>
 <tr>
 <td><code>--refold_interface_scoring</code></td>
 <td><code>true</code></td>
-<td>BindCraft interface metrics on the refolded complex</td>
+<td>Calculates BindCraft interface metrics on refolded complexes</td>
 </tr>
 <tr>
 <td><code>--output_rmsd_aligned</code></td>
 <td><code>false</code></td>
-<td>Keep the superimposed structures from the RMSD comparisons</td>
+<td>Saves superimposed coordinate files from RMSD comparisons</td>
 </tr>
 <tr>
 <td><code>--n_predictions</code></td>
 <td><code>5</code></td>
-<td>Structures per design per engine, run as that many seeds of one sample each</td>
+<td>Generated structures per design per engine</td>
 </tr>
 </tbody>
 </table>
-<p>With <code>--refold_structure_stat selected</code>, the RMSD and interface columns are all read from the single best-ranked sample (by <code>--consensus_metric</code>, ipSAE) rather than aggregated per metric. The structural metrics all describe one set of coordinates, so taking the lowest RMSD and the lowest <code>interface_dG</code> independently would give a row that no predicted structure matches; and the interface metrics have no shared direction to take a best in anyway, since <code>interface_dG</code> is better lower while <code>interface_dSASA</code> and <code>interface_sc</code> are better higher. <code>min</code>, <code>mean</code>, <code>max</code> and <code>first</code> apply one statistic to every structural column instead.</p>
-<h2 id="how-the-refold-folds">How the refold folds</h2>
-<p>The refold drives the same fold stack as <code>--method fold</code> and <code>--method fold_pulldown</code>, so MSA and template choices come from the fold stack's own parameters: <code>--msa_method</code>, <code>--create_target_msa</code>, <code>--target_msa</code>, <code>--use_msa_server</code>, <code>--templates</code>, <code>--colabfold_envdb</code>, <code>--uniref30</code>. Every engine flag from <code>--method fold --help</code> (<code>--af2_*</code>, <code>--boltz_*</code>, <code>--protenix_*</code>, <code>--af3_*</code>, <code>--openfold3_*</code>, <code>--chai1_*</code>, <code>--esmfold2_*</code>) applies here too.</p>
-<p>RosettaFold3 is the one exception. Its refold flags are <code>--refold_rf3_ckpt_path</code>, <code>--refold_rf3_num_steps</code>, <code>--refold_rf3_n_recycles</code>, <code>--refold_rf3_batch_size</code>, <code>--refold_rf3_early_stopping_plddt_threshold</code> and <code>--refold_rf3_seed</code>. The plain <code>--rf3_*</code> names belong to the design-time RF3 step in <code>--method rfd3</code>, where they mean different things, and a workflow's parameters are one flat namespace. Where the prefixed names are declared, the fold stack reads only those.</p>
-<h2 id="renamed-and-removed-parameters">Renamed and removed parameters</h2>
-<p>The whole <code>--full_refold_*</code> family has been renamed without exception: <code>--full_refold_with</code> is now <code>--refold_with</code>, <code>--full_refold_max</code> is <code>--refold_max</code>, <code>--full_refold_rf3_batch_size</code> is <code>--refold_rf3_batch_size</code>, and so on. <code>--full_refold_filter_sort</code> is now <code>--refold_sort_by</code>.</p>
-<p>Deprecated, still accepted with a warning:</p>
+<p>With <code>--refold_structure_stat selected</code>, RMSD and interface metrics are extracted from
+the top-ranked sample (ranked by <code>--consensus_metric</code>, default ipSAE) rather than
+aggregated across samples independently. Because structural metrics describe a specific
+molecular conformation, taking independent minimums across different metrics would produce
+inconsistent composite values. Setting <code>min</code>, <code>mean</code>, <code>max</code>, or <code>first</code> applies that
+statistical operator across all structural columns.</p>
+<h2 id="fold-stack-configuration">Fold stack configuration</h2>
+<p>Refolding uses the same underlying prediction pipeline as <code>--method fold</code> and
+<code>--method fold_pulldown</code>. Alignment and template configurations derive from standard
+fold stack parameters: <code>--msa_method</code>, <code>--create_target_msa</code>, <code>--target_msa</code>,
+<code>--use_msa_server</code>, <code>--templates</code>, <code>--colabfold_envdb</code>, and <code>--uniref30</code>. Prediction
+engine flags (<code>--af2_*</code>, <code>--boltz_*</code>, <code>--protenix_*</code>, <code>--af3_*</code>, <code>--openfold3_*</code>,
+<code>--chai1_*</code>, <code>--esmfold2_*</code>) apply as documented under <code>--method fold</code>.</p>
+<p>RosettaFold3 requires specific refold parameter prefixes to distinguish them from
+generation-time parameters in <code>--method rfd3</code>: <code>--refold_rf3_ckpt_path</code>,
+<code>--refold_rf3_num_steps</code>, <code>--refold_rf3_n_recycles</code>, <code>--refold_rf3_batch_size</code>,
+<code>--refold_rf3_early_stopping_plddt_threshold</code>, and <code>--refold_rf3_seed</code>. When declared,
+the fold stack reads these prefixed parameters.</p>
+<h2 id="renamed-and-deprecated-parameters">Renamed and deprecated parameters</h2>
+<p>Parameters previously prefixed with <code>--full_refold_*</code> have been renamed to
+<code>--refold_*</code> (<code>--full_refold_with</code> is <code>--refold_with</code>, <code>--full_refold_max</code> is
+<code>--refold_max</code>, and <code>--full_refold_filter_sort</code> is <code>--refold_sort_by</code>).</p>
+<p>Deprecated parameters accepted with a warning:</p>
 <table>
 <thead>
 <tr>
-<th>Old name</th>
-<th>Use instead</th>
+<th>Deprecated</th>
+<th>Replacement</th>
 </tr>
 </thead>
 <tbody>
@@ -409,12 +480,12 @@
 </tr>
 </tbody>
 </table>
-<p>Removed. Refolding takes its MSA and template choices from the fold stack now. A run that sets one stops with the replacement named:</p>
+<p>Removed parameters (alignment and template options now use fold stack parameters directly):</p>
 <table>
 <thead>
 <tr>
 <th>Removed</th>
-<th>Use instead</th>
+<th>Replacement</th>
 </tr>
 </thead>
 <tbody>
@@ -436,14 +507,16 @@
 </tr>
 </tbody>
 </table>
-<p><code>--refold_target_fasta</code> is the exception: it is back under its own name, because only refolding has a target of its own to replace. See <a href="#what-the-designs-are-refolded-against">What the designs are refolded against</a>.</p>
-<p><code>--boltz_refold_batch_size</code> is removed too. It batched several designs into one Boltz refold comparison task, and that Boltz-specific path no longer exists. The nearest equivalent is <code>--refold_boltz_batch_size</code>, which is samples per fold job rather than designs per task.</p>
+<p><code>--refold_target_fasta</code> remains under its own name because target sequence substitution
+is unique to refolding (see <a href="#target-sequence-configuration">Target sequence configuration</a>).</p>
+<p><code>--boltz_refold_batch_size</code> has been removed. Use <code>--refold_boltz_batch_size</code> to
+configure sample batching per job.</p>
 <h2 id="see-also">See also</h2>
 <ul>
 <li><a href="../../workflows/rfdiffusion/">RFdiffusion Workflows</a></li>
 <li><a href="../../workflows/rfd3/">RFdiffusion3 Workflow</a></li>
 <li><a href="../../workflows/rfd4-proteina/">RFD4-Proteina Workflow</a></li>
-<li><a href="../../workflows/fold/">Fold Workflow</a> - the engine flags the refold shares</li>
+<li><a href="../../workflows/fold/">Fold Workflow</a>: details on prediction engine flags</li>
 </ul>
               
             </div>

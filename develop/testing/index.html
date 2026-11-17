@@ -258,7 +258,7 @@ NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
 <p>Useful warnings include unused variables and parameters (prefix unused closure
 parameters with <code>_</code> to silence them).</p>
 <p><code>nextflow lint</code> parses with the strict (v2) syntax, so it also flags constructs
-kept for Nextflow 24.04.3 compatibility — the conditional <code>include</code> statements in
+kept for Nextflow 24.04.3 compatibility: the conditional <code>include</code> statements in
 <code>main.nf</code>, <code>@Field</code>/<code>import</code> in <code>modules/local/rfd3/rfd3_utils.nf</code>, and multi-name
 function includes (shown as <code>... is not defined</code>). Those are expected and should
 <strong>not</strong> be changed in ways that break 24.04.3. Only run <code>nextflow lint -format</code>

@@ -96,7 +96,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#multimer-complexes">Multimer complexes</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#paired-msas-how-each-engine-differs">Paired MSAs (how each engine differs)</a>
+    <li class="toctree-l3"><a class="reference internal" href="#paired-msas-how-each-engine-differs">Paired MSAs by prediction engine</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#af2-multimer-needs-the-2021-db-snapshot">AF2 multimer needs the 2021 DB snapshot</a>
     </li>
@@ -210,11 +210,11 @@ RosettaFold3, Protenix, AlphaFold3, OpenFold3, Chai-1 and ESMFold2, sharing one
 MSA-generation stage, then (by default) clusters the ensemble with EnGens.</p>
 <blockquote>
 <p><strong>AlphaFold3</strong> (<code>--methods af3</code>) needs model weights that you download yourself
-under Google DeepMind's terms of use — see <a href="#alphafold3-weights">AlphaFold3 weights</a>.</p>
+under Google DeepMind's terms of use: see <a href="#alphafold3-weights">AlphaFold3 weights</a>.</p>
 <p><strong>Multimer:</strong> a FASTA with more than one record folds as a protein complex
 (one record = one chain → chain IDs A, B, C, …; homo-oligomers = repeated
 records; up to 26 chains). Each engine gets a taxonomically-paired MSA in its
-native format — see <a href="#multimer-complexes">Multimer complexes</a> below.</p>
+native format; see <a href="#multimer-complexes">Multimer complexes</a> below.</p>
 </blockquote>
 <h2 id="overview">Overview</h2>
 <p>Launched via <code>main.nf</code> with <code>--method fold</code>:</p>
@@ -240,8 +240,8 @@ multiple records fold together as one complex (chains A, B, C, …). Shared MSAs
 feed all selected predictors; optional MSA subsample and EnGens clustering
 produce a conformational ensemble from the combined predictions.</p>
 <p><code>--n_predictions</code> sets how many structures each method produces per input,
-unset by default. See <a href="#key-parameters">Key Parameters</a> below for how it maps
-onto each engine's own sampling knobs and batch size.</p>
+unset by default. See <a href="#key-parameters">Key Parameters</a> below for how this maps
+onto each engine's sampling and batch size settings.</p>
 <h2 id="setup">Setup</h2>
 <p>Engine containers, and the weights inside them, are pulled automatically. The
 exception is AlphaFold3, whose weights you download yourself (see
@@ -287,16 +287,16 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).</p>
 <tr>
 <td><strong>AF2</strong> (<code>af2</code>)</td>
 <td>Bundled in the container</td>
-<td>Native multimer pipeline (needs the 2021 DB snapshot — see <a href="#af2-multimer-needs-the-2021-db-snapshot">below</a>)</td>
+<td>Native multimer pipeline (requires the 2021 DB snapshot: see <a href="#af2-multimer-needs-the-2021-db-snapshot">below</a>)</td>
 <td>1</td>
 <td>Low–medium; 5 models/run regardless of <code>--n_predictions</code></td>
 </tr>
 <tr>
 <td><strong>AF2 monomer</strong> (<code>af2_mono</code>)</td>
 <td>Bundled in the container</td>
-<td>None (chain-break trick, not a real multimer mode)</td>
+<td>None (chain-break method)</td>
 <td>1</td>
-<td>Same as AF2; not an independent engine — see <a href="#af2_mono-af2-monomer-weights-on-a-complex-chain-break">below</a></td>
+<td>Same as AF2; not an independent engine: see <a href="#af2_mono-af2-monomer-weights-on-a-complex-chain-break">below</a></td>
 </tr>
 <tr>
 <td><strong>Boltz-2</strong> (<code>boltz</code>)</td>
@@ -321,7 +321,7 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).</p>
 </tr>
 <tr>
 <td><strong>AlphaFold3</strong> (<code>af3</code>)</td>
-<td>You download separately — see <a href="#alphafold3-weights">AlphaFold3 weights</a></td>
+<td>Downloaded separately: see <a href="#alphafold3-weights">AlphaFold3 weights</a></td>
 <td>Species-mnemonic pairing rendered from the shared MSA</td>
 <td>1</td>
 <td>Medium–high</td>
@@ -350,7 +350,7 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).</p>
 <tr>
 <td><strong>ESMFold2-Fast</strong> (<code>esmfold2_fast</code>)</td>
 <td>Bundled in the container</td>
-<td>None — single-sequence only, no MSA (see <a href="#esmfold2">below</a>)</td>
+<td>None: single-sequence only without MSA (see <a href="#esmfold2">below</a>)</td>
 <td>1</td>
 <td>Low</td>
 </tr>
@@ -359,9 +359,9 @@ HPC / workstation wrappers (including Apptainer bind mounts for AF2 DBs).</p>
 <p>Every predict job takes one GPU; concurrency across jobs is governed by
 <code>--gpu_devices</code> (comma-separated device list, or <code>all</code>), <code>--gpu_slots_per_device</code>
 (concurrent tasks per GPU, default 1) and <code>--gpu_lock_timeout</code> (seconds a task
-waits for a free slot before failing, default 14400). <code>af2_mono</code> is not an
-independent vote alongside the others — see the caveats in its own section
-below before including it in a consensus.</p>
+waits for a free slot before failing, default 14400). <code>af2_mono</code> shares lineage
+with AF2 multimer: review the caveats below before including it in a consensus
+calculation.</p>
 <h2 id="multiple-sequence-alignments-msas">Multiple Sequence Alignments (MSAs)</h2>
 <p>All selected predictors share one MSA stage controlled by <code>--msa_method</code>.</p>
 <h3 id="option-1-alphafold-jackhmmer-hhblits-jackhmmer_af2">Option 1: AlphaFold jackhmmer / HHblits (<code>jackhmmer_af2</code>)</h3>
@@ -424,7 +424,7 @@ occasional runs; for heavy use prefer local databases.</p>
 <code>--colabfold_envdb</code> must contain <code>colabfold_envdb*</code> files (layout produced by
 <a href="../../extra/fold-databases/#colabfold-mmseqs2-databases"><code>scripts/download_colabfold_dbs.sh</code></a>).</p>
 <blockquote>
-<p>There is no site-wide default ColabFold DB path on M3 yet — use
+<p>There is no site-wide default ColabFold DB path on M3 yet; use
 <code>--use_remote_server true</code> or install local DBs yourself.</p>
 </blockquote>
 <h3 id="msa-subsample-optional">MSA subsample (optional)</h3>
@@ -443,21 +443,21 @@ sequence's <code>&gt;</code> header in the original a3m (disambiguates duplicate
 <p>A FASTA with more than one record folds as a <strong>protein complex</strong>: each record is
 one chain, in file order, assigned chain IDs <code>A, B, C, …</code> (up to 26). A
 homo-oligomer is expressed as <strong>repeated identical records</strong> (a <code>count:</code>
-shorthand is not implemented yet). No ligands / nucleic acids this round —
-protein complexes only.</p>
+shorthand is not implemented yet). Ligands and nucleic acids are not supported in
+this release: protein complexes only.</p>
 <pre><code class="language-bash">nextflow run /path/to/nf-binder-design --method fold \
   --input input/complex.fasta \
   --methods af2,boltz,rf3,protenix \
   --msa_method jackhmmer_af2 \
   -profile slurm,m3
 </code></pre>
-<h3 id="paired-msas-how-each-engine-differs">Paired MSAs (how each engine differs)</h3>
-<p>For a complex, co-evolutionary <strong>pairing</strong> across chains is what carries the
-interface signal. Each engine consumes a paired MSA in a <em>different</em> native
-format, so the fold workflow searches each chain independently and then renders
-each engine's format from one canonical taxonomy parse. When <code>af2</code> or <code>af2_mono</code>
-is also selected under <code>jackhmmer_af2</code>, the per-chain MSAs come from AF2's own
-multimer search of the complex rather than a second search of each chain:</p>
+<h3 id="paired-msas-how-each-engine-differs">Paired MSAs by prediction engine</h3>
+<p>For a complex, co-evolutionary pairing across chains provides the interface signal.
+Each engine consumes a paired MSA in a different native format, so the fold
+workflow searches each chain independently and then renders each engine's format from
+one canonical taxonomy parse. When <code>af2</code> or <code>af2_mono</code> is also selected under
+<code>jackhmmer_af2</code>, per-chain MSAs come from AF2's multimer search of the complex
+rather than a second search of each chain:</p>
 <table>
 <thead>
 <tr>
@@ -518,8 +518,8 @@ are not published under <code>msa/paired/</code>.</p>
 <p><strong>Use <code>--msa_method jackhmmer_af2</code> for paired multimers.</strong> Only the jackhmmer
 route produces the rich UniProt/UniRef headers (<code>TaxID=</code>, <code>RepID=</code>,
 <code>sp|/tr|…_SPECIES</code>) that taxonomy pairing needs. The ColabFold route emits
-taxonomy-less headers, so under <code>mmseqs2_colabfold</code> the chains fold <strong>unpaired</strong>
-— for a ColabFold-style multimer use <code>--use_msa_server true</code> instead (Boltz
+taxonomy-less headers, so under <code>mmseqs2_colabfold</code> the chains fold <strong>unpaired</strong>;
+for a ColabFold-style multimer, use <code>--use_msa_server true</code> instead (Boltz
 fetches and pairs its own MSA; drop <code>af2</code> from <code>--methods</code>).</p>
 </blockquote>
 <h3 id="af2-multimer-needs-the-2021-db-snapshot">AF2 multimer needs the 2021 DB snapshot</h3>
@@ -530,11 +530,11 @@ monomer-only (no <code>uniprot/</code>), so the fold workflow fails fast if <cod
 <code>af2_mono</code> under <code>jackhmmer_af2</code>) is requested for a multimer without a
 <code>uniprot/</code>-bearing <code>--af2_db_path</code>. Point it at the 2021 snapshot
 (<code>/mnt/datasets/alphafold/alphafold_20211129</code> on M3), whose HHblits DB is
-<code>uniclust30</code> rather than <code>uniref30</code> — override <code>--af2_uniref30_subpath</code> (and
+<code>uniclust30</code> rather than <code>uniref30</code>: override <code>--af2_uniref30_subpath</code> (and
 <code>--af2_mgnify_subpath</code>, <code>--af2_uniprot_subpath</code>, <code>--af2_pdb_seqres_subpath</code>)
 accordingly. The <code>alphafold2</code> container bundles <strong>multimer_v3</strong> model weights
 (<code>params_model_*_multimer_v3.npz</code>) alongside the monomer/ptm weights, so
-<code>--af2_data_dir</code> does not need to be overridden for multimer mode — it only
+<code>--af2_data_dir</code> does not need to be overridden for multimer mode: it only
 needs pointing at a host <code>params/</code> directory if you are running without the
 bundled weights. See <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold-multimer"><code>examples/fold-multimer/</code></a>
 (<code>nextflow.m3.config</code> + <code>run-m3.sh</code>) for a working set of overrides.
@@ -545,33 +545,31 @@ applies in multimer mode.</p>
 (<code>--af2_monomer_model_preset</code>, default <code>monomer_ptm</code>): the chains are concatenated
 into one sequence and separated only by a jump of <code>--af2_chain_break_offset</code>
 (default 200) in <code>residue_index</code>. AF2 clips relative positions at 32, so anything
-above that reads as "not covalently connected". The MSA is block diagonal — each
-chain's own hits, gapped outside that chain's columns. Output is split back into
+above that reads as "not covalently connected". The MSA is block diagonal, containing
+each chain's own hits, gapped outside that chain's columns. Output is split back into
 real chains automatically, renumbered <code>1..L</code> per chain, so it feeds ipSAE and
 everything else exactly like the other engines.</p>
 <p>It reuses the same per-chain MSAs as <code>af2</code>; only <code>features.pkl</code> differs. You can
-run both in one pipeline — their predictions, score TSVs (<code>tool</code> column <code>af2</code> vs
+run both in one pipeline: their predictions, score TSVs (<code>tool</code> column <code>af2</code> vs
 <code>af2_mono</code>) and <code>fold/predictions/</code> filenames are kept separate. It works with
 either MSA route (<code>jackhmmer_af2</code> or <code>mmseqs2_colabfold</code>), with <code>--msa_subsample</code>,
 and with homo-oligomer inputs; under <code>jackhmmer_af2</code> a multimer still needs a
 <code>uniprot/</code>-bearing <code>--af2_db_path</code> (same requirement as <code>af2</code> itself), because
 <code>af2_mono</code>'s per-chain MSAs come from AF2's multimer search even though the
 predict step then uses the monomer weights.</p>
-<p><strong>When this is worth reaching for.</strong> AF2-multimer pairs MSA rows across chains
-by taxonomy. If one chain has no homologs — a de novo designed binder, say —
-there is nothing to pair, so the merged MSA is block diagonal anyway.
-<code>af2_mono</code> carries the same information without the multimer head, as a
-controlled contrast.</p>
-<p><strong>Two things to know before using it.</strong></p>
+<p><strong>Use cases.</strong> AF2-multimer pairs MSA rows across chains by taxonomy. If one chain
+has no homologs (such as a de novo designed binder), there is nothing to pair,
+so the merged MSA is block diagonal anyway. <code>af2_mono</code> carries the same information
+without the multimer head, providing a controlled comparison.</p>
+<p><strong>Usage considerations:</strong></p>
 <ol>
-<li><strong>Pair it with <code>--af2_keep_models best</code>.</strong> Without an initial guess the monomer
-   models have no reason to dock the chains, and frequently don't — ranking
-   (mean pLDDT for monomer presets) reliably separates a docked pose from a
-   failed one, but <code>all</code> would inject the failed poses into any downstream
-   consensus. The workflow warns if you select <code>af2_mono</code> without <code>best</code>.</li>
-<li><strong>It is not an independent engine.</strong> <code>monomer_ptm</code> and <code>multimer</code> share an
-   architecture family and a training corpus. Treat it as a second opinion from the
-   same lineage, never as another vote alongside Boltz / RF3 / Protenix.</li>
+<li><strong>Pair it with <code>--af2_keep_models best</code>.</strong> Without an initial guess, monomer
+   models frequently do not dock the chains. Ranking by mean pLDDT separates docked
+   poses from uncomplexed chains; selecting <code>all</code> would inject undocked poses into
+   any downstream consensus. The workflow warns if you select <code>af2_mono</code> without <code>best</code>.</li>
+<li><strong>Architecture lineage.</strong> <code>monomer_ptm</code> and <code>multimer</code> share an architecture
+   family and training corpus. Treat it as an evaluation within the AF2 lineage
+   rather than an independent predictor alongside Boltz, RF3, or Protenix.</li>
 </ol>
 <p>Monomer presets do template search with hhsearch over <code>pdb70</code> rather than hmmsearch
 over <code>pdb_seqres</code>, so <code>--af2_pdb70_subpath</code> must resolve under <code>--af2_db_path</code>
@@ -590,8 +588,8 @@ Read the terms in full before downloading.</p>
 <code>models/alphafold3/</code> in your copy of the pipeline. That default resolves
 relative to the pipeline checkout, so if you launch the pipeline by revision
 (<code>nextflow run Australian-Protein-Design-Initiative/nf-binder-design ...</code>)
-rather than from a local clone, pass <code>--af3_model_dir</code> explicitly — the
-default would otherwise point inside Nextflow's own cached copy of the
+rather than from a local clone, pass <code>--af3_model_dir</code> explicitly: the
+default would otherwise point inside Nextflow's cached copy of the
 pipeline under <code>~/.nextflow/assets/</code>. To download the weights there:</p>
 <pre><code class="language-bash"># From a clone of nf-binder-design; prints the terms and asks you to type 'yes'
 ./models/download_af3_weights.sh
@@ -624,14 +622,14 @@ pipeline under <code>~/.nextflow/assets/</code>. To download the weights there:<
   tasks, which saves several minutes per job for repeated input sizes.</li>
 </ul>
 <h3 id="germinal-af3-parity">Germinal AF3 parity</h3>
-<p>Germinal's own AF3 call is deliberately bare
-(<code>germinal/filters/af3.py</code>) - only <code>--model_dir</code>, <code>--db_dir</code>, <code>--output_dir</code> and
-<code>--json_path</code>. Three things follow from that, and by default this pipeline does
-none of them:</p>
+<p>Germinal's native AF3 call specifies minimal options
+(<code>germinal/filters/af3.py</code>): <code>--model_dir</code>, <code>--db_dir</code>, <code>--output_dir</code>, and
+<code>--json_path</code>. The differences between Germinal's invocation and default pipeline
+settings are:</p>
 <table>
 <thead>
 <tr>
-<th></th>
+<th>Setting</th>
 <th>Germinal</th>
 <th><code>fold</code> / <code>fold_pulldown</code> default</th>
 </tr>
@@ -676,23 +674,21 @@ Germinal's MSA mode and sampling (<code>conf/af3_germinal_parity.config</code>):
     --create_target_msa true --create_binder_msa false \
     --msa_method mmseqs2_colabfold --use_remote_server true
 </code></pre>
-<p>The template search is the part that matters most: it is why a parity run needs
-the full ~630 GB database set even though the MSAs still come from the JSON. AF3
-validates all nine default database paths before it reads the input, so a
-missing or partial <code>--af3_db_dir</code> fails with a bare <code>FileNotFoundError</code> inside
-the job; the pipeline checks for all nine up front instead.</p>
-<p>Each knob is an ordinary parameter and can be set on its own —
-<code>--af3_paired_msa false</code>, <code>--af3_templates inline|none|search</code>,
-<code>--af3_run_data_pipeline true</code> — so the profile is only a convenient name for
-one combination, not a mode the pipeline knows about.</p>
+<p>Template search requires the full ~630 GB database collection even when MSAs
+are supplied via JSON. AlphaFold3 validates all nine default database paths
+before reading input files; an incomplete <code>--af3_db_dir</code> causes <code>FileNotFoundError</code>
+during task execution. The pipeline verifies that all nine paths exist prior
+to launch.</p>
+<p>Each setting can be configured independently (<code>--af3_paired_msa false</code>,
+<code>--af3_templates inline|none|search</code>, <code>--af3_run_data_pipeline true</code>); the profile
+simply bundles these options.</p>
 <div class="admonition note">
-<p class="admonition-title">What parity does not reproduce</p>
-<p>Germinal draws its seeds randomly in <code>[0, 999999)</code> - pass <code>--af3_seeds</code> only
-if you need specific values; for matched sampling the count is what matters.
-Germinal also keeps the <strong>worst</strong> of its sampled structures by
-<code>ranking_score</code> (<code>af3_structure_select_mode: "worst"</code>), whereas this pipeline
-keeps and scores all of them. Reduce afterwards if you want Germinal's single
-number.</p>
+<p class="admonition-title">Differences from native Germinal execution</p>
+<p>Germinal samples random seeds in <code>[0, 999999)</code>. Specify <code>--af3_seeds</code> when
+particular seed values are required; for sample matching, the seed count
+is the relevant parameter. Additionally, Germinal selects the lowest-scoring
+sampled structure by <code>ranking_score</code> (<code>af3_structure_select_mode: "worst"</code>),
+whereas this pipeline scores and preserves all generated structures.</p>
 </div>
 <h2 id="openfold3">OpenFold3</h2>
 <p>OpenFold3 (<code>--methods openfold3</code>) runs from
@@ -707,9 +703,9 @@ download or weights flag is needed.</p>
 <li><code>--openfold3_batch_size</code> sets diffusion samples per job
   (<code>--num-diffusion-samples</code>); <code>--n_predictions</code> splits across jobs as for the
   other diffusion engines.</li>
-<li>OpenFold3 JIT-compiles Triton kernels on first use. By default the cache lives
+<li>OpenFold3 JIT-compiles Triton kernels on first use. By default the cache is stored
   in each task's work directory; <code>--openfold3_kernel_cache_dir /some/shared/dir</code>
-  keeps it between tasks.</li>
+  persists it across tasks.</li>
 </ul>
 <h2 id="chai-1">Chai-1</h2>
 <p>Chai-1 (<code>--methods chai1</code>) runs from
@@ -734,7 +730,7 @@ under <code>/models/chai</code>, so no download or weights flag is needed.</p>
   0.8 × ipTM, with a penalty for inter-chain clashes).</li>
 </ul>
 <h2 id="esmfold2">ESMFold2</h2>
-<p>ESMFold2 comes as two engines, run through the <code>esm</code> package (v3.4.1.post1).
+<p>ESMFold2 provides two engines through the <code>esm</code> package (v3.4.1.post1).
 Select either or both, e.g. <code>--methods esmfold2,esmfold2_fast</code> to compare them:</p>
 <table>
 <thead>
@@ -756,54 +752,54 @@ Select either or both, e.g. <code>--methods esmfold2,esmfold2_fast</code> to com
 <td><code>esmfold2_fast</code></td>
 <td><code>biohub/ESMFold2-Fast</code></td>
 <td><code>esmfold2:3.4.1.post1_nv-cuda13_fast_weights</code></td>
-<td>Never — always folds from sequence alone</td>
+<td>None: folds from sequence alone</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li>Weights (including the ESMC-6B language-model encoder) are baked into each
-  container, so nothing is downloaded at run time. <code>--esmfold2_weights_dir</code>
+  container, so weights are not downloaded at run time. <code>--esmfold2_weights_dir</code>
   (exported as <code>HF_HOME</code>) points both engines at an external HuggingFace cache
   instead.</li>
 <li><code>esmfold2_fast</code> has no MSA encoder, so it never uses or triggers an MSA
   search: on its own it skips the MSA stage entirely, and alongside other
   engines it ignores the MSAs they share. The pipeline logs a warning to that
   effect whenever it is selected.</li>
-<li><code>--esmfold2_single_sequence</code> also folds <code>esmfold2</code> (the full checkpoint)
-  from the sequence alone, skipping its MSA — a useful comparison against
+<li><code>--esmfold2_single_sequence</code> folds <code>esmfold2</code> (the full checkpoint)
+  from the sequence alone, skipping its MSA, providing a direct comparison against
   <code>esmfold2_fast</code>.</li>
-<li>The <code>esm</code> package ships no command-line tool, so the pipeline drives its
+<li>The <code>esm</code> package provides no command-line interface, so the pipeline calls its
   Python API through <code>bin/fold/run_esmfold2.py</code>.</li>
 <li><code>--esmfold2_kernel_backend</code> (<code>fused</code> default, <code>cuequivariance</code>, or <code>none</code>):
-  <code>fused</code> is roughly 3.5x faster and falls back silently to the reference path
+  <code>fused</code> is roughly 3.5x faster and falls back to the reference path
   if Triton is unavailable.</li>
 <li>The options below are shared by both engines (<code>--esmfold2_msa_max_depth</code>
   only affects <code>esmfold2</code>). <code>--esmfold2_batch_size</code> sets diffusion samples per job; <code>--n_predictions</code>
   splits across jobs as for the other diffusion engines. <code>--esmfold2_seeds</code>
   sets the base seed (default 42); batch <em>i</em> uses <code>seed + i</code>.
   <code>--esmfold2_num_loops</code>, <code>--esmfold2_num_sampling_steps</code> and
-  <code>--esmfold2_msa_max_depth</code> default to the <code>esm</code> package's own values (20,
+  <code>--esmfold2_msa_max_depth</code> default to the <code>esm</code> package defaults (20,
   200, 1024 respectively).</li>
-<li>ESMFold2 reports <strong>no ranking score</strong> — its <code>ranking_score</code> column is blank
-  in the fold score table, so rank on <code>iptm</code> / <code>plddt</code> / <code>ipsae</code> instead. It
-  does report ptm, iptm, per-token pLDDT and a PAE matrix, plus a per-chain-pair
-  ipTM matrix, so ipSAE is computed as usual.</li>
+<li>ESMFold2 reports no ranking score: the <code>ranking_score</code> column is blank
+  in the score table. Rank on <code>iptm</code>, <code>plddt</code>, or <code>ipsae</code> instead. It
+  reports ptm, iptm, per-token pLDDT, a PAE matrix, and a per-chain-pair
+  ipTM matrix, and ipSAE is computed accordingly.</li>
 </ul>
 <h2 id="templates">Templates</h2>
 <p><code>--templates</code> takes known structures (<code>.pdb</code> or <code>.cif</code>, optionally gzipped) as a
-directory or a glob. Files may hold single chains or whole complexes, and no
-mapping file is needed.</p>
+directory or a glob. Files may contain single chains or complete complexes without
+requiring a mapping file.</p>
 <ul>
-<li>Every protein chain in every file is aligned to every chain being folded, much
-  as AF2's template search does against the PDB.</li>
-<li>A template is kept for a chain when its alignment passes all of the cutoffs
-  below; the best <code>--template_max_per_chain</code> by identity × coverage are used.</li>
-<li>Templates inform each chain's own structure only. No engine takes the
-  arrangement between chains from them.</li>
-<li>The normalised template files and the full report are published to
-  <code>&lt;outdir&gt;/fold/templates/</code>. <code>templates_matched.tsv</code> lists every chain and
-  template pair considered, with its identity, coverage and aligned length, and
-  why it was accepted or rejected.</li>
+<li>Every protein chain in each file is aligned to every chain being folded, matching
+  AF2's template search behavior against the PDB.</li>
+<li>A template is retained for a chain when its alignment satisfies all cutoffs
+  below; the top <code>--template_max_per_chain</code> templates by identity × coverage are used.</li>
+<li>Templates inform individual chain conformations only; inter-chain spatial
+  arrangements are not transferred from templates.</li>
+<li>Normalised template files and summary reports are published to
+  <code>&lt;outdir&gt;/fold/templates/</code>. <code>templates_matched.tsv</code> records each evaluated
+  chain and template pair, including identity, coverage, aligned length, and
+  filtering decisions.</li>
 </ul>
 <h3 id="match-cutoffs">Match cutoffs</h3>
 <table>
@@ -843,18 +839,16 @@ mapping file is needed.</p>
     --template_max_per_chain 1
 </code></pre>
 <ul>
-<li>Raise <code>--template_min_identity</code> (say <code>0.8</code>) when only a near-identical
-  structure should count, which is the usual case for a known target.</li>
-<li><code>--template_min_coverage</code> is a fraction, so it scales away on short chains:
-  30% of a 60-residue binder is only 18 residues. <code>--template_min_aligned</code> is
-  the absolute floor underneath it, so a de novo design aligning to a 26-33
-  residue stretch of an unrelated structure no longer counts as a template.</li>
-<li>A chain shorter than <code>--template_min_aligned</code> must be covered end to end
-  instead, so peptide templates still work without lowering the floor.</li>
-<li>A long but mediocre alignment can still get close to the defaults: in the
-  pulldown example the two unrelated targets align over 70 residues at 28.6%
-  identity, just under the identity cutoff. Check <code>templates_matched.tsv</code>, and
-  raise <code>--template_min_identity</code> when only a close template should count.</li>
+<li>Increase <code>--template_min_identity</code> (such as <code>0.8</code>) when only near-identical
+  structures should be considered, which is standard for known targets.</li>
+<li><code>--template_min_coverage</code> specifies a fraction, meaning short chains require
+  fewer residues: 30% of a 60-residue binder corresponds to 18 residues.
+  <code>--template_min_aligned</code> establishes the minimum threshold so that short
+  alignments against unrelated structures are excluded.</li>
+<li>Chains shorter than <code>--template_min_aligned</code> require full-length coverage,
+  allowing short peptide templates to be utilized without lowering the global threshold.</li>
+<li>Alignments near the threshold should be inspected in <code>templates_matched.tsv</code>,
+  and <code>--template_min_identity</code> adjusted upward when higher stringency is needed.</li>
 </ul>
 <h3 id="how-each-engine-uses-them">How each engine uses them</h3>
 <table>
@@ -908,30 +902,29 @@ mapping file is needed.</p>
 </tr>
 </tbody>
 </table>
-<p>Engine-specific notes:</p>
+<p>Engine-specific template handling:</p>
 <ul>
-<li><strong>AF2:</strong> 4 is the most any AF2 model uses, so user templates can displace ones
-  AF2 found on the <code>jackhmmer_af2</code> route. Only monomer models 1 and 2 use
-  templates; all multimer models do. Shallow <code>--msa_subsample</code> jobs fold without
-  user templates.</li>
-<li><strong>Boltz-2:</strong> Boltz aligns the template itself and uses only its longest
-  gap-free match, so a template with missing loops contributes one segment.
-  <code>--boltz_template_force</code> holds the chain within <code>--boltz_template_threshold</code>
-  (default 1.0 Å) of the template. It is off by default in <code>--method fold</code>, so
-  the template guides the prediction without over-biasing it, and on by default
-  in <code>--method fold_pulldown</code>, where the chain structures are known and the
-  binding pose is what is being predicted.</li>
-<li><strong>Protenix:</strong> needs the container built from upstream commit 85767b8 or later.
-  The v2.0.0 release cannot take structure-file templates.</li>
-<li><strong>RosettaFold3:</strong> RF3 has no separate template input, so the chain is supplied
-  as a structure file: its own sequence, carrying the template's coordinates on
-  aligned residues (backbone only where the residue differs). Residues the
-  template lacks are kept but not templated.</li>
-<li><strong>OpenFold3:</strong> the pipeline points OpenFold3's template structure directory at
-  the staged files and turns off downloads from RCSB.</li>
-<li><strong>Chai-1:</strong> the matched CIFs are placed in Chai-1's template folder before the
-  run, so Chai-1 never downloads from RCSB. Chai-1 uses at most 4 templates per
-  chain and logs (rather than fails on) a template it cannot load.</li>
+<li>AF2: models accept at most 4 templates; user-supplied templates displace
+  templates found during automated search. Only monomer models 1 and 2 use
+  templates; all multimer models support them. Shallow <code>--msa_subsample</code> jobs fold
+  without user templates.</li>
+<li>Boltz-2: Boltz aligns templates directly and uses only the longest gap-free match;
+  templates with missing loops contribute a single continuous segment.
+  <code>--boltz_template_force</code> constrains the chain within <code>--boltz_template_threshold</code>
+  (default 1.0 Å) of the template. This constraint is disabled by default in
+  <code>--method fold</code> to guide predictions without over-biasing, and enabled by default
+  in <code>--method fold_pulldown</code> where individual subunit structures are known.</li>
+<li>Protenix: requires container builds from upstream commit 85767b8 or later.
+  Release v2.0.0 cannot parse structure-file templates.</li>
+<li>RosettaFold3: RF3 lacks a dedicated template input parameter. Instead, the chain
+  is supplied as a coordinate file containing the target sequence with template
+  coordinates mapped onto aligned residues (backbone coordinates only when residues
+  differ). Residues lacking template coverage remain unconstrained.</li>
+<li>OpenFold3: the pipeline configures OpenFold3's template directory to point to
+  staged files, disabling RCSB downloads.</li>
+<li>Chai-1: matched CIF files are copied to Chai-1's template directory prior to execution,
+  preventing RCSB network requests. Chai-1 uses at most 4 templates per chain and
+  logs a warning if a template cannot be loaded.</li>
 </ul>
 <h2 id="engens-clustering">EnGens clustering</h2>
 <p>After prediction, EnGens runs by default (UMAP + HDBSCAN) and writes
@@ -1049,24 +1042,21 @@ for cross-engine parity), while AF2 does a single run and keeps per
 pin every diffusion engine to exactly N, split across jobs by that engine's own
 <code>--*_batch_size</code> (e.g. <code>--n_predictions 10 --boltz_batch_size 5</code> runs Boltz as
 two jobs of 5 samples each; leaving <code>--*_batch_size</code> unset runs one job of N).
-AF2 has no in-run sampling knob — it always emits its 5 trained models per run,
-and <code>--af2_keep_models</code> decides how many runs that takes to reach N (<code>best</code>
-keeps the top-ranked model/run → N runs; <code>all</code> keeps all 5/run → <code>ceil(N/5)</code>
-runs).</p>
-<p><strong>Seeds</strong> are unset by default so each engine draws its own random seed (pin
+AF2 generates its 5 trained models per execution; <code>--af2_keep_models</code> determines
+how many executions are required to produce N predictions (<code>best</code> keeps the
+top-ranked model per run, requiring N runs; <code>all</code> keeps all 5 per run, requiring
+<code>ceil(N/5)</code> runs).</p>
+<p>Seeds are unset by default so each engine draws its own random seed (pin
 <code>--af2_random_seed</code> / <code>--boltz_seed</code> / <code>--rf3_seed</code> / <code>--protenix_seeds</code> /
-<code>--chai1_seeds</code> for
-reproducibility; do not inject a fresh random seed on every CLI invocation if
-you want <code>-resume</code> to cache). AlphaFold3, OpenFold3 and ESMFold2 always need a
-seed in their input, so they default to a fixed base seed (<code>--af3_seeds 1</code>,
-<code>--openfold3_seeds 42</code>, <code>--esmfold2_seeds 42</code>); batch <em>i</em> uses <code>seed + i</code>.
-<code>--protenix_seeds</code> and <code>--chai1_seeds</code> take the same single-base-seed convention.
-Without <code>--chai1_seeds</code>, each Chai-1 job draws its own seed and records it in
-its file names.</p>
+<code>--chai1_seeds</code> for reproducibility; avoid injecting a fresh random seed on every
+CLI invocation when using <code>-resume</code>). AlphaFold3, OpenFold3, and ESMFold2 require
+seed inputs and default to fixed base seeds (<code>--af3_seeds 1</code>, <code>--openfold3_seeds 42</code>,
+<code>--esmfold2_seeds 42</code>); batch <em>i</em> uses <code>seed + i</code>. <code>--protenix_seeds</code> and
+<code>--chai1_seeds</code> use the same convention. Without <code>--chai1_seeds</code>, each Chai-1 job
+generates its own seed and records it in output filenames.</p>
 <h2 id="output">Output</h2>
-<p>Default layout under <code>--outdir</code> (<code>params.json</code> and <code>logs/</code> sit at the outdir
-root, alongside <code>fold/</code>, not inside it — they are shared across every
-<code>--method</code>):</p>
+<p>Default directory layout under <code>--outdir</code> (<code>params.json</code> and <code>logs/</code> are written
+to the outdir root alongside <code>fold/</code>, as they are shared across all workflows):</p>
 <pre><code>results/
 ├── params.json
 ├── logs/                     # report/trace/timeline/dag + gpu_trace_&lt;datestamp&gt;.txt
@@ -1181,7 +1171,7 @@ used), the engine-native <code>original_file</code>, and the renamed <code>predi
 </table>
 <p>Blank where an engine doesn't report a metric. Asymmetric per-chain-pair scores
 (e.g. Protenix <code>chain_pair_iptm</code>, Boltz <code>pair_chains_iptm</code>) are intentionally
-omitted — only the overall values are reported.</p>
+omitted; only overall values are reported.</p>
 <h2 id="related">Related</h2>
 <ul>
 <li>Example run directory: <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples/fold"><code>examples/fold/</code></a></li>

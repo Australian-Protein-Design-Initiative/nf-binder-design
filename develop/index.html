@@ -157,7 +157,7 @@
 <li><strong>Fold Pulldown</strong> - an AlphaPulldown-like target × binder pulldown across multiple folding engines (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2)</li>
 <li><strong>Fold</strong> - multi-method structure prediction (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2) with shared MSAs and EnGens clustering</li>
 </ul>
-<p>Every design workflow above can also run <a href="subworkflows/refold/">refold scoring</a> (<code>--refold_with</code>): a held-out second opinion that folds selected designs again with one or more independent predictors, on top of the workflow's own cofold.</p>
+<p>Every design workflow above can also run <a href="subworkflows/refold/">refold scoring</a> (<code>--refold_with</code>): an independent validation step that folds selected designs again with one or more external predictors in addition to the workflow's initial evaluation.</p>
 <p><img alt="RFdiffusion workflow" src="images/rfd-workflow.png" /></p>
 <p><img alt="BindCraft workflow" src="images/bindcraft-workflow.png" /></p>
 <h2 id="features">Features</h2>
@@ -331,5 +331,5 @@
 
 <!--
 MkDocs version : 1.6.1
-Build Date UTC : 2026-11-17 09:29:19.824828+00:00
+Build Date UTC : 2026-11-17 11:22:34.603971+00:00
 -->

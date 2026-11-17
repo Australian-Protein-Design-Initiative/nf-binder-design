@@ -459,7 +459,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </ul>
 <p>These can be adapted to other HPC clusters - pull requests are welcome !</p>
 <h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
-<p>After AF2 initial guess scoring, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the designs. The binder chain is automatically extracted from each AF2IG complex — only the binder is searched, not the full target–binder complex.</p>
+<p>After AF2 initial guess scoring, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the designs. The binder chain is automatically extracted from each AF2IG complex: only the binder is searched, not the full target–binder complex.</p>
 <p>FoldSeek summary results are output to <code>{outdir}/foldseek/{database_name}/</code>. See <a href="../../subworkflows/foldseek/#output-format">FoldSeek output format</a> for details.</p>
 <h3 id="enabling-foldseek">Enabling FoldSeek</h3>
 <p>Add <code>--do_foldseek</code> to your RFD command:</p>

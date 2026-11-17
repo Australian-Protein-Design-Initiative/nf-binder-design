@@ -194,15 +194,15 @@ bash alphafold/scripts/download_all_data.sh /data/alphafold_dbs full_dbs
 download-script layout (e.g. <code>mgnify/mgy_clusters_2022_05.fa</code>,
 <code>uniref30/UniRef30_2021_03</code>); <code>--af2_uniref30_subpath</code>, <code>--af2_mgnify_subpath</code>,
 <code>--af2_uniprot_subpath</code>, <code>--af2_pdb_seqres_subpath</code> and <code>--af2_pdb70_subpath</code>
-override an individual one when a snapshot uses different filenames — needed
-for AF2 multimer against the 2021 snapshot, whose HHblits DB is <code>uniclust30</code>.</p>
+override an individual path when a snapshot uses different filenames (needed
+for AF2 multimer against the 2021 snapshot, whose HHblits DB is <code>uniclust30</code>).</p>
 <p>On M3, <code>-profile m3</code> defaults to <code>alphafold_20211129</code>, which has <code>uniprot/</code> +
 <code>pdb_seqres/</code> for AF2 multimer, together with its sub-paths (<code>uniclust30</code>,
 <code>mgy_clusters_2018_12.fa</code>). <code>alphafold_20240229</code> is monomer-only and names
 those two DBs differently, so pointing <code>--af2_db_path</code> at it under
 <code>-profile m3</code> also needs <code>--af2_uniref30_subpath uniref30/UniRef30_2021_03
 --af2_mgnify_subpath mgnify/mgy_clusters_2022_05.fa</code> (as
-<code>examples/fold/nextflow.m3.config</code> does). Both live under <code>/mnt/datasets/alphafold/</code> (group
+<code>examples/fold/nextflow.m3.config</code> does). Both reside under <code>/mnt/datasets/alphafold/</code> (group
 <code>alphafold</code>); bind-mount that path in Apptainer <code>runOptions</code> when using
 <code>-profile m3</code> (see <code>examples/fold/nextflow.m3.config</code> /
 <code>examples/fold-multimer/nextflow.m3.config</code>).</p>
@@ -264,8 +264,8 @@ chmod +x setup_databases.sh
 </code></pre>
 <p>Databases provided by ColabFold (see <a href="https://colabfold.mmseqs.com/">colabfold.mmseqs.com</a>):</p>
 <ol>
-<li><strong>UniRef30</strong> — 30% identity clustered UniRef100</li>
-<li><strong>ColabFold env DB</strong> — environmental sequences (BFD/MGnify-derived plus
+<li><strong>UniRef30</strong>: 30% identity clustered UniRef100</li>
+<li><strong>ColabFold env DB</strong>: environmental sequences (BFD/MGnify-derived plus
    metagenomic sources); alternatively BFD/MGnify-only archives are listed on
    the download page</li>
 <li>Optional template DBs (PDB100, etc.)</li>

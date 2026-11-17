@@ -331,12 +331,12 @@ workflow {
 <tr>
 <td><code>--foldseek_include_html_output</code></td>
 <td><code>false</code></td>
-<td>Include HTML alignment report (off by default — HTML can be 100s of MB for large result sets)</td>
+<td>Include HTML alignment report (off by default: HTML reports can reach hundreds of megabytes for large result sets)</td>
 </tr>
 </tbody>
 </table>
 <h3 id="cath-annotation">CATH Annotation</h3>
-<p>When using a database whose name starts with <code>CATH</code> (e.g. <code>CATH50</code>), FoldSeek results are <strong>automatically</strong> annotated with CATH hierarchy descriptions. No flag needed — it just works.</p>
+<p>When using a database whose name starts with <code>CATH</code> (e.g. <code>CATH50</code>), FoldSeek results are <strong>automatically</strong> annotated with CATH hierarchy descriptions without requiring additional flags.</p>
 <p>By default (<code>--foldseek_maxaccept 1</code>), only the top FoldSeek hit per design is returned, so the CATH annotation describes the most structurally similar known fold. This is useful for quickly surveying what structural class your designs resemble.</p>
 <table>
 <thead>
@@ -381,7 +381,7 @@ workflow {
 <tr>
 <td><code>Alphafold/UniProt</code></td>
 <td><a href="https://alphafold.ebi.ac.uk/">AlphaFold DB</a></td>
-<td>—</td>
+<td>None</td>
 <td>All AlphaFold predicted structures. Very large. Only available locally.</td>
 </tr>
 <tr>
@@ -393,7 +393,7 @@ workflow {
 <tr>
 <td><code>Alphafold/UniProt50-minimal</code></td>
 <td><a href="https://alphafold.ebi.ac.uk/">AlphaFold DB</a></td>
-<td>—</td>
+<td>None</td>
 <td>Minimal version. Only available locally.</td>
 </tr>
 <tr>
@@ -429,13 +429,13 @@ workflow {
 <tr>
 <td><code>ProstT5</code></td>
 <td><a href="https://huggingface.co/Rostlab/ProstT5">HuggingFace</a></td>
-<td>—</td>
-<td>Protein language model for 3Di prediction. Not a search database — only available locally.</td>
+<td>None</td>
+<td>Protein language model for 3Di prediction. Not a search database: only available locally.</td>
 </tr>
 </tbody>
 </table>
 <blockquote>
-<p><strong>Tip:</strong> For binder design validation, <code>CATH50</code> is a good default — it covers known structural domains and is fast. Use <code>PDB</code> for comprehensive searches against all experimentally determined structures.</p>
+<p><strong>Tip:</strong> For binder design validation, <code>CATH50</code> is a suitable default: it covers known structural domains and provides fast execution. Use <code>PDB</code> for comprehensive searches against all experimentally determined structures.</p>
 </blockquote>
 <h2 id="database-caching">Database Caching</h2>
 <p>FoldSeek databases can be large (CATH50 ~1GB, PDB ~10s of GB). Two caching strategies are available:</p>
@@ -544,7 +544,7 @@ nextflow run main.nf --method foldseek \
 </tbody>
 </table>
 <h3 id="html-foldseek_resultshtml">HTML (<code>foldseek_results.html</code>)</h3>
-<p>Pretty-printed interactive alignment report (<code>--format-mode 3</code>). Can be very large for big result sets — set <code>--foldseek_include_html_output true</code> to enable.</p>
+<p>Interactive alignment report (<code>--format-mode 3</code>). Can be very large for big result sets: set <code>--foldseek_include_html_output true</code> to enable.</p>
 <h3 id="annotated-tsv-foldseek_results_annotatedtsv">Annotated TSV (<code>foldseek_results_annotated.tsv</code>)</h3>
 <p>When <code>--foldseek_database CATH50</code> (or any database name starting with <code>CATH</code>) is used with local search, an additional annotated TSV is produced automatically with these extra columns:</p>
 <table>

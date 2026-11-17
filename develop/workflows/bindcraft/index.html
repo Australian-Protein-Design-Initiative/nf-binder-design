@@ -242,7 +242,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </tr>
 <tr>
 <td><code>--gpu_devices</code></td>
-<td>Specify multiple GPUs, e.g., <code>--gpu_devices=0,1</code> — use only for <code>-profile local</code></td>
+<td>Specify multiple GPUs, e.g., <code>--gpu_devices=0,1</code> (use only for <code>-profile local</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -319,10 +319,10 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </code></pre>
 <p>A summary report is generated as <code>bindcraft_report.html</code>.</p>
 <h2 id="refold-scoring-optional">Refold Scoring (Optional)</h2>
-<p>BindCraft runs its own AF2 passes and gates designs on their scores, which is what decides
-which reach <code>accepted/</code>. <code>--refold_with</code> adds a held-out second opinion on top of that: the
-accepted designs are folded again with one or more independent predictors, compared with the
-design, and their rebuilt interfaces scored.</p>
+<p>BindCraft runs its own AF2 passes and gates designs on their scores, which determines
+which candidates reach <code>accepted/</code>. <code>--refold_with</code> provides independent validation:
+accepted designs are folded again with one or more external predictors, compared with the
+design pose, and interface metrics are re-scored.</p>
 <pre><code class="language-bash">nextflow run main.nf --method bindcraft \
     --input_pdb 'input/PDL1.pdb' --target_chains &quot;A&quot; --hotspot_res &quot;A56,A125&quot; \
     --refold_with boltz \
@@ -330,13 +330,13 @@ design, and their rebuilt interfaces scored.</p>
     --use_msa_server
 </code></pre>
 <p>This is the shared <a href="../../subworkflows/refold/">refold scoring</a> step, with the same
-<code>--refold_filter</code>, <code>--refold_sort_by</code> and <code>--refold_max</code> selection parameters as every other
-design workflow. The gate and the ranking read BindCraft's <code>final_design_stats.csv</code> columns.
+<code>--refold_filter</code>, <code>--refold_sort_by</code> and <code>--refold_max</code> selection parameters as other
+design workflows. The gate and ranking read BindCraft's <code>final_design_stats.csv</code> columns.
 BindCraft has no chain derivation of its own, so <code>--refold_binder_chain</code> (default <code>B</code>) and
-<code>--refold_target_chain</code> (default <code>A</code>) name the chains if yours differ. Outputs land under
-<code>bindcraft/refold/</code>.</p>
+<code>--refold_target_chain</code> (default <code>A</code>) name the chains if yours differ. Outputs are saved
+under <code>bindcraft/refold/</code>.</p>
 <h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
-<p>After BindCraft completes, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex — only the binder is searched, not the full target–binder complex.</p>
+<p>After BindCraft completes, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on accepted designs. The binder chain is automatically extracted from each accepted complex: only the binder is searched, not the full target–binder complex.</p>
 <p>FoldSeek summary results are output to <code>{outdir}/foldseek/{database_name}/</code>. See <a href="../../subworkflows/foldseek/#output-format">FoldSeek output format</a> for details.</p>
 <h3 id="enabling-foldseek">Enabling FoldSeek</h3>
 <p>Add <code>--do_foldseek</code> to your bindcraft command:</p>

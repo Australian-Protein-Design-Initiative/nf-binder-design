@@ -200,7 +200,7 @@
 <p>You can use <code>"hotspot_subsample": 0.66</code> instead of <code>rfd3_hotspot_subsample</code> (for commandline compatibility with the BindCraft workflow). Omit both or set <code>rfd3_hotspot_subsample</code> to <code>1.0</code> to use every listed hotspot in each batch.</p>
 <h3 id="config-mode-rfd3_config">Config Mode (<code>--rfd3_config</code>)</h3>
 <p>In this mode you provide a full RFDiffusion3 input file (JSON or YAML) that follows the Foundry documentation<br />
-<a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html"><code>RFdiffusion3 — Protein binder design examples</code></a>.</p>
+<a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html"><code>RFdiffusion3: Protein binder design examples</code></a>.</p>
 <p>Example (single-target JSON, adapted from the Foundry docs):</p>
 <pre><code class="language-json">{
   &quot;pdl1&quot;: {
@@ -262,7 +262,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <li>The internal config generator converts these to <code>select_hotspots</code> entries with <code>"ALL"</code> atoms for each residue (all atoms of each residue are targeted).  </li>
 <li>
 <p>In many cases it is preferable to target <strong>specific atoms</strong> (e.g. <code>CG,OH</code> for a tyrosine). To do this with RFD3, you should instead use a full JSON/YAML config with an explicit <code>select_hotspots</code> dictionary, as described in the official RFD3 documentation:<br />
-<a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html"><code>RFdiffusion3 — Protein binder design examples</code></a>.</p>
+<a href="https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html"><code>RFdiffusion3: Protein binder design examples</code></a>.</p>
 </li>
 <li>
 <p><strong>Hotspot subsampling (<code>--rfd3_hotspot_subsample</code>, alias <code>--hotspot_subsample</code>)</strong>  </p>
@@ -378,7 +378,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   Selects the <strong>training-time coordinate noise</strong> tier used to train that checkpoint (filename suffix in the bundled weights). Allowed values: <strong><code>005</code></strong>, <strong><code>010</code></strong>, <strong><code>020</code></strong>, <strong><code>030</code></strong>, corresponding to <strong>0.05 Å</strong>, <strong>0.1 Å</strong>, <strong>0.2 Å</strong>, and <strong>0.3 Å</strong>. <strong><code>false</code></strong> (default) means <strong><code>020</code></strong>.</p>
 </li>
 </ul>
-<p><strong>Quoting:</strong> use a string—JSON in <strong><code>-params-file</code></strong> (<code>"mpnn_weights_noise": "005"</code>) or a quoted CLI value (<code>--mpnn_weights_noise '005'</code>). Bare <code>005</code> on the CLI may become integer <code>5</code>; the workflow normalises valid tiers to <code>005</code>/<code>010</code>/… anyway. Vanilla/soluble <strong><code>005</code></strong> loads <code>*_002.pt</code>; hyper has no <strong><code>005</code></strong> tier (table below).</p>
+<p><strong>Quoting:</strong> use a string: JSON in <strong><code>-params-file</code></strong> (<code>"mpnn_weights_noise": "005"</code>) or a quoted CLI value (<code>--mpnn_weights_noise '005'</code>). Bare <code>005</code> on the CLI may become integer <code>5</code>; the workflow normalises valid tiers to <code>005</code>/<code>010</code>/… anyway. Vanilla/soluble <strong><code>005</code></strong> loads <code>*_002.pt</code>; hyper has no <strong><code>005</code></strong> tier (table below).</p>
 <table>
 <thead>
 <tr>
@@ -473,7 +473,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <p>By default, the target structure from <strong><code>--input_pdb</code></strong> (or the config <code>input</code> path) is used as the single RF3 template (one template per chain; RF3 does not accept multiple templates per chain). Override with <strong><code>--rf3_target_template</code></strong> when you want a different structure. In the default case, the workflow prepares that template so it matches what RFDiffusion3 sees: if the input is mmCIF it is converted to PDB (gemmi); the structure is trimmed to the same contig ranges as RFD3 (see <strong><code>--contigs</code></strong> or the config’s <code>contig</code> field) via <code>bin/trim_to_contigs.py</code> (supports both v1 and v3 contig syntax); then all chain IDs in the trimmed structure are renamed to the <strong>target</strong> chain letter inferred from contig polymer order (e.g. <strong>A</strong> when the target is the first polymer, <strong>B</strong> when the target is the second), matching the chain ID of the target in RFD3/MPNN design CIFs.</p>
 <p>When <code>--rf3_create_target_msa</code> is <code>true</code>, <code>--rf3_target_msa</code> is not set, and <code>--rf3_use_msa_server</code> is <code>false</code>, you must provide <strong><code>--colabfold_envdb</code></strong> and <strong><code>--uniref30</code></strong> (same as for the optional refold step).</p>
 <h4 id="refold-scoring-parameters">Refold scoring parameters</h4>
-<p>The workflow supports an optional <strong>refold</strong> step: a held-out second opinion on the RosettaFold3 predictions, folding selected designs again with one or more independent predictors. The full parameter set is documented in <a href="../../subworkflows/refold/">Refold Scoring</a>; the ones most used here are:</p>
+<p>The workflow supports an optional <strong>refold</strong> step: independent validation of RosettaFold3 predictions by folding selected designs again with external predictors. The full parameter set is documented in <a href="../../subworkflows/refold/">Refold Scoring</a>; the ones most used here are:</p>
 <ul>
 <li>
 <p><strong><code>--refold_with</code></strong><br />
@@ -504,7 +504,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <p class="admonition-title">Behaviour change: <code>--refold_max</code> no longer implies a ranking</p>
 <p><code>--full_refold_filter_sort</code> used to default to <code>pair_pae_min</code>, so a capped refold took the best designs by that metric. Its replacement <code>--refold_sort_by</code> defaults to unset, so <code>--refold_max</code> on its own now takes the <strong>first N designs to finish</strong>, in whatever order that is. The run warns when a cap is set without a ranking. Add <code>--refold_sort_by='pair_pae_min'</code> to keep the old selection.</p>
 </div>
-<p>The refold takes its MSA and template choices from the fold stack (<code>--create_target_msa</code>, <code>--target_msa</code>, <code>--use_msa_server</code>, <code>--msa_method</code>, <code>--templates</code>). The old refold-specific copies - <code>--refold_create_target_msa</code>, <code>--refold_use_msa_server</code>, <code>--refold_alignment</code>, <code>--refold_target_templates</code> - are gone, and a run that sets one stops with the replacement named. <code>--refold_target_fasta</code> is still there under its own name: it refolds the selected designs against a target other than the one they were built against, which is how a design made against a truncated construct is checked against the full-length protein. See <a href="../../subworkflows/refold/#what-the-designs-are-refolded-against">What the designs are refolded against</a>. The whole <code>--full_refold_*</code> family has been renamed to <code>--refold_*</code>.</p>
+<p>The refold takes its MSA and template choices from the fold stack (<code>--create_target_msa</code>, <code>--target_msa</code>, <code>--use_msa_server</code>, <code>--msa_method</code>, <code>--templates</code>). The old refold-specific copies - <code>--refold_create_target_msa</code>, <code>--refold_use_msa_server</code>, <code>--refold_alignment</code>, <code>--refold_target_templates</code> - are gone, and a run that sets one stops with the replacement named. <code>--refold_target_fasta</code> is still there under its own name: it refolds the selected designs against a target other than the one they were built against, which is how a design made against a truncated construct is checked against the full-length protein. See <a href="../../subworkflows/refold/#target-sequence-configuration">Target sequence configuration</a>. The whole <code>--full_refold_*</code> family has been renamed to <code>--refold_*</code>.</p>
 <h4 id="rmsd-design-vs-refold">RMSD (design vs refold)</h4>
 <p>After RosettaFold3, the workflow compares the C-alpha RMSD of each design (MPNN output) to the refolded structure (RF3 output).</p>
 <h3 id="key-outputs">Key Outputs</h3>
@@ -546,7 +546,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <ul>
 <li>
 <p><strong>Refold scoring (optional)</strong><br />
-  When <code>--refold_with</code> names at least one engine, <code>rfd3/refold/</code> holds <code>refold_scores.tsv</code> (one row per design, merged into <code>combined_scores.tsv</code>), <code>refold_sample_scores.tsv</code> (one row per refolded sample, nothing reduced), <code>refold_selection.tsv</code> (every design with its selection verdict, rank and sort value) and <code>predictions/</code> (the refolded complexes and binder monomers). See <a href="../../subworkflows/refold/">Refold Scoring</a>.</p>
+  When <code>--refold_with</code> names at least one engine, <code>rfd3/refold/</code> contains <code>refold_scores.tsv</code> (one row per design, merged into <code>combined_scores.tsv</code>), <code>refold_sample_scores.tsv</code> (one row per refolded sample, unaggregated), <code>refold_selection.tsv</code> (every design with its selection verdict, rank and sort value) and <code>predictions/</code> (the refolded complexes and binder monomers). See <a href="../../subworkflows/refold/">Refold Scoring</a>.</p>
 </li>
 <li>
 <p><strong><code>binders.fasta</code></strong><br />
@@ -556,7 +556,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 <p>The exact directory layout follows the <code>modules/local/rfd3/</code> processes (<code>rfdiffusion3</code>, <code>mpnn</code>, <code>rosettafold3</code>); you can examine those modules or a completed run for the precise structure.</p>
 <h2 id="foldseek-structural-search-optional">FoldSeek Structural Search (Optional)</h2>
 <p>After RosettaFold3 predictions, you can optionally run <a href="https://github.com/steineggerlab/foldseek">FoldSeek</a> structural similarity search on the top designs to identify structurally similar proteins and annotate designs with known structural folds.</p>
-<p>The binder chain is automatically extracted from each RF3 complex — only the binder is searched, not the full target–binder complex.</p>
+<p>The binder chain is automatically extracted from each RF3 complex: only the binder is searched, not the full target–binder complex.</p>
 <h3 id="enabling-foldseek">Enabling FoldSeek</h3>
 <p>Add <code>--do_foldseek</code> to your RFD3 command:</p>
 <pre><code class="language-bash">nextflow run main.nf --method rfd3 \
