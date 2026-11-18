@@ -64,6 +64,8 @@ nextflow_process {
             params {
                 outdir = "${outputDir}"
                 design_name = 'rfdtest'
+                // Declared in workflows/rfd.nf, which a process-level test does not load.
+                rfd_command = 'python /app/RFdiffusion/scripts/run_inference.py'
                 rfd_noise_scale = 0.0
                 rfd_extra_args = ''
                 rfd_compress_trajectories = false
@@ -126,6 +128,8 @@ nextflow_process {
             params {
                 outdir = "${outputDir}"
                 design_name = 'rfdtest'
+                // Declared in workflows/rfd.nf, which a process-level test does not load.
+                rfd_command = 'python /app/RFdiffusion/scripts/run_inference.py'
                 rfd_noise_scale = 0.0
                 rfd_extra_args = ''
                 rfd_compress_trajectories = false
