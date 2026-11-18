@@ -65,6 +65,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#alternative-clone-the-repository-using-git">Alternative: Clone the repository using git</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#ai-agent-skill">AI Agent Skill</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#container-setup">Container Setup</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#platform-specific-configuration">Platform-Specific Configuration</a>
@@ -220,6 +222,28 @@ cd nf-binder-design
 # See the help as a first test
 nextflow run main.nf --help
 </code></pre>
+<h2 id="ai-agent-skill">AI Agent Skill</h2>
+<p>An agent skill ships with the pipeline at
+<a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/.agents/skills/nf-binder-design/SKILL.md"><code>.agents/skills/nf-binder-design/</code></a>,
+with reference documents covering each workflow, target preparation, HPC
+configuration and troubleshooting. It gives an AI coding agent (Claude Code,
+Codex, Cursor, Gemini CLI and others) the parameter names, defaults and known
+pitfalls it would otherwise guess at.</p>
+<p>The simplest way to use it is to ask your agent directly:</p>
+<blockquote>
+<p>Install the skill and associated reference docs from
+https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/.agents/skills/nf-binder-design/SKILL.md
+and help me get started making protein designs</p>
+</blockquote>
+<p>The agent will fetch <code>SKILL.md</code> and the <code>references/</code> documents beside it, put
+them wherever your agent keeps skills, and then work through setting up a run
+with you.</p>
+<p>As an alternative, <a href="https://github.com/vercel-labs/skills">skills</a> installs it
+into the current project non-interactively:</p>
+<pre><code class="language-bash">npx skills add Australian-Protein-Design-Initiative/nf-binder-design --skill nf-binder-design
+</code></pre>
+<p>Either way, check what the agent proposes before running it: an agent will
+happily queue a job that costs GPU hours.</p>
 <h2 id="container-setup">Container Setup</h2>
 <p>These workflows use Apptainer containers for reproducibility. 
 You'll typically need <a href="https://apptainer.org/">Apptainer</a> installed - this is usually already available on modern HPC clusters.</p>
