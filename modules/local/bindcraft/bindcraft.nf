@@ -1,9 +1,9 @@
 process BINDCRAFT {
     container 'ghcr.io/australian-protein-design-initiative/containers/bindcraft:0366085-nv-cuda120'
 
-    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'results/**', mode: 'copy'
-    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: '*.{pdb,pdb.gz,json}', mode: 'copy'
-    publishDir path: "${params.outdir}/bindcraft/batches/${batch_id}", pattern: 'bindcraft.log', mode: 'copy'
+    publishDir path: { "${params.outdir}/bindcraft/batches/${batch_id}" }, pattern: 'results/**', mode: 'copy'
+    publishDir path: { "${params.outdir}/bindcraft/batches/${batch_id}" }, pattern: '*.{pdb,pdb.gz,json}', mode: 'copy'
+    publishDir path: { "${params.outdir}/bindcraft/batches/${batch_id}" }, pattern: 'bindcraft.log', mode: 'copy'
     publishDir(
         path: "${params.outdir}/bindcraft/accepted",
         pattern: 'results/Accepted/*.{pdb,pdb.gz}',

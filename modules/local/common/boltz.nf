@@ -9,7 +9,7 @@ process BOLTZ {
     // the fold/predictions gather would publish nothing (same pattern as
     // modules/local/fold/af2/alphafold2.nf and modules/local/fold/rf3/rf3_fold.nf).
     publishDir(
-        path: "${params.outdir}/${step_name}",
+        path: { "${params.outdir}/${step_name}" },
         mode: 'copy',
         saveAs: { filename ->
             if (!meta.fold_namespaced) { return filename }

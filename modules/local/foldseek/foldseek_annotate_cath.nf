@@ -16,7 +16,7 @@ FOLDSEEK_DOWNLOAD_CATH_NAMES or provided via params.foldseek_cath_names_path.
 process FOLDSEEK_ANNOTATE_CATH {
     tag "${meta.id}"
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
-    publishDir "${params.outdir}/foldseek/${db_name}", mode: 'copy',
+    publishDir { "${params.outdir}/foldseek/${db_name}" }, mode: 'copy',
         pattern: '{foldseek_results_annotated.tsv,foldseek_results_annotated.tsv.gz}'
 
     input:

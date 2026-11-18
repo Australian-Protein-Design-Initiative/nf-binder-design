@@ -12,7 +12,7 @@ Produces TSV with column headers and optionally HTML pretty-printed alignments.
 process FOLDSEEK_LOCAL_SEARCH {
     tag "${meta.id}"
     container 'quay.io/biocontainers/foldseek:10.941cd33--h5021889_1'
-    publishDir "${params.outdir}/foldseek/${db_name}", mode: 'copy',
+    publishDir { "${params.outdir}/foldseek/${db_name}" }, mode: 'copy',
         pattern: '{foldseek_results.tsv,foldseek_results.tsv.gz,foldseek_results.html}'
 
     input:

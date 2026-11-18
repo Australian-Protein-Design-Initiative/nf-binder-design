@@ -15,7 +15,7 @@ Available remote databases: pdb100, afdb50, afdb-swissprot, afdb-proteome,
 process FOLDSEEK_REMOTE_SEARCH {
     tag "${meta.id}"
     container 'quay.io/biocontainers/foldseek:10.941cd33--h5021889_1'
-    publishDir "${params.outdir}/foldseek/${db_name}", mode: 'copy'
+    publishDir { "${params.outdir}/foldseek/${db_name}" }, mode: 'copy'
 
     input:
     tuple val(meta), path(query_pdbs, stageAs: 'queries/*')

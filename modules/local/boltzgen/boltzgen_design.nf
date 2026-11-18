@@ -3,7 +3,7 @@ process BOLTZGEN_DESIGN {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/boltzgen:0.3.2'
 
-    //publishDir path: "${params.outdir}/boltzgen/batch_${start_index}", pattern: '**', mode: 'copy'
+    //publishDir path: { "${params.outdir}/boltzgen/batch_${start_index}" }, pattern: '**', mode: 'copy'
     publishDir path: "${params.outdir}/boltzgen/batches/design", pattern: '**', mode: 'copy'
 
     input:

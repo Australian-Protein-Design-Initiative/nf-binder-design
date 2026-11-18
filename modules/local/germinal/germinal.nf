@@ -5,7 +5,7 @@ process GERMINAL {
     container 'ghcr.io/australian-protein-design-initiative/containers/germinal:20260611-104bbdd7-af3'
 
     publishDir(
-        path: "${params.outdir}/germinal/batches/${batch_id}",
+        path: { "${params.outdir}/germinal/batches/${batch_id}" },
         pattern: 'out/results/**',
         mode: 'copy',
         saveAs: { filename ->
@@ -13,7 +13,7 @@ process GERMINAL {
                 .replaceFirst(/^(.*\/)?out\\/results\\//, '')
         }
     )
-    publishDir path: "${params.outdir}/germinal/batches/${batch_id}", pattern: 'germinal.log', mode: 'copy'
+    publishDir path: { "${params.outdir}/germinal/batches/${batch_id}" }, pattern: 'germinal.log', mode: 'copy'
     publishDir(
         path: "${params.outdir}/germinal/accepted/structures",
         pattern: 'out/results/**/accepted/structures/*.pdb',

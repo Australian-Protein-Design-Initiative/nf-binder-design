@@ -3,9 +3,12 @@ process FILTER_DESIGNS {
 
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
-    publishDir "${params.outdir}/rfd/${step}/scores", mode: 'copy', pattern: '*.scores.tsv'
-    publishDir "${params.outdir}/rfd/${step}/filtered", mode: 'copy', pattern: 'accepted/*.pdb'
-    publishDir "${params.outdir}/rfd/${step}/filtered", mode: 'copy', pattern: 'rejected/*.pdb'
+    // Closures, not plain GStrings: `step` is a process input, and from Nextflow 26 a
+    // directive string is evaluated before the task inputs are in scope ("No such
+    // variable: step"). A closure defers it to the task.
+    publishDir { "${params.outdir}/rfd/${step}/scores" }, mode: 'copy', pattern: '*.scores.tsv'
+    publishDir { "${params.outdir}/rfd/${step}/filtered" }, mode: 'copy', pattern: 'accepted/*.pdb'
+    publishDir { "${params.outdir}/rfd/${step}/filtered" }, mode: 'copy', pattern: 'rejected/*.pdb'
 
     input:
     path pdb

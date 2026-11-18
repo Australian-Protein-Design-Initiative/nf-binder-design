@@ -20,7 +20,7 @@ process ALPHAFOLD2 {
     // In --af2_keep_models=best mode only the top-ranked model and the ranking
     // table are kept per run; 'all' keeps everything (minus the MSAs/features).
     publishDir(
-        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${meta.af2_tool ?: 'af2'}/predictions",
+        path: { "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${meta.af2_tool ?: 'af2'}/predictions" },
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^out\//, '')

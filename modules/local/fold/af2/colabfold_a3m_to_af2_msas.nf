@@ -9,7 +9,7 @@ process COLABFOLD_A3M_TO_AF2_MSAS {
     publishDir(
         path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/msas",
         mode: 'copy',
-        pattern: "${meta.id}"
+        pattern: { "${meta.id}" }
     )
 
     input:

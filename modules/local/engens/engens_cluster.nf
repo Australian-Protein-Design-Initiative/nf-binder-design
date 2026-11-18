@@ -6,7 +6,7 @@ process ENGENS {
     container 'docker://ghcr.io/australian-protein-design-initiative/containers/engens:2024-11-22_b097882_py311'
 
     publishDir(
-        path: "${params.outdir}/engens/${meta.id}",
+        path: { "${params.outdir}/engens/${meta.id}" },
         mode: 'copy'
     )
 

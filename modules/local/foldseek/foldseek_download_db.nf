@@ -24,7 +24,7 @@ process FOLDSEEK_DOWNLOAD_DB {
     // Publish downloaded DB to foldseek_databases_path when configured.
     // saveAs returns null when path is not set, so nothing is published.
     publishDir params.foldseek_databases_path ?: '', mode: 'copy', overwrite: false,
-        saveAs: { params.foldseek_databases_path ? "${db_name}" : null }
+        saveAs: { params.foldseek_databases_path ? { "${db_name}" } : null }
 
     input:
     val db_name   // e.g. 'CATH50'

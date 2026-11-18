@@ -15,7 +15,7 @@ process ESMFOLD2 {
     container "ghcr.io/australian-protein-design-initiative/containers/esmfold2:3.4.1.post1_nv-cuda13_${meta.esmfold2_tool == 'esmfold2_fast' ? 'fast' : 'full'}_weights"
 
     publishDir(
-        path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${meta.esmfold2_tool}",
+        path: { "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/${meta.esmfold2_tool}" },
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^output\//, '')
