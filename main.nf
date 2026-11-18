@@ -14,28 +14,20 @@ nextflow.enable.dsl = 2
 params.method = false
 params.outdir = 'results'
 
-// Conditional includes based on --method parameter
-if (params.method == "rfd") {
-    include { RFD } from './workflows/rfd'
-} else if (params.method == "rfd_partial") {
-    include { RFD_PARTIAL } from './workflows/rfd_partial'
-} else if (params.method == "bindcraft") {
-    include { BINDCRAFT } from './workflows/bindcraft'
-} else if (params.method == "germinal") {
-    include { GERMINAL } from './workflows/germinal'
-} else if (params.method == "boltzgen") {
-    include { BOLTZGEN } from './workflows/boltzgen'
-} else if (params.method == "fold") {
-    include { FOLD } from './workflows/fold'
-} else if (params.method == "fold_pulldown") {
-    include { FOLD_PULLDOWN } from './workflows/fold_pulldown'
-} else if (params.method == "rfd3") {
-    include { RFD3 } from './workflows/rfd3'
-} else if (params.method == "rfd4_proteina") {
-    include { RFD4_PROTEINA } from './workflows/rfd4_proteina'
-} else if (params.method == "foldseek") {
-    include { FOLDSEEK } from './workflows/foldseek'
-}
+// The strict syntax requires includes at the top level, so every method's workflow is
+// included whether or not it is the one selected; --method picks the one to run in the
+// entry workflow below. Each workflow's `params.<name> = <default>` lines stay private
+// to that script, so including them all does not cross-contaminate their defaults.
+include { RFD } from './workflows/rfd'
+include { RFD_PARTIAL } from './workflows/rfd_partial'
+include { BINDCRAFT } from './workflows/bindcraft'
+include { GERMINAL } from './workflows/germinal'
+include { BOLTZGEN } from './workflows/boltzgen'
+include { FOLD } from './workflows/fold'
+include { FOLD_PULLDOWN } from './workflows/fold_pulldown'
+include { RFD3 } from './workflows/rfd3'
+include { RFD4_PROTEINA } from './workflows/rfd4_proteina'
+include { FOLDSEEK } from './workflows/foldseek'
 
 def paramsToMap(params) {
     def map = [:]
@@ -202,7 +194,7 @@ def writeGpuTraceUnsafe() {
     // Rows are also checked for width. Anything else in the directory -- a
     // leftover from an older column layout, a file a user dropped there -- would
     // otherwise be copied into the output and silently break every reader of it.
-    def rows = (trace_dir.listFiles() ?: [] as File[])
+    def rows = (trace_dir.listFiles() ?: [])
         .findAll { it.isFile() && it.name.endsWith('.tsv') }
         .collect { f ->
             try {

@@ -25,9 +25,8 @@ are separate parameters rather than one.
 That is arbitrary with respect to quality, but it is what a user who wants "some of
 them, cheaply" is asking for, and it is what rfd4_proteina did before this existed.
 
-These are plain functions rather than a lib/ class so that nf-test can drive them
-directly (see tests/modules/local/common/refold_select_utils.nf.test); lib/ is not on
-the classpath for a test script that lives outside the project root.
+These are plain functions in a module so that nf-test can drive them directly
+(see tests/modules/local/common/refold_select_utils.nf.test).
 */
 
 // Operators, matching bin/filter_designs.py so one filter syntax covers both. Longest

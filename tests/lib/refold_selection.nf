@@ -29,9 +29,9 @@ include {
     refoldEngines
 } from '../../modules/local/common/refold_select_utils'
 
-def check = { String name, Closure body ->
+def check(String name, Closure body) {
     try {
-        body()
+        body.call()
     }
     catch (Throwable t) {
         def cause = (t instanceof java.lang.reflect.InvocationTargetException) ? t.cause : t
@@ -48,9 +48,9 @@ message. Nextflow unwraps it again when nothing catches it - a bad --refold_filt
 does reach the user as its own message - but a test that inspects the exception has to
 unwrap it itself.
 */
-def expectFailure = { String name, Closure body ->
+def expectFailure(String name, Closure body) {
     try {
-        body()
+        body.call()
     }
     catch (Throwable t) {
         return (t instanceof java.lang.reflect.InvocationTargetException) ? t.cause : t
