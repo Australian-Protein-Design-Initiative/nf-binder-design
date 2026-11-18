@@ -1,3 +1,5 @@
+include { foldNamingAf2Prefix; foldNamingIsModelStructure } from '../common/fold_naming'
+
 process ALPHAFOLD2 {
     tag "${meta.af2_tool ?: 'af2'} ${meta.id} run${meta.af2_run}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -62,8 +64,8 @@ process ALPHAFOLD2 {
                 ? params.af2_no_relax \
                 : params.af2_no_relax.toString().toBoolean()
             def opts = [keep_best: meta.af2_keep_models == 'best', no_relax: no_relax]
-            if (!FoldNaming.isModelStructure(meta.af2_tool ?: 'af2', bn, opts)) { return null }
-            return "${FoldNaming.af2Prefix(meta)}${bn}"
+            if (!foldNamingIsModelStructure(meta.af2_tool ?: 'af2', bn, opts)) { return null }
+            return "${foldNamingAf2Prefix(meta)}${bn}"
         }
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).

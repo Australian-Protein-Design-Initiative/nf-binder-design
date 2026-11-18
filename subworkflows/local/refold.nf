@@ -51,6 +51,7 @@ include { REFOLD_STRUCTURE_TO_PDB } from '../../modules/local/refold/refold_stru
 include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_REFOLD } from '../../modules/local/rfd/bindcraft_scoring'
 include { REFOLD_SCORES_WIDE } from '../../modules/local/refold/refold_scores_wide'
 include { REFOLD_SAMPLE_SCORES } from '../../modules/local/refold/refold_sample_scores'
+include { foldNamingIsModelStructure; foldNamingModelStructures; foldNamingSampleLabel } from '../../modules/local/fold/common/fold_naming'
 
 workflow REFOLD {
 
@@ -132,7 +133,7 @@ workflow REFOLD {
 
     // The predicted model structures, out of each engine's own output layout. AF2 is
     // the one engine whose choice of structure depends on run options, so they come
-    // along (see FoldNaming.isModelStructure).
+    // along (see foldNamingIsModelStructure).
     def af2_opts = [
         no_relax: params.af2_no_relax instanceof Boolean
             ? params.af2_no_relax
@@ -147,14 +148,14 @@ workflow REFOLD {
     ch_complex_models = FOLD_PULLDOWN_CORE.out.predictions
         .flatMap { meta, files ->
             def opts = af2_opts + [keep_best: meta.af2_keep_models == 'best']
-            FoldNaming.modelStructures(meta.fold_tool, files, opts).collect { model ->
+            foldNamingModelStructures(meta.fold_tool, files, opts).collect { model ->
                 tuple(
                     [
                         id: meta.binder,
                         fold_tool: meta.fold_tool,
                         pair_id: meta.id,
                         fold_batch: meta.fold_batch ?: 1,
-                        fold_sample: FoldNaming.sampleLabel(meta.fold_tool, model),
+                        fold_sample: foldNamingSampleLabel(meta.fold_tool, model),
                     ],
                     [model],
                 )
@@ -234,13 +235,13 @@ workflow REFOLD {
         ch_monomer_models = FOLD_BINDER_MONOMER.out.predictions
             .flatMap { meta, files ->
                 def opts = af2_opts + [keep_best: meta.af2_keep_models == 'best']
-                FoldNaming.modelStructures(meta.fold_tool, files, opts).collect { model ->
+                foldNamingModelStructures(meta.fold_tool, files, opts).collect { model ->
                     tuple(
                         [
                             id: meta.id,
                             fold_tool: meta.fold_tool,
                             fold_batch: meta.fold_batch ?: 1,
-                            fold_sample: FoldNaming.sampleLabel(meta.fold_tool, model),
+                            fold_sample: foldNamingSampleLabel(meta.fold_tool, model),
                         ],
                         [model],
                     )
@@ -253,18 +254,10 @@ workflow REFOLD {
         // same seeds, so a sample label matches its counterpart. Without this every
         // monomer sample would pair with every complex sample, giving a grid of N x N
         // comparisons rather than N.
-        def sample_key = { meta ->
-            [
-                meta.id.toString(),
-                meta.fold_tool.toString(),
-                meta.fold_batch.toString(),
-                meta.fold_sample.toString(),
-            ]
-        }
         ch_monomer_in = ch_monomer_models
-            .map { meta, models -> tuple(sample_key(meta), meta, models) }
+            .map { meta, models -> tuple(refoldSampleKey(meta), meta, models) }
             .combine(
-                ch_complex_models.map { meta, models -> tuple(sample_key(meta), models.first()) },
+                ch_complex_models.map { meta, models -> tuple(refoldSampleKey(meta), models.first()) },
                 by: 0,
             )
             .map { key, meta, monomers, complex_model -> tuple(key[0], meta, monomers, complex_model) }
@@ -321,4 +314,19 @@ workflow REFOLD {
     predictions = FOLD_PULLDOWN_CORE.out.predictions
     rmsd = ch_rmsd_tables
     selection = SELECT_FOR_REFOLD.out.report
+}
+
+// Key on (design, engine, batch, sample): a monomer is only comparable with the
+// complex the same engine built, and the batch and sample keep the comparison
+// one-to-one. The monomer and the complex folds run the same batching and the
+// same seeds, so a sample label matches its counterpart. Without this every
+// monomer sample would pair with every complex sample, giving a grid of N x N
+// comparisons rather than N.
+def refoldSampleKey(Map meta) {
+    return [
+        meta.id.toString(),
+        meta.fold_tool.toString(),
+        meta.fold_batch.toString(),
+        meta.fold_sample.toString(),
+    ]
 }

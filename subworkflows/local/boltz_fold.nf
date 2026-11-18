@@ -12,6 +12,9 @@ include { FOLD_CREATE_BOLTZ_YAML } from '../../modules/local/fold/boltz/fold_cre
 include { FOLD_CREATE_BOLTZ_YAML_COMPLEX } from '../../modules/local/fold/boltz/fold_create_boltz_yaml_complex'
 include { BOLTZ } from '../../modules/local/common/boltz'
 include { FOLD_PARSE_BOLTZ_CONFIDENCE } from '../../modules/local/fold/boltz/fold_parse_boltz_confidence'
+include { foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldParamsEngine } from '../../modules/local/fold/common/fold_params'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 // Split --n_predictions across jobs of at most batch_size samples each.
 // batch_size unset (Boolean false / null) + n_predictions set => one job of N.
@@ -58,16 +61,16 @@ workflow BOLTZ_FOLD {
     // empty-placeholder file.
     // default_batch = 5: with --n_predictions unset, emit 5 samples like RF3 /
     // Protenix (Boltz's own native default is 1; we lift it for cross-engine parity).
-    // Via FoldParams so a refolding workflow can namespace these away from its own
-    // same-named design-time parameters (see lib/FoldParams.groovy).
-    def batches = foldPredictionBatches(FoldParams.engine(params, 'boltz_batch_size'), 5, params.n_predictions)
-    def boltz_seed = FoldParams.engine(params, 'boltz_seed')
+    // Via foldParamsEngine so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see modules/local/fold/common/fold_params.nf).
+    def batches = foldPredictionBatches(foldParamsEngine(params, 'boltz_batch_size'), 5, params.n_predictions)
+    def boltz_seed = foldParamsEngine(params, 'boltz_seed')
     def base_seed = boltz_seed ? (boltz_seed as int) : null
 
     ch_boltz_input = ch_yaml.flatMap { meta, yaml, msa ->
-        def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
-            ? MsaSubsample.countA3mSequences(msa) : null
-        def depth_jobs = MsaSubsample.depthJobs(
+        def n_seq = msaSubsampleIsEnabled(params.msa_subsample) \
+            ? msaSubsampleCountA3mSequences(msa) : null
+        def depth_jobs = msaSubsampleDepthJobs(
             params.msa_subsample, params.msa_subsample_include_full, n_seq
         )
         def namespaced = batches.size() > 1 || depth_jobs.size() > 1
@@ -83,15 +86,15 @@ workflow BOLTZ_FOLD {
                     m = m + [boltz_seed: base_seed + i]
                 }
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
-                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                else if (msaSubsampleIsEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
                 jobs << [m, yaml, file("${projectDir}/assets/dummy_files/empty_target_msa"), msa]
@@ -130,9 +133,9 @@ workflow BOLTZ_FOLD {
                 def m = (j.name =~ /_model_(\d+)\.json$/)
                 def idx = m ? m[0][1] : '0'
                 // confidence_<id>_model_N.json -> native <id>_model_N.cif; the
-                // flat-gather name uses the same FoldNaming prefix as the module.
+                // flat-gather name uses the same foldNamingFlatPrefix as the module.
                 def struct = j.name.replaceFirst(/^confidence_/, '').replaceFirst(/\.json$/, '.cif')
-                def pred = "${FoldNaming.flatPrefix('boltz', meta)}${struct}"
+                def pred = "${foldNamingFlatPrefix('boltz', meta)}${struct}"
                 def stem = struct.replaceFirst(/\.(cif|pdb)$/, '')
                 def ipsae = ipsae_files.find { it.name.startsWith("${stem}_") && it.name.endsWith('_ipsae.tsv') }
                 // Boltz names them pae_<stem>.npz, one per diffusion sample.

@@ -4,6 +4,9 @@
 // postprocess step. This process folds whatever generic component list
 // GENERATE_RF3_FOLD_INPUT built (monomer in Phase 1; multimer is Phase 2),
 // with no postprocessing beyond what `rf3 fold` itself emits.
+include { foldNamingFlatPrefix; foldNamingIsModelStructure } from '../common/fold_naming'
+include { foldParamsEngine } from '../common/fold_params'
+
 process RF3_FOLD {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -39,8 +42,8 @@ process RF3_FOLD {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!FoldNaming.isModelStructure('rf3', bn)) { return null }
-            return "${FoldNaming.flatPrefix('rf3', meta)}${bn}"
+            if (!foldNamingIsModelStructure('rf3', bn)) { return null }
+            return "${foldNamingFlatPrefix('rf3', meta)}${bn}"
         }
     )
     // Sequence IDs used in each MSA depth job (when --msa_subsample is on).
@@ -59,9 +62,9 @@ process RF3_FOLD {
     path("*_ids.txt"), emit: msa_ids, optional: true
 
     script:
-    // Engine flags via FoldParams, so a workflow that refolds can namespace them
-    // away from its own same-named design-time parameters (see lib/FoldParams.groovy).
-    def rf3_batch_size = FoldParams.engine(params, 'rf3_batch_size')
+    // Engine flags via foldParamsEngine, so a workflow that refolds can namespace them
+    // away from its own same-named design-time parameters (see modules/local/fold/common/fold_params.nf).
+    def rf3_batch_size = foldParamsEngine(params, 'rf3_batch_size')
     // Per-job sample count from BOLTZ-style fan-out meta (fold.nf), else the
     // fold --rf3_batch_size / legacy default of 5 when neither n_predictions
     // nor batch size drove a meta override.
@@ -69,7 +72,7 @@ process RF3_FOLD {
     // Seed from meta when fold fans a pinned --rf3_seed across batches
     // (seed, seed+1, ...); else params; unset -> omit (RF3 draws its own,
     // task hash stays stable for -resume).
-    def seed = meta.rf3_seed != null ? meta.rf3_seed : FoldParams.engine(params, 'rf3_seed')
+    def seed = meta.rf3_seed != null ? meta.rf3_seed : foldParamsEngine(params, 'rf3_seed')
     def seed_arg = seed ? "seed=${seed}" : ''
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
@@ -142,12 +145,12 @@ process RF3_FOLD {
     rf3 fold \\
         inputs=${rf3_input_json} \\
         out_dir=output \\
-        ckpt_path=${FoldParams.engine(params, 'rf3_ckpt_path')} \\
-        num_steps=${FoldParams.engine(params, 'rf3_num_steps')} \\
-        n_recycles=${FoldParams.engine(params, 'rf3_n_recycles')} \\
+        ckpt_path=${foldParamsEngine(params, 'rf3_ckpt_path')} \\
+        num_steps=${foldParamsEngine(params, 'rf3_num_steps')} \\
+        n_recycles=${foldParamsEngine(params, 'rf3_n_recycles')} \\
         diffusion_batch_size=${diffusion_batch_size} \\
         ${seed_arg} \\
-        early_stopping_plddt_threshold=${FoldParams.engine(params, 'rf3_early_stopping_plddt_threshold')} \\
+        early_stopping_plddt_threshold=${foldParamsEngine(params, 'rf3_early_stopping_plddt_threshold')} \\
         annotate_b_factor_with_plddt=true \\
         one_model_per_file=true \\
         ${task.ext.args ?: ''}

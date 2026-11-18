@@ -17,6 +17,7 @@ include { ANNOTATE_MSA as ANNOTATE_MSA_BINDER } from '../../modules/local/fold/c
 include { SINGLE_SEQ_A3M as SINGLE_SEQ_A3M_TARGET } from '../../modules/local/fold/common/single_seq_a3m'
 include { SINGLE_SEQ_A3M as SINGLE_SEQ_A3M_BINDER } from '../../modules/local/fold/common/single_seq_a3m'
 include { FOLD_ASSEMBLE_AF2_MULTIMER_MSAS } from '../../modules/local/fold/af2/fold_assemble_af2_multimer_msas'
+include { foldIdsSanitize } from '../../modules/local/fold/common/fold_ids'
 
 def pickPrimaryA3m(meta, a3m) {
     def files = (a3m instanceof List) ? a3m : [a3m]
@@ -49,10 +50,10 @@ workflow FOLD_PULLDOWN_MSA {
     // once, up front, and keep the original header on meta.orig_id for
     // anything that wants it back (nothing currently does).
     ch_targets = ch_targets.map { meta, fasta ->
-        [meta + [id: FoldIds.sanitize(meta.id), orig_id: meta.id.toString()], fasta]
+        [meta + [id: foldIdsSanitize(meta.id), orig_id: meta.id.toString()], fasta]
     }
     ch_binders = ch_binders.map { meta, fasta ->
-        [meta + [id: FoldIds.sanitize(meta.id), orig_id: meta.id.toString()], fasta]
+        [meta + [id: foldIdsSanitize(meta.id), orig_id: meta.id.toString()], fasta]
     }
     if (params.create_binder_msa && !need_annotate) {
         // AF2/af2_mono always write chain B query-only (assemble_af2_multimer_msas.py

@@ -35,11 +35,13 @@ include { SPLIT_COMPLEX_FASTA } from '../../modules/local/fold/common/split_comp
 include { ANNOTATE_MSA } from '../../modules/local/fold/common/annotate_msa'
 include { AF2_STAGE_COLABFOLD_MULTIMER_MSAS } from '../../modules/local/fold/af2/af2_stage_colabfold_multimer_msas'
 include { SINGLE_SEQ_A3M } from '../../modules/local/fold/common/single_seq_a3m'
+include { foldValidationValidMethods } from '../../modules/local/fold/common/fold_validation'
+include { msaSubsampleIsEnabled } from '../../modules/local/fold/common/msa_subsample'
 
 workflow FOLD_MSA {
     take:
     ch_input        // tuple(meta, fasta)
-    methods         // List<String>, subset of FoldValidation.VALID_METHODS
+    methods         // List<String>, subset of foldValidationValidMethods()
     msa_method      // 'jackhmmer_af2' | 'mmseqs2_colabfold'
     single_sequence // Boolean: skip the search and give every engine a query-only a3m
 
@@ -54,14 +56,14 @@ workflow FOLD_MSA {
     def need_esmfold2_msa = ('esmfold2' in methods) && !params.esmfold2_single_sequence
     def need_a3m = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
         || ('openfold3' in methods) || ('chai1' in methods) || need_esmfold2_msa \
-        || (need_af2_msas && MsaSubsample.isEnabled(params.msa_subsample))
+        || (need_af2_msas && msaSubsampleIsEnabled(params.msa_subsample))
     // Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2 need per-chain paired MSAs on the multimer path.
     def need_paired = ('boltz' in methods) || ('rf3' in methods) || ('protenix' in methods) || ('af3' in methods) \
         || ('openfold3' in methods) || ('chai1' in methods) || need_esmfold2_msa
     // af2_mono (monomer-weights chain-break) on a ColabFold-searched multimer input
     // needs one plain a3m per chain too, same split as need_paired, but AF2's own
     // multimer pairing ('af2') under mmseqs2_colabfold is rejected up front by
-    // FoldValidation - only af2_mono reaches this branch.
+    // fold_validation - only af2_mono reaches this branch.
     def need_af2_colabfold_multi = need_af2_msas && msa_method == 'mmseqs2_colabfold'
     def need_chain_split = need_paired || need_af2_colabfold_multi
     def af2_complex_search = need_af2_msas && msa_method == 'jackhmmer_af2'
@@ -251,7 +253,7 @@ workflow FOLD_MSA {
         // an AF2 multimer-format msas/<CHAIN>/ tree (one plain a3m per chain, no
         // pairing) so the chain-break trick has MSAs to read. AF2's own multimer
         // pairing ('af2') never reaches this branch under mmseqs2_colabfold -
-        // FoldValidation rejects that combination up front.
+        // fold_validation rejects that combination up front.
         if (need_af2_colabfold_multi) {
             ch_chain_a3m_grouped = ch_chain_a3m
                 .map { cm, _f, a3m -> [groupKey(cm.base_id, cm.total_chains), cm.base_id, cm.chain_index, cm.chain_id, a3m] }

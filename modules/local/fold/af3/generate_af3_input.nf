@@ -1,6 +1,8 @@
 // Monomer AlphaFold3 input JSON for fold.nf: one protein chain with the shared
 // a3m as its unpaired MSA (paired MSA is query-only). Runs after batch fan-out
 // because the per-batch seed lives in the JSON (AF3 has no --seed CLI flag).
+include { af3InputModeArgs } from '../common/af3_input'
+
 process GENERATE_AF3_INPUT {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
 
@@ -19,7 +21,7 @@ process GENERATE_AF3_INPUT {
         ? "--templates-dir ${templates}" + (template_chains ? " --template-chains ${template_chains.join(' ')}" : '') \
         : ''
     // Germinal parity: see generate_af3_input_complex.nf for why these two modes exist.
-    def mode_args = AF3Input.modeArgs(params)
+    def mode_args = af3InputModeArgs(params)
     def seeds = (meta.af3_seeds ?: [meta.af3_seed]).join(' ')
     """
     python ${projectDir}/bin/fold/make_af3_input.py \\

@@ -75,6 +75,7 @@ include {
     refoldHelpText
     refoldSelection
 } from '../modules/local/common/refold_select_utils'
+include { foldValidationValidate } from '../modules/local/fold/common/fold_validation'
 
 // Validate numeric parameters
 def validate_numeric(param_name, value) {
@@ -175,7 +176,7 @@ workflow RFD_PARTIAL {
     if (refold_engines) {
         // Every design pair is a 2-chain complex and the binder is folded query-only,
         // exactly as in --method fold_pulldown.
-        refold_validation = FoldValidation.validate(params, refold_engines, [
+        refold_validation = foldValidationValidate(params, refold_engines, [
             hasMultimer: true,
             af2DbPath: params.af2_db_path,
             pulldown: true,

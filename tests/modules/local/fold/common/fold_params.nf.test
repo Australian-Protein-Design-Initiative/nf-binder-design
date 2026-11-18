@@ -1,0 +1,92 @@
+nextflow_function {
+
+    name "Test Function fold_params"
+    script "modules/local/fold/common/fold_params.nf"
+
+    tag "fold"
+    tag "fold_params"
+
+    // A design workflow that refolds declares the refold's copies with a refold_
+    // prefix, so its own same-named design-time parameter cannot leak into the refold
+    // - including when the prefixed one is left at a falsy default.
+
+    test("the prefixed name wins where it is declared") {
+        function "foldParamsEngine"
+        when {
+            function {
+                """
+                input[0] = [rf3_batch_size: 1, refold_rf3_batch_size: 8]
+                input[1] = 'rf3_batch_size'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 8
+        }
+    }
+
+    test("a falsy prefixed value still wins over the plain one") {
+        function "foldParamsEngine"
+        when {
+            function {
+                """
+                input[0] = [rf3_batch_size: 1, refold_rf3_batch_size: false]
+                input[1] = 'rf3_batch_size'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == false
+        }
+    }
+
+    test("the plain name is read where no prefixed one is declared") {
+        function "foldParamsEngine"
+        when {
+            function {
+                """
+                input[0] = [rf3_batch_size: 4]
+                input[1] = 'rf3_batch_size'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 4
+        }
+    }
+
+    test("neither name declared gives null rather than an undefined-parameter warning") {
+        function "foldParamsEngine"
+        when {
+            function {
+                """
+                input[0] = [:]
+                input[1] = 'rf3_batch_size'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == null
+        }
+    }
+
+    test("the name in effect is reported for error messages") {
+        function "foldParamsNameFor"
+        when {
+            function {
+                """
+                input[0] = [refold_rf3_batch_size: 8]
+                input[1] = 'rf3_batch_size'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'refold_rf3_batch_size'
+        }
+    }
+}

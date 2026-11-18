@@ -96,7 +96,7 @@ params.protenix_model_name = 'protenix_base_default_v1.0.0'
 params.protenix_use_msa = true
 params.protenix_need_atom_confidence = true
 
-// --- AF3 Germinal parity (see lib/AF3Input.groovy) ---
+// --- AF3 Germinal parity (see modules/local/fold/common/af3_input.nf) ---
 params.af3_paired_msa = true
 params.af3_templates = 'inline'
 params.af3_run_data_pipeline = false
@@ -127,6 +127,9 @@ params.gpu_lock_timeout = 14400
 
 include { FOLD_PULLDOWN_CORE } from '../subworkflows/local/fold_pulldown_core'
 include { FOLD_PULLDOWN_REPORTING } from '../modules/local/common/fold_pulldown_reporting'
+include { foldIdsExtractFastaIds; foldIdsValidatePulldownIds } from '../modules/local/fold/common/fold_ids'
+include { foldValidationParseMethods; foldValidationValidate } from '../modules/local/fold/common/fold_validation'
+include { msaSubsampleIsEnabled } from '../modules/local/fold/common/msa_subsample'
 
 workflow FOLD_PULLDOWN {
 
@@ -246,13 +249,13 @@ workflow FOLD_PULLDOWN {
         exit(1)
     }
 
-    def methods = FoldValidation.parseMethods(params.methods)
+    def methods = foldValidationParseMethods(params.methods)
     // AF2 in fold_pulldown assembles the target MSA itself (jackhmmer dir or
     // ColabFold/mmseqs2 a3m via FOLD_ASSEMBLE_AF2_MULTIMER_MSAS) and always
-    // folds the binder chain query-only, so neither FoldValidation's generic
+    // folds the binder chain query-only, so neither fold_validation's generic
     // "AF2 multimer requires jackhmmer_af2" error nor its ColabFold "will run
     // UNPAIRED" warning apply here - opts.pulldown: true skips both.
-    def (errors, warnings) = FoldValidation.validate(params, methods, [
+    def (errors, warnings) = foldValidationValidate(params, methods, [
         hasMultimer: true,
         af2DbPath: params.af2_db_path,
         pulldown: true,
@@ -263,13 +266,13 @@ workflow FOLD_PULLDOWN {
         error("fold_pulldown: ${errors.join('\nfold_pulldown: ')}")
     }
 
-    if (MsaSubsample.isEnabled(params.msa_subsample)) {
+    if (msaSubsampleIsEnabled(params.msa_subsample)) {
         error("fold_pulldown: --msa_subsample is not supported (multimer pairs only).")
     }
 
-    def target_ids = FoldIds.extractFastaIds(file(params.targets))
-    def binder_ids = FoldIds.extractFastaIds(file(params.binders))
-    def id_errors = FoldIds.validatePulldownIds(target_ids, binder_ids)
+    def target_ids = foldIdsExtractFastaIds(file(params.targets))
+    def binder_ids = foldIdsExtractFastaIds(file(params.binders))
+    def id_errors = foldIdsValidatePulldownIds(target_ids, binder_ids)
     if (id_errors) {
         error("fold_pulldown: ${id_errors.join('\nfold_pulldown: ')}")
     }

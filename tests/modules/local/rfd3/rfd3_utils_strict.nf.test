@@ -1,0 +1,206 @@
+nextflow_function {
+
+    name "Test rfd3_utils functions rewritten for the strict syntax"
+    script "modules/local/rfd3/rfd3_utils.nf"
+
+    tag "rfd3"
+    tag "rfd3_utils"
+
+    // resolveRfd3TargetBinderChainLetters and inferBinderChainFromContig used C-style
+    // (int)/(char) casts to turn a polymer index into a chain letter. The strict syntax
+    // has no soft casts, so they now index into ('A'..'Z'); these pin that arithmetic.
+
+    test("the length-only polymer is the binder, second position") {
+        function "inferBinderChainFromContig"
+        when {
+            function {
+                """
+                input[0] = 'A17-131,/0,50-120'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'B'
+        }
+    }
+
+    test("the length-only polymer is the binder, first position") {
+        function "inferBinderChainFromContig"
+        when {
+            function {
+                """
+                input[0] = '50-120,/0,A17-131'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'A'
+        }
+    }
+
+    test("target and binder letters are derived from the contig") {
+        function "resolveRfd3TargetBinderChainLetters"
+        when {
+            function {
+                """
+                input[0] = 'A17-131,/0,50-120'
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['A', 'B']
+        }
+    }
+
+    test("an explicit binder chain flips the target") {
+        function "resolveRfd3TargetBinderChainLetters"
+        when {
+            function {
+                """
+                input[0] = 'A17-131,/0,50-120'
+                input[1] = 'A'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['B', 'A']
+        }
+    }
+
+    test("an explicit binder chain outside A/B is rejected") {
+        function "resolveRfd3TargetBinderChainLetters"
+        when {
+            function {
+                """
+                input[0] = 'A17-131,/0,50-120'
+                input[1] = 'C'
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    // convertOmitAas read a @Field map, which the strict syntax does not allow; the
+    // table is now returned by aa1To3().
+    test("omit string converts to the mpnn three-letter JSON list") {
+        function "convertOmitAas"
+        when {
+            function {
+                """
+                input[0] = 'CX'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == '["CYS","UNK"]'
+        }
+    }
+
+    test("unknown one-letter codes are dropped from the omit list") {
+        function "convertOmitAas"
+        when {
+            function {
+                """
+                input[0] = 'CZ'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == '["CYS"]'
+        }
+    }
+
+    // resolveMpnnCheckpoint dispatched on the preset with a switch statement.
+    test("the vanilla preset maps CLI noise 005 to the _002 checkpoint") {
+        function "resolveMpnnCheckpoint"
+        when {
+            function {
+                """
+                input[0] = [mpnn_preset: 'vanilla', mpnn_weights_noise: '005', pmpnn_weights: false,
+                            mpnn_checkpoint_path: false, mpnn_model_type: false, mpnn_legacy_weights: false]
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.checkpoint_path == '/models/foundry/proteinmpnn_v_48_002.pt'
+        }
+    }
+
+    test("the soluble preset uses the solublempnn checkpoint") {
+        function "resolveMpnnCheckpoint"
+        when {
+            function {
+                """
+                input[0] = [mpnn_preset: 'soluble', mpnn_weights_noise: '020', pmpnn_weights: false,
+                            mpnn_checkpoint_path: false, mpnn_model_type: false, mpnn_legacy_weights: false]
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.checkpoint_path == '/models/foundry/solublempnn_v_48_020.pt'
+        }
+    }
+
+    test("the hyper preset keeps the raw noise token") {
+        function "resolveMpnnCheckpoint"
+        when {
+            function {
+                """
+                input[0] = [mpnn_preset: 'hyper', mpnn_weights_noise: '010', pmpnn_weights: false,
+                            mpnn_checkpoint_path: false, mpnn_model_type: false, mpnn_legacy_weights: false]
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.checkpoint_path == '/models/foundry/v48_010_epoch300_hyper.pt'
+        }
+    }
+
+    test("an unknown preset is rejected") {
+        function "resolveMpnnCheckpoint"
+        when {
+            function {
+                """
+                input[0] = [mpnn_preset: 'banana', mpnn_weights_noise: '020', pmpnn_weights: false,
+                            mpnn_checkpoint_path: false, mpnn_model_type: false, mpnn_legacy_weights: false]
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("no preset and no noise gives the default checkpoint") {
+        function "resolveMpnnCheckpoint"
+        when {
+            function {
+                """
+                input[0] = [mpnn_preset: false, mpnn_weights_noise: false, pmpnn_weights: false,
+                            mpnn_checkpoint_path: false, mpnn_model_type: false, mpnn_legacy_weights: false]
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.checkpoint_path == '/models/foundry/proteinmpnn_v_48_020.pt'
+        }
+    }
+}

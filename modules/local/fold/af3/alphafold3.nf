@@ -6,6 +6,10 @@
 // --af3_model_dir is staged as a path input named af3_models, which makes the
 // container engines auto-mount it wherever it lives on the host, and AF3 is
 // pointed at it with --model_dir. AF3 reads af3.bin.zst directly.
+include { af3InputRunDataPipeline } from '../common/af3_input'
+include { foldNamingAf3Name; foldNamingFlatPrefix; foldNamingIsModelStructure } from '../common/fold_naming'
+include { foldParamsEngine } from '../common/fold_params'
+
 process ALPHAFOLD3 {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -18,7 +22,7 @@ process ALPHAFOLD3 {
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^output\//, '')
-            def name = FoldNaming.af3Name(meta.id)
+            def name = foldNamingAf3Name(meta.id)
             if (meta.fold_namespaced && rel.startsWith("${name}/")) {
                 def tail = rel.substring(name.length() + 1)
                 def msa_bit = meta.msa_depth_tag ? "_msa_${meta.msa_depth_tag}" : ''
@@ -32,8 +36,8 @@ process ALPHAFOLD3 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!FoldNaming.isModelStructure('af3', bn)) { return null }
-            return "${FoldNaming.flatPrefix('af3', meta)}${bn}"
+            if (!foldNamingIsModelStructure('af3', bn)) { return null }
+            return "${foldNamingFlatPrefix('af3', meta)}${bn}"
         }
     )
     publishDir(
@@ -53,7 +57,7 @@ process ALPHAFOLD3 {
     tuple val(meta), path('output/**/*_summary_confidences.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'af3_batch_size') ?: 5)
+    def n_samples = meta.fold_batch_size ?: (foldParamsEngine(params, 'af3_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
@@ -69,7 +73,7 @@ process ALPHAFOLD3 {
     // all nine default database paths against --db_dir before reading the input,
     // so the full ~630 GB set has to be present even though only the template
     // databases are used.
-    def do_data_pipeline = AF3Input.runDataPipeline(params)
+    def do_data_pipeline = af3InputRunDataPipeline(params)
     def run_data_pipeline = do_data_pipeline ? 'true' : 'false'
     def db_dir_arg = do_data_pipeline ? '--db_dir=af3_dbs' : ''
     """

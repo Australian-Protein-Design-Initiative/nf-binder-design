@@ -1,0 +1,108 @@
+nextflow_function {
+
+    name "Test Function fold_ids"
+    script "modules/local/fold/common/fold_ids.nf"
+
+    tag "fold"
+    tag "fold_ids"
+
+    test("sanitisation replaces characters that are not path-safe") {
+        function "foldIdsSanitize"
+        when {
+            function {
+                """
+                input[0] = 'a+b/c d'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'a_b_c_d'
+        }
+    }
+
+    test("duplicate target ids and the pair ambiguity they cause are both reported") {
+        function "foldIdsValidatePulldownIds"
+        when {
+            function {
+                """
+                input[0] = ['a', 'a']
+                input[1] = ['b']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 2
+            assert function.result[0].contains('duplicate target id(s): a')
+            assert function.result[1].contains('pair id(s) are ambiguous')
+        }
+    }
+
+    test("clean pulldown ids produce no errors") {
+        function "foldIdsValidatePulldownIds"
+        when {
+            function {
+                """
+                input[0] = ['t1', 't2']
+                input[1] = ['b1', 'b2']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+
+    // An id present on both sides collides in the per-chain MSA files for every
+    // engine except AF2.
+    test("an id on both sides is rejected") {
+        function "foldIdsValidatePulldownIds"
+        when {
+            function {
+                """
+                input[0] = ['shared', 't2']
+                input[1] = ['shared']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.any { it.contains('present in both targets and binders') }
+        }
+    }
+
+    // AF3 and OpenFold3 name their output directory after the job, dropping every
+    // character outside [A-Za-z0-9_.-], so these two would publish over each other.
+    test("fold ids that collide only after engine sanitisation are rejected") {
+        function "foldIdsValidateFoldIds"
+        when {
+            function {
+                """
+                input[0] = ['a+b', 'ab']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 1
+            assert function.result[0].contains('collide once AF3/OpenFold3 sanitise them')
+        }
+    }
+
+    test("distinct fold ids produce no errors") {
+        function "foldIdsValidateFoldIds"
+        when {
+            function {
+                """
+                input[0] = ['a', 'b']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+}

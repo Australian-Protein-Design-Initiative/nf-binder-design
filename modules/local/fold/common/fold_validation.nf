@@ -1,0 +1,435 @@
+/*
+Shared fold / fold_pulldown parameter validation. Returns [errors, warnings]
+lists so callers can raise them via error()/log.warn().
+*/
+
+include { foldParamsEngine; foldParamsNameFor } from './fold_params'
+include { af3InputLiteralSeeds; af3InputRunDataPipeline; af3InputTemplateModes; af3InputTemplatesMode } from './af3_input'
+include { msaSubsampleDepthDefaults; msaSubsampleIsEnabled } from './msa_subsample'
+
+// 'af2'      - AlphaFold2-multimer.
+// 'af2_mono' - AF2 monomer weights on a concatenated complex, chains separated
+//              only by an --af2_chain_break_offset jump in residue_index.
+def foldValidationValidMethods() {
+    return ['af2', 'af2_mono', 'boltz', 'rf3', 'protenix', 'af3', 'openfold3', 'chai1', 'esmfold2', 'esmfold2_fast']
+}
+def foldValidationValidMsaMethods() {
+    return ['jackhmmer_af2', 'mmseqs2_colabfold']
+}
+// Engines that use --templates; the others fold without them.
+def foldValidationTemplateMethods() {
+    return ['af2', 'af2_mono', 'af3', 'boltz', 'chai1', 'openfold3', 'protenix', 'rf3']
+}
+
+List foldValidationParseMethods(methodsParam) {
+    // Drop blanks: an unset --refold_with splits to [''], which would otherwise be
+    // validated as an unknown engine name.
+    return methodsParam.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }
+}
+
+/**
+ * Validate shared fold-engine params.
+ * @param params Nextflow params map
+ * @param methods parsed method list
+ * @param opts optional map: checkColabfoldDbs (default true), hasMultimer (Boolean or null),
+ *             af2DbPath (Path/File/String or null for uniprot/ check when hasMultimer+af2),
+ *             pulldown (default false): fold_pulldown pairs nothing across chains (the
+ *             binder is query-only) and builds AF2's multimer MSAs itself, so the
+ *             ColabFold-multimer error/warning below do not apply
+ * @return [errors, warnings] as Lists of Strings
+ */
+List foldValidationValidate(params, List methods, Map opts = [:]) {
+    def errors = []
+    def warnings = []
+    def checkColabfoldDbs = opts.containsKey('checkColabfoldDbs') ? opts.checkColabfoldDbs : true
+    def hasMultimer = opts.containsKey('hasMultimer') ? opts.hasMultimer : null
+    def pulldown = opts.containsKey('pulldown') ? opts.pulldown : false
+
+    methods.each { m ->
+        if (!(m in foldValidationValidMethods())) {
+            errors << "unknown --methods entry '${m}' (valid: ${foldValidationValidMethods().join(', ')})"
+        }
+    }
+    if (!(params.msa_method in foldValidationValidMsaMethods())) {
+        errors << "unknown --msa_method '${params.msa_method}' (valid: ${foldValidationValidMsaMethods().join(', ')})"
+    }
+
+    if ('af2_mono' in methods) {
+        if ((params.af2_chain_break_offset as int) < 33) {
+            errors << (
+                "--af2_chain_break_offset must be > 32 (got '${params.af2_chain_break_offset}'): " +
+                "AF2 clips relative positions at 32, so a smaller jump does not read " +
+                "as a chain break and the chains are modelled as covalently joined."
+            )
+        }
+        if (params.af2_keep_models != 'best') {
+            warnings << (
+                "--methods af2_mono with --af2_keep_models=${params.af2_keep_models}: without an " +
+                "initial guess the monomer models frequently fail to dock the chains at all, and " +
+                "only ranking separates the good pose from the failures (ranking_confidence for " +
+                "monomer presets is mean pLDDT). Prefer --af2_keep_models best, or filter on " +
+                "interface pLDDT before using af2_mono poses in any consensus."
+            )
+        }
+    }
+
+    if ('af2' in methods || 'af2_mono' in methods) {
+        if (!(params.af2_keep_models in ['all', 'best'])) {
+            errors << "--af2_keep_models must be 'all' or 'best' (got '${params.af2_keep_models}')"
+        }
+        if (params.n_predictions && params.af2_keep_models == 'all' && (params.n_predictions as int) % 5 != 0) {
+            def n_runs = ((params.n_predictions as int) + 4).intdiv(5)
+            warnings << (
+                "AF2 --af2_keep_models=all emits 5 models per run; --n_predictions " +
+                "${params.n_predictions} is not a multiple of 5, so AF2 will produce ${n_runs * 5} " +
+                "models across ${n_runs} runs (nearest multiple of 5 >= n_predictions)."
+            )
+        }
+    }
+
+    ['boltz_batch_size', 'rf3_batch_size', 'protenix_batch_size', 'af3_batch_size', 'openfold3_batch_size',
+     'chai1_batch_size', 'esmfold2_batch_size'].each { pname ->
+        // Via foldParamsEngine so a workflow that namespaces an engine's flags is checked on
+        // the names it actually reads, and is not warned about a name it never declared.
+        def v = foldParamsEngine(params, pname)
+        if (v != null && !(v instanceof Boolean)) {
+            def n = v as int
+            if (n < 1) {
+                errors << "--${foldParamsNameFor(params, pname)} must be >= 1 (got '${v}')"
+            }
+        }
+    }
+    if ('af3' in methods) {
+        errors.addAll(foldValidationAf3WeightsErrors(params))
+        if (!(params.af3_flash_attention in ['auto', 'triton', 'cudnn', 'xla'])) {
+            errors << "--af3_flash_attention must be auto, triton, cudnn or xla (got '${params.af3_flash_attention}')"
+        }
+        if (af3InputLiteralSeeds(params)) {
+            def seeds = params.af3_seeds.toString().split(',').collect { it.trim() }
+            if (seeds.any { !(it ==~ /^\d+$/) }) {
+                errors << "--af3_seeds must be integers (got '${params.af3_seeds}')"
+            }
+            // The seed list IS the replication in this mode, so --n_predictions
+            // is ignored rather than multiplied with it.
+            if (params.n_predictions && (params.n_predictions as int) != 1) {
+                warnings << (
+                    "--af3_seeds lists ${seeds.size()} seeds, so --n_predictions is ignored for af3: " +
+                    "it will run ${seeds.size()} seed(s) x ${(params.af3_batch_size ?: 5)} " +
+                    "diffusion samples = ${seeds.size() * ((params.af3_batch_size ?: 5) as int)} structures per complex."
+                )
+            }
+        }
+        if (!(af3InputTemplatesMode(params) in af3InputTemplateModes())) {
+            errors << (
+                "--af3_templates must be one of ${af3InputTemplateModes().join(', ')} " +
+                "(got '${params.af3_templates}')"
+            )
+        }
+        errors.addAll(foldValidationAf3DataPipelineErrors(params))
+    }
+    // Protenix takes a seed list in one invocation. It separates the seeds by
+    // directory rather than in the file name, so PROTENIX_FOLD puts the seed back
+    // into the names it publishes and scores; without that the samples collide in
+    // fold/predictions/ and mis-pair their confidence files.
+    // Seeds are read through foldParamsEngine for the same reason as the batch sizes above.
+    def protenix_seeds = foldParamsEngine(params, 'protenix_seeds')
+    if ('protenix' in methods && protenix_seeds) {
+        def bad = protenix_seeds.toString().split(',')
+            .collect { it.trim() }.findAll { !(it ==~ /^\d+$/) }
+        if (bad) {
+            errors << (
+                "--${foldParamsNameFor(params, 'protenix_seeds')} must be an integer, or a comma list " +
+                "of them (got '${protenix_seeds}')"
+            )
+        }
+    }
+    def openfold3_seeds = foldParamsEngine(params, 'openfold3_seeds')
+    if ('openfold3' in methods && openfold3_seeds && openfold3_seeds.toString().contains(',')) {
+        warnings << (
+            "--${foldParamsNameFor(params, 'openfold3_seeds')} takes a single base seed; only '${openfold3_seeds.toString().split(',')[0].trim()}' " +
+            "is used (batches use seed, seed+1, ...)."
+        )
+    }
+    def chai1_seeds = foldParamsEngine(params, 'chai1_seeds')
+    if ('chai1' in methods && chai1_seeds && chai1_seeds.toString().contains(',')) {
+        warnings << (
+            "--${foldParamsNameFor(params, 'chai1_seeds')} takes a single base seed; only '${chai1_seeds.toString().split(',')[0].trim()}' " +
+            "is used (batches use seed, seed+1, ...)."
+        )
+    }
+    if (('esmfold2' in methods) || ('esmfold2_fast' in methods)) {
+        def esmfold2_seeds = foldParamsEngine(params, 'esmfold2_seeds')
+        if (esmfold2_seeds && esmfold2_seeds.toString().contains(',')) {
+            warnings << (
+                "--${foldParamsNameFor(params, 'esmfold2_seeds')} takes a single base seed; only '${esmfold2_seeds.toString().split(',')[0].trim()}' " +
+                "is used (batches use seed, seed+1, ...)."
+            )
+        }
+        if (!(params.esmfold2_kernel_backend in ['fused', 'cuequivariance', 'none'])) {
+            errors << (
+                "--esmfold2_kernel_backend must be fused, cuequivariance or none " +
+                "(got '${params.esmfold2_kernel_backend}')"
+            )
+        }
+    }
+    if ('esmfold2_fast' in methods) {
+        warnings << (
+            "ESMFold2-Fast (--methods esmfold2_fast) has no MSA encoder, so it folds from sequence " +
+            "alone and does not use the MSA. Use --methods esmfold2 for MSA-conditioned ESMFold2."
+        )
+    }
+
+    if (params.templates) {
+        def untemplated = methods.findAll { !(it in foldValidationTemplateMethods()) }
+        if (untemplated) {
+            warnings << (
+                "--templates is only used by ${foldValidationTemplateMethods().join(', ')}; " +
+                "${untemplated.join(', ')} will fold without templates."
+            )
+        }
+        ['template_min_identity', 'template_min_coverage'].each { p ->
+            def v = params[p] as double
+            if (v < 0 || v > 1) {
+                errors << "--${p} must be between 0 and 1 (got '${params[p]}')"
+            }
+        }
+        if ((params.template_min_aligned as int) < 1) {
+            errors << "--template_min_aligned must be >= 1 (got '${params.template_min_aligned}')"
+        }
+        if ((params.template_max_per_chain as int) < 1) {
+            errors << "--template_max_per_chain must be >= 1 (got '${params.template_max_per_chain}')"
+        }
+    }
+    else if (pulldown && params.binder_templates) {
+        warnings << "--binder_templates has no effect without --templates."
+    }
+
+    if (params.n_predictions && (params.n_predictions as int) < 1) {
+        errors << "--n_predictions must be >= 1 (got '${params.n_predictions}')"
+    }
+
+    def engens_clustering = params.engens_clustering.toString().split(',').collect { it.trim().toLowerCase() }
+    engens_clustering.each { c ->
+        if (!(c in ['gmm', 'km', 'hdbscan'])) {
+            errors << "unknown --engens_clustering entry '${c}' (valid: gmm, km, hdbscan)"
+        }
+    }
+    if (!(params.engens_dimred.toString().toLowerCase() in ['umap'])) {
+        errors << "--engens_dimred must be 'umap' (got '${params.engens_dimred}')"
+    }
+    if (!(params.engens_gmm_ic.toString().toLowerCase() in ['aic', 'bic'])) {
+        errors << "--engens_gmm_ic must be 'aic' or 'bic' (got '${params.engens_gmm_ic}')"
+    }
+    if ((params.engens_min_structures as int) < 2) {
+        errors << "--engens_min_structures must be >= 2 (got '${params.engens_min_structures}')"
+    }
+    if ((params.engens_max_clusters as int) < 2) {
+        errors << "--engens_max_clusters must be >= 2 (got '${params.engens_max_clusters}')"
+    }
+    def engens_featurizers = params.engens_featurizers.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }
+    if (!engens_featurizers) {
+        errors << "--engens_featurizers must list at least one of: default, 3di, pb"
+    }
+    engens_featurizers.each { f ->
+        if (!(f in ['default', '3di', 'pb'])) {
+            errors << "unknown --engens_featurizers entry '${f}' (valid: default, 3di, pb)"
+        }
+    }
+
+    if (msaSubsampleIsEnabled(params.msa_subsample)) {
+        def raw = (params.msa_subsample instanceof Boolean \
+            || params.msa_subsample.toString().trim().toLowerCase() in ['true', '1', 'yes']) \
+            ? msaSubsampleDepthDefaults() \
+            : params.msa_subsample.toString().trim()
+        raw.split(',').each { part ->
+            def pdepth = part.trim()
+            if (!pdepth) {
+                return
+            }
+            if (!(pdepth ==~ /^\d+:\d+$/)) {
+                errors << (
+                    "invalid --msa_subsample depth '${pdepth}' " +
+                    "(expected max_seq:max_extra_seq, or true for CF-random defaults)"
+                )
+            }
+            else {
+                def bits = pdepth.split(':')
+                if ((bits[0] as int) < 1) {
+                    errors << "--msa_subsample max_seq must be >= 1 (got '${pdepth}')"
+                }
+            }
+        }
+    }
+
+    if (checkColabfoldDbs && params.msa_method == 'mmseqs2_colabfold' \
+        && !params.use_remote_server && !(params.uniref30 && params.colabfold_envdb)) {
+        errors << (
+            "--msa_method mmseqs2_colabfold needs --uniref30 and --colabfold_envdb " +
+            "(local ColabFold DBs) or --use_remote_server true."
+        )
+    }
+
+    // af2_mono uses the monomer weights and never pairs, so ColabFold MSAs suit it
+    // and the jackhmmer requirement below is 'af2' only. Under jackhmmer_af2 though,
+    // af2_mono's per-chain MSAs come from AF2's multimer search, which needs uniprot/.
+    if (hasMultimer == true) {
+        if (msaSubsampleIsEnabled(params.msa_subsample)) {
+            errors << "--msa_subsample is not supported for multimer inputs (monomer only)."
+        }
+        if (!pulldown && params.msa_method == 'mmseqs2_colabfold' && !params.use_msa_server) {
+            warnings << (
+                "multimer input with --msa_method mmseqs2_colabfold - ColabFold a3m " +
+                "headers carry no taxonomy, so RF3/Protenix/Boltz/AF3/OpenFold3/Chai-1/ESMFold2 will run UNPAIRED. Use " +
+                "--msa_method jackhmmer_af2, or --use_msa_server true (Boltz fetches + pairs itself)."
+            )
+        }
+        if (!pulldown && 'af2' in methods && params.msa_method != 'jackhmmer_af2') {
+            errors << (
+                "AF2 multimer requires --msa_method jackhmmer_af2 (AF2's native " +
+                "multimer MSA pipeline). Drop af2 from --methods for ColabFold multimer runs."
+            )
+        }
+        def af2_multimer_search = ('af2' in methods) \
+            || (!pulldown && 'af2_mono' in methods && params.msa_method == 'jackhmmer_af2')
+        if (af2_multimer_search && opts.af2DbPath) {
+            def uniprot_dir = new File("${opts.af2DbPath}/uniprot")
+            if (!uniprot_dir.exists()) {
+                errors << (
+                    "AF2 multimer needs a uniprot/ DB under --af2_db_path, absent in " +
+                    "'${opts.af2DbPath}'. Point --af2_db_path at the 2021 snapshot (e.g. " +
+                    "/mnt/datasets/alphafold/alphafold_20211129), which has uniprot/ + pdb_seqres/."
+                )
+            }
+        }
+    }
+
+    return [errors, warnings]
+}
+
+/**
+ * --af3_templates search needs AF3's data pipeline, which needs the database
+ * set. AF3 validates all nine default database paths against --db_dir before
+ * it reads the input, so a missing or partial directory fails deep inside a
+ * GPU job with a bare FileNotFoundError - check it here instead.
+ */
+def af3RequiredDbs() {
+    return [
+    'bfd-first_non_consensus_sequences.fasta',
+    'mgy_clusters_2022_05.fa',
+    'mmcif_files',
+    'nt_rna_2023_02_23_clust_seq_id_90_cov_80_rep_seq.fasta',
+    'pdb_seqres_2022_09_28.fasta',
+    'rfam_14_9_clust_seq_id_90_cov_80_rep_seq.fasta',
+    'rnacentral_active_seq_id_90_cov_80_linclust.fasta',
+    'uniprot_all_2021_04.fa',
+    'uniref90_2022_05.fa',
+]
+}
+
+List foldValidationAf3DataPipelineErrors(params) {
+    def errors = []
+    def needs_pipeline = af3InputTemplatesMode(params) == 'search'
+    def pipeline_on = af3InputRunDataPipeline(params)
+
+    if (needs_pipeline && !pipeline_on) {
+        errors << (
+            "--af3_templates search omits the templates key so AF3 searches for templates itself, " +
+            "which requires --af3_run_data_pipeline true. " +
+            "With the data pipeline off AF3 rejects the missing key."
+        )
+    }
+    if (!pipeline_on) {
+        return errors
+    }
+    if (!params.af3_db_dir) {
+        errors << (
+            "--af3_run_data_pipeline true needs --af3_db_dir pointing at the AlphaFold3 public " +
+            "databases (~630 GB, from AF3's fetch_databases.sh). On M3 use /mnt/datasets/alphafold3/3.0.0."
+        )
+        return errors
+    }
+    def dir = new File(params.af3_db_dir.toString().replaceFirst(/^file:\/\//, ''))
+    if (!dir.isDirectory()) {
+        errors << "--af3_db_dir '${params.af3_db_dir}' does not exist or is not a directory."
+        return errors
+    }
+    def missing = af3RequiredDbs().findAll { !new File(dir, it).exists() }
+    if (missing) {
+        errors << (
+            "--af3_db_dir '${params.af3_db_dir}' is missing ${missing.size()} of the " +
+            "${af3RequiredDbs().size()} entries AlphaFold3 validates before it reads the input: " +
+            "${missing.join(', ')}. All of them must be present even though only the template " +
+            "databases are used."
+        )
+    }
+    return errors
+}
+
+/**
+ * AF3 weights are user-supplied (never in the container), so check the model
+ * dir up front rather than failing inside a GPU job. AF3's loader rejects a
+ * directory with more than one matching model file.
+ */
+List foldValidationAf3WeightsErrors(params) {
+    def help = (
+        "AlphaFold3 weights are not distributed with the pipeline. After reading the terms " +
+        "(https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md), run " +
+        "models/download_af3_weights.sh, or point --af3_model_dir at a directory containing " +
+        "af3.bin.zst (or af3.bin)."
+    )
+    def dir_param = params.af3_model_dir
+    if (!dir_param) {
+        return ["--methods af3 needs --af3_model_dir. ${help}"]
+    }
+    def dir_str = dir_param.toString()
+    if (dir_str ==~ /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/.*/ && !dir_str.startsWith('file://')) {
+        return []
+    }
+    def dir = new File(dir_str.replaceFirst(/^file:\/\//, ''))
+    if (!dir.isDirectory()) {
+        return ["--af3_model_dir '${dir_str}' does not exist or is not a directory. ${help}"]
+    }
+    def models = dir.listFiles().findAll { f ->
+        f.isFile() && (f.name ==~ /.*\.bin(\.zst)?$/ || f.name ==~ /.*\.bin\.zst\.\d+$/)
+    }
+    if (!models) {
+        return ["--af3_model_dir '${dir_str}' contains no AlphaFold3 weights (*.bin or *.bin.zst). ${help}"]
+    }
+    if (models.size() > 1) {
+        return [
+            "--af3_model_dir '${dir_str}' contains ${models.size()} model files " +
+            "(${models.collect { m -> m.name }.join(', ')}); AlphaFold3 requires exactly one."
+        ]
+    }
+    return []
+}
+
+/**
+ * Count FASTA records and detect empty sequences. Returns
+ * [n_chains, empty_records]. Accepts File or Path.
+ */
+List foldValidationCountFastaChains(f) {
+    def file = (f instanceof File) ? f : f.toFile()
+    int n_chains = 0
+    int empty_records = 0
+    boolean in_record = false
+    int seq_len = 0
+    file.eachLine { line ->
+        def l = line.trim()
+        if (l.startsWith('>')) {
+            if (in_record && seq_len == 0) {
+                empty_records += 1
+            }
+            n_chains += 1
+            in_record = true
+            seq_len = 0
+        }
+        else if (in_record) {
+            seq_len += l.length()
+        }
+    }
+    if (in_record && seq_len == 0) {
+        empty_records += 1
+    }
+    return [n_chains, empty_records]
+}

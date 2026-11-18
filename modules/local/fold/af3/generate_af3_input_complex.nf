@@ -6,6 +6,8 @@
 // Bundle order is chain order (FOLD_MSA sorts by chain_index; FOLD_PULLDOWN_MSA
 // emits target then binder), so it is kept rather than sorting by name, which
 // would swap chains in a pulldown whenever the binder id sorts first.
+include { af3InputModeArgs; af3InputPairedMsa } from '../common/af3_input'
+
 process GENERATE_AF3_INPUT_COMPLEX {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
 
@@ -31,8 +33,8 @@ process GENERATE_AF3_INPUT_COMPLEX {
     // gives AF3 no cross-chain pairing and lets AF3's own data pipeline find
     // templates. With pairing off there is nothing to re-render, so the
     // msa_taxonomy.py pass is skipped too.
-    def mode_args = AF3Input.modeArgs(params)
-    def do_pairing = AF3Input.pairedMsa(params)
+    def mode_args = af3InputModeArgs(params)
+    def do_pairing = af3InputPairedMsa(params)
     def paired_flag = do_pairing ? "--paired-a3m ${paired_arg}" : ''
     def render_paired = do_pairing \
         ? """for f in ${unpaired_arg}; do

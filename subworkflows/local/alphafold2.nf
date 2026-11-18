@@ -14,6 +14,8 @@ features.pkl (templates kept for jackhmmer).
 
 include { ALPHAFOLD2 as ALPHAFOLD2_PREDICT } from '../../modules/local/fold/af2/alphafold2'
 include { FOLD_SCORE_AF2 } from '../../modules/local/fold/af2/fold_score_af2'
+include { foldNamingAf2Prefix } from '../../modules/local/fold/common/fold_naming'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 workflow ALPHAFOLD2 {
     take:
@@ -22,7 +24,7 @@ workflow ALPHAFOLD2 {
     ch_af2_input
     // 'af2' (multimer) or 'af2_mono' (monomer weights + residue_index chain break).
     // Both engines can run in the same pipeline; the tag keeps their published
-    // predictions, score TSVs and FoldNaming prefixes apart.
+    // predictions, score TSVs and foldNaming prefixes apart.
     tool
     ch_templates // value: FOLD_TEMPLATES directory (or placeholder)
     // publish_label keeps two fold runs that share an output directory apart: the refold
@@ -52,9 +54,9 @@ workflow ALPHAFOLD2 {
     def seeds = (0..<n_runs).collect { i -> base != null ? base + i : null }
 
     ch_runs = ch_af2_input.flatMap { meta, fasta, msas, a3m ->
-        def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
-            ? MsaSubsample.countA3mSequences(a3m) : null
-        def depth_jobs = MsaSubsample.depthJobs(
+        def n_seq = msaSubsampleIsEnabled(params.msa_subsample) \
+            ? msaSubsampleCountA3mSequences(a3m) : null
+        def depth_jobs = msaSubsampleDepthJobs(
             params.msa_subsample, params.msa_subsample_include_full, n_seq
         )
         def namespaced = n_runs > 1 || depth_jobs.size() > 1
@@ -70,15 +72,15 @@ workflow ALPHAFOLD2 {
                 if (tool != 'af2') { m = m + [af2_tool: tool, af2_complex_mode: complex_mode] }
                 if (seed != null) { m = m + [af2_seed: seed] }
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
-                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                else if (msaSubsampleIsEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
                 jobs << [m, fasta, msas, a3m]
@@ -89,7 +91,7 @@ workflow ALPHAFOLD2 {
 
     ALPHAFOLD2_PREDICT(ch_runs, ch_templates)
 
-    // Score each run: FoldNaming.af2Prefix(meta) is the exact fold/predictions/
+    // Score each run: foldNamingAf2Prefix(meta) is the exact fold/predictions/
     // filename prefix the module's saveAs uses, so predictions_file lines up.
     // The predictions glob stages flat into the scoring task's work dir, so
     // FOLD_SCORE_AF2 reads it with --run-dir . (see fold_score_af2.nf).
@@ -113,7 +115,7 @@ workflow ALPHAFOLD2 {
             def scoring = (files instanceof List ? files : [files]).findAll {
                 !it.toString().contains('/msas/') && it.name != 'features.pkl'
             }
-            [meta, scoring, FoldNaming.af2Prefix(meta)]
+            [meta, scoring, foldNamingAf2Prefix(meta)]
         }
     FOLD_SCORE_AF2(ch_score_in)
 

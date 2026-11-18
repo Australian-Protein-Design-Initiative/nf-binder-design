@@ -2,7 +2,7 @@
 // (FOLD_MSA's multimer per-chain search, --msa_method mmseqs2_colabfold), so
 // --methods af2_mono works on a ColabFold-searched multimer input. AF2's native
 // multimer pairing ('af2', not af2_mono) still requires --msa_method jackhmmer_af2
-// (FoldValidation enforces this) - this process only ever feeds af2_mono, whose
+// (fold_validation enforces this) - this process only ever feeds af2_mono, whose
 // monomer-weights chain-break trick needs one MSA per chain, not a paired one.
 //
 // Layout written: <base_id>/msas/<CHAIN>/colabfold.a3m for each chain, then

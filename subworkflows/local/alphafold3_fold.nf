@@ -9,7 +9,7 @@ and each gets seed base+i (base = --af3_seeds, else a fixed 1 so -resume hashes
 stay stable).
 
 With a comma list in --af3_seeds every job instead carries that whole seed list,
-which is how Germinal runs AF3; see lib/AF3Input.groovy. --af3_run_data_pipeline
+which is how Germinal runs AF3; see modules/local/fold/common/af3_input.nf. --af3_run_data_pipeline
 turns AF3's data pipeline on so it searches for templates (the Germinal
 behaviour), which additionally requires --af3_db_dir.
 */
@@ -18,6 +18,10 @@ include { GENERATE_AF3_INPUT } from '../../modules/local/fold/af3/generate_af3_i
 include { GENERATE_AF3_INPUT_COMPLEX } from '../../modules/local/fold/af3/generate_af3_input_complex'
 include { ALPHAFOLD3 as ALPHAFOLD3_PROCESS } from '../../modules/local/fold/af3/alphafold3'
 include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
+include { af3InputLiteralSeeds; af3InputRunDataPipeline; af3InputSeedsForBatch } from '../../modules/local/fold/common/af3_input'
+include { foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldParamsEngine } from '../../modules/local/fold/common/fold_params'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -52,19 +56,19 @@ workflow ALPHAFOLD3_FOLD {
     // suppressed - otherwise every batch would repeat the same seeds and the run
     // would produce len(seeds) x n_predictions structures instead of
     // len(seeds) x --af3_batch_size.
-    def literal_seeds = AF3Input.literalSeeds(params)
-    // Via FoldParams so a refolding workflow can namespace the batch size away from
-    // its own same-named design-time parameter (see lib/FoldParams.groovy).
-    def af3_batch_size = FoldParams.engine(params, 'af3_batch_size')
+    def literal_seeds = af3InputLiteralSeeds(params)
+    // Via foldParamsEngine so a refolding workflow can namespace the batch size away from
+    // its own same-named design-time parameter (see modules/local/fold/common/fold_params.nf).
+    def af3_batch_size = foldParamsEngine(params, 'af3_batch_size')
     def batches = literal_seeds \
         ? [(af3_batch_size ?: 5) as int] \
         : foldPredictionBatches(af3_batch_size, 5, params.n_predictions)
 
     ch_batched = ch_for_af3.flatMap { meta, fasta, msa ->
         def is_mono = (meta.n_chains ?: 1) == 1
-        def n_seq = (is_mono && MsaSubsample.isEnabled(params.msa_subsample)) \
-            ? MsaSubsample.countA3mSequences(msa) : null
-        def depth_jobs = MsaSubsample.depthJobs(
+        def n_seq = (is_mono && msaSubsampleIsEnabled(params.msa_subsample)) \
+            ? msaSubsampleCountA3mSequences(msa) : null
+        def depth_jobs = msaSubsampleDepthJobs(
             params.msa_subsample, params.msa_subsample_include_full, n_seq
         )
         def namespaced = batches.size() > 1 || depth_jobs.size() > 1
@@ -75,18 +79,18 @@ workflow ALPHAFOLD3_FOLD {
                     fold_batch: i + 1,
                     fold_batch_size: n_samples,
                     fold_namespaced: namespaced,
-                    af3_seeds: AF3Input.seedsForBatch(params, i),
+                    af3_seeds: af3InputSeedsForBatch(params, i),
                 ]
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
-                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                else if (msaSubsampleIsEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
                 jobs << [m, fasta, msa]
@@ -101,7 +105,7 @@ workflow ALPHAFOLD3_FOLD {
 
     // The databases are only read when the data pipeline runs; otherwise stage a
     // placeholder so the process signature stays the same.
-    def af3_dbs = AF3Input.runDataPipeline(params) \
+    def af3_dbs = af3InputRunDataPipeline(params) \
         ? file(params.af3_db_dir, checkIfExists: true) \
         : file("${projectDir}/assets/dummy_files", checkIfExists: true)
 
@@ -126,7 +130,7 @@ workflow ALPHAFOLD3_FOLD {
                 def pae = byName[paeName]
                 def cif = byName[struct]
                 def doIpsae = (pae != null && cif != null)
-                def pred = "${FoldNaming.flatPrefix('af3', meta)}${struct}"
+                def pred = "${foldNamingFlatPrefix('af3', meta)}${struct}"
                 [meta, 'af3', model, struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }

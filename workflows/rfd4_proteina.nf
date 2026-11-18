@@ -91,6 +91,7 @@ include {
 include { REFOLD } from '../subworkflows/local/refold'
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
+include { foldValidationValidate } from '../modules/local/fold/common/fold_validation'
 
 workflow RFD4_PROTEINA {
 
@@ -181,7 +182,7 @@ workflow RFD4_PROTEINA {
     if (refold_engines) {
         // Every design pair here is a 2-chain complex and the binder is folded query-only,
         // exactly as in --method fold_pulldown, so pulldown: true applies for the same reasons.
-        refold_validation = FoldValidation.validate(params, refold_engines, [
+        refold_validation = foldValidationValidate(params, refold_engines, [
             hasMultimer: true,
             af2DbPath: params.af2_db_path,
             pulldown: true,

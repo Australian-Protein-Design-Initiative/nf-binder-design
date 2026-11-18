@@ -3,6 +3,9 @@
 // are baked into the image under $CHAI_DOWNLOADS_DIR (/models/chai). MSAs come
 // from the shared MSA stage and templates from --templates; Chai-1's MSA and
 // template servers are never used.
+include { foldNamingFlatPrefix; foldNamingIsModelStructure } from '../common/fold_naming'
+include { foldParamsEngine } from '../common/fold_params'
+
 process CHAI1 {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -25,8 +28,8 @@ process CHAI1 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!FoldNaming.isModelStructure('chai1', bn)) { return null }
-            return "${FoldNaming.flatPrefix('chai1', meta)}${bn}"
+            if (!foldNamingIsModelStructure('chai1', bn)) { return null }
+            return "${foldNamingFlatPrefix('chai1', meta)}${bn}"
         }
     )
     publishDir(
@@ -45,7 +48,7 @@ process CHAI1 {
     tuple val(meta), path('output/*_summary_confidences.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'chai1_batch_size') ?: 5)
+    def n_samples = meta.fold_batch_size ?: (foldParamsEngine(params, 'chai1_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''

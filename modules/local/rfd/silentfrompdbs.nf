@@ -11,7 +11,7 @@ process SILENT_FROM_PDBS {
     
     script:
     """
-    PATH=/app/dl_binder_design/include/silent_tools:${PATH}
+    PATH=/app/dl_binder_design/include/silent_tools:\${PATH}
     silentfrompdbs *.pdb > designs.silent
     """
 }

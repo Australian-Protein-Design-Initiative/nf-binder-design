@@ -1,0 +1,78 @@
+nextflow_function {
+
+    name "Test Function fold_seeds"
+    script "modules/local/fold/common/fold_seeds.nf"
+    function "foldSeedsCollapse"
+
+    tag "fold"
+    tag "fold_seeds"
+
+    test("an engine that takes a seed list collapses its equal batches") {
+        when {
+            function {
+                """
+                input[0] = 'protenix'
+                input[1] = [1, 1, 1]
+                input[2] = 7
+                input[3] = true
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [7, 8, 9]
+        }
+    }
+
+    test("a single-seed engine is never collapsed") {
+        when {
+            function {
+                """
+                input[0] = 'boltz'
+                input[1] = [1, 1, 1]
+                input[2] = 7
+                input[3] = true
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == null
+        }
+    }
+
+    // One sample count has to describe the single job that replaces the batches.
+    test("unequal batch sizes keep the per-batch fan-out") {
+        when {
+            function {
+                """
+                input[0] = 'protenix'
+                input[1] = [1, 2]
+                input[2] = 7
+                input[3] = true
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == null
+        }
+    }
+
+    test("no base seed keeps the per-batch fan-out") {
+        when {
+            function {
+                """
+                input[0] = 'protenix'
+                input[1] = [1, 1, 1]
+                input[2] = null
+                input[3] = true
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == null
+        }
+    }
+}

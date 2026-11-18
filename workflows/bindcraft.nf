@@ -54,6 +54,7 @@ include {
     refoldStripModelSuffix
     refoldSelection
 } from '../modules/local/common/refold_select_utils'
+include { foldValidationValidate } from '../modules/local/fold/common/fold_validation'
 
 // Function to validate hotspot_res parameter format
 def parseHotspotResidues(hotspot_res) {
@@ -86,7 +87,7 @@ def parseHotspotResidues(hotspot_res) {
     // Check each residue follows the format {chainID}{resnum}
     def pattern = ~/^[A-Z]\d+$/
 
-    for (def residue : residues) {
+    residues.each { residue ->
         if (!(residue =~ pattern)) {
             error "Invalid hotspot residue format: '${residue}'. Hotspots must be specified like: 'A12,A15,A99' (comma separated {chainID}{resnum})."
         }
@@ -147,7 +148,7 @@ def validateTargetChains(target_chains) {
     // Check each chain ID is a single capital letter
     def pattern = ~/^[A-Z]$/
 
-    for (def chain : chains) {
+    chains.each { chain ->
         if (!(chain =~ pattern)) {
             error "Invalid target chain format: '${chain}'. Target chains must be specified like: 'A' or 'A,C' (comma separated single capital letters)."
         }
@@ -267,7 +268,7 @@ workflow BINDCRAFT {
     if (refold_engines) {
         // Every design pair is a 2-chain complex and the binder is folded query-only,
         // exactly as in --method fold_pulldown.
-        refold_validation = FoldValidation.validate(params, refold_engines, [
+        refold_validation = foldValidationValidate(params, refold_engines, [
             hasMultimer: true,
             af2DbPath: params.af2_db_path,
             pulldown: true,

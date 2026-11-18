@@ -11,6 +11,9 @@ stable; with a base seed, batch i gets base+i.
 
 include { CHAI1 as CHAI1_PROCESS } from '../../modules/local/fold/chai1/chai1'
 include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
+include { foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldParamsEngine } from '../../modules/local/fold/common/fold_params'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -39,18 +42,18 @@ workflow CHAI1_FOLD {
     publish_label
 
     main:
-    // Via FoldParams so a refolding workflow can namespace these away from its own
-    // same-named design-time parameters (see lib/FoldParams.groovy).
-    def batches = foldPredictionBatches(FoldParams.engine(params, 'chai1_batch_size'), 5, params.n_predictions)
-    def chai1_seeds = FoldParams.engine(params, 'chai1_seeds')
+    // Via foldParamsEngine so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see modules/local/fold/common/fold_params.nf).
+    def batches = foldPredictionBatches(foldParamsEngine(params, 'chai1_batch_size'), 5, params.n_predictions)
+    def chai1_seeds = foldParamsEngine(params, 'chai1_seeds')
     def base_seed = chai1_seeds ? (chai1_seeds.toString().split(',')[0].trim() as int) : null
 
     ch_batched = ch_for_chai1.flatMap { meta, fasta, a3ms ->
         def is_mono = (meta.n_chains ?: 1) == 1
         def main_a3m = a3ms instanceof List ? a3ms[0] : a3ms
-        def n_seq = (is_mono && MsaSubsample.isEnabled(params.msa_subsample)) \
-            ? MsaSubsample.countA3mSequences(main_a3m) : null
-        def depth_jobs = MsaSubsample.depthJobs(
+        def n_seq = (is_mono && msaSubsampleIsEnabled(params.msa_subsample)) \
+            ? msaSubsampleCountA3mSequences(main_a3m) : null
+        def depth_jobs = msaSubsampleDepthJobs(
             params.msa_subsample, params.msa_subsample_include_full, n_seq
         )
         def namespaced = batches.size() > 1 || depth_jobs.size() > 1
@@ -64,15 +67,15 @@ workflow CHAI1_FOLD {
                     chai1_seed: base_seed != null ? base_seed + i : null,
                 ]
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
-                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                else if (msaSubsampleIsEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
                 jobs << [m, fasta, a3ms]
@@ -102,7 +105,7 @@ workflow CHAI1_FOLD {
                 def pae = byName[paeName]
                 def cif = byName[struct]
                 def doIpsae = (pae != null && cif != null)
-                def pred = "${FoldNaming.flatPrefix('chai1', meta)}${struct}"
+                def pred = "${foldNamingFlatPrefix('chai1', meta)}${struct}"
                 [meta, 'chai1', model, struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }

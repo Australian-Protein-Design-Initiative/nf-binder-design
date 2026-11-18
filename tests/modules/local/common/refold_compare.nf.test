@@ -1,0 +1,156 @@
+nextflow_function {
+
+    name "Test Function refoldCompare"
+    script "modules/local/common/refold_select_utils.nf"
+    function "refoldCompare"
+
+    tag "refold"
+    tag "refold_select_utils"
+
+    // The operator dispatch was a switch statement, which the strict syntax parser
+    // rejects. These pin the behaviour of the if-else chain that replaced it, including
+    // the fall-through from the numeric branch to the string one.
+
+    test("numeric comparisons") {
+        when {
+            function {
+                """
+                input[0] = 0.85
+                input[1] = '>'
+                input[2] = '0.8'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("numeric comparison that fails") {
+        when {
+            function {
+                """
+                input[0] = 0.75
+                input[1] = '>='
+                input[2] = '0.8'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == false
+        }
+    }
+
+    test("a missing score fails every numeric comparison, != included") {
+        when {
+            function {
+                """
+                input[0] = null
+                input[1] = '!='
+                input[2] = '0.8'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == false
+        }
+    }
+
+    test("= is an alias for == on numbers") {
+        when {
+            function {
+                """
+                input[0] = 2.0
+                input[1] = '='
+                input[2] = '2'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("boolean equality") {
+        when {
+            function {
+                """
+                input[0] = 'yes'
+                input[1] = '=='
+                input[2] = 'true'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("an ordering operator does not apply to a boolean") {
+        when {
+            function {
+                """
+                input[0] = 'yes'
+                input[1] = '>'
+                input[2] = 'true'
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("string equality") {
+        when {
+            function {
+                """
+                input[0] = 'chainA'
+                input[1] = '=='
+                input[2] = 'chainA'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("string inequality") {
+        when {
+            function {
+                """
+                input[0] = 'chainA'
+                input[1] = '!='
+                input[2] = 'chainB'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("an unknown operator falls through to false") {
+        when {
+            function {
+                """
+                input[0] = 'chainA'
+                input[1] = '~'
+                input[2] = 'chainA'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == false
+        }
+    }
+}

@@ -12,6 +12,9 @@ include { GENERATE_RF3_FOLD_INPUT } from '../../modules/local/fold/rf3/generate_
 include { GENERATE_RF3_FOLD_INPUT_COMPLEX } from '../../modules/local/fold/rf3/generate_rf3_fold_input_complex'
 include { RF3_FOLD } from '../../modules/local/fold/rf3/rf3_fold'
 include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
+include { foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldParamsEngine } from '../../modules/local/fold/common/fold_params'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -46,16 +49,16 @@ workflow ROSETTAFOLD3_FOLD {
     GENERATE_RF3_FOLD_INPUT_COMPLEX(ch_multi, ch_templates)
     ch_with_json = GENERATE_RF3_FOLD_INPUT.out.with_json.mix(GENERATE_RF3_FOLD_INPUT_COMPLEX.out.with_json)
 
-    // Via FoldParams so a refolding workflow can namespace these away from its own
-    // same-named design-time parameters (see lib/FoldParams.groovy).
-    def batches = foldPredictionBatches(FoldParams.engine(params, 'rf3_batch_size'), 5, params.n_predictions)
-    def rf3_seed = FoldParams.engine(params, 'rf3_seed')
+    // Via foldParamsEngine so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see modules/local/fold/common/fold_params.nf).
+    def batches = foldPredictionBatches(foldParamsEngine(params, 'rf3_batch_size'), 5, params.n_predictions)
+    def rf3_seed = foldParamsEngine(params, 'rf3_seed')
     def base_seed = rf3_seed ? (rf3_seed as int) : null
 
     ch_batched = ch_with_json.flatMap { meta, fasta, a3m, json, rf3_templates ->
-        def n_seq = MsaSubsample.isEnabled(params.msa_subsample) \
-            ? MsaSubsample.countA3mSequences(a3m) : null
-        def depth_jobs = MsaSubsample.depthJobs(
+        def n_seq = msaSubsampleIsEnabled(params.msa_subsample) \
+            ? msaSubsampleCountA3mSequences(a3m) : null
+        def depth_jobs = msaSubsampleDepthJobs(
             params.msa_subsample, params.msa_subsample_include_full, n_seq
         )
         def namespaced = batches.size() > 1 || depth_jobs.size() > 1
@@ -71,15 +74,15 @@ workflow ROSETTAFOLD3_FOLD {
                     m = m + [rf3_seed: base_seed + i]
                 }
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
-                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                else if (msaSubsampleIsEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
                 jobs << [m, fasta, a3m, json, rf3_templates]
@@ -94,7 +97,7 @@ workflow ROSETTAFOLD3_FOLD {
     // best-model *_summary_confidences.json with no sample index - skip it (it
     // isn't gathered into fold/predictions/). model/struct/predictions_file are
     // derived from the summary filename; predictions_file uses the same
-    // FoldNaming prefix as the module's flat-gather saveAs. ipSAE needs the
+    // foldNamingFlatPrefix as the module's flat-gather saveAs. ipSAE needs the
     // sibling full *_confidences.json and *_model.cif.
     // When a sample's PAE JSON or mmCIF is missing (e.g. a prediction job was
     // interrupted mid-write) ipSAE is skipped -- but FOLD_PARSE_CONFIDENCE still
@@ -119,7 +122,7 @@ workflow ROSETTAFOLD3_FOLD {
                 def pae = byName[paeName]
                 def cif = byName[struct]
                 def doIpsae = (pae != null && cif != null)
-                def pred = "${FoldNaming.flatPrefix('rf3', meta)}${struct}"
+                def pred = "${foldNamingFlatPrefix('rf3', meta)}${struct}"
                 [meta, 'rf3', model, struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }

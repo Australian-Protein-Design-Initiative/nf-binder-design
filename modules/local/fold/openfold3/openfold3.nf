@@ -3,6 +3,9 @@
 // run_openfold searches by default. MSAs come from the pipeline's shared MSA
 // stage via the query JSON (--use-msa-server false). Templates (--templates) come
 // as CIF files in of3_templates/, referenced from the query JSON.
+include { foldNamingFlatPrefix; foldNamingIsModelStructure; foldNamingOpenfold3Name } from '../common/fold_naming'
+include { foldParamsEngine } from '../common/fold_params'
+
 process OPENFOLD3 {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -17,7 +20,7 @@ process OPENFOLD3 {
         mode: 'copy',
         saveAs: { filename ->
             def rel = filename.toString().replaceFirst(/^output\//, '')
-            def name = FoldNaming.openfold3Name(meta.id)
+            def name = foldNamingOpenfold3Name(meta.id)
             def tail = rel.startsWith("${name}/") ? rel.substring(name.length() + 1) : rel
             if (meta.fold_namespaced) {
                 def msa_bit = meta.msa_depth_tag ? "_msa_${meta.msa_depth_tag}" : ''
@@ -31,8 +34,8 @@ process OPENFOLD3 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!FoldNaming.isModelStructure('openfold3', bn)) { return null }
-            return "${FoldNaming.flatPrefix('openfold3', meta)}${bn}"
+            if (!foldNamingIsModelStructure('openfold3', bn)) { return null }
+            return "${foldNamingFlatPrefix('openfold3', meta)}${bn}"
         }
     )
     publishDir(
@@ -50,7 +53,7 @@ process OPENFOLD3 {
     tuple val(meta), path('output/**/*_confidences_aggregated.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'openfold3_batch_size') ?: 5)
+    def n_samples = meta.fold_batch_size ?: (foldParamsEngine(params, 'openfold3_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''
@@ -126,7 +129,7 @@ process OPENFOLD3 {
     # OpenFold3 takes seeds from the runner YAML, not the query JSON; the default
     # is a fixed [42], so each batch gets its own seed from OPENFOLD3_FOLD. The field
     # is a list, so a job may carry every seed at once and load the model once
-    # (meta.openfold3_seeds; see lib/FoldSeeds.groovy). Its default of 10 DataLoader
+    # (meta.openfold3_seeds; see modules/local/fold/common/fold_seeds.nf). Its default of 10 DataLoader
     # workers ignores the task's CPU allocation.
     printf 'experiment_settings:\\n  seeds: [%s]\\ndata_module_args:\\n  num_workers: %s\\n' \\
         "${meta.openfold3_seeds ?: meta.openfold3_seed}" "${task.cpus}" >runner.yml

@@ -32,6 +32,8 @@ the classpath for a test script that lives outside the project root.
 
 // Operators, matching bin/filter_designs.py so one filter syntax covers both. Longest
 // first: matched the other way round, '>' would claim the '>' of '>=' and leave '='.
+include { foldValidationParseMethods } from '../fold/common/fold_validation'
+
 def refoldFilterOperators() {
     return ['>=', '<=', '==', '!=', '>', '<', '=']
 }
@@ -453,14 +455,14 @@ The engines to refold with, from --refold_with.
 rather than running a second path beside it.
 */
 def refoldEngines(Map params, String workflow_name, log_handle) {
-    def engines = FoldValidation.parseMethods(params.refold_with ?: '')
+    def engines = foldValidationParseMethods(params.refold_with ?: '')
     if (params.refold_oracles) {
         log_handle.warn(
             "${workflow_name}: --refold_oracles is deprecated and will be removed; it is the " +
             "same thing as --refold_with, which takes a list of engines. Adding " +
             "'${params.refold_oracles}' to it."
         )
-        engines = (engines + FoldValidation.parseMethods(params.refold_oracles)).unique()
+        engines = (engines + foldValidationParseMethods(params.refold_oracles)).unique()
     }
     return engines
 }

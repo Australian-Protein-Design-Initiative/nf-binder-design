@@ -1,0 +1,307 @@
+nextflow_function {
+
+    name "Test Function fold_naming"
+    script "modules/local/fold/common/fold_naming.nf"
+
+    tag "fold"
+    tag "fold_naming"
+
+    // foldNamingSampleLabel and foldNamingIsModelStructure dispatched on the engine
+    // name with switch statements, which the strict syntax parser rejects. The
+    // expected values below were taken from the pre-migration lib/FoldNaming.groovy,
+    // so they pin the if-else chains to the behaviour they replaced.
+
+    test("sample labels for every engine") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'boltz'
+                input[1] = '/x/y/abc_model_0.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == '0'
+        }
+    }
+
+    test("boltz falls back to the basename stem when the model index is absent") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'boltz'
+                input[1] = 'weird.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'weird'
+        }
+    }
+
+    test("rf3 and af3 share the seed-N_sample-N label") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'rf3'
+                input[1] = '/a/b_seed-3_sample-2_model.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'seed-3_sample-2'
+        }
+    }
+
+    test("openfold3, chai1 and esmfold2 share the seed_N_sample_N label") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'chai1'
+                input[1] = 'n_seed_0_sample_4_model.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'seed_0_sample_4'
+        }
+    }
+
+    // Protenix is the engine whose label cannot be read from the basename alone:
+    // the seed is only in the directory.
+    test("protenix recovers the seed from the directory") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'protenix'
+                input[1] = '/out/name/seed_42/predictions/name_sample_1.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'seed_42_sample_1'
+        }
+    }
+
+    test("protenix without a seed directory keeps the bare sample label") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'protenix'
+                input[1] = 'name_sample_1.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'sample_1'
+        }
+    }
+
+    test("af2 and anything else use the basename stem") {
+        function "foldNamingSampleLabel"
+        when {
+            function {
+                """
+                input[0] = 'af2'
+                input[1] = '/p/q/ranked_0.cif'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'ranked_0'
+        }
+    }
+
+    test("af2 relaxed models count as structures by default") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'af2'
+                input[1] = 'relaxed_model_1.cif'
+                input[2] = [:]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("af2 with no_relax takes the unrelaxed models instead") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'af2'
+                input[1] = 'unrelaxed_model_2.cif'
+                input[2] = [no_relax: true]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("af2 with no_relax and keep_best takes only ranked_0") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'af2'
+                input[1] = 'ranked_0.cif'
+                input[2] = [no_relax: true, keep_best: true]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("af2 with no_relax and keep_best rejects the unrelaxed models") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'af2'
+                input[1] = 'unrelaxed_model_2.cif'
+                input[2] = [no_relax: true, keep_best: true]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == false
+        }
+    }
+
+    test("boltz accepts both cif and pdb models") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'boltz'
+                input[1] = 'x_model_0.pdb'
+                input[2] = [:]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == true
+        }
+    }
+
+    test("a non-model file is rejected") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'esmfold2'
+                input[1] = 'random.txt'
+                input[2] = [:]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == false
+        }
+    }
+
+    test("an unknown engine is rejected") {
+        function "foldNamingIsModelStructure"
+        when {
+            function {
+                """
+                input[0] = 'banana'
+                input[1] = 'x.cif'
+                input[2] = [:]
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("a namespaced flat prefix carries the batch and depth qualifiers") {
+        function "foldNamingFlatPrefix"
+        when {
+            function {
+                """
+                input[0] = 'boltz'
+                input[1] = [fold_namespaced: true, fold_batch: 3, msa_depth_tag: '4_8']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'boltz_batch3_msa4_8_'
+        }
+    }
+
+    test("a plain flat prefix is just the tool tag") {
+        function "foldNamingFlatPrefix"
+        when {
+            function {
+                """
+                input[0] = 'rf3'
+                input[1] = [:]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'rf3_'
+        }
+    }
+
+    test("the af2 prefix carries the tool, id and run") {
+        function "foldNamingAf2Prefix"
+        when {
+            function {
+                """
+                input[0] = [id: 'x', af2_run: 2, af2_tool: 'af2_mono']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'af2_mono_x_run2_'
+        }
+    }
+
+    test("af3 name sanitisation drops characters outside the allowed set") {
+        function "foldNamingAf3Name"
+        when {
+            function {
+                """
+                input[0] = 'a b+c?d'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'a_bcd'
+        }
+    }
+}

@@ -1,0 +1,203 @@
+nextflow_function {
+
+    name "Test Function msa_subsample"
+    script "modules/local/fold/common/msa_subsample.nf"
+
+    tag "fold"
+    tag "msa_subsample"
+
+    // Expected values taken from the pre-migration lib/MsaSubsample.groovy.
+
+    test("an explicit depth list parses to int pairs") {
+        function "msaSubsampleParseDepths"
+        when {
+            function {
+                """
+                input[0] = '1:2,4:8'
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [[1, 2], [4, 8]]
+        }
+    }
+
+    test("true expands to the CF-random defaults") {
+        function "msaSubsampleParseDepths"
+        when {
+            function {
+                """
+                input[0] = true
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [[1, 2], [2, 4], [4, 8], [8, 16], [16, 32], [32, 64], [64, 128]]
+        }
+    }
+
+    test("subsample off parses to no depths") {
+        function "msaSubsampleParseDepths"
+        when {
+            function {
+                """
+                input[0] = false
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+
+    test("a malformed depth is rejected") {
+        function "msaSubsampleParseDepths"
+        when {
+            function {
+                """
+                input[0] = '1:2:3'
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("a non-integer depth is rejected") {
+        function "msaSubsampleParseDepths"
+        when {
+            function {
+                """
+                input[0] = 'a:b'
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("depth jobs include the full MSA when asked") {
+        function "msaSubsampleDepthJobs"
+        when {
+            function {
+                """
+                input[0] = '1:2,4:8'
+                input[1] = true
+                input[2] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [null, [1, 2], [4, 8]]
+        }
+    }
+
+    test("depth jobs without the full MSA drop the null job") {
+        function "msaSubsampleDepthJobs"
+        when {
+            function {
+                """
+                input[0] = '1:2,4:8'
+                input[1] = false
+                input[2] = 100
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [[1, 2], [4, 8]]
+        }
+    }
+
+    test("subsample off gives a single unsubsampled job") {
+        function "msaSubsampleDepthJobs"
+        when {
+            function {
+                """
+                input[0] = false
+                input[1] = true
+                input[2] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [null]
+        }
+    }
+
+    // Depths at or above the MSA's own depth are noop full-MSA shuffles, so they are
+    // dropped; with include_full off that can leave nothing to run.
+    test("depths deeper than the MSA with no full job is an error") {
+        function "msaSubsampleDepthJobs"
+        when {
+            function {
+                """
+                input[0] = '64:128'
+                input[1] = false
+                input[2] = 10
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("the depth tag for a full MSA") {
+        function "msaSubsampleDepthTag"
+        when {
+            function {
+                """
+                input[0] = null
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 'full'
+        }
+    }
+
+    test("the depth tag for a subsampled job") {
+        function "msaSubsampleDepthTag"
+        when {
+            function {
+                """
+                input[0] = 4
+                input[1] = 8
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == '4_8'
+        }
+    }
+
+    // The seed must be stable across runs or -resume re-runs every subsample task.
+    test("the subsample seed is stable and non-negative") {
+        function "msaSubsampleStableSeed"
+        when {
+            function {
+                """
+                input[0] = 'abc'
+                input[1] = 1
+                input[2] = 4
+                input[3] = 8
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 1034863664
+        }
+    }
+}

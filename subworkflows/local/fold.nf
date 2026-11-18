@@ -8,6 +8,7 @@ builds its own MSA channel and calls FOLD_PREDICT directly.
 include { FOLD_MSA } from './fold_msa'
 include { FOLD_PREDICT } from './fold_predict'
 include { FOLD_TEMPLATES } from './fold_templates'
+include { msaSubsampleIsEnabled } from '../../modules/local/fold/common/msa_subsample'
 
 workflow FOLD {
     take:
@@ -23,7 +24,7 @@ workflow FOLD {
 
     def a3m_stub = file("${projectDir}/assets/dummy_files/empty")
     if (('af2' in methods) || ('af2_mono' in methods)) {
-        if (MsaSubsample.isEnabled(params.msa_subsample)) {
+        if (msaSubsampleIsEnabled(params.msa_subsample)) {
             ch_af2_in = FOLD_MSA.out.af2_msas
                 .join(FOLD_MSA.out.a3m.map { meta, fasta, a3m -> [meta, a3m] })
                 .map { meta, fasta, msas, a3m -> [meta, fasta, msas, a3m] }

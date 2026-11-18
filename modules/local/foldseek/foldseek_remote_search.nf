@@ -101,7 +101,7 @@ process FOLDSEEK_REMOTE_SEARCH {
         design=\$(basename "\$jf" .json)
         jq -r --arg d "\$design" '
             .results[]?.alignments[0][]? |
-            [$d, .database // "?", .target // "", .seqId // 0, .alnLength // 0,
+            [\$d, .database // "?", .target // "", .seqId // 0, .alnLength // 0,
              .prob // 0, .eval // 0, .score // 0, .qLen // 0, .dbLen // 0] |
             @tsv
         ' "\$jf" >> foldseek_remote_results.tsv 2>/dev/null || true

@@ -6,12 +6,13 @@
 process PREPARE_RF3_TEMPLATE {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
+    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'template_rf3.pdb', mode: 'copy'
+
     input:
     tuple path(structure), path(contigs_or_config), val(contigs_string), val(target_chain)
 
     output:
     path('template_rf3.pdb'), emit: pdb
-    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'template_rf3.pdb', mode: 'copy'
 
     script:
     def esc = contigs_string?.toString()?.replace("'", "'\"'\"'") ?: ''
@@ -63,14 +64,15 @@ process PREPARE_RF3_TEMPLATE {
 process RENAME_RF3_TEMPLATE_CHAINS {
     container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
 
+    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'template_rf3.*', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'rf3_template_selection_mapped.txt', mode: 'copy'
+
     input:
     tuple path(structure), val(target_chain), val(template_selection_b64)
 
     output:
     path('template_rf3.*'), emit: structure
     path('rf3_template_selection_mapped.txt'), emit: selection_mapped
-    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'template_rf3.*', mode: 'copy'
-    publishDir path: "${params.outdir}/rfd3/rf3_template", pattern: 'rf3_template_selection_mapped.txt', mode: 'copy'
 
     script:
     def name = structure.name

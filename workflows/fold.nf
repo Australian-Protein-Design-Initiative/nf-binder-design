@@ -109,6 +109,8 @@ params.gpu_slots_per_device = 1
 params.gpu_lock_timeout = 14400
 
 include { FOLD as FOLD_CORE } from '../subworkflows/local/fold'
+include { foldIdsValidateFoldIds } from '../modules/local/fold/common/fold_ids'
+include { foldValidationCountFastaChains; foldValidationParseMethods; foldValidationValidate } from '../modules/local/fold/common/fold_validation'
 
 workflow FOLD {
 
@@ -310,7 +312,7 @@ workflow FOLD {
         exit(1)
     }
 
-    def methods = FoldValidation.parseMethods(params.methods)
+    def methods = foldValidationParseMethods(params.methods)
 
     def p = params.input
     // A glob makes file() return a List, which has no isDirectory().
@@ -325,7 +327,7 @@ workflow FOLD {
     def MAX_CHAINS = 26
     def chain_counts = [:]
     input_paths.each { f ->
-        def (n_chains, empty_records) = FoldValidation.countFastaChains(f)
+        def (n_chains, empty_records) = foldValidationCountFastaChains(f)
         if (n_chains == 0) {
             error("fold: ${f} contains no FASTA records.")
         }
@@ -342,7 +344,7 @@ workflow FOLD {
     }
 
     def has_multimer = chain_counts.values().any { it > 1 }
-    def (errors, warnings) = FoldValidation.validate(params, methods, [
+    def (errors, warnings) = foldValidationValidate(params, methods, [
         hasMultimer: has_multimer,
         af2DbPath: params.af2_db_path,
     ])
@@ -351,7 +353,7 @@ workflow FOLD {
         error("fold: ${errors.join('\nfold: ')}")
     }
 
-    def id_errors = FoldIds.validateFoldIds(input_paths.collect { it.baseName })
+    def id_errors = foldIdsValidateFoldIds(input_paths.collect { it.baseName })
     if (id_errors) {
         error("fold: ${id_errors.join('\nfold: ')}")
     }

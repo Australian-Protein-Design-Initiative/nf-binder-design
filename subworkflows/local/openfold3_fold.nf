@@ -13,6 +13,10 @@ include { GENERATE_OPENFOLD3_INPUT } from '../../modules/local/fold/openfold3/ge
 include { GENERATE_OPENFOLD3_INPUT_COMPLEX } from '../../modules/local/fold/openfold3/generate_openfold3_input_complex'
 include { OPENFOLD3 as OPENFOLD3_PROCESS } from '../../modules/local/fold/openfold3/openfold3'
 include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
+include { foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldParamsEngine } from '../../modules/local/fold/common/fold_params'
+include { foldSeedsCollapse } from '../../modules/local/fold/common/fold_seeds'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -41,18 +45,18 @@ workflow OPENFOLD3_FOLD {
     publish_label
 
     main:
-    // Via FoldParams so a refolding workflow can namespace these away from its own
-    // same-named design-time parameters (see lib/FoldParams.groovy).
-    def batches = foldPredictionBatches(FoldParams.engine(params, 'openfold3_batch_size'), 5, params.n_predictions)
-    def openfold3_seeds = FoldParams.engine(params, 'openfold3_seeds')
+    // Via foldParamsEngine so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see modules/local/fold/common/fold_params.nf).
+    def batches = foldPredictionBatches(foldParamsEngine(params, 'openfold3_batch_size'), 5, params.n_predictions)
+    def openfold3_seeds = foldParamsEngine(params, 'openfold3_seeds')
     def base_seed = openfold3_seeds ? (openfold3_seeds.toString().split(',')[0].trim() as int) : 42
 
     // The runner YAML's experiment_settings.seeds is a list, and OpenFold3 writes each
     // seed to its own output/<name>/seed_<S>/ with the seed in the file names too, so
-    // the one-job-per-seed fan-out collapses into a single job (lib/FoldSeeds.groovy).
+    // the one-job-per-seed fan-out collapses into a single job (modules/local/fold/common/fold_seeds.nf).
     // Nothing downstream changes: the confidence rows and the flat predictions/ gather
     // both already key on a basename that carries the seed.
-    def seed_list = FoldSeeds.collapse('openfold3', batches, base_seed, params.fold_seed_list)
+    def seed_list = foldSeedsCollapse('openfold3', batches, base_seed, params.fold_seed_list)
     if (seed_list) {
         batches = [batches[0]]
     }
@@ -64,9 +68,9 @@ workflow OPENFOLD3_FOLD {
     ch_batched = ch_with_json.flatMap { meta, fasta, msa_dirs, query_json, of3_templates ->
         def is_mono = (meta.n_chains ?: 1) == 1
         def main_a3m = (msa_dirs instanceof List ? msa_dirs[0] : msa_dirs).resolve('colabfold_main.a3m')
-        def n_seq = (is_mono && MsaSubsample.isEnabled(params.msa_subsample)) \
-            ? MsaSubsample.countA3mSequences(main_a3m) : null
-        def depth_jobs = MsaSubsample.depthJobs(
+        def n_seq = (is_mono && msaSubsampleIsEnabled(params.msa_subsample)) \
+            ? msaSubsampleCountA3mSequences(main_a3m) : null
+        def depth_jobs = msaSubsampleDepthJobs(
             params.msa_subsample, params.msa_subsample_include_full, n_seq
         )
         def namespaced = batches.size() > 1 || depth_jobs.size() > 1
@@ -81,15 +85,15 @@ workflow OPENFOLD3_FOLD {
                     openfold3_seeds: seed_list ? seed_list.join(',') : null,
                 ]
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
-                else if (MsaSubsample.isEnabled(params.msa_subsample)) {
+                else if (msaSubsampleIsEnabled(params.msa_subsample)) {
                     m = m + [msa_depth_tag: 'full']
                 }
                 jobs << [m, fasta, msa_dirs, query_json, of3_templates]
@@ -119,7 +123,7 @@ workflow OPENFOLD3_FOLD {
                 def pae = byName[paeName]
                 def cif = byName[struct]
                 def doIpsae = (pae != null && cif != null)
-                def pred = "${FoldNaming.flatPrefix('openfold3', meta)}${struct}"
+                def pred = "${foldNamingFlatPrefix('openfold3', meta)}${struct}"
                 [meta, 'openfold3', model, struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }

@@ -10,6 +10,7 @@ clustering/<featurizer>/<gmm|km|hdbscan>/conformations/
 
 include { ENGENS_STAGE_STRUCTURE } from '../../modules/local/engens/engens_stage_structure'
 include { ENGENS } from '../../modules/local/engens/engens_cluster'
+include { foldNamingAf2Prefix; foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
 
 // Filter a prediction emit (often a nested directory dump) down to the
 // structure files that fold.nf also publishes into fold/predictions/.
@@ -59,26 +60,26 @@ def engensStructurePaths(files) {
 def engensUniqueName(meta, path) {
     def bn = path.getName().toString()
     def msa_bit = meta.msa_depth_tag ? "_msa${meta.msa_depth_tag}" : ''
-    // Build names from FoldNaming so EnGens staged names always equal the
+    // Build names from fold_naming so EnGens staged names always equal the
     // fold/predictions/ flat-gather names (a bespoke af2_${meta.id} prefix here
     // ignored meta.af2_tool, so --methods af2,af2_mono on a monomer collided).
     if (bn ==~ /relaxed_model_.*\.cif/ || bn ==~ /unrelaxed_model_.*\.cif/ || bn == 'ranked_0.cif') {
-        return "${FoldNaming.af2Prefix(meta)}${bn}"
+        return "${foldNamingAf2Prefix(meta)}${bn}"
     }
     if (bn ==~ /.*_model_\d+\.(cif|pdb)/ && !(bn ==~ /.*_sample.*/)) {
-        return "${FoldNaming.flatPrefix('boltz', meta)}${bn}"
+        return "${foldNamingFlatPrefix('boltz', meta)}${bn}"
     }
     if (bn ==~ /.*_sample-\d+_model\.cif/) {
         def tool = meta.fold_tool == 'af3' ? 'af3' : 'rf3'
-        return "${FoldNaming.flatPrefix(tool, meta)}${bn}"
+        return "${foldNamingFlatPrefix(tool, meta)}${bn}"
     }
     if (bn ==~ /.*_seed_\d+_sample_\d+_model\.cif/) {
         // OpenFold3, Chai-1 and ESMFold2 share this naming, so meta.fold_tool separates them.
         def tool = meta.fold_tool ?: 'openfold3'
-        return "${FoldNaming.flatPrefix(tool, meta)}${bn}"
+        return "${foldNamingFlatPrefix(tool, meta)}${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
-        return "${FoldNaming.flatPrefix('protenix', meta)}${bn}"
+        return "${foldNamingFlatPrefix('protenix', meta)}${bn}"
     }
     def batch = meta.fold_batch != null ? "_batch${meta.fold_batch}" : ''
     return "${meta.id}${batch}${msa_bit}_${bn}"

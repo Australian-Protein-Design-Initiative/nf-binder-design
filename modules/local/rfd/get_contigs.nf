@@ -5,7 +5,7 @@ process GET_CONTIGS {
     tuple path(input_pdb), val(chain_id)
 
     output:
-    tuple path(input_pdb), env(contigs), emit: contigs
+    tuple path(input_pdb), env('contigs'), emit: contigs
 
     script:
     def target_contigs_arg = params.target_contigs != 'auto' ? "--target_contigs '${params.target_contigs}'" : ''

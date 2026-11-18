@@ -19,6 +19,10 @@ include { GENERATE_ESMFOLD2_INPUT_COMPLEX } from '../../modules/local/fold/esmfo
 include { ESMFOLD2 as ESMFOLD2_PROCESS } from '../../modules/local/fold/esmfold2/esmfold2'
 include { ESMFOLD2 as ESMFOLD2_FAST_PROCESS } from '../../modules/local/fold/esmfold2/esmfold2'
 include { FOLD_PARSE_CONFIDENCE } from '../../modules/local/fold/common/fold_parse_confidence'
+include { foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldParamsEngine } from '../../modules/local/fold/common/fold_params'
+include { foldSeedsCollapse } from '../../modules/local/fold/common/fold_seeds'
+include { msaSubsampleCountA3mSequences; msaSubsampleDepthJobs; msaSubsampleDepthTag; msaSubsampleIsEnabled; msaSubsampleStableSeed } from '../../modules/local/fold/common/msa_subsample'
 
 // See boltz_fold.nf - same --n_predictions / --*_batch_size split semantics.
 def foldPredictionBatches(batch_size_param, int default_batch, n_predictions) {
@@ -47,18 +51,18 @@ workflow ESMFOLD2_FOLD {
     publish_label
 
     main:
-    // Via FoldParams so a refolding workflow can namespace these away from its own
-    // same-named design-time parameters (see lib/FoldParams.groovy).
-    def batches = foldPredictionBatches(FoldParams.engine(params, 'esmfold2_batch_size'), 5, params.n_predictions)
-    def esmfold2_seeds = FoldParams.engine(params, 'esmfold2_seeds')
+    // Via foldParamsEngine so a refolding workflow can namespace these away from its own
+    // same-named design-time parameters (see modules/local/fold/common/fold_params.nf).
+    def batches = foldPredictionBatches(foldParamsEngine(params, 'esmfold2_batch_size'), 5, params.n_predictions)
+    def esmfold2_seeds = foldParamsEngine(params, 'esmfold2_seeds')
     def base_seed = esmfold2_seeds ? (esmfold2_seeds.toString().split(',')[0].trim() as int) : 42
 
     // run_esmfold2.py folds each seed in turn with the model resident, so the
     // one-job-per-seed fan-out collapses into a single job carrying the whole list
-    // (see lib/FoldSeeds.groovy). The model load is most of the wall time here -
+    // (see modules/local/fold/common/fold_seeds.nf). The model load is most of the wall time here -
     // measured at 1m 8s per task for a 2-chain complex on a GB10, nearly all of it
     // startup - so this is the difference between one load and --n_predictions of them.
-    def seed_list = FoldSeeds.collapse(tool, batches, base_seed, params.fold_seed_list)
+    def seed_list = foldSeedsCollapse(tool, batches, base_seed, params.fold_seed_list)
     if (seed_list) {
         batches = [batches[0]]
     }
@@ -81,12 +85,12 @@ workflow ESMFOLD2_FOLD {
     ch_batched = ch_with_msa.flatMap { meta, fasta, a3ms ->
         def is_mono = (meta.n_chains ?: 1) == 1
         def main_a3m = a3ms instanceof List ? a3ms[0] : a3ms
-        def subsample = !single_sequence && MsaSubsample.isEnabled(params.msa_subsample)
-        def n_seq = (is_mono && subsample) ? MsaSubsample.countA3mSequences(main_a3m) : null
+        def subsample = !single_sequence && msaSubsampleIsEnabled(params.msa_subsample)
+        def n_seq = (is_mono && subsample) ? msaSubsampleCountA3mSequences(main_a3m) : null
         // Single-sequence runs get a placeholder, not an MSA, so there is nothing to
         // subsample (and its zero row count would reject every depth).
         def depth_jobs = subsample \
-            ? MsaSubsample.depthJobs(params.msa_subsample, params.msa_subsample_include_full, n_seq) \
+            ? msaSubsampleDepthJobs(params.msa_subsample, params.msa_subsample_include_full, n_seq) \
             : [null]
         def namespaced = batches.size() > 1 || depth_jobs.size() > 1
         def jobs = []
@@ -103,12 +107,12 @@ workflow ESMFOLD2_FOLD {
                     esmfold2_single_sequence: single_sequence,
                 ]
                 if (depth != null) {
-                    def s = MsaSubsample.stableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
+                    def s = msaSubsampleStableSeed(meta.id.toString(), i + 1, depth[0], depth[1])
                     m = m + [
                         msa_max_seq: depth[0],
                         msa_max_extra_seq: depth[1],
                         msa_subsample_seed: s,
-                        msa_depth_tag: MsaSubsample.depthTag(depth[0], depth[1]),
+                        msa_depth_tag: msaSubsampleDepthTag(depth[0], depth[1]),
                     ]
                 }
                 else if (subsample) {
@@ -151,7 +155,7 @@ workflow ESMFOLD2_FOLD {
                 def pae = byName[paeName]
                 def cif = byName[struct]
                 def doIpsae = (pae != null && cif != null)
-                def pred = "${FoldNaming.flatPrefix(tool, meta)}${struct}"
+                def pred = "${foldNamingFlatPrefix(tool, meta)}${struct}"
                 [meta, tool, model, struct, pred, j, doIpsae ? pae : no_ipsae_pae, doIpsae ? cif : no_ipsae_struct, doIpsae]
             }
     }

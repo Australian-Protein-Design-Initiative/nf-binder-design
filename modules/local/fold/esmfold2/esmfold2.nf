@@ -6,6 +6,9 @@
 // Weights are baked into the images under /weights/huggingface: biohub/ESMFold2
 // (~25 GB incl. the ESMC-6B encoder) in _full_weights, biohub/ESMFold2-Fast in
 // _fast_weights. --esmfold2_weights_dir points at an external HF cache instead.
+include { foldNamingFlatPrefix; foldNamingIsModelStructure } from '../common/fold_naming'
+include { foldParamsEngine } from '../common/fold_params'
+
 process ESMFOLD2 {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
@@ -28,8 +31,8 @@ process ESMFOLD2 {
         mode: 'copy',
         saveAs: { filename ->
             def bn = filename.toString().replaceFirst(/^.*\//, '')
-            if (!FoldNaming.isModelStructure(meta.esmfold2_tool ?: 'esmfold2', bn)) { return null }
-            return "${FoldNaming.flatPrefix(meta.esmfold2_tool, meta)}${bn}"
+            if (!foldNamingIsModelStructure(meta.esmfold2_tool ?: 'esmfold2', bn)) { return null }
+            return "${foldNamingFlatPrefix(meta.esmfold2_tool, meta)}${bn}"
         }
     )
     publishDir(
@@ -47,7 +50,7 @@ process ESMFOLD2 {
     tuple val(meta), path('output/*_summary_confidences.json'), emit: confidence_json
 
     script:
-    def n_samples = meta.fold_batch_size ?: (FoldParams.engine(params, 'esmfold2_batch_size') ?: 5)
+    def n_samples = meta.fold_batch_size ?: (foldParamsEngine(params, 'esmfold2_batch_size') ?: 5)
     def do_subsample = meta.msa_max_seq != null
     def write_msa_ids = meta.msa_depth_tag != null
     def batch_bit = meta.fold_namespaced ? "batch${meta.fold_batch}_" : ''

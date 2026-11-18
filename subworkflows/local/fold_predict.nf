@@ -38,7 +38,7 @@ workflow FOLD_PREDICT {
     main:
     // Every engine's predictions carry meta.fold_tool. ENGENS_CLUSTER uses it to rename
     // structures collision-free (several engines share *_seed_S_sample_N_model.cif), and
-    // REFOLD uses it to tell FoldNaming which naming rule picks the model structures out
+    // REFOLD uses it to tell foldNamingModelStructures which naming rule picks the model structures out
     // of an engine's output.
     ch_af2_pred = Channel.empty()
     ch_af2_mono_pred = Channel.empty()
