@@ -17,7 +17,7 @@ compared rather than by which rmsd4all run produced them:
     design_0  boltz  1      0      0.94                               1.21
 
 The model index comes from the mobile filename, which every engine ends with a
-sample or model number (see FoldNaming.isModelStructure). Where it cannot be read,
+sample or model number (see foldNamingIsModelStructure). Where it cannot be read,
 the rows are numbered in filename order so a design with several samples still
 gives distinct rows.
 
@@ -74,7 +74,7 @@ def main() -> int:
     parser.add_argument(
         "--model",
         help="Sample label for every row, as the engine's own score table writes it "
-             "(FoldNaming.sampleLabel). Given explicitly, the label is not guessed from "
+             "(foldNamingSampleLabel). Given explicitly, the label is not guessed from "
              "the filename, which keeps the two tables joinable.",
     )
     parser.add_argument(

@@ -138,7 +138,7 @@ def main() -> int:
             row_id = row.get("id", "")
             if row_id not in pairs:
                 # Guessing target/binder by splitting on '_and_' is ambiguous
-                # (see FoldIds.groovy pair-id collision check) and silently
+                # (see the pair-id collision check in modules/local/fold/common/fold_ids.nf) and silently
                 # mis-attributes a complex to the wrong target/binder - fail
                 # fast instead so a missing pairs.tsv row is never invented.
                 missing_ids.append(row_id)

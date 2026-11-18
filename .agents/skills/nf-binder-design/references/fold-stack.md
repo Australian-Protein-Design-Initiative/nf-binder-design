@@ -30,7 +30,7 @@ Set `--n_predictions N` in `fold` / `fold_pulldown` to pin every diffusion engin
 
 ## Parameter names: the `refold_` prefix rule
 
-`lib/FoldParams.groovy`: **where a `refold_`-prefixed copy of an engine parameter is declared, that prefixed name is the only one the refold reads.** Where no prefixed copy is declared, the refold reads the plain name.
+`modules/local/fold/common/fold_params.nf`: **where a `refold_`-prefixed copy of an engine parameter is declared, that prefixed name is the only one the refold reads.** Where no prefixed copy is declared, the refold reads the plain name.
 
 This exists because a workflow's parameters are one flat namespace and some plain names already mean something else at design time - `rfd3`'s `--rf3_batch_size` is MPNN designs per RF3 task, not samples per fold job. So:
 

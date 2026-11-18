@@ -109,13 +109,9 @@ per version to cover the supported range (see
 [Nextflow version compatibility](setup.md#nextflow-version-compatibility)):
 
 ```bash
-# 24.04.x and 25.04.x use the default parser
-for v in 24.04.3 25.04.7; do
+for v in 24.04.3 25.04.7 26.04.4; do
   NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test
 done
-
-# 26.04+ defaults to the strict parser; force the legacy parser
-NXF_VER=26.04.4 NXF_SYNTAX_PARSER=v1 nf-test test tests/pipeline/compilation.nf.test
 ```
 
 The repository root `nextflow.config` also pins `manifest.nextflowVersion` to
@@ -128,17 +124,18 @@ Alongside nf-test, lint `.nf` and `config` files with `nextflow lint`:
 
 ```bash
 # Use a Nextflow that ships the linter (e.g. 25.04.x)
-NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
+NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules \
+    nextflow.config conf tests
 ```
 
 Useful warnings include unused variables and parameters (prefix unused closure
 parameters with `_` to silence them).
 
-`nextflow lint` parses with the strict (v2) syntax, so it also flags constructs
-kept for Nextflow 24.04.3 compatibility: the conditional `include` statements in
-`main.nf`, `@Field`/`import` in `modules/local/rfd3/rfd3_utils.nf`, and multi-name
-function includes (shown as `... is not defined`). Those are expected and should
-**not** be changed in ways that break 24.04.3. Only run `nextflow lint -format`
+`nextflow lint` parses with the strict (v2) syntax, and the tree is clean under it.
+Treat anything it reports as a genuine issue to fix rather than an accepted
+false positive. The strict syntax is a subset of what 24.04.3 accepts, so a fix
+that satisfies the linter does not break 24.04.3 support - but run the
+compilation suite on 24.04.3 to confirm. Only run `nextflow lint -format`
 with `NXF_VER=25.04.7` (not 25.10+), so any reformatting stays compatible with
 older parsers. `nextflow lint` always uses the strict parser; `NXF_SYNTAX_PARSER=v1`
 has no effect on it (it only changes `nextflow run`). See

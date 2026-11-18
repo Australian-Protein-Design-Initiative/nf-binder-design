@@ -39,21 +39,12 @@ nextflow info
 
 ### Nextflow version compatibility
 
-The pipeline is tested against Nextflow `24.04.3` and `25.04.x`, and supports
-`>=23.04.0, <26.10` (enforced by `manifest.nextflowVersion`).
+The pipeline is tested against Nextflow `24.04.3`, `25.04.x` and `26.04.x`, and
+supports `>=23.04.0, <26.10` (enforced by `manifest.nextflowVersion`).
 
-!!! warning "Nextflow 26.04+ requires `NXF_SYNTAX_PARSER=v1`"
-    Nextflow `26.04` and later default to the new "strict" language parser, which
-    does not accept some constructs this pipeline relies on. **Without the legacy
-    parser you will get a cryptic `Unexpected input: 'include'` compilation error
-    before the pipeline even starts.** When running with Nextflow `26.04+`, select
-    the legacy parser first:
-
-```bash
-export NXF_SYNTAX_PARSER=v1
-```
-
-You can also set it inline for a single run, e.g. `NXF_SYNTAX_PARSER=v1 nextflow run ...`.
+The source parses under the strict (v2) language parser that Nextflow `26.04` and
+later use by default, so no `NXF_SYNTAX_PARSER=v1` is needed. If you set that
+variable for an older release of this pipeline, you can drop it.
 
 ## Pull the workflow using Nextflow
 

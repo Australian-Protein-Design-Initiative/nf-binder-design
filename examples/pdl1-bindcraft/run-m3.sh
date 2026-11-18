@@ -1,13 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# The site configs under conf/platforms/ still use top-level `def`, which Nextflow
-# >=26's default (strict) parser rejects, so ask for the v1 parser. Pinning an older
-# Nextflow instead does not work any more: the workflow scripts no longer compile
-# under 24.10.0, which rejects the `def` bindings in a workflow body with
-# "Variable `log` already defined in the process scope".
-export NXF_SYNTAX_PARSER=v1
-
 PIPELINE_DIR=../..
 
 DEFAULT_SLURM_ACCOUNT=$(sacctmgr --parsable2 show user -s ${USER} | tail -1 | cut -f 2 -d \|)

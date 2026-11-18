@@ -131,6 +131,18 @@ versioned docs are live.
 - Inside `script:` sections, ensure $ is correctly escaped - use \${BASH_VARIABLE} or \$(basename x) for shell variables or subshells, and no escaping for ${nextflow_variables}
 - Files passed between processes via channels should be or type `path()` or `file()` - passing files as a `val()` is almost always incorrect
 - Be aware that Nextflow channels do not behave like regular lists - consult the documentation (https://www.nextflow.io/docs/latest/reference/operator.html) to understand the methods ("operators") available on channels
-- Lint `.nf`/`config` changes with `NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules`. Fix genuine issues it reports (unused variables/parameters, style). Note that `nextflow lint` uses the strict (v2) parser, so it will also flag constructs we deliberately keep for 24.04.3 support (conditional `include` in `main.nf`, `@Field`/`import` in `rfd3_utils.nf`, multi-name function includes reported as "not defined"). Do NOT "fix" those in ways that break 24.04.3.
+- Lint `.nf`/`config` changes with `NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules nextflow.config conf tests`. The tree is clean under the strict parser and must stay that way -- treat any error it reports as a genuine issue to fix, not as a known false positive.
+- The strict syntax is a subset of what 24.04.3 accepts, so complying with it does not cost 24.04.3 support. Keep both: lint with 25.04.7, and run the compilation suite with `NXF_VER=24.04.3`.
+- Constructs the strict parser rejects, and what to write instead:
+  - Groovy classes and a `lib/` directory -- use Nextflow functions in a module (see `modules/local/fold/common/`), included explicitly.
+  - `switch` -- if-else chains. Classic `for`/`while` -- `each`/`collect`/`find`/`findAll`.
+  - `@Field` and `import` -- a function returning the value, and fully qualified names.
+  - Soft casts `(int) x` -- `x as int`, or avoid the cast.
+  - `x++` -- `x += 1`. The spread operator `list*.name` -- `list.collect { it.name }`.
+  - Conditional `include` -- include everything at the top level and branch in the entry workflow. Each script's `params.<name> = <default>` lines stay private to that script, so this does not merge their defaults.
+  - Closures assigned to a variable and called as `f(x)` -- a real function, or `f.call(x)`.
+  - In config: top-level `def` variables and functions -- params, or statements inside a closure. Dynamic (closure) values are only allowed in the `process` scope.
+  - In config: conditional `includeConfig` -- an immediately invoked closure returning the path, with `'/dev/null'` for "include nothing".
+- Config gotcha: a `params { }` value is evaluated where it is written. If a later-included config sets the param it depends on (as `spartan-a100.config` does for `spartan.config`), keep the consumer a closure so it is read at task time instead.
 - Avoid `nextflow lint -format` on 25.10+; if you must reformat, run it with `NXF_VER=25.04.7` so output stays compatible with parsers prior to 25.10.
 - `nextflow lint` always parses with the strict syntax; `NXF_SYNTAX_PARSER=v1` has no effect on it (that variable only changes `nextflow run`), so there is no point setting it when linting.

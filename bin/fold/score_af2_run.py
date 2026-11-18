@@ -17,7 +17,7 @@ fold/predictions saveAs rule:
   relax on (default): relaxed_model_*.pdb  (all 5 for keep=all; the best for keep=best)
   --af2_no_relax + keep=all:  unrelaxed_model_*.pdb
   --af2_no_relax + keep=best: ranked_0.pdb (-> ranking_debug order[0] model)
-predictions_file = <pred_prefix><cif basename>, matching FoldNaming.af2Prefix.
+predictions_file = <pred_prefix><cif basename>, matching foldNamingAf2Prefix.
 """
 
 import argparse
@@ -96,7 +96,7 @@ def main():
     p.add_argument("--id", required=True)
     p.add_argument("--tool", default="af2", choices=("af2", "af2_mono"),
                    help="tool tag for the TSV: af2 (multimer) or af2_mono (chain break)")
-    p.add_argument("--pred-prefix", required=True, help="FoldNaming.af2Prefix(meta)")
+    p.add_argument("--pred-prefix", required=True, help="foldNamingAf2Prefix(meta)")
     p.add_argument("--batch", default="", help="fold.nf batch index (meta.af2_run); blank if unbatched")
     p.add_argument("--msa-depth", default="", help="fold.nf MSA subsample depth tag (meta.msa_depth_tag); blank if full-depth")
     p.add_argument("--keep-models", default="all", choices=("all", "best"))
