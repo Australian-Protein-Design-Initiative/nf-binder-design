@@ -47,18 +47,11 @@ NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules 
 `nextflow lint` catches genuine issues such as unused variables and parameters
 (prefix unused closure parameters with `_` to silence those warnings).
 
-It parses with the strict (v2) syntax, and the tree is clean under it: keep it
-that way, and treat every error it reports as something to fix. The strict syntax
-is a subset of what 24.04.3 accepts, so complying with it does not cost 24.04.3
-support; confirm with `NXF_VER=24.04.3 nf-test test tests/pipeline/compilation.nf.test`.
-See [Nextflow version compatibility](../setup.md#nextflow-version-compatibility).
-
-Avoid `nextflow lint -format` on Nextflow 25.10+, as it rewrites code to the
-strict syntax; if you need to reformat, run it with `NXF_VER=25.04.7` so the
-result stays compatible with parsers prior to 25.10.
-
-`nextflow lint` always parses with the strict syntax; `NXF_SYNTAX_PARSER=v1` has
-no effect on it (that variable only changes `nextflow run`).
+The tree is clean under the linter; keep it that way and treat every error it
+reports as something to fix. Confirm the oldest supported version still works
+with `NXF_VER=24.04.3 nf-test test tests/pipeline/compilation.nf.test`. If you
+need to reformat, run `nextflow lint -format` with `NXF_VER=25.04.7` rather than
+25.10+, whose output older parsers reject.
 
 ## Releasing
 
