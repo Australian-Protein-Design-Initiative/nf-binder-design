@@ -31,8 +31,23 @@ def _entity_file_path(entity: dict) -> Optional[Union[str, List[str]]]:
 
 
 def _make_symlink(target_path: Path, source_abs: Path) -> None:
-    """Create a relative symlink at target_path pointing to source_abs."""
+    """Create a relative symlink at target_path pointing to source_abs.
+
+    When the target and the source are the same file, there is nothing to stage and
+    linking would destroy the input: the unlink below deletes the real file and the
+    symlink that replaces it points at its own basename, so the path resolves to a
+    one-element loop and the tool reports the input as missing. This happens whenever a
+    config names an absolute path that already lies under the config directory, because
+    `_stage_one` then computes `target_path` back to the source it started from.
+    """
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if target_path.exists() and target_path.resolve() == source_abs.resolve():
+            return
+    except OSError:
+        # A pre-existing broken link, including a self-link left by an earlier run.
+        # Fall through and replace it.
+        pass
     rel_source = os.path.relpath(source_abs, target_path.parent)
     if target_path.exists() or target_path.is_symlink():
         target_path.unlink()
