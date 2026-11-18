@@ -52,7 +52,15 @@ nextflow pull Australian-Protein-Design-Initiative/nf-binder-design
 
 ### AI Agent Skill
 
-An agent skill is included at [`.agents/skills/nf-binder-design/`](.agents/skills/nf-binder-design/SKILL.md) to help AI coding agents set up, configure, and run the pipeline. Install it into your project with [skills](https://github.com/vercel-labs/skills):
+An agent skill is included at [`.agents/skills/nf-binder-design/`](.agents/skills/nf-binder-design/SKILL.md) to help AI coding agents set up, configure, and run the pipeline.
+
+The simplest way to use it is to ask your agent directly:
+
+> Install the skill and associated reference docs from
+> https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/.agents/skills/nf-binder-design/SKILL.md
+> and help me get started making protein designs
+
+As an alternative, install it into the current project with [skills](https://github.com/vercel-labs/skills):
 
 ```bash
 npx skills add Australian-Protein-Design-Initiative/nf-binder-design --skill nf-binder-design

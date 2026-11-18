@@ -86,6 +86,35 @@ cd nf-binder-design
 nextflow run main.nf --help
 ```
 
+## AI Agent Skill
+
+An agent skill ships with the pipeline at
+[`.agents/skills/nf-binder-design/`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/.agents/skills/nf-binder-design/SKILL.md),
+with reference documents covering each workflow, target preparation, HPC
+configuration and troubleshooting. It gives an AI coding agent (Claude Code,
+Codex, Cursor, Gemini CLI and others) the parameter names, defaults and known
+pitfalls it would otherwise guess at.
+
+The simplest way to use it is to ask your agent directly:
+
+> Install the skill and associated reference docs from
+> https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/.agents/skills/nf-binder-design/SKILL.md
+> and help me get started making protein designs
+
+The agent will fetch `SKILL.md` and the `references/` documents beside it, put
+them wherever your agent keeps skills, and then work through setting up a run
+with you.
+
+As an alternative, [skills](https://github.com/vercel-labs/skills) installs it
+into the current project non-interactively:
+
+```bash
+npx skills add Australian-Protein-Design-Initiative/nf-binder-design --skill nf-binder-design
+```
+
+Either way, check what the agent proposes before running it: an agent will
+happily queue a job that costs GPU hours.
+
 ## Container Setup
 
 These workflows use Apptainer containers for reproducibility. 
