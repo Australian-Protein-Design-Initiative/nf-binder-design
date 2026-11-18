@@ -22,7 +22,7 @@ nav:
   - Extra:
       - Examples: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md
       - Development: extra/development.md
-      - Multiple GPUs: extra/multi-gpu.md
+      - Multiple GPU Workstations: extra/multi-gpu.md
       - Fold Databases: extra/fold-databases.md
       - Utility Scripts: extra/utility-scripts.md
       - M3 HPC Examples: extra/m3-hpc-examples.md
