@@ -165,7 +165,13 @@ Use `--method rfd3 --help` for the definitive list.
 | `--rf3_early_stopping_plddt_threshold` | Exit early if pLDDT is below this after 1st recycle | 0.5 |
 | `--rf3_create_target_msa` | Generate target MSA via ColabFold | `false` |
 | `--rf3_use_msa_server` | Use public API for MSA (needs `--rf3_create_target_msa=true`) | `false` |
+| `--rf3_target_msa` | External A3M for the target chain, used as-is; no MMseqs2/ColabFold search runs. Mutually exclusive with `--rf3_create_target_msa` | None |
+| `--rf3_target_fasta` | Query sequence for building the target MSA (only with `--rf3_create_target_msa` and no `--rf3_target_msa`). Unset means chain A of `--input_pdb` / the config `input`, or the prepared `--rf3_target_template`. Mutually exclusive with `--rf3_target_template` | None |
 | `--rf3_target_template` | Alternative PDB to use as the RF3 target template | None |
+
+**Renamed.** `--rf3_alignment` is now `--rf3_target_msa`, for consistency with every other MSA parameter in the pipeline. The old name is still declared and setting it stops the run (`workflows/rfd3.nf`), rather than being silently ignored.
+
+Local MSA search (`--rf3_create_target_msa` with no `--rf3_target_msa` and no `--rf3_use_msa_server`) needs `--colabfold_envdb` and `--uniref30`.
 
 ### Refold Scoring (Optional)
 

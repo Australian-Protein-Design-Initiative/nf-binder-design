@@ -109,6 +109,8 @@ Renumber the input target PDB to 1…N per chain (e.g. `bin/renumber_chains.py`)
 
 ## Notes
 
+- **Never set `seq_entropy_threshold: 0`** in the Germinal YAML to disable the sequence entropy filter. Germinal reads the value and on zero replaces it with `None`, printing "Sequence entropy threshold set to 0, disabling filter" (`germinal/design/design.py:154-157`), but the two places that use it (lines 286 and 317) then compare a float against `None` with no guard. Every trajectory dies with `TypeError: '<' not supported between instances of 'float' and 'NoneType'`. Use a tiny non-zero value such as `1.0e-9`, which passes everything without taking the broken path. Upstream bug, not a pipeline one.
+- Germinal's `failure_counts.csv` labels every rejected trajectory `Trajectory_softmax_pLDDT` even when pLDDT passed. The gate is a four-way AND and the counter is named after its first limb, so the label does not tell you which criterion actually failed.
 - The nanobody scaffold (`nb.pdb`) is copied from the container into `pdb_dir` if missing.
 - `target.target_pdb_path` in the config should be relative (e.g. `pdbs/pdl1.pdb`) so paths resolve from the process working directory.
 - Stopping criteria per batch: whichever of `max_trajectories`, `max_hallucinated_trajectories`, or `max_passing_designs` is reached first.

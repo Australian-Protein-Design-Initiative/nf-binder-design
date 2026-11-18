@@ -3,7 +3,8 @@ name: nf-binder-design
 description: >-
   Runs the nf-binder-design Nextflow pipeline for de novo protein binder design.
   Covers RFdiffusion (--method rfd), partial diffusion (--method rfd_partial),
-  RFdiffusion3 (--method rfd3), BindCraft (--method bindcraft), Germinal
+  RFdiffusion3 (--method rfd3), RFD4-Proteina (--method rfd4_proteina),
+  BindCraft (--method bindcraft), Germinal
   (--method germinal), BoltzGen (--method boltzgen),
   Fold Pulldown (--method fold_pulldown),
   Fold (--method fold), and FoldSeek (--method foldseek or --do_foldseek).
@@ -101,6 +102,7 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `rfd` | RFdiffusion → ProteinMPNN → AF2 initial guess | Standard de novo binder design |
 | `rfd_partial` | Partial diffusion refinement | Optimise/diversify existing binder designs |
 | `rfd3` | RFdiffusion3 → MPNN → RosettaFold3 | De novo design with RFDiffusion3 |
+| `rfd4_proteina` | RFD4-Proteina flow matching, sequence and structure in one pass | De novo design with no separate inverse-folding step; the only arm64/GB10 generator |
 | `bindcraft` | BindCraft in parallel | End-to-end design with built-in validation |
 | `germinal` | Germinal in parallel | Antibody and nanobody design via Hydra YAML |
 | `boltzgen` | BoltzGen generative model | Protein, peptide, nanobody, or small-molecule binders |
@@ -108,11 +110,13 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2 |
 | `foldseek` | FoldSeek structural search | Annotate designs against CATH/PDB databases |
 
-Add `--do_foldseek` to `rfd`, `rfd3`, `bindcraft`, or `boltzgen` to run FoldSeek on outputs inline.
+Add `--do_foldseek` to `rfd`, `rfd3`, `rfd4_proteina`, `bindcraft`, or `boltzgen` to run FoldSeek on outputs inline.
 
 ### Refold scoring (`--refold_with`)
 
 Every design workflow - `rfd`, `rfd_partial`, `rfd3`, `rfd4_proteina`, `bindcraft`, `germinal` - takes `--refold_with`, which folds selected designs again with one or more independent predictors. It is a held-out second opinion **in addition to** each workflow's own cofold (AF2 initial guess in `rfd`/`rfd_partial`, RF3 in `rfd3`, BindCraft's and Germinal's own AF2 passes), not a replacement for it. That first cofold's scores are what the refold selects on. Off by default.
+
+`rfd4_proteina` is the exception: it co-designs sequence and structure in one pass and has no cofold, so the refold is the only validation and the selection can only read the structural metrics from `--rfd4_filters`.
 
 | Flag | Meaning |
 |------|---------|
@@ -124,19 +128,39 @@ Every design workflow - `rfd`, `rfd_partial`, `rfd3`, `rfd4_proteina`, `bindcraf
 | `--refold_target_fasta` | Refold against a different target than the designs were built against - the full-length protein when the design used a truncated construct. FASTA of **exactly one record**. Unset means the target chain read back out of the design structures |
 | `--templates` / `--target_msa` / `--create_target_msa` | The refold target's template structures, an A3M built elsewhere, or an MSA search. These carry no `--refold_` prefix: in a design workflow the fold stack only ever runs for the refold |
 
+Sampling and aggregation, shared with `fold` / `fold_pulldown`:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--n_predictions` | 5 | Structures per design per engine. Run as N separate single-sample jobs with distinct seeds (42, 43, ...), not one job of N samples: samples from one seed share the trunk and differ only in diffusion noise, separate seeds are independent trajectories |
+| `--refold_<engine>_batch_size` | 1 | Samples per fold job for that engine (`--refold_boltz_batch_size`, `--refold_rf3_batch_size`, ...; also `--protenix_batch_size`). `--n_predictions 6 --refold_boltz_batch_size 3` is 2 seeds of 3 samples |
+| `--fold_seed_list` | `true` | Hand the whole seed list to engines that take several seeds per invocation (`esmfold2`, `esmfold2_fast`, `openfold3`, `protenix`, `af3` via `--af3_seeds`), saving repeated model loads. Boltz and RF3 run one job per seed regardless. `false` disables grouping everywhere |
+| `--refold_structure_stat` | `selected` | How structural and interface columns reduce across samples. `selected` takes them all from the one sample ranked best by `--consensus_metric`, so they describe a single coherent structure; `min`/`mean`/`max`/`first` apply that operator per column instead. Confidence columns always get direct aggregates (`_max`, `_mean`, `n`) |
+| `--consensus_metric` | `ipsae` | The metric that ranks samples for `selected`, and the basis of `consensus_z` |
+| `--refold_metrics` | iptm/ipsae/plddt/ptm/pae | Which summary metrics reach `combined_scores.tsv` |
+| `--refold_binder_monomer` | `true` | Also predict the binder alone, giving `<tool>_monomer_vs_design_rmsd_all` and `<tool>_monomer_vs_complex_rmsd_all` |
+| `--refold_monomer_single_sequence` | `true` | Fold those monomers without an MSA |
+| `--refold_interface_scoring` | `true` | BindCraft interface metrics on the refolded complexes (`<tool>_interface_dG`, `<tool>_interface_dSASA`, ...) |
+
+`refold_sample_scores.tsv` keeps the unaggregated per-sample values; `<tool>_selected_batch` and `<tool>_selected_model` in `combined_scores.tsv` name the sample the structural metrics came from.
+
+**Engine parameter names are prefixed for the refold where a prefixed copy exists**, and that prefixed name is then the only one read: `--refold_boltz_batch_size`, `--refold_boltz_seed`, the whole `--refold_rf3_*` set, `--refold_esmfold2_*`, `--refold_chai1_*`, `--refold_openfold3_*`, `--refold_af3_batch_size`. Plain `--boltz_*` / `--rf3_*` do nothing to the refold - `rfd3`'s `--rf3_batch_size` is MPNN designs per RF3 task, a different meaning in the same flat namespace. Where no prefixed copy is declared the plain name is read, which is the case for `--protenix_*`, `--af2_*` and `--af3_seeds`. Full table in `references/fold-stack.md`.
+
 With a target longer than the design's, `<tool>_complex_rmsd_all` and `<tool>_complex_tm_score_all` come back as `nan` (different residue counts); the `_pruned` variants and `<tool>_target_aligned_binder_rmsd_*`, the pose metric, still work.
 
 Changing `--refold_filter` / `--refold_sort_by` / `--refold_max` on a `-resume` needs a fresh `--outdir`: the refold tables are gathered with `collectFile(storeDir:)`, which reuses the file already there, so the scores and the selection report end up describing different design sets with no error.
 
 Results go to `<outdir>/<method>/refold/`: `refold_scores.tsv` (merged into `combined_scores.tsv` as engine-prefixed columns `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_target_aligned_binder_rmsd_all`, `<tool>_interface_dG`, ...), `refold_sample_scores.tsv` and `refold_selection.tsv` (every design's selection verdict, rank and sort value).
 
-**Renamed/removed.** The whole `--full_refold_*` family is now `--refold_*` (`--full_refold_filter_sort` → `--refold_sort_by`). Deprecated but working, with a warning: `--refold_af2ig_filters` (→ `--refold_filter`), `--refold_oracles` (→ `--refold_with`), `--refold_oracles_max` (→ `--refold_max`). Removed, and setting one stops the run: `--refold_create_target_msa` (→ `--create_target_msa`), `--refold_use_msa_server` (→ `--use_msa_server`), `--refold_target_templates` (→ `--templates`), `--refold_alignment` (→ `--target_msa`), `--boltz_refold_batch_size`. `--refold_target_fasta` is **not** removed - it kept its name, see the table above.
+**Renamed/removed.** Deprecated but working, with a warning: `--refold_af2ig_filters` (→ `--refold_filter`), `--refold_oracles` (→ `--refold_with`), `--refold_oracles_max` (→ `--refold_max`). Removed, and setting one stops the run with its replacement named: `--refold_create_target_msa` (→ `--create_target_msa`), `--refold_use_msa_server` (→ `--use_msa_server`), `--refold_target_templates` (→ `--templates`), `--refold_alignment` (→ `--target_msa`), `--refold_oracle_metrics` (→ `--refold_metrics`), `--refold_oracle_target_id` (→ `--refold_target_id`), `--boltz_refold_batch_size` (→ `--refold_boltz_batch_size`, now samples per fold job). `--refold_target_fasta` is **not** removed - it kept its name, see the table above.
+
+The old `--full_refold_*` family (`--full_refold_with`, `--full_refold_filter_sort`, ...) is now `--refold_*` (`--full_refold_filter_sort` → `--refold_sort_by`), but unlike the names above these are not declared anywhere, so setting one draws only Nextflow's generic unknown-parameter warning and the run carries on with the default. Check for them by hand when porting an old command line.
 
 **`rfd3` behaviour change.** `--full_refold_filter_sort` defaulted to `pair_pae_min`, so `--refold_max` implicitly took the best designs. `--refold_sort_by` defaults to unset, so a cap alone now takes the first N to finish. Add `--refold_sort_by='pair_pae_min'` to keep the old behaviour.
 
 ## Choosing a Method
 
-1. **New binder from scratch?** → `rfd` (established) or `bindcraft` (end-to-end) or `boltzgen` (protein/peptide/nanobody/small-molecule)
+1. **New binder from scratch?** → `rfd` (established) or `bindcraft` (end-to-end) or `boltzgen` (protein/peptide/nanobody/small-molecule) or `rfd4_proteina` (sequence and structure co-designed in one pass)
 2. **Antibody or nanobody?** → `germinal` (Hydra YAML) or `boltzgen` with `nanobody-anything`
 3. **Refine existing designs?** → `rfd_partial`
 4. **Validate binder sequences?** → `fold_pulldown` (use `--methods boltz` for a Boltz-only run)
@@ -208,6 +232,21 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 Config mode (atom-level hotspots): `--rfd3_config input/rfd3_config.json`. → `references/rfd3-workflow.md`
 
+### rfd4_proteina (RFD4-Proteina)
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method rfd4_proteina \
+  --input_pdb input/target.cif \
+  --contigs "50-120, /0, A17-131" \
+  --hotspot_res "A56,A115" \
+  --rfd4_n_designs 20 \
+  --outdir results \
+  -profile local -resume
+```
+
+Condition-spec mode, which is the full conditioning vocabulary: `--rfd4_config pdl1_binder.yaml`, with no `--input_pdb`. Residue numbers in contigs and conditions are mmCIF `label_seq_id`, not author numbering. → `references/rfd4-proteina-workflow.md`
+
 ### bindcraft (BindCraft)
 
 ```bash
@@ -271,6 +310,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   -profile slurm,m3 -resume
 ```
 
+Samples per complex, job splitting and seeds: `--n_predictions` is unset by default here, so each engine uses its own default. → `references/fold-stack.md`
+
 ### fold (multi-method structure prediction)
 
 ```bash
@@ -282,6 +323,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --outdir results \
   -profile slurm,m3 -resume
 ```
+
+→ `references/fold-stack.md` for `--n_predictions`, `--*_batch_size` and seeds.
 
 ### foldseek (FoldSeek)
 
@@ -303,6 +346,7 @@ Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.m
 |--------|-----------------|
 | `rfd` / `rfd_partial` | `combined_scores.tsv`, `binders.fasta`, `af2_initial_guess/pdbs/`, `rfd/refold/` (if `--refold_with`) |
 | `rfd3` | `rfd3/combined_scores.tsv`, `rfdiffusion3/output/`, `rosettafold3/output/`, `rfd3/refold/` (if `--refold_with`) |
+| `rfd4_proteina` | `rfd4_proteina/combined_scores.tsv`, `rfd4_proteina/designs/` (mmCIF), `rfd4_proteina/binders.fasta`, `rfd4_proteina/filter/` (if `--rfd4_filters`), `rfd4_proteina/refold/` (if `--refold_with`) |
 | `bindcraft` | `bindcraft/accepted/`, `bindcraft/bindcraft_report.html`, `bindcraft/final_design_stats.csv`, `bindcraft/refold/` (if `--refold_with`) |
 | `germinal` | `germinal/accepted_designs.csv`, `germinal/accepted/structures/`, `germinal/refold/` (if `--refold_with`) |
 | `boltzgen` | `boltzgen/filtered/final_ranked_designs/`, `boltzgen/merged/` |
@@ -334,9 +378,11 @@ Read on demand — do not load all upfront:
 |------|----------|
 | `references/rfd-workflow.md` | RFdiffusion, partial diffusion, filters, refold scoring, RMSD |
 | `references/rfd3-workflow.md` | RFD3 params/config modes, MPNN, RF3, refold scoring |
+| `references/rfd4-proteina-workflow.md` | RFD4-Proteina condition specs, contigs, filters, arm64/GB10 notes |
 | `references/bindcraft-workflow.md` | BindCraft parameters, presets, VRAM |
 | `references/germinal-workflow.md` | Germinal Hydra config, parallelisation |
 | `references/boltzgen-workflow.md` | BoltzGen YAML, protocols, filtering |
+| `references/fold-stack.md` | Seeds, samples and batch sizes shared by `fold`, `fold_pulldown` and the refold |
 | `references/foldseek-workflow.md` | `--do_foldseek` flag and `--method foldseek` |
 | `references/target-preparation.md` | Target viability and structure preparation |
 | `references/setup-and-hpc.md` | Installation and HPC configuration |

@@ -22,7 +22,7 @@
       "expectations": [
         "Uses --method boltzgen",
         "Sets --protocol nanobody-anything, --batch_size and --num_designs",
-        "Advises on the number of designs suggested by the BoltzGen documentation for a full production run (40,000 - 60,000)"
+        "Advises on the number of designs suggested by the BoltzGen documentation for a full production run (40,000 - 60,000)",
         "Mentions --config_yaml requirement",
         "Notes BoltzGen 1-based residue indexing and renumber_chains.py if needed",
         "Warns about absolute paths in BoltzGen YAML"
