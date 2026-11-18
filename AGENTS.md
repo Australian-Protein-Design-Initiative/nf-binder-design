@@ -143,6 +143,7 @@ versioned docs are live.
   - Closures assigned to a variable and called as `f(x)` -- a real function, or `f.call(x)`.
   - In config: top-level `def` variables and functions -- params, or statements inside a closure. Dynamic (closure) values are only allowed in the `process` scope.
   - In config: conditional `includeConfig` -- an immediately invoked closure returning the path, with `'/dev/null'` for "include nothing".
+- `publishDir` gotcha: a `path:` or `pattern:` that interpolates one of the process's own inputs (`${meta.id}`, `${batch_id}`, `${step}`) must be a closure -- `publishDir path: { "...${meta.id}" }`. Written as a plain string it works on 24.04.3 but fails on Nextflow 26 with `No such variable: meta` before any task runs. `params`, `task` and `workflow` references are fine either way.
 - Config gotcha: a `params { }` value is evaluated where it is written. If a later-included config sets the param it depends on (as `spartan-a100.config` does for `spartan.config`), keep the consumer a closure so it is read at task time instead.
 - Avoid `nextflow lint -format` on 25.10+; if you must reformat, run it with `NXF_VER=25.04.7` so output stays compatible with parsers prior to 25.10.
 - `nextflow lint` always parses with the strict syntax; `NXF_SYNTAX_PARSER=v1` has no effect on it (that variable only changes `nextflow run`), so there is no point setting it when linting.
