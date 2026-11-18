@@ -101,15 +101,12 @@ def refoldCompare(score, String op, String expected) {
         if (actual == null) {
             return false
         }
-        switch (op) {
-            case '>': return actual > wanted
-            case '<': return actual < wanted
-            case '>=': return actual >= wanted
-            case '<=': return actual <= wanted
-            case '==':
-            case '=': return actual == wanted
-            case '!=': return actual != wanted
-        }
+        if (op == '>') return actual > wanted
+        if (op == '<') return actual < wanted
+        if (op == '>=') return actual >= wanted
+        if (op == '<=') return actual <= wanted
+        if (op == '==' || op == '=') return actual == wanted
+        if (op == '!=') return actual != wanted
     }
 
     def lowered = expected.toLowerCase()
@@ -118,27 +115,20 @@ def refoldCompare(score, String op, String expected) {
         def actualBool = score == null
             ? false
             : (score instanceof Boolean ? score : score.toString().toLowerCase() in ['true', 'yes', '1'])
-        switch (op) {
-            case '==':
-            case '=': return actualBool == wantedBool
-            case '!=': return actualBool != wantedBool
-            default:
-                throw new IllegalArgumentException(
-                    "Operator '${op}' does not apply to the boolean value '${expected}'."
-                )
-        }
+        if (op == '==' || op == '=') return actualBool == wantedBool
+        if (op == '!=') return actualBool != wantedBool
+        throw new IllegalArgumentException(
+            "Operator '${op}' does not apply to the boolean value '${expected}'."
+        )
     }
 
     def actual = score == null ? '' : score.toString()
-    switch (op) {
-        case '==':
-        case '=': return actual == expected
-        case '!=': return actual != expected
-        case '>': return actual > expected
-        case '<': return actual < expected
-        case '>=': return actual >= expected
-        case '<=': return actual <= expected
-    }
+    if (op == '==' || op == '=') return actual == expected
+    if (op == '!=') return actual != expected
+    if (op == '>') return actual > expected
+    if (op == '<') return actual < expected
+    if (op == '>=') return actual >= expected
+    if (op == '<=') return actual <= expected
     return false
 }
 

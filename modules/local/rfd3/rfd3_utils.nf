@@ -1,15 +1,15 @@
 // Utility functions for RFD3 workflows
 
-import groovy.transform.Field
-
-@Field
-def AA_1TO3 = [
-    'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
-    'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
-    'M': 'MET', 'N': 'ASN', 'P': 'PRO', 'Q': 'GLN', 'R': 'ARG',
-    'S': 'SER', 'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR',
-    'X': 'UNK',
-]
+// Strict syntax has no script-level variables (no @Field), so the table is a function.
+def aa1To3() {
+    return [
+        'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
+        'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
+        'M': 'MET', 'N': 'ASN', 'P': 'PRO', 'Q': 'GLN', 'R': 'ARG',
+        'S': 'SER', 'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR',
+        'X': 'UNK',
+    ]
+}
 
 /**
  * Normalise contig string for RFD3: if it looks like v1 style (starts with [ and ends with ]),
@@ -51,8 +51,9 @@ def convertOmitAas(String omitStr) {
     if (!omitStr) {
         return null
     }
+    def aa_1to3 = aa1To3()
     def threeLetterList = omitStr.toUpperCase().collect { ch ->
-        AA_1TO3.containsKey(ch) ? "\"${AA_1TO3[ch]}\"" : null
+        aa_1to3.containsKey(ch) ? "\"${aa_1to3[ch]}\"" : null
     }.findAll { it != null }
 
     return "[${threeLetterList.join(',')}]"
@@ -157,7 +158,7 @@ String inferBinderChainFromContig(String contig) {
             "Expected exactly one binder polymer (length-only segments); found ${binderIndices.size()} in contig '${contig}' (v3='${v3}')"
         )
     }
-    return String.valueOf((char) ('A'.charAt(0) + binderIndices[0]))
+    return ('A'..'Z')[binderIndices[0]]
 }
 
 List<String> resolveRfd3TargetBinderChainLetters(String contig, String explicitBinder = null) {
@@ -171,20 +172,17 @@ List<String> resolveRfd3TargetBinderChainLetters(String contig, String explicitB
             "Expected exactly two contig polymers for RFD3 target/binder chain IDs; got ${polymers.size()} in contig '${contig}' (v3='${v3}')"
         )
     }
-    int bi
-    String binder
+    def binder
     if (explicitBinder) {
         binder = explicitBinder.trim().split(',')[0].trim().toUpperCase()
         if (binder.length() != 1 || !(binder in ['A', 'B'])) {
             throw new Exception("For a two-polymer contig, explicit binder chain must be A or B; got '${explicitBinder}'")
         }
-        bi = ((int) binder.charAt(0)) - ((int) 'A'.charAt(0))
     } else {
         binder = inferBinderChainFromContig(contig)
-        bi = ((int) binder.charAt(0)) - ((int) 'A'.charAt(0))
     }
-    def ti = 1 - bi
-    def target = String.valueOf((char) ('A'.charAt(0) + ti))
+    def bi = ('A'..'Z').indexOf(binder)
+    def target = ('A'..'Z')[1 - bi]
     return [target, binder]
 }
 
@@ -392,20 +390,15 @@ Map resolveMpnnCheckpoint(params, def mpnnWeightsNoise = null) {
         relPath = "proteinmpnn_v_48_${fileNoise}.pt"
     } else {
         def preset = params.mpnn_preset.toString().trim().toLowerCase()
-        switch (preset) {
-            case 'vanilla':
-                def fileNoise = noise == '005' ? '002' : noise
-                relPath = "proteinmpnn_v_48_${fileNoise}.pt"
-                break
-            case 'soluble':
-                def fileNoiseS = noise == '005' ? '002' : noise
-                relPath = "solublempnn_v_48_${fileNoiseS}.pt"
-                break
-            case 'hyper':
-                relPath = "v48_${noise}_epoch300_hyper.pt"
-                break
-            default:
-                throw new Exception("invalid mpnn_preset: ${preset}")
+        def fileNoise = noise == '005' ? '002' : noise
+        if (preset == 'vanilla') {
+            relPath = "proteinmpnn_v_48_${fileNoise}.pt"
+        } else if (preset == 'soluble') {
+            relPath = "solublempnn_v_48_${fileNoise}.pt"
+        } else if (preset == 'hyper') {
+            relPath = "v48_${noise}_epoch300_hyper.pt"
+        } else {
+            throw new Exception("invalid mpnn_preset: ${preset}")
         }
     }
 
