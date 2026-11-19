@@ -14,17 +14,17 @@ So `--n_predictions 6 --boltz_batch_size 3` is 2 jobs, seeds `base` and `base+1`
 
 **Samples in one job are not independent.** Engines that batch samples share one trunk and recycling pass across the batch, so N samples from one seed differ only in the diffusion noise drawn afterwards. N separate seeds re-run the whole prediction. More seeds is more sampling diversity; a bigger batch is cheaper. The trade-off is model loading, paid once per job - roughly 45 s per Boltz load on a GB10.
 
-## Defaults differ: refold vs fold / fold_pulldown
+## Defaults differ between the three entry points
 
-| | `--refold_with` | `--method fold` / `fold_pulldown` |
-|---|---|---|
-| `--n_predictions` | **5** (`conf/refold_fold_stack.config`) | **unset**: each engine falls back to its own default |
-| `--<engine>_batch_size` | **1**, so 5 predictions is 5 jobs of 1 sample, each with its own seed | unset: one job of N samples |
-| Base seeds | fixed (42, or 1 for AF3), so runs are reproducible | mostly unset: each engine draws its own random seed |
+| | `--refold_with` | `--method fold_pulldown` | `--method fold` |
+|---|---|---|---|
+| `--n_predictions` | **5** (`conf/refold_fold_stack.config`) | **5** (`workflows/fold_pulldown.nf`) | **unset**: each engine falls back to its own default |
+| `--<engine>_batch_size` | **1**, so 5 predictions is 5 jobs of 1 sample, each with its own seed | unset: one job of N samples | unset: one job of N samples |
+| Base seeds | fixed (42, or 1 for AF3), so runs are reproducible | mostly unset: each engine draws its own random seed | mostly unset |
 
-The refold deliberately pays five model loads to get five independent seeds, because its whole job is to be an independent check. In `fold` / `fold_pulldown` the defaults favour throughput: with `--n_predictions` unset, Boltz, RF3, Protenix, AF3, OpenFold3, Chai-1 and ESMFold2 each emit 5 diffusion samples from a single job (Boltz is raised from its native 1 for parity across engines), and AF2 does one run keeping per `--af2_keep_models` (default `best`, so one structure).
+The refold deliberately uses five model loads to get five independent seeds, because its whole job is to be an independent check. `fold` and `fold_pulldown` favour throughput: one job of N samples, which share a trunk pass. With `--n_predictions` unset in `fold`, Boltz, RF3, Protenix, AF3, OpenFold3, Chai-1 and ESMFold2 each emit 5 diffusion samples from a single job (Boltz is raised from its native 1 for parity across engines), and AF2 does one run keeping per `--af2_keep_models` (default `best`, so one structure).
 
-Set `--n_predictions N` in `fold` / `fold_pulldown` to pin every diffusion engine to exactly N, split by that engine's `--*_batch_size`. Leave `--*_batch_size` unset there and you get one job of N.
+Set `--n_predictions N` to pin every diffusion engine to exactly N, split by that engine's `--*_batch_size`. Leave `--*_batch_size` unset and you get one job of N.
 
 **AF2 does not follow the model above.** It produces its 5 trained models per execution regardless of `--n_predictions`; `--af2_keep_models` decides how many executions are needed (`best` keeps the top model per run, so N runs; `all` keeps all 5, so `ceil(N/5)` runs).
 
@@ -73,4 +73,4 @@ Cross-engine consensus (`consensus_z`, `n_tools`) is computed as in `fold_pulldo
 - **Refold, default:** leave it alone. 5 seeds x 1 sample is the independent check the refold is for.
 - **Refold, short on GPU time:** `--n_predictions 3`, or raise `--refold_boltz_batch_size` to trade seed diversity for fewer model loads.
 - **`fold` / `fold_pulldown`, reproducible:** set `--n_predictions` explicitly and pin every base seed; do not leave them random.
-- **`fold` / `fold_pulldown`, many inputs:** leave `--*_batch_size` unset for one job of N samples per input, which is the cheapest option, and accept that the samples share a trunk pass.
+- **`fold` / `fold_pulldown`, many inputs:** leave `--*_batch_size` unset for one job of N samples per input, which is the fewest model loads, and accept that the samples share a trunk pass.

@@ -202,13 +202,18 @@ complex it came from, written to `complex_rmsd.tsv`:
 |--------|---------|
 | `id` | The binder, named after the complex it came from |
 | `target` | Which target this row was folded against. With several targets a binder has one row each, and this is what tells them apart |
+| `tool`, `batch`, `model` | Which engine, seed job and sample the row describes |
 | `target_aligned_binder_rmsd_all` | Superimpose on the target, then score the binder. The pose metric |
 | `target_aligned_binder_tm_score_all` | TM-score for the same comparison |
-| `target_aligned_binder_dockq` | DockQ for the predicted interface against the reference |
+| `target_aligned_binder_dockq` | DockQ for the predicted interface against the reference. The usual reading is <0.23 incorrect, 0.23-0.49 acceptable, 0.49-0.80 medium, >=0.80 high |
 | `target_aligned_binder_dockq_fnat` / `_fnonnat` / `_irmsd` / `_lrmsd` | DockQ's components |
 | `target_aligned_binder_interface_lddt` | Interface lDDT |
 | `target_aligned_binder_clash_count` | Clashes in the predicted complex |
 | `complex_rmsd_all` / `complex_tm_score_all` | Whole-complex comparison. `nan` when the target folded against differs in length from the complex's own target chain, since those columns need equal lengths; the target-aligned columns above are unaffected |
+
+Each RMSD and TM-score column also has a `_pruned` variant, scored over the anchors
+`superimpose_homologs` kept rather than all of them. `--refold_dockq false` drops the
+DockQ, interface lDDT and clash columns.
 
 | Flag | Default | Description |
 |------|---------|-------------|

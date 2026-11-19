@@ -13,11 +13,16 @@
 %%metro line: chai1 | Chai-1 (chai1) | #bcbd22
 %%metro file: targets_in | FASTA | Targets
 %%metro file: binders_in | FASTA | Binders
+%%metro files: complexes_in | PDB | Complexes
+%%metro off_track: complexes_in
 %%metro files: templates_in | PDB | Templates
 %%metro off_track: templates_in
 %%metro file: scores_out | TSV | Scores
 %%metro file: report_out | HTML | Report
+%%metro file: rmsd_out | TSV | Complex RMSD
 %%metro marker: pairing | square, open
+%%metro marker: extract | square, open
+%%metro marker: compare | square, open
 %%metro marker_legend: square, open | Optional step, off by default
 
 graph LR
@@ -32,6 +37,10 @@ graph LR
         match_templates[Template matching]
         targets_in -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| msa_search
         msa_search -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| pairs
+        complexes_in[ ]
+        extract["(Extract binders)"]
+        complexes_in -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3,chai1| extract
+        extract -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3,chai1| binder_msa
         binders_in -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3,chai1| binder_msa
         binder_msa -->|rf3,protenix,esmfold2,af2,af3,boltz,openfold3,chai1| pairs
         pairs -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2| pairing
@@ -61,6 +70,10 @@ graph LR
         summary -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| scores_out
         summary -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| report
         report -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| report_out
+        compare["(Compare to complex)"]
+        rmsd_out[ ]
+        confidence -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| compare
+        compare -->|af3,boltz,openfold3,chai1,rf3,protenix,esmfold2,af2| rmsd_out
     end
 
     match_templates -->|af2| af2_run

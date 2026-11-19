@@ -141,6 +141,7 @@ Sampling and aggregation, shared with `fold` / `fold_pulldown`:
 | `--refold_binder_monomer` | `true` | Also predict the binder alone, giving `<tool>_monomer_vs_design_rmsd_all` and `<tool>_monomer_vs_complex_rmsd_all` |
 | `--refold_monomer_single_sequence` | `true` | Fold those monomers without an MSA |
 | `--refold_interface_scoring` | `true` | BindCraft interface metrics on the refolded complexes (`<tool>_interface_dG`, `<tool>_interface_dSASA`, ...) |
+| `--refold_dockq` | `true` | DockQ and its components, interface lDDT and a clash count for the target-aligned comparison (`<tool>_target_aligned_binder_dockq`, `_dockq_fnat`, `_dockq_irmsd`, `_interface_lddt`, ...). DockQ's receptor is the target and its ligand the binder, which differs from the reference implementation when the binder is the larger chain |
 
 `refold_sample_scores.tsv` keeps the unaggregated per-sample values; `<tool>_selected_batch` and `<tool>_selected_model` in `combined_scores.tsv` name the sample the structural metrics came from.
 
@@ -150,7 +151,7 @@ With a target longer than the design's, `<tool>_complex_rmsd_all` and `<tool>_co
 
 Changing `--refold_filter` / `--refold_sort_by` / `--refold_max` on a `-resume` needs a fresh `--outdir`: the refold tables are gathered with `collectFile(storeDir:)`, which reuses the file already there, so the scores and the selection report end up describing different design sets with no error.
 
-Results go to `<outdir>/<method>/refold/`: `refold_scores.tsv` (merged into `combined_scores.tsv` as engine-prefixed columns `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_target_aligned_binder_rmsd_all`, `<tool>_interface_dG`, ...), `refold_sample_scores.tsv` and `refold_selection.tsv` (every design's selection verdict, rank and sort value).
+Results go to `<outdir>/<method>/refold/`: `refold_scores.tsv` (merged into `combined_scores.tsv` as engine-prefixed columns `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_target_aligned_binder_rmsd_all`, `<tool>_target_aligned_binder_dockq`, `<tool>_interface_dG`, ...), `refold_sample_scores.tsv` and `refold_selection.tsv` (every design's selection verdict, rank and sort value).
 
 **Renamed/removed.** Deprecated but working, with a warning: `--refold_af2ig_filters` (→ `--refold_filter`), `--refold_oracles` (→ `--refold_with`), `--refold_oracles_max` (→ `--refold_max`). Removed, and setting one stops the run with its replacement named: `--refold_create_target_msa` (→ `--create_target_msa`), `--refold_use_msa_server` (→ `--use_msa_server`), `--refold_target_templates` (→ `--templates`), `--refold_alignment` (→ `--target_msa`), `--refold_oracle_metrics` (→ `--refold_metrics`), `--refold_oracle_target_id` (→ `--refold_target_id`), `--boltz_refold_batch_size` (→ `--refold_boltz_batch_size`, now samples per fold job). `--refold_target_fasta` is **not** removed - it kept its name, see the table above.
 
@@ -310,7 +311,20 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   -profile slurm,m3 -resume
 ```
 
-Samples per complex, job splitting and seeds: `--n_predictions` is unset by default here, so each engine uses its own default. → `references/fold-stack.md`
+Binders can instead come from existing complexes, which then become the reference each
+prediction is compared against (DockQ, interface lDDT, target-aligned binder RMSD):
+
+```bash
+  --complex_structures 'complexes/*.pdb' --binder_chains B
+```
+
+`--targets` is optional with it - without one the targets are read back out of the
+complexes. `--target_chains` picks the superposition reference when a complex has more
+than two chains; `--target_chains auto` matches it against `--targets` by sequence.
+Results land in `fold_pulldown/complex_rmsd.tsv`.
+
+Samples per complex, job splitting and seeds: `--n_predictions` defaults to 5 here.
+→ `references/fold-stack.md`
 
 ### fold (multi-method structure prediction)
 
@@ -350,7 +364,7 @@ Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.m
 | `bindcraft` | `bindcraft/accepted/`, `bindcraft/bindcraft_report.html`, `bindcraft/final_design_stats.csv`, `bindcraft/refold/` (if `--refold_with`) |
 | `germinal` | `germinal/accepted_designs.csv`, `germinal/accepted/structures/`, `germinal/refold/` (if `--refold_with`) |
 | `boltzgen` | `boltzgen/filtered/final_ranked_designs/`, `boltzgen/merged/` |
-| `fold_pulldown` | `fold_pulldown/fold_pulldown_scores.tsv`, `fold_pulldown_summary.tsv`, `fold_pulldown_report.html` |
+| `fold_pulldown` | `fold_pulldown/fold_pulldown_scores.tsv`, `fold_pulldown_summary.tsv`, `fold_pulldown_report.html`, `complex_rmsd.tsv` (if `--complex_structures`) |
 | `fold` | `fold/fold_scores.tsv`, `fold/predictions/`, optional `engens/` |
 | `foldseek` | `foldseek_results.tsv`, `foldseek_results_annotated.tsv` (CATH databases) |
 
