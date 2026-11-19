@@ -27,9 +27,10 @@ process REFOLD_COMPARE_COMPLEX {
     // The design is staged under its own name (unique per design, and rmsd4all's
     // structure1 column keys on it); the models keep theirs, which carry the pair id
     // and sample number.
+    // meta.binder_chain / meta.target_chain are the design-side chain ids. They ride in
+    // meta rather than as `val` inputs because --target_chains auto resolves them per
+    // reference structure, so they are not one value for the whole run.
     tuple val(meta), path(design, stageAs: 'design/*'), path(models, stageAs: 'models/*')
-    val binder_chain        // chain id in the design
-    val target_chain        // chain id in the design
     val pred_binder_chain   // chain id in the refolded complex
     val pred_target_chain   // chain id in the refolded complex
 
@@ -38,11 +39,20 @@ process REFOLD_COMPARE_COMPLEX {
     path 'aligned_*/*.pdb', emit: aligned, optional: true
 
     script:
+    def binder_chain = meta.binder_chain
+    def target_chain = meta.target_chain
+    if (!binder_chain || !target_chain) {
+        throw new IllegalArgumentException(
+            "REFOLD_COMPARE_COMPLEX ${meta.id}: meta.binder_chain and meta.target_chain are required."
+        )
+    }
     def aligned_target = params.output_rmsd_aligned ? '--output-transformed aligned_target_aligned_binder/' : ''
     def aligned_complex = params.output_rmsd_aligned ? '--output-transformed aligned_complex/' : ''
     // Only the target-aligned comparison: DockQ is defined on a receptor and a ligand,
     // and the whole-complex comparison puts both chains on both sides.
     def dockq = params.refold_dockq ? '--dockq' : ''
+    // Only with several targets in play: it is what tells one binder's rows apart.
+    def target_arg = meta.target_id ? "--target '${meta.target_id}'" : ''
     """
     set -euo pipefail
 
@@ -72,6 +82,7 @@ process REFOLD_COMPARE_COMPLEX {
     python ${projectDir}/bin/refold/rmsd_rows.py \\
         --id '${meta.id}' \\
         --tool '${meta.fold_tool}' \\
+        ${target_arg} \\
         --batch '${meta.fold_batch}' \\
         --model '${meta.fold_sample}' \\
         --table 'target_aligned_binder=rmsd_target_aligned_binder.tsv' \\

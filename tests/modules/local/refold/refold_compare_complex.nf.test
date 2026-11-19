@@ -21,14 +21,13 @@ nextflow_process {
             process {
                 """
                 input[0] = tuple(
-                    [id: 'd1', fold_tool: 'boltz', fold_batch: 0, fold_sample: 0],
+                    [id: 'd1', fold_tool: 'boltz', fold_batch: 0, fold_sample: 0,
+                     binder_chain: 'B', target_chain: 'A'],
                     file("\${projectDir}/tests/data/refold/design.pdb"),
                     [file("\${projectDir}/tests/data/refold/model_0.pdb")]
                 )
                 input[1] = 'B'
                 input[2] = 'A'
-                input[3] = 'B'
-                input[4] = 'A'
                 """
             }
         }
@@ -68,14 +67,13 @@ nextflow_process {
             process {
                 """
                 input[0] = tuple(
-                    [id: 'd1', fold_tool: 'boltz', fold_batch: 0, fold_sample: 0],
+                    [id: 'd1', fold_tool: 'boltz', fold_batch: 0, fold_sample: 0,
+                     binder_chain: 'B', target_chain: 'A'],
                     file("\${projectDir}/tests/data/refold/design.pdb"),
                     [file("\${projectDir}/tests/data/refold/model_0.pdb")]
                 )
                 input[1] = 'B'
                 input[2] = 'A'
-                input[3] = 'B'
-                input[4] = 'A'
                 """
             }
         }

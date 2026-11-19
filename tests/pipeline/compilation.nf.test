@@ -114,6 +114,38 @@ nextflow_pipeline {
         }
     }
 
+    test("fold_pulldown method compiles with --complex_structures") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                complex_structures = "${projectDir}/tests/data/refold/design.pdb"
+                binder_chains = "B"
+                targets = "${projectDir}/tests/data/fold_pulldown/targets.fasta"
+                methods = "boltz"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+    test("fold_pulldown method compiles with --complex_structures and no --targets") {
+        options "-preview"
+        when {
+            params {
+                method = "fold_pulldown"
+                complex_structures = "${projectDir}/tests/data/refold/design.pdb"
+                binder_chains = "B"
+                target_chains = "A"
+                methods = "boltz"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
     test("fold_pulldown method compiles with af3") {
         options "-preview"
         when {

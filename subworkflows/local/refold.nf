@@ -45,7 +45,7 @@ include { FOLD_PULLDOWN_CORE } from './fold_pulldown_core'
 include { FOLD as FOLD_BINDER_MONOMER } from './fold'
 include { SELECT_FOR_REFOLD } from './refold_select'
 include { REFOLD_PREPARE_INPUTS } from '../../modules/local/refold/refold_prepare_inputs'
-include { REFOLD_COMPARE_COMPLEX } from '../../modules/local/refold/refold_compare_complex'
+include { COMPARE_TO_REFERENCE } from './compare_to_reference'
 include { REFOLD_COMPARE_MONOMER } from '../../modules/local/refold/refold_compare_monomer'
 include { REFOLD_STRUCTURE_TO_PDB } from '../../modules/local/refold/refold_structure_to_pdb'
 include { BINDCRAFT_SCORING as BINDCRAFT_SCORING_REFOLD } from '../../modules/local/rfd/bindcraft_scoring'
@@ -131,66 +131,21 @@ workflow REFOLD {
             : REFOLD_PREPARE_INPUTS.out.targets,
     )
 
-    // The predicted model structures, out of each engine's own output layout. AF2 is
-    // the one engine whose choice of structure depends on run options, so they come
-    // along (see foldNamingIsModelStructure).
-    def af2_opts = [
-        no_relax: params.af2_no_relax instanceof Boolean
-            ? params.af2_no_relax
-            : params.af2_no_relax.toString().toBoolean(),
-    ]
-
-    // One entry per predicted sample, not per fold job. A job may hold several samples
-    // - --n_predictions > 1 with a larger batch size, or an engine handed the whole
-    // seed list at once - and each has to be compared and interface-scored on its own.
-    // (fold_batch, fold_sample) is the key throughout: the batch separates jobs, and
-    // the engine's own sample label separates samples within one.
-    ch_complex_models = FOLD_PULLDOWN_CORE.out.predictions
-        .flatMap { meta, files ->
-            def opts = af2_opts + [keep_best: meta.af2_keep_models == 'best']
-            foldNamingModelStructures(meta.fold_tool, files, opts).collect { model ->
-                tuple(
-                    [
-                        id: meta.binder,
-                        fold_tool: meta.fold_tool,
-                        pair_id: meta.id,
-                        fold_batch: meta.fold_batch ?: 1,
-                        fold_sample: foldNamingSampleLabel(meta.fold_tool, model),
-                    ],
-                    [model],
-                )
-            }
-        }
-
-    // Pair each engine's models back up with the design they came from. combine(by: 0)
-    // rather than join(): one design feeds as many rows as there are engines, and join
-    // would consume the design after the first.
-    ch_design_by_id = ch_selected.map { meta, structure -> tuple(meta.id.toString(), structure) }
-
-    ch_compare_in = ch_complex_models
-        .map { meta, models -> tuple(meta.id.toString(), meta, models) }
-        .combine(ch_design_by_id, by: 0)
-        .map { _id, meta, models, design -> tuple(meta, design, models) }
-
-    REFOLD_COMPARE_COMPLEX(
-        ch_compare_in,
-        binder_chain,
-        target_chain,
-        // FOLD_PULLDOWN_MSA always builds its pairs target first, binder second, so a
-        // refolded complex is chain A = target, chain B = binder whatever the design's
-        // own chain ids are.
-        'B',
-        'A',
+    // Model expansion, the prediction-to-design join and the comparison itself are
+    // shared with fold_pulldown's --complex_structures path; see COMPARE_TO_REFERENCE.
+    COMPARE_TO_REFERENCE(
+        FOLD_PULLDOWN_CORE.out.predictions,
+        ch_selected.map { meta, structure ->
+            tuple(meta.id.toString(), structure, binder_chain, target_chain)
+        },
+        params.refold_publish_dir ?: 'refold',
+        'refold_rmsd.tsv',
+        false,
     )
 
-    ch_rmsd_tables = REFOLD_COMPARE_COMPLEX.out.rmsd
-        .map { _meta, tsv -> tsv }
-        .collectFile(
-            name: 'refold_rmsd.tsv',
-            storeDir: "${params.outdir}/${params.refold_publish_dir ?: 'refold'}",
-            keepHeader: true,
-            skip: 1,
-        )
+    ch_complex_models = COMPARE_TO_REFERENCE.out.models
+    ch_design_by_id = ch_selected.map { meta, structure -> tuple(meta.id.toString(), structure) }
+    ch_rmsd_tables = COMPARE_TO_REFERENCE.out.table
 
     // --- interface scores on the refolded complex ---
     ch_interface_scores = Channel.empty()
@@ -231,6 +186,14 @@ workflow REFOLD {
             // binder has no homologs to find.
             params.refold_monomer_single_sequence,
         )
+
+        // Same AF2 structure-selection options COMPARE_TO_REFERENCE applies to the
+        // complex models; AF2 is the one engine whose choice depends on run options.
+        def af2_opts = [
+            no_relax: params.af2_no_relax instanceof Boolean
+                ? params.af2_no_relax
+                : params.af2_no_relax.toString().toBoolean(),
+        ]
 
         ch_monomer_models = FOLD_BINDER_MONOMER.out.predictions
             .flatMap { meta, files ->
@@ -287,7 +250,10 @@ workflow REFOLD {
 
     // Collected once and fed to both tables: the wide one reduces each design's
     // samples to a single row, the sample one keeps them all.
-    ch_long_tables = ch_rmsd_tables.mix(ch_monomer_rmsd).collect().ifEmpty([empty_table])
+    // sort: true because mix() emits in arrival order, which decides the column order
+    // of both tables. Without it the published columns shuffle between runs depending
+    // on which collectFile finished first.
+    ch_long_tables = ch_rmsd_tables.mix(ch_monomer_rmsd).collect(sort: true).ifEmpty([empty_table])
     ch_interface_collected = ch_interface_scores.collect().ifEmpty([empty_table])
 
     REFOLD_SAMPLE_SCORES(

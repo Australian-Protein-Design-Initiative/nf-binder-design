@@ -91,6 +91,13 @@ def main() -> int:
     parser.add_argument("--id", required=True, help="Design id")
     parser.add_argument("--tool", required=True, help="Folding engine that produced the models")
     parser.add_argument(
+        "--target",
+        default=None,
+        help="Target the models were folded against. Adds a 'target' column, which is "
+        "what distinguishes one binder's rows from each other when it was folded "
+        "against several targets.",
+    )
+    parser.add_argument(
         "--batch", default="1",
         help="Fold job the models came from, written out as the batch column [default: 1]",
     )
@@ -131,6 +138,8 @@ def main() -> int:
     per_table_columns = [(prefix, value_columns_for(table)) for prefix, table in tables]
 
     columns = ["id", "tool", "batch", "model"]
+    if args.target:
+        columns.insert(1, "target")
     for prefix, value_columns in per_table_columns:
         columns += [f"{prefix}_{suffix}" for suffix in value_columns.values()]
 
@@ -142,6 +151,8 @@ def main() -> int:
             "batch": args.batch,
             "model": args.model if args.model else model_index(model, position),
         }
+        if args.target:
+            row["target"] = args.target
         for (prefix, table), (_, value_columns) in zip(tables, per_table_columns):
             source = table.get(model, {})
             for column, suffix in value_columns.items():

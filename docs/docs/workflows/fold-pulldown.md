@@ -108,8 +108,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 | Flag | Description |
 |------|-------------|
-| `--targets` | FASTA of target sequences |
-| `--binders` | FASTA of binder sequences |
+| `--targets` | FASTA of target sequences. Optional with `--complex_structures` (see [Supplied complexes](#supplied-complexes)) |
+| `--binders` | FASTA of binder sequences, or `--complex_structures` instead |
 
 ### Common options
 
@@ -179,6 +179,68 @@ to its `target` and `binder`, facilitating downstream joins against `fold_pulldo
 Boltz `key,sequence` CSV). Each chain is generated independently; pairing behavior is
 detailed in [Taxonomic pairing](#taxonomic-pairing). AF3, OpenFold3, Chai-1, and ESMFold2
 re-render their pairing input within the predict task and do not publish separate MSAs here.
+
+## Supplied complexes
+
+Binders can come from existing target-binder complexes rather than a FASTA. The binder
+chain of each complex is folded against every target as usual, and the complex is then
+the reference its predictions are compared against.
+
+```bash
+nextflow run main.nf --method fold_pulldown \
+    --complex_structures 'complexes/*.pdb' \
+    --binder_chains B \
+    --targets targets.fasta \
+    --methods boltz,rf3
+```
+
+This answers "does this binder still sit the same way against a different target".
+Each binder yields one comparison per (target, engine, sample), all against the one
+complex it came from, written to `complex_rmsd.tsv`:
+
+| Column | Meaning |
+|--------|---------|
+| `id` | The binder, named after the complex it came from |
+| `target` | Which target this row was folded against. With several targets a binder has one row each, and this is what tells them apart |
+| `target_aligned_binder_rmsd_all` | Superimpose on the target, then score the binder. The pose metric |
+| `target_aligned_binder_tm_score_all` | TM-score for the same comparison |
+| `target_aligned_binder_dockq` | DockQ for the predicted interface against the reference |
+| `target_aligned_binder_dockq_fnat` / `_fnonnat` / `_irmsd` / `_lrmsd` | DockQ's components |
+| `target_aligned_binder_interface_lddt` | Interface lDDT |
+| `target_aligned_binder_clash_count` | Clashes in the predicted complex |
+| `complex_rmsd_all` / `complex_tm_score_all` | Whole-complex comparison. `nan` when the target folded against differs in length from the complex's own target chain, since those columns need equal lengths; the target-aligned columns above are unaffected |
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--complex_structures` | | Complexes (`.pdb`/`.cif`; directory or glob). Mutually exclusive with `--binders` |
+| `--binder_chains` | | Binder chain id(s), comma-separated. Required. Several chains means several binder records per complex, named `<complex>_<chain>` |
+| `--target_chains` | the non-binder chain | Chain used as the superposition reference. A single chain id, or `auto` |
+
+### Choosing the target chain
+
+By default the target is whichever chain is not a binder chain, so a two-chain complex
+needs only `--binder_chains`. Give `--target_chains` explicitly when a complex holds
+more than two chains, or the run stops rather than guessing which to superimpose on.
+
+`--target_chains auto` resolves the chain per complex by matching each one against the
+`--targets` records, which is what mixed-source complexes with inconsistent chain
+naming need. It is opt-in because a wrong silent pick yields a plausible-looking RMSD
+against the wrong molecule. The chain it chose is logged for every complex, and a match
+below 50% identity warns.
+
+!!! note "Targets are optional here"
+
+    Without `--targets`, the targets are read back out of the complexes' own target
+    chains and deduplicated by sequence, which covers the plain "refold what I gave
+    you" case. If the complexes turn out to hold more than one distinct target the run
+    stops: a pulldown folds every binder against every target, so deriving several
+    would fold mostly meaningless pairs. Pass `--targets` to say which to use.
+
+!!! warning "Two-chain complexes only"
+
+    `--target_chains` takes one chain. A pulldown folds two-chain pairs (target as
+    chain A, binder as chain B), so a multi-chain target cannot be predicted and there
+    would be nothing to superimpose a second target chain onto.
 
 ## Interpreting scores
 

@@ -16,6 +16,12 @@ Usage via main.nf:
 params.method = 'fold_pulldown'
 params.targets = false
 params.binders = false
+// Target-binder complexes as an alternative source of binder sequences: the binder
+// chain of each is folded against every --targets entry, and the complex is then the
+// reference each prediction is compared against (RMSD, TM-score, DockQ).
+params.complex_structures = false
+params.binder_chains = false
+params.target_chains = false
 params.help = false
 params.outdir = 'results'
 params.methods = 'boltz'
@@ -125,6 +131,8 @@ params.gpu_devices = ''
 params.gpu_slots_per_device = 1
 params.gpu_lock_timeout = 14400
 
+include { COMPARE_TO_REFERENCE } from '../subworkflows/local/compare_to_reference'
+include { EXTRACT_COMPLEX_STRUCTURES } from '../modules/local/fold_pulldown/extract_complex_structures'
 include { FOLD_PULLDOWN_CORE } from '../subworkflows/local/fold_pulldown_core'
 include { FOLD_PULLDOWN_REPORTING } from '../modules/local/common/fold_pulldown_reporting'
 include { foldIdsExtractFastaIds; foldIdsValidatePulldownIds } from '../modules/local/fold/common/fold_ids'
@@ -135,7 +143,11 @@ workflow FOLD_PULLDOWN {
 
     main:
 
-    if (params.help || params.targets == false || params.binders == false) {
+    def have_binders = params.binders || params.complex_structures
+    // --targets is optional only with --complex_structures, which can read the
+    // target back out of the complexes' own target chain.
+    def have_targets = params.targets || params.complex_structures
+    if (params.help || !have_targets || !have_binders) {
         log.info(
             """
         ==================================================================
@@ -147,8 +159,26 @@ workflow FOLD_PULLDOWN {
         scores (iptm, ipsae) across replicates and models.
 
         Required arguments:
-            --targets             FASTA file of target sequences
-            --binders             FASTA file of binder sequences
+            --targets             FASTA file of target sequences. Optional with
+                                  --complex_structures, which can read the target back
+                                  out of each complex's target chain.
+            --binders             FASTA file of binder sequences (or --complex_structures)
+
+        Supplied complexes (alternative to --binders):
+            --complex_structures  Target-binder complexes (.pdb/.cif; dir or glob). The
+                                  binder chain of each is folded against every target,
+                                  and the complex is the reference the prediction is
+                                  compared against: target-aligned binder RMSD, TM-score,
+                                  DockQ and interface quality, in complex_rmsd.tsv.
+            --binder_chains       Binder chain id(s) in those complexes, comma-separated.
+                                  Several means several binder records per complex.
+                                  Required with --complex_structures.
+            --target_chains       Chain used as the superposition reference. A single
+                                  chain id, or 'auto' to pick it per complex by matching
+                                  against --targets. Default: the one non-binder chain.
+                                  A multi-chain target is not supported: the pulldown
+                                  folds two-chain pairs, so there is nothing to
+                                  superimpose a second target chain onto.
 
         Optional arguments:
             --outdir              Output directory [default: ${params.outdir}]
@@ -249,6 +279,28 @@ workflow FOLD_PULLDOWN {
         exit(1)
     }
 
+    if (params.complex_structures && params.binders) {
+        error(
+            'fold_pulldown: --complex_structures and --binders are two sources for the same binder set; give one.'
+        )
+    }
+    if (params.complex_structures && !params.binder_chains) {
+        error(
+            'fold_pulldown: --complex_structures needs --binder_chains to say which chain of each complex is the binder.'
+        )
+    }
+    if (params.binder_chains && !params.complex_structures) {
+        error('fold_pulldown: --binder_chains only applies with --complex_structures.')
+    }
+    if (params.target_chains && !params.complex_structures) {
+        error('fold_pulldown: --target_chains only applies with --complex_structures.')
+    }
+    if (params.target_chains == 'auto' && !params.targets) {
+        error(
+            'fold_pulldown: --target_chains auto picks the target chain by matching it against the --targets records, so it needs --targets.'
+        )
+    }
+
     def methods = foldValidationParseMethods(params.methods)
     // AF2 in fold_pulldown assembles the target MSA itself (jackhmmer dir or
     // ColabFold/mmseqs2 a3m via FOLD_ASSEMBLE_AF2_MULTIMER_MSAS) and always
@@ -270,23 +322,51 @@ workflow FOLD_PULLDOWN {
         error("fold_pulldown: --msa_subsample is not supported (multimer pairs only).")
     }
 
-    def target_ids = foldIdsExtractFastaIds(file(params.targets))
-    def binder_ids = foldIdsExtractFastaIds(file(params.binders))
-    def id_errors = foldIdsValidatePulldownIds(target_ids, binder_ids)
-    if (id_errors) {
-        error("fold_pulldown: ${id_errors.join('\nfold_pulldown: ')}")
+    // With --complex_structures the binder FASTA is written by a task, so there is no
+    // file to read ids out of here. EXTRACT_COMPLEX_STRUCTURES rejects duplicate binder
+    // ids itself, which is the check this would have done.
+    if (!params.complex_structures) {
+        def target_ids = foldIdsExtractFastaIds(file(params.targets))
+        def binder_ids = foldIdsExtractFastaIds(file(params.binders))
+        def id_errors = foldIdsValidatePulldownIds(target_ids, binder_ids)
+        if (id_errors) {
+            error("fold_pulldown: ${id_errors.join('\nfold_pulldown: ')}")
+        }
     }
 
-    ch_targets_meta = Channel.fromPath(params.targets)
+    ch_complex_chains = Channel.empty()
+    if (params.complex_structures) {
+        EXTRACT_COMPLEX_STRUCTURES(
+            Channel.fromPath(params.complex_structures, checkIfExists: true).collect(),
+            params.binder_chains,
+            params.target_chains ?: '',
+            params.targets
+                ? Channel.fromPath(params.targets, checkIfExists: true)
+                : file("${projectDir}/assets/dummy_files/no_pulldown_targets.fasta"),
+        )
+        ch_binders_fasta = EXTRACT_COMPLEX_STRUCTURES.out.binders
+        // Without --targets the targets are the complexes' own target chains, read back
+        // out and deduplicated by sequence.
+        ch_targets_fasta = params.targets
+            ? Channel.fromPath(params.targets)
+            : EXTRACT_COMPLEX_STRUCTURES.out.targets
+        ch_complex_chains = EXTRACT_COMPLEX_STRUCTURES.out.chains
+    }
+    else {
+        ch_binders_fasta = Channel.fromPath(params.binders)
+        ch_targets_fasta = Channel.fromPath(params.targets)
+    }
+
+    ch_targets_meta = ch_targets_fasta
         .splitFasta(record: [id: true, seqString: true])
         .map { record -> [id: record.id, seq: record.seqString] }
 
-    ch_binders_meta = Channel.fromPath(params.binders)
+    ch_binders_meta = ch_binders_fasta
         .splitFasta(record: [id: true, seqString: true])
         .map { record -> [id: record.id, seq: record.seqString] }
 
-    ch_targets_fasta_paths = Channel.fromPath(params.targets).splitFasta(file: true)
-    ch_binders_fasta_paths = Channel.fromPath(params.binders).splitFasta(file: true)
+    ch_targets_fasta_paths = ch_targets_fasta.splitFasta(file: true)
+    ch_binders_fasta_paths = ch_binders_fasta.splitFasta(file: true)
 
     ch_targets = ch_targets_meta.merge(ch_targets_fasta_paths)
     ch_binders = ch_binders_meta.merge(ch_binders_fasta_paths)
@@ -298,9 +378,37 @@ workflow FOLD_PULLDOWN {
         methods,
         params.msa_method,
         params.binder_templates \
-            ? Channel.fromPath([params.targets, params.binders])
-            : Channel.fromPath(params.targets),
+            ? ch_targets_fasta.mix(ch_binders_fasta)
+            : ch_targets_fasta,
     )
+
+    // --complex_structures: compare every predicted complex back to the complex its
+    // binder came from. With several --targets each binder yields one comparison per
+    // (target, engine, sample), all against that one reference.
+    if (params.complex_structures) {
+        // Keyed back to the input files by name rather than to the published copies:
+        // publishDir is asynchronous, so the published path is not guaranteed to exist
+        // when the comparison task is staged.
+        ch_complex_files = Channel
+            .fromPath(params.complex_structures, checkIfExists: true)
+            .map { f -> tuple(f.name, f) }
+
+        ch_references = ch_complex_chains
+            .splitCsv(header: true, sep: '\t')
+            .map { row -> tuple(row.complex, row.binder_id, row.binder_chain, row.target_chain) }
+            .combine(ch_complex_files, by: 0)
+            .map { _name, binder_id, binder_chain, target_chain, structure ->
+                tuple(binder_id, structure, binder_chain, target_chain)
+            }
+
+        COMPARE_TO_REFERENCE(
+            FOLD_PULLDOWN_CORE.out.predictions,
+            ch_references,
+            params.fold_publish_dir ?: 'fold_pulldown',
+            'complex_rmsd.tsv',
+            true,
+        )
+    }
 
     FOLD_PULLDOWN_REPORTING(
         file("${projectDir}/assets/fold_pulldown_reporting.qmd"),
