@@ -2,8 +2,12 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
+#     # peppr 0.13 calls struc.AffineTransformation, which biotite renamed to
+#     # RigidTransformation in 2.0 -- so the biotite ceiling is what keeps --dockq
+#     # working, not just a conservative pin.
 #     "biotite<=1.6",
 #     "numpy",
+#     "peppr",
 # ]
 # ///
 #
@@ -20,10 +24,16 @@ from multiprocessing import Pool
 from pathlib import Path
 from typing import List, Tuple, Union, Optional, Iterable, cast, Dict, Any
 
+import biotite.sequence.align as align
 import biotite.structure as struc
 import biotite.structure.io.pdb as pdb
 import biotite.structure.io.pdbx as pdbx
 import numpy as np
+
+try:
+    import peppr
+except ImportError:  # only needed for --dockq
+    peppr = None
 
 # Configure logging
 logging.basicConfig(
@@ -321,6 +331,230 @@ def calculate_scores(
     }
 
 
+# DockQ and interface quality come from peppr, which computes them from biotite
+# AtomArrays - what this script already has in hand after read_structure.
+#
+# peppr requires the reference and the pose to correspond atom for atom: it builds
+# the interface masks on the reference and applies them directly to the pose, so a
+# mismatch raises IndexError rather than quietly returning a wrong number. Its own
+# find_optimal_match / filter_matched only reconcile whole entities, not structures
+# that differ in which atoms each residue carries, so _match_atoms below builds the
+# correspondence instead.
+DOCKQ_COLUMNS = (
+    "dockq",
+    "dockq_fnat",
+    "dockq_fnonnat",
+    "dockq_irmsd",
+    "dockq_lrmsd",
+    "interface_lddt",
+    "clash_count",
+    "n_atoms_dockq_receptor",
+    "n_atoms_dockq_ligand",
+)
+
+
+# Decimals per DockQ column: the scores are fractions, the RMSDs are Angstrom, and
+# the counts are counts.
+_DOCKQ_FORMATS = {
+    "dockq": "{:.4f}",
+    "dockq_fnat": "{:.4f}",
+    "dockq_fnonnat": "{:.4f}",
+    "dockq_irmsd": "{:.2f}",
+    "dockq_lrmsd": "{:.2f}",
+    "interface_lddt": "{:.4f}",
+    "clash_count": "{:.0f}",
+    "n_atoms_dockq_receptor": "{:.0f}",
+    "n_atoms_dockq_ligand": "{:.0f}",
+}
+
+
+def _format_dockq(result: Dict[str, Any]) -> List[str]:
+    """DockQ columns as strings, NaN where the calculation did not produce a value."""
+    values = []
+    for column in DOCKQ_COLUMNS:
+        value = float(result.get(column, float("nan")))
+        values.append("NaN" if np.isnan(value) else _DOCKQ_FORMATS[column].format(value))
+    return values
+
+
+def _with_inferred_bonds(structure: struc.AtomArray) -> struc.AtomArray:
+    """Copy carrying a BondList inferred from residue names, which peppr needs to
+    tell a clash from a pair of bonded neighbours. PDB files rarely carry bonds."""
+    structure = structure.copy()
+    structure.bonds = struc.connect_via_residue_names(structure)
+    return structure
+
+
+def _residue_atom_slices(structure: struc.AtomArray) -> List[Tuple[int, int, Any]]:
+    """Per residue, its (start, stop, atom_names) in residue order."""
+    starts = struc.get_residue_starts(structure, add_exclusive_stop=True)
+    return [
+        (int(starts[i]), int(starts[i + 1]), structure.atom_name[starts[i] : starts[i + 1]])
+        for i in range(len(starts) - 1)
+    ]
+
+
+def _match_atoms(
+    fixed: struc.AtomArray, mobile: struc.AtomArray
+) -> Tuple[struc.AtomArray, struc.AtomArray]:
+    """Reduce one chain on each side to atoms that correspond one for one.
+
+    Residues are paired by a plain sequence alignment, then each pair keeps the atom
+    names present in both. Two all-atom structures therefore compare all-atom, while a
+    backbone-only design falls back to the backbone by itself - the usual case for
+    RFdiffusion output, where the sidechains were never built. Restricting to CA
+    instead would work everywhere but would gut fnat, which counts contacts over
+    whatever atoms it is given.
+
+    superimpose_homologs, which the RMSD path uses, is deliberately not used here: it
+    keeps only positively scoring anchors and then prunes conformational outliers, so
+    it returns a fraction of the residues - 23 of 117 even for two identical chains.
+    That is the right input for a superimposition and the wrong one for a contact
+    count.
+    """
+    fixed_sequences, _ = struc.to_sequence(fixed)
+    mobile_sequences, _ = struc.to_sequence(mobile)
+    if len(fixed_sequences) != 1 or len(mobile_sequences) != 1:
+        raise ValueError("_match_atoms takes exactly one chain on each side")
+
+    fixed_residues = _residue_atom_slices(fixed)
+    mobile_residues = _residue_atom_slices(mobile)
+    if len(fixed_sequences[0]) != len(fixed_residues) or len(
+        mobile_sequences[0]
+    ) != len(mobile_residues):
+        raise ValueError(
+            "sequence length does not match the residue count; the chain probably "
+            "holds residues biotite will not translate"
+        )
+
+    alignment = align.align_optimal(
+        fixed_sequences[0],
+        mobile_sequences[0],
+        align.SubstitutionMatrix.std_protein_matrix(),
+        gap_penalty=(-10, -1),
+        terminal_penalty=False,
+    )[0]
+    trace = alignment.trace
+    paired = trace[(trace[:, 0] >= 0) & (trace[:, 1] >= 0)]
+
+    fixed_keep: List[int] = []
+    mobile_keep: List[int] = []
+    for fixed_i, mobile_i in paired:
+        f_start, _, f_names = fixed_residues[int(fixed_i)]
+        m_start, _, m_names = mobile_residues[int(mobile_i)]
+        for name in sorted(set(f_names.tolist()) & set(m_names.tolist())):
+            fixed_keep.append(f_start + int(np.argmax(f_names == name)))
+            mobile_keep.append(m_start + int(np.argmax(m_names == name)))
+
+    if not fixed_keep:
+        raise ValueError("aligned residues share no atom names")
+    return (
+        cast(struc.AtomArray, fixed[np.array(fixed_keep)]),
+        cast(struc.AtomArray, mobile[np.array(mobile_keep)]),
+    )
+
+
+def _match_chain_set(
+    fixed_full: struc.AtomArray,
+    mobile_full: struc.AtomArray,
+    chains_fixed: Iterable[str],
+    chains_mobile: Iterable[str],
+) -> Tuple[struc.AtomArray, struc.AtomArray]:
+    """Match a named set of chains, pairing them in the order the caller gave them."""
+    chains_fixed = list(chains_fixed)
+    chains_mobile = list(chains_mobile)
+    if len(chains_fixed) != len(chains_mobile):
+        raise ValueError(
+            f"cannot pair {len(chains_fixed)} fixed chains with "
+            f"{len(chains_mobile)} mobile chains"
+        )
+
+    fixed_parts = []
+    mobile_parts = []
+    for chain_fixed, chain_mobile in zip(chains_fixed, chains_mobile):
+        part_fixed, part_mobile = _match_atoms(
+            _filter_structure_by_chains(fixed_full, [chain_fixed]),
+            _filter_structure_by_chains(mobile_full, [chain_mobile]),
+        )
+        fixed_parts.append(part_fixed)
+        mobile_parts.append(part_mobile)
+
+    fixed_matched = fixed_parts[0]
+    mobile_matched = mobile_parts[0]
+    for part in fixed_parts[1:]:
+        fixed_matched = fixed_matched + part
+    for part in mobile_parts[1:]:
+        mobile_matched = mobile_matched + part
+    return fixed_matched, mobile_matched
+
+
+def dockq_scores(
+    fixed_full: struc.AtomArray,
+    mobile_full: struc.AtomArray,
+    receptor_chains_fixed: Optional[Iterable[str]],
+    receptor_chains_mobile: Optional[Iterable[str]],
+    ligand_chains_fixed: Optional[Iterable[str]],
+    ligand_chains_mobile: Optional[Iterable[str]],
+) -> Dict[str, Any]:
+    """DockQ, its fnat / iRMSD / LRMSD components, interface lDDT and clash count.
+
+    The receptor is the superimposition chain set and the ligand the scored one, so a
+    target-aligned binder comparison already names both: the target is what we
+    superimpose on, the binder is what we score. Nothing here uses the transformed
+    mobile structure - DockQ superimposes internally and is invariant to how the pose
+    arrived, so it is given the structures as read.
+
+    That assignment is honoured as given, where the reference DockQ implementation
+    instead takes the larger chain as the receptor. fnat and iRMSD are symmetric and
+    agree with it either way, but LRMSD is measured on the ligand after superimposing
+    the receptor, so the two disagree whenever the ligand is the larger chain - and
+    the DockQ score moves with it. For binder design the binder is normally the
+    smaller chain, where the two conventions coincide.
+    """
+    if peppr is None:
+        raise RuntimeError("peppr is not installed; --dockq is unavailable")
+
+    fixed_receptor, mobile_receptor = _match_chain_set(
+        fixed_full, mobile_full, receptor_chains_fixed or [], receptor_chains_mobile or []
+    )
+    fixed_ligand, mobile_ligand = _match_chain_set(
+        fixed_full, mobile_full, ligand_chains_fixed or [], ligand_chains_mobile or []
+    )
+
+    dq = peppr.dockq(fixed_receptor, fixed_ligand, mobile_receptor, mobile_ligand)
+
+    fixed_complex = fixed_receptor + fixed_ligand
+    mobile_complex = mobile_receptor + mobile_ligand
+
+    # Clashes are a property of the pose alone, so they are counted over the pose's
+    # full chains rather than the matched subset: against a backbone-only design the
+    # matching drops every sidechain, and the sidechains are where clashes happen.
+    # peppr needs a BondList to know which close contacts are just bonded neighbours.
+    return {
+        "dockq": float(dq.score),
+        "dockq_fnat": float(dq.fnat),
+        "dockq_fnonnat": float(dq.fnonnat),
+        "dockq_irmsd": float(dq.irmsd),
+        "dockq_lrmsd": float(dq.lrmsd),
+        "interface_lddt": float(
+            peppr.LDDTPPIScore().evaluate(fixed_complex, mobile_complex)
+        ),
+        "clash_count": float(
+            peppr.ClashCount().evaluate(
+                _with_inferred_bonds(fixed_complex),
+                _with_inferred_bonds(
+                    _filter_structure_by_chains(
+                        mobile_full,
+                        list(receptor_chains_mobile or []) + list(ligand_chains_mobile or []),
+                    )
+                ),
+            )
+        ),
+        "n_atoms_dockq_receptor": len(fixed_receptor),
+        "n_atoms_dockq_ligand": len(fixed_ligand),
+    }
+
+
 def rmsd_pair(
     structure_path1: Union[str, Path],
     structure_path2: Union[str, Path],
@@ -333,6 +567,7 @@ def rmsd_pair(
     score_chains2: Optional[Iterable[str]] = None,
     output_transformed_dir: Optional[Union[str, Path]] = None,
     max_structural_iterations: Optional[int] = None,
+    dockq: bool = False,
 ) -> Dict[str, Any]:
     """
     Calculate RMSD and optionally TM-score between two protein structures.
@@ -351,6 +586,10 @@ def rmsd_pair(
         score_chains2: Optional list of chain IDs to use for scoring from second structure
         output_transformed_dir: Optional directory or .pdb file to save transformed mobile structures.
             If a .pdb file, writes directly to that file. If a directory, files are saved with '_aligned.pdb' suffix.
+
+        dockq: If True, also calculate DockQ, its fnat/iRMSD/LRMSD components, interface
+            lDDT and clash count, treating the superimpose-chains as receptor and the
+            score-chains as ligand.
 
     Returns:
         Dictionary with keys: 'structure1', 'structure2', 'rmsd_pruned', 'n_pairs_rmsd_pruned',
@@ -382,6 +621,10 @@ def rmsd_pair(
             "n_residues_structure1": 0,
             "n_residues_structure2": 0,
         }
+        if dockq:
+            result.update({column: float("nan") for column in DOCKQ_COLUMNS})
+            result["n_atoms_dockq_receptor"] = 0
+            result["n_atoms_dockq_ligand"] = 0
 
         # Read full structures
         fixed_full: struc.AtomArray = read_structure(structure_path1)
@@ -553,6 +796,24 @@ def rmsd_pair(
                         f"TM-score calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {tm_error}"
                     )
 
+        # Step 4: DockQ and interface quality
+        if dockq:
+            try:
+                result.update(
+                    dockq_scores(
+                        fixed_full,
+                        mobile_full,
+                        superimpose_chains1,
+                        superimpose_chains2,
+                        score_chains1,
+                        score_chains2,
+                    )
+                )
+            except Exception as dockq_error:
+                logging.warning(
+                    f"DockQ calculation failed for {Path(structure_path1).name} vs {Path(structure_path2).name}: {dockq_error}"
+                )
+
     except Exception as e:
         logging.warning(f"Error processing {structure_path1} vs {structure_path2}: {e}")
 
@@ -577,6 +838,7 @@ def rmsd_all_pairs(
     score_chains_b: Optional[Iterable[str]] = None,
     output_transformed_dir: Optional[Union[str, Path]] = None,
     max_structural_iterations: Optional[int] = None,
+    dockq: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Calculate RMSD and optionally TM-score for all pairs of structures.
@@ -597,6 +859,8 @@ def rmsd_all_pairs(
         score_chains_b: Optional list of chain IDs to use for scoring from structures in B
         output_transformed_dir: Optional directory or .pdb file to save transformed mobile structures.
             If a .pdb file, writes directly to that file. If a directory, files are saved with '_aligned.pdb' suffix.
+
+        dockq: If True, also calculate DockQ and interface quality scores for each pair.
 
     Returns:
         List of dictionaries with RMSD and/or TM-score results
@@ -629,6 +893,7 @@ def rmsd_all_pairs(
             score_b,
             output_transformed_dir,
             max_structural_iterations,
+            dockq,
         )
         for p1, p2 in pairs
     ]
@@ -799,6 +1064,17 @@ def main():
         help="Output results as a symmetric matrix format using specified score (e.g., rmsd_pruned, rmsd_all, tm_score_pruned, tm_score_all). Default: detailed pairwise TSV",
     )
     parser.add_argument(
+        "--dockq",
+        action="store_true",
+        help=(
+            "Also calculate DockQ, its fnat/iRMSD/LRMSD components, interface lDDT and "
+            "clash count. The superimpose-chains are taken as the receptor and the "
+            "score-chains as the ligand, so both must be given. LRMSD (and so DockQ) "
+            "follows that assignment rather than the reference implementation's "
+            "larger-chain-is-receptor rule; the two agree when the ligand is smaller."
+        ),
+    )
+    parser.add_argument(
         "--output",
         "-o",
         type=str,
@@ -825,6 +1101,20 @@ def main():
             "Using --method-tm blosum62 and --tm-score together is not conventional, "
             "TM-scores will not reflect common practice due to sequence-based superposition."
         )
+
+    if args.dockq:
+        if peppr is None:
+            logging.error(
+                "--dockq needs peppr; install it or run this script with "
+                "`uv run bin/rmsd4all.py`, which resolves the script header."
+            )
+            sys.exit(1)
+        if args.superimpose_chains is None or args.score_chains is None:
+            logging.error(
+                "--dockq needs --superimpose-chains (receptor) and --score-chains "
+                "(ligand): DockQ is defined on a named two-body interface."
+            )
+            sys.exit(1)
 
     # Log the methods being used
     logging.info(f"Using --method-rmsd {args.method_rmsd}")
@@ -946,6 +1236,7 @@ def main():
         score_chains_b=score_chains_mobile,
         output_transformed_dir=args.output_transformed,
         max_structural_iterations=args.max_structural_iterations or None,
+        dockq=args.dockq,
     )
 
     # Handle output
@@ -979,6 +1270,9 @@ def main():
                         "n_pairs_tm_score_all",
                     ]
                 )
+
+            if args.dockq:
+                header.extend(DOCKQ_COLUMNS)
 
             # Add residue count columns
             header.extend(
@@ -1037,6 +1331,9 @@ def main():
                             result["n_pairs_tm_score_all"],
                         ]
                     )
+
+                if args.dockq:
+                    row.extend(_format_dockq(result))
 
                 # Add residue count columns
                 row.extend(

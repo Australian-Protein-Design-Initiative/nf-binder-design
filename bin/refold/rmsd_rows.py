@@ -44,6 +44,29 @@ VALUE_COLUMNS = {
     "tm_score_all": "tm_score_all",
 }
 
+# Carried through only for the table that has them. DockQ needs a receptor and a
+# ligand, so rmsd4all --dockq is run for the target-aligned binder comparison and not
+# for the whole-complex one, where both chains are on both sides of the comparison.
+DOCKQ_COLUMNS = {
+    "dockq": "dockq",
+    "dockq_fnat": "dockq_fnat",
+    "dockq_fnonnat": "dockq_fnonnat",
+    "dockq_irmsd": "dockq_irmsd",
+    "dockq_lrmsd": "dockq_lrmsd",
+    "interface_lddt": "interface_lddt",
+    "clash_count": "clash_count",
+}
+
+
+def value_columns_for(table: Dict[str, dict]) -> Dict[str, str]:
+    """The columns to carry across for one table: the RMSD set, plus DockQ when
+    rmsd4all was run with --dockq for that comparison."""
+    header = next(iter(table.values()), {})
+    columns = dict(VALUE_COLUMNS)
+    if "dockq" in header:
+        columns.update(DOCKQ_COLUMNS)
+    return columns
+
 MODEL_PATTERNS = (
     re.compile(r"_model_(\d+)\."),      # boltz
     re.compile(r"_sample[_-](\d+)[._]"),  # protenix, rf3, af3, openfold3, chai1, esmfold2
@@ -105,9 +128,11 @@ def main() -> int:
     # than dropping the row.
     models = sorted(tables[0][1])
 
+    per_table_columns = [(prefix, value_columns_for(table)) for prefix, table in tables]
+
     columns = ["id", "tool", "batch", "model"]
-    for prefix, _ in tables:
-        columns += [f"{prefix}_{suffix}" for suffix in VALUE_COLUMNS.values()]
+    for prefix, value_columns in per_table_columns:
+        columns += [f"{prefix}_{suffix}" for suffix in value_columns.values()]
 
     rows: List[dict] = []
     for position, model in enumerate(models):
@@ -117,9 +142,9 @@ def main() -> int:
             "batch": args.batch,
             "model": args.model if args.model else model_index(model, position),
         }
-        for prefix, table in tables:
+        for (prefix, table), (_, value_columns) in zip(tables, per_table_columns):
             source = table.get(model, {})
-            for column, suffix in VALUE_COLUMNS.items():
+            for column, suffix in value_columns.items():
                 row[f"{prefix}_{suffix}"] = source.get(column, "")
         rows.append(row)
 

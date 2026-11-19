@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # /// script
 # requires-python = ">=3.9"
-# dependencies = ["pytest", "biotite", "numpy"]
+# dependencies = ["pytest", "biotite<=1.6", "numpy", "peppr"]
 # ///
 
 """
@@ -85,3 +85,90 @@ def test_asking_for_no_chain_that_exists_gives_an_empty_selection():
 def test_no_chain_list_leaves_the_structure_alone():
     structure = _structure([("B", 3), ("A", 5)])
     assert rmsd4all._filter_structure_by_chains(structure, None) is structure
+
+
+def _helix(chain, n_residues, origin, backbone_only=False):
+    """A helical chain, so the residues are not collinear.
+
+    The geometry matters: superimpose_homologs keeps every anchor on a straight
+    poly-alanine rod, but prunes a real fold down to a core, which is what made it
+    the wrong basis for atom correspondence.
+    """
+    names = ["N", "CA", "C", "O"] if backbone_only else ["N", "CA", "C", "O", "CB"]
+    atoms = []
+    for i in range(n_residues):
+        angle = i * np.deg2rad(100.0)
+        centre = np.array(
+            [2.3 * np.cos(angle), 2.3 * np.sin(angle), 1.5 * i]
+        ) + np.asarray(origin, dtype=float)
+        for j, name in enumerate(names):
+            atoms.append(
+                struc.Atom(
+                    centre + np.array([0.0, 0.0, 0.3 * j]),
+                    chain_id=chain,
+                    res_id=i + 1,
+                    res_name="ALA",
+                    atom_name=name,
+                    element=name[0],
+                )
+            )
+    return atoms
+
+
+def _two_chain_complex(backbone_only_chain=None, shift=(0.0, 0.0, 0.0)):
+    """Two helices side by side, close enough to make a real interface."""
+    ligand_origin = np.array([7.0, 0.0, 0.0]) + np.asarray(shift, dtype=float)
+    return struc.array(
+        _helix("A", 24, [0.0, 0.0, 0.0], backbone_only_chain == "A")
+        + _helix("B", 24, ligand_origin, backbone_only_chain == "B")
+    )
+
+
+def test_matching_keeps_every_aligned_residue_not_just_superposition_anchors():
+    # superimpose_homologs prunes to a non-outlier core - 15 of 24 residues for this
+    # helix, and 23 of 117 for a real designed chain. Atom correspondence has to keep
+    # all of them, or fnat counts contacts over a fraction of the interface.
+    chain_a = rmsd4all._filter_structure_by_chains(_two_chain_complex(), ["A"])
+    anchors = struc.superimpose_homologs(
+        chain_a[chain_a.atom_name == "CA"], chain_a[chain_a.atom_name == "CA"]
+    )[2]
+    assert len(anchors) < 24, "fixture no longer exercises the pruning it guards"
+
+    fixed, mobile = rmsd4all._match_atoms(chain_a, chain_a)
+    assert len(fixed) == len(chain_a)
+    assert len(mobile) == len(chain_a)
+
+
+def test_matching_falls_back_to_the_atoms_both_structures_have():
+    # A backbone-only design against an all-atom prediction: the shared atom names
+    # are the backbone, and both sides must come back the same length.
+    design = rmsd4all._filter_structure_by_chains(
+        _two_chain_complex(backbone_only_chain="A"), ["A"]
+    )
+    prediction = rmsd4all._filter_structure_by_chains(_two_chain_complex(), ["A"])
+    fixed, mobile = rmsd4all._match_atoms(design, prediction)
+    assert len(fixed) == len(mobile)
+    assert set(fixed.atom_name.tolist()) == {"N", "CA", "C", "O"}
+
+
+def test_dockq_is_one_for_a_pose_identical_to_the_reference():
+    pytest.importorskip("peppr")
+    structure = _two_chain_complex()
+    scores = rmsd4all.dockq_scores(structure, structure, ["A"], ["A"], ["B"], ["B"])
+    assert scores["dockq"] == pytest.approx(1.0, abs=1e-4)
+    assert scores["dockq_fnat"] == pytest.approx(1.0, abs=1e-4)
+    assert scores["dockq_irmsd"] == pytest.approx(0.0, abs=1e-4)
+
+
+def test_dockq_drops_when_the_ligand_is_in_the_wrong_place():
+    pytest.importorskip("peppr")
+    scores = rmsd4all.dockq_scores(
+        _two_chain_complex(),
+        _two_chain_complex(shift=(6.0, 4.0, 0.0)),
+        ["A"],
+        ["A"],
+        ["B"],
+        ["B"],
+    )
+    assert scores["dockq"] < 0.5
+    assert scores["dockq_lrmsd"] > 1.0

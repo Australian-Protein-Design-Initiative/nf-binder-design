@@ -142,7 +142,16 @@ design workflows pertain exclusively to refolding.
     (`<tool>_complex_rmsd_all` and `<tool>_complex_tm_score_all`) evaluate to `NaN`.
     Structurally aligned pruned variants and target-aligned binder RMSD
     (`<tool>_target_aligned_binder_rmsd_*`) remain valid because the binder chain
-    length is unchanged.
+    length is unchanged. The DockQ columns likewise remain valid: residues are paired
+    by sequence alignment and each pair contributes the atoms both structures carry,
+    so a longer target simply contributes the part it shares with the design.
+
+!!! note "DockQ's receptor and ligand are the target and the binder"
+    `--refold_target_chain` is the receptor and `--refold_binder_chain` the ligand,
+    where the reference DockQ implementation instead always takes the larger chain as
+    the receptor. `fnat` and `iRMSD` are symmetric and agree either way; `LRMSD`, and
+    so the DockQ score, differ when the binder is the larger of the two. Requires
+    `nf-binder-design-utils:0.1.8` or later, which carries `peppr`.
 
 ## Output columns
 
@@ -153,6 +162,10 @@ with the engine name:
 |--------|-------------|
 | `<tool>_iptm_max`, `<tool>_ipsae_max`, `<tool>_plddt_max`, ... | Prediction confidence metrics, per `--refold_metrics` |
 | `<tool>_target_aligned_binder_rmsd_all` | Binder RMSD relative to the design pose after superimposing on the target |
+| `<tool>_target_aligned_binder_dockq` | DockQ of the refolded complex against the design pose, 0 to 1. The usual reading is <0.23 incorrect, 0.23-0.49 acceptable, 0.49-0.80 medium, >=0.80 high |
+| `<tool>_target_aligned_binder_dockq_fnat`, `_dockq_fnonnat`, `_dockq_irmsd`, `_dockq_lrmsd` | The components DockQ is built from: fraction of design contacts recovered, fraction of predicted contacts that are not in the design, interface backbone RMSD and ligand (binder) RMSD |
+| `<tool>_target_aligned_binder_interface_lddt` | Interface lDDT of the refolded complex against the design |
+| `<tool>_target_aligned_binder_clash_count` | Atom clashes within the refolded complex. A property of the prediction alone, not a comparison |
 | `<tool>_complex_rmsd_all` | Whole-complex RMSD relative to the design |
 | `<tool>_monomer_vs_design_rmsd_all` | RMSD of binder folded alone versus its designed conformation |
 | `<tool>_monomer_vs_complex_rmsd_all` | RMSD of binder folded alone versus binder in the refolded complex |
@@ -174,6 +187,7 @@ custom post-processing.
 | `--refold_binder_monomer` | `true` | Folds each binder alone for monomer-versus-complex and monomer-versus-design RMSD comparisons |
 | `--refold_monomer_single_sequence` | `true` | Predicts binder monomer structures from sequence alone without MSA generation |
 | `--refold_interface_scoring` | `true` | Calculates BindCraft interface metrics on refolded complexes |
+| `--refold_dockq` | `true` | Calculates DockQ, its components, interface lDDT and a clash count for the target-aligned binder comparison |
 | `--output_rmsd_aligned` | `false` | Saves superimposed coordinate files from RMSD comparisons |
 | `--n_predictions` | `5` | Generated structures per design per engine |
 

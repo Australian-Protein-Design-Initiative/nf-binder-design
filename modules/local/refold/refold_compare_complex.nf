@@ -14,7 +14,7 @@
 process REFOLD_COMPARE_COMPLEX {
     tag "${meta.id} ${meta.fold_tool} b${meta.fold_batch} ${meta.fold_sample}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     publishDir(
         path: "${params.outdir}/${params.refold_publish_dir ?: 'refold'}/rmsd/aligned",
@@ -40,6 +40,9 @@ process REFOLD_COMPARE_COMPLEX {
     script:
     def aligned_target = params.output_rmsd_aligned ? '--output-transformed aligned_target_aligned_binder/' : ''
     def aligned_complex = params.output_rmsd_aligned ? '--output-transformed aligned_complex/' : ''
+    // Only the target-aligned comparison: DockQ is defined on a receptor and a ligand,
+    // and the whole-complex comparison puts both chains on both sides.
+    def dockq = params.refold_dockq ? '--dockq' : ''
     """
     set -euo pipefail
 
@@ -50,6 +53,7 @@ process REFOLD_COMPARE_COMPLEX {
         --mobile-superimpose-chains ${pred_target_chain} \\
         --score-chains ${binder_chain} \\
         --mobile-score-chains ${pred_binder_chain} \\
+        ${dockq} \\
         ${aligned_target} \\
         design/ models/ > rmsd_target_aligned_binder.tsv
 
