@@ -1,0 +1,90 @@
+nextflow_process {
+
+    name "Test Process REFOLD_COMPARE_COMPLEX"
+    script "modules/local/refold/refold_compare_complex.nf"
+    process "REFOLD_COMPARE_COMPLEX"
+
+    tag "refold"
+    tag "refold_compare_complex"
+
+    // Two helices, chain A the target and chain B the binder. The model has the
+    // binder displaced, so every comparison has something to measure: an identical
+    // pair would give DockQ 1.0 whether or not the chains were read correctly.
+
+    test("reports DockQ and interface quality for the target-aligned comparison") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                refold_dockq = true
+            }
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'd1', fold_tool: 'boltz', fold_batch: 0, fold_sample: 0],
+                    file("\${projectDir}/tests/data/refold/design.pdb"),
+                    [file("\${projectDir}/tests/data/refold/model_0.pdb")]
+                )
+                input[1] = 'B'
+                input[2] = 'A'
+                input[3] = 'B'
+                input[4] = 'A'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def rows = path(process.out.rmsd.get(0)[1]).readLines()
+            def header = rows[0].split('\t') as List
+            def values = [header, rows[1].split('\t') as List].transpose().collectEntries()
+
+            // DockQ belongs to the target-aligned comparison only: the whole-complex
+            // one puts both chains on both sides, where DockQ is undefined.
+            assert header.contains('target_aligned_binder_dockq')
+            assert header.contains('target_aligned_binder_dockq_fnat')
+            assert header.contains('target_aligned_binder_dockq_irmsd')
+            assert header.contains('target_aligned_binder_dockq_lrmsd')
+            assert header.contains('target_aligned_binder_interface_lddt')
+            assert header.contains('target_aligned_binder_clash_count')
+            assert !header.contains('complex_dockq')
+
+            // A displaced binder has to score below a perfect match, and the value has
+            // to be a real number rather than the NaN a failed call would leave behind.
+            def dockq = values['target_aligned_binder_dockq'] as Double
+            assert dockq > 0.0 && dockq < 1.0
+            assert (values['target_aligned_binder_dockq_lrmsd'] as Double) > 0.0
+        }
+    }
+
+    test("--refold_dockq false leaves the columns out") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                refold_dockq = false
+            }
+            process {
+                """
+                input[0] = tuple(
+                    [id: 'd1', fold_tool: 'boltz', fold_batch: 0, fold_sample: 0],
+                    file("\${projectDir}/tests/data/refold/design.pdb"),
+                    [file("\${projectDir}/tests/data/refold/model_0.pdb")]
+                )
+                input[1] = 'B'
+                input[2] = 'A'
+                input[3] = 'B'
+                input[4] = 'A'
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            def header = path(process.out.rmsd.get(0)[1]).readLines()[0]
+            assert !header.contains('dockq')
+            assert header.contains('target_aligned_binder_rmsd_all')
+        }
+    }
+}
