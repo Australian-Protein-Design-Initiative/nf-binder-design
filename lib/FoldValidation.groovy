@@ -12,7 +12,7 @@ class FoldValidation {
     static final List TEMPLATE_METHODS = ['af2', 'af2_mono', 'af3', 'boltz', 'chai1', 'openfold3', 'protenix', 'rf3']
 
     static List parseMethods(methodsParam) {
-        return methodsParam.toString().split(',').collect { it.trim().toLowerCase() }
+        return methodsParam.toString().split(',').collect { it.trim().toLowerCase() }.findAll { it }
     }
 
     /**

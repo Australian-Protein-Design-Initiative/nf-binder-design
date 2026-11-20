@@ -6,7 +6,7 @@ Assertions for modules/local/common/refold_select_utils.nf.
 A runnable script rather than an nf-test case so that it can be run with nothing but
 Nextflow. From the repository root:
 
-    nextflow run tests/lib/refold_selection.nf
+    nextflow run tests/lib/refold_selection.nf -lib lib
 
 It logs one line and exits 0 when every assertion holds, and names the failing case
 otherwise.
@@ -26,6 +26,7 @@ include {
     refoldReportRow
     refoldSortKeySuggestions
     refoldStripModelSuffix
+    refoldEngines
 } from '../../modules/local/common/refold_select_utils'
 
 def check = { String name, Closure body ->
@@ -296,6 +297,32 @@ workflow {
         // Only a trailing _model<digits> goes: _model2 in the middle is part of the name.
         assert refoldStripModelSuffix('a_model2_b') == 'a_model2_b'
         assert refoldStripModelSuffix('design_model') == 'design_model'
+    }
+
+    // --- engine list parsing ---
+
+    // ''.split(',') is [''], and a one-element list is truthy: --refold_with unset used to
+    // look like a request to refold with an engine named '' and failed validation.
+    def quietLog = [warn: { String m -> }]
+    [false, null, '', ' ', ',', ' , '].each { unset ->
+        check("--refold_with=${unset == null ? 'null' : "'${unset}'"} means no engines") {
+            assert refoldEngines([refold_with: unset], 'test', quietLog) == []
+            assert !refoldEngines([refold_with: unset], 'test', quietLog)
+        }
+    }
+    // The default in conf/refold.config is the empty string.
+    check('the empty refold_with default gives no engines') {
+        assert refoldEngines([refold_with: ''], 'test', quietLog) == []
+        assert refoldEngines([:], 'test', quietLog) == []
+    }
+
+    check('engine lists are trimmed, lower-cased and tolerate stray commas') {
+        assert refoldEngines([refold_with: 'Boltz, rf3,'], 'test', quietLog) == ['boltz', 'rf3']
+    }
+
+    check('deprecated --refold_oracles is merged without duplicates') {
+        assert refoldEngines([refold_with: 'boltz', refold_oracles: 'boltz,rf3'], 'test', quietLog) == ['boltz', 'rf3']
+        assert refoldEngines([refold_with: '', refold_oracles: 'rf3'], 'test', quietLog) == ['rf3']
     }
 
     log.info('refold_select_utils: all assertions passed')
