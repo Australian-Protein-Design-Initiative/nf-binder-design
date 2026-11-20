@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection never worked inside Apptainer containers - Set `--gpu_devices` to enable the lock-based allocator instead.
 
 ### Fixed
+- `rf3` fold specs declare `chain_type: polypeptide(L)` for every sequence component. Without it, atomworks infers the chain type from the alphabet, so a low-complexity binder whose letters are all valid nucleotide codes - poly-alanine from a degenerate ProteinMPNN pass is the realistic case - was folded as RNA, and every comparison metric for that design came back `NaN`. The stack is protein-only, so the declaration is unconditional.
 - From Nextflow 26, a `publishDir` `path:` or `pattern:` written as a plain string could not see the process's own inputs, so every method died at startup with `No such variable: step` / `meta` / `batch_id` before any task ran. The 18 such directives across 15 modules are closures now, which defers them to the task. This was independent of the strict syntax, and 24.04.3 was never affected.
 - `SILENT_FROM_PDBS` referred to `${PATH}` unescaped in an interpolated script block, so `--method rfd` died with `No such variable: PATH` before any silent file was written.
 - `FOLDSEEK_REMOTE_SEARCH` passed `$d` unescaped to `jq`, so Nextflow tried to interpolate it instead of leaving it as the jq variable the query needs.

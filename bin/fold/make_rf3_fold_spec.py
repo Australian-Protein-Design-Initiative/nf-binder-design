@@ -178,7 +178,10 @@ def make_rf3_fold_spec(
     templated: List[str] = []
     msa_paths = {}
     for i, (chain_id, seq) in enumerate(zip(chain_ids, sequences)):
-        comp = {"seq": seq, "chain_id": chain_id}
+        # Declare the chain type: atomworks otherwise infers it from the alphabet, and a
+        # low-complexity binder (eg poly-alanine from a degenerate ProteinMPNN pass) whose
+        # letters are all valid nucleotide codes gets folded as RNA. Protein-only stack.
+        comp = {"seq": seq, "chain_id": chain_id, "chain_type": "polypeptide(L)"}
         if a3m_paths:
             _check_query(a3m_paths[i], seq, i)
             # Basename so fold.nf can overwrite the staged a3m in-task

@@ -47,6 +47,14 @@ def test_swapped_msas_rejected(tmp_path):
         mrfs.make_rf3_fold_spec(fasta, "x", a3m_paths=[b, t])
 
 
+def test_poly_alanine_binder_declared_as_protein(tmp_path):
+    # Without an explicit chain_type, atomworks infers it from the alphabet and folds a
+    # poly-alanine binder as poly-adenosine RNA (RF3_SEQUENCE_TYPE_BUG.md).
+    fasta = _write(tmp_path / "pair.fasta", f">t\n{TARGET}\n>b\nAAAAAAAAAA\n")
+    spec = mrfs.make_rf3_fold_spec(fasta, "x")
+    assert [c["chain_type"] for c in spec["components"]] == ["polypeptide(L)"] * 2
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
 
@@ -83,7 +91,7 @@ def test_template_chain_becomes_inplace_structure(tmp_path):
     )
     target, binder = spec["components"]
     assert target == {"path": f"{mrfs.TEMPLATE_DIR_NAME}/chain_A.cif", "custom_parse_kwargs": {"add_missing_atoms": True}}
-    assert binder == {"seq": BINDER, "chain_id": "B", "msa_path": "b.a3m"}
+    assert binder == {"seq": BINDER, "chain_id": "B", "chain_type": "polypeptide(L)", "msa_path": "b.a3m"}
     assert spec["template_selection"] == ["A"]
     assert spec["msa_paths"] == {"A": "t.a3m"}
 
