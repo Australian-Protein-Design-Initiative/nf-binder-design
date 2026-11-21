@@ -64,6 +64,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/bc2/">BindCraft2</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
@@ -96,7 +98,7 @@
     </li>
     </ul>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../multi-gpu/">Multiple GPUs</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../multi-gpu/">Multiple GPU Workstations</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../fold-databases/">Fold Databases</a>
                   </li>
@@ -165,21 +167,16 @@ Apptainer cache notes, and more detail.</p>
 <h2 id="linting">Linting</h2>
 <p>Lint <code>.nf</code> and <code>config</code> files with <code>nextflow lint</code> before opening a PR:</p>
 <pre><code class="language-bash"># Lint the pipeline source (use a Nextflow with the linter, e.g. 25.04.x)
-NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules
+NXF_VER=25.04.7 nextflow lint -o concise main.nf workflows subworkflows modules \
+    nextflow.config conf tests
 </code></pre>
 <p><code>nextflow lint</code> catches genuine issues such as unused variables and parameters
 (prefix unused closure parameters with <code>_</code> to silence those warnings).</p>
-<p>It parses with the strict (v2) syntax, so it also reports constructs that this
-pipeline deliberately keeps for Nextflow 24.04.3 compatibility: the conditional
-<code>include</code> statements in <code>main.nf</code>, the <code>@Field</code>/<code>import</code> in
-<code>modules/local/rfd3/rfd3_utils.nf</code>, and multi-name function includes (reported as
-<code>... is not defined</code>). These are expected; <strong>do not</strong> "fix" them in ways that
-break 24.04.3. See <a href="../../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>.</p>
-<p>Avoid <code>nextflow lint -format</code> on Nextflow 25.10+, as it rewrites code to the
-strict syntax; if you need to reformat, run it with <code>NXF_VER=25.04.7</code> so the
-result stays compatible with parsers prior to 25.10.</p>
-<p><code>nextflow lint</code> always parses with the strict syntax; <code>NXF_SYNTAX_PARSER=v1</code> has
-no effect on it (that variable only changes <code>nextflow run</code>).</p>
+<p>The tree is clean under the linter; keep it that way and treat every error it
+reports as something to fix. Confirm the oldest supported version still works
+with <code>NXF_VER=24.04.3 nf-test test tests/pipeline/compilation.nf.test</code>. If you
+need to reformat, run <code>nextflow lint -format</code> with <code>NXF_VER=25.04.7</code> rather than
+25.10+, whose output older parsers reject.</p>
 <h2 id="releasing">Releasing</h2>
 <p>The version number appears in three files, and there is no single source of truth;
 bump all three together:</p>
@@ -248,7 +245,7 @@ wait several minutes before verifying that <code>/X.Y.Z/</code> is available.</p
           </div><footer>
     <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
         <a href="../../subworkflows/foldseek/" class="btn btn-neutral float-left" title="FoldSeek"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-        <a href="../multi-gpu/" class="btn btn-neutral float-right" title="Multiple GPUs">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../multi-gpu/" class="btn btn-neutral float-right" title="Multiple GPU Workstations">Next <span class="icon icon-circle-arrow-right"></span></a>
     </div>
 
   <hr/>

@@ -64,6 +64,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/bindcraft/">BindCraft</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../workflows/bc2/">BindCraft2</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../workflows/boltzgen/">BoltzGen</a>
@@ -114,7 +116,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/development/">Development</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../extra/multi-gpu/">Multiple GPUs</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/multi-gpu/">Multiple GPU Workstations</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/fold-databases/">Fold Databases</a>
                   </li>
@@ -333,7 +335,17 @@ whole-complex alignment metrics requiring identical residue counts
 (<code>&lt;tool&gt;_complex_rmsd_all</code> and <code>&lt;tool&gt;_complex_tm_score_all</code>) evaluate to <code>NaN</code>.
 Structurally aligned pruned variants and target-aligned binder RMSD
 (<code>&lt;tool&gt;_target_aligned_binder_rmsd_*</code>) remain valid because the binder chain
-length is unchanged.</p>
+length is unchanged. The DockQ columns likewise remain valid: residues are paired
+by sequence alignment and each pair contributes the atoms both structures carry,
+so a longer target simply contributes the part it shares with the design.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">DockQ's receptor and ligand are the target and the binder</p>
+<p><code>--refold_target_chain</code> is the receptor and <code>--refold_binder_chain</code> the ligand,
+where the reference DockQ implementation instead always takes the larger chain as
+the receptor. <code>fnat</code> and <code>iRMSD</code> are symmetric and agree either way; <code>LRMSD</code>, and
+so the DockQ score, differ when the binder is the larger of the two. Requires
+<code>nf-binder-design-utils:0.1.8</code> or later, which carries <code>peppr</code>.</p>
 </div>
 <h2 id="output-columns">Output columns</h2>
 <p>Prediction engines generate standardized columns in <code>combined_scores.tsv</code>, prefixed
@@ -353,6 +365,22 @@ with the engine name:</p>
 <tr>
 <td><code>&lt;tool&gt;_target_aligned_binder_rmsd_all</code></td>
 <td>Binder RMSD relative to the design pose after superimposing on the target</td>
+</tr>
+<tr>
+<td><code>&lt;tool&gt;_target_aligned_binder_dockq</code></td>
+<td>DockQ of the refolded complex against the design pose, 0 to 1. The usual reading is &lt;0.23 incorrect, 0.23-0.49 acceptable, 0.49-0.80 medium, &gt;=0.80 high</td>
+</tr>
+<tr>
+<td><code>&lt;tool&gt;_target_aligned_binder_dockq_fnat</code>, <code>_dockq_fnonnat</code>, <code>_dockq_irmsd</code>, <code>_dockq_lrmsd</code></td>
+<td>The components DockQ is built from: fraction of design contacts recovered, fraction of predicted contacts that are not in the design, interface backbone RMSD and ligand (binder) RMSD</td>
+</tr>
+<tr>
+<td><code>&lt;tool&gt;_target_aligned_binder_interface_lddt</code></td>
+<td>Interface lDDT of the refolded complex against the design</td>
+</tr>
+<tr>
+<td><code>&lt;tool&gt;_target_aligned_binder_clash_count</code></td>
+<td>Atom clashes within the refolded complex. A property of the prediction alone, not a comparison</td>
 </tr>
 <tr>
 <td><code>&lt;tool&gt;_complex_rmsd_all</code></td>
@@ -422,6 +450,11 @@ custom post-processing.</p>
 <td><code>--refold_interface_scoring</code></td>
 <td><code>true</code></td>
 <td>Calculates BindCraft interface metrics on refolded complexes</td>
+</tr>
+<tr>
+<td><code>--refold_dockq</code></td>
+<td><code>true</code></td>
+<td>Calculates DockQ, its components, interface lDDT and a clash count for the target-aligned binder comparison</td>
 </tr>
 <tr>
 <td><code>--output_rmsd_aligned</code></td>

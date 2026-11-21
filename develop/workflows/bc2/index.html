@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/bc2/" />
+      <link rel="shortcut icon" href="../../img/favicon.ico" />
+    <title>BindCraft2 - nf-binder-design</title>
+    <link rel="stylesheet" href="../../css/theme.css" />
+    <link rel="stylesheet" href="../../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../../styles.green.css" rel="stylesheet" />
+        <link href="../../css/version-select.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "BindCraft2";
+        var mkdocs_page_input_path = "workflows/bc2.md";
+        var mkdocs_page_url = "/nf-binder-design/develop/workflows/bc2/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/yaml.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/json.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/python.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/bash.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/groovy.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="../.." class="icon icon-home"> nf-binder-design
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../setup/">Setup</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Workflows</span></p>
+              <ul class="current">
+                  <li class="toctree-l1"><a class="reference internal" href="../rfdiffusion/">RFdiffusion</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../rfd3/">RFdiffusion3</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../rfd4-proteina/">RFD4-Proteina</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
+                  </li>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">BindCraft2</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#differences-from-standalone-bindcraft2">Differences from standalone BindCraft2</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#adaptive-tuning-under-batching">Adaptive tuning under batching</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#command-line-options">Command-line Options</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-usage">Example Usage</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#params-mode">Params mode</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#config-mode">Config mode</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#built-in-target-presets">Built-in target presets</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-parameters">Key Parameters</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#hotspot-subsampling">Hotspot subsampling</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#passing-bindcraft2-settings">Passing BindCraft2 Settings</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#-bc2_set">--bc2_set</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#modality-and-core-presets">Modality and core presets</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#design-properties">Design properties</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#reproducibility">Reproducibility</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#output-structure">Output Structure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#structural-novelty-search-foldseek">Structural novelty search (FoldSeek)</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#binder-chain-for-foldseek">Binder chain for FoldSeek</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#unwrapped-bindcraft2-subcommands">Unwrapped BindCraft2 subcommands</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../germinal/">Germinal</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../fold/">Fold</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../fold-pulldown/">Fold Pulldown</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Subworkflows</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/refold/">Refold Scoring</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../subworkflows/foldseek/">FoldSeek</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Extra</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="" href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/development/">Development</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/multi-gpu/">Multiple GPU Workstations</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/fold-databases/">Fold Databases</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/utility-scripts/">Utility Scripts</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/m3-hpc-examples/">M3 HPC Examples</a>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/pawsey-setonix/">Pawsey Setonix Examples</a>
+                  </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../testing/">Testing</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../../changelog/">Release history</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../..">nf-binder-design</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Workflows</li>
+      <li class="breadcrumb-item active">BindCraft2</li>
+    <li class="wy-breadcrumbs-aside">
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/bc2.md" class="icon icon-github"> Edit on GitHub</a>
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="bindcraft2-workflow">BindCraft2 Workflow</h1>
+<p>Parallel <a href="https://github.com/PacesaLab/BindCraft2">BindCraft2</a> execution for protein binder design across multiple GPUs.</p>
+<h2 id="overview">Overview</h2>
+<p>The <code>--method bc2</code> workflow (alias <code>--method bindcraft2</code>) runs BindCraft2 campaigns in parallel batches, then gathers them with <code>bindcraft campaign_output</code> and renders an HTML report.</p>
+<p>BindCraft2 is a rewrite of <a href="../bindcraft/">BindCraft</a>, not a version bump. It runs as a separate <code>--method bc2</code> workflow instead of a flag on <code>--method bindcraft</code>, adding:</p>
+<ul>
+<li>One campaign JSON instead of three settings files; set any option from the CLI via <code>--bc2_set</code>.</li>
+<li>Twelve binder modalities (<code>VHH</code>, <code>scFv</code>, <code>Fab</code>, <code>ARP</code>, <code>cyclic_peptide</code>, <code>multidomain</code>, <code>induced_fit</code>, ...) and nine composable design properties (<code>--bc2_humanize</code>, <code>--bc2_protease_stable</code>, ...).</li>
+<li>Multi-target campaigns, off-target detargeting, and PDB, mmCIF or FASTA inputs.</li>
+<li>mmCIF structure output and <code>i_pDAE</code> candidate ranking.</li>
+</ul>
+<h2 id="differences-from-standalone-bindcraft2">Differences from standalone BindCraft2</h2>
+<p>Standalone BindCraft2 runs on a single GPU until it produces <code>N</code> accepted designs. This pipeline:</p>
+<ul>
+<li>Runs a <strong>fixed trajectory budget</strong> (<code>--bc2_n_traj</code>), split into batches of <code>--bc2_batch_size</code></li>
+<li>Exits once the budget finishes, keeping runtime predictable</li>
+<li>Parallelises batches across available GPUs</li>
+<li>Assigns a distinct <code>campaign_seed</code> per batch to prevent duplicate trajectories</li>
+</ul>
+<p>To target a specific count of accepted designs, start with a small budget (<code>--bc2_n_traj 100</code>) to measure the acceptance rate, then scale <code>--bc2_n_traj</code>.</p>
+<h3 id="adaptive-tuning-under-batching">Adaptive tuning under batching</h3>
+<p>BindCraft2 includes two adaptive mechanisms that update settings mid-campaign based on the current campaign's trajectory table:</p>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Engages after</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>autotune</code></td>
+<td>every 10 trajectories in one campaign</td>
+</tr>
+<tr>
+<td><code>desperation</code></td>
+<td>750 fruitless trajectories in one campaign, then one escalation rung per 50</td>
+</tr>
+</tbody>
+</table>
+<p>Each batch executes <code>--bc2_batch_size</code> trajectories, so both mechanisms remain inactive at the default batch size of 1. That suits fixed-budget, reproducible comparisons, though long standalone runs on difficult targets behave differently once adaptive tuning activates. The pipeline logs inactive mechanisms with the batch plan. Increase <code>--bc2_batch_size</code> if you want <code>autotune</code> to activate.</p>
+<h2 id="command-line-options">Command-line Options</h2>
+<p>See available options with <code>--method bc2 --help</code>:</p>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bc2 --help
+</code></pre>
+<h2 id="example-usage">Example Usage</h2>
+<h3 id="params-mode">Params mode</h3>
+<p>Generate the campaign JSON from flat parameters, using the same parameter names as <code>--method bindcraft</code>:</p>
+<pre><code class="language-bash">#!/bin/bash
+
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bc2 \
+  --input_pdb 'input/PDL1.pdb' \
+  --outdir results \
+  --target_chains &quot;A&quot; \
+  --hotspot_res &quot;A56,A125&quot; \
+  --binder_length_range &quot;60-150&quot; \
+  --bc2_n_traj 8 \
+  --bc2_batch_size 2 \
+  -profile local \
+  -resume
+</code></pre>
+<h3 id="config-mode">Config mode</h3>
+<p>Pass a BindCraft2 campaign JSON directly. Nextflow detects referenced files (<code>targets[].target_path</code> and <code>binder_scaffold</code>), stages them into each task, and rewrites their paths so relative entries resolve from any launch directory:</p>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bc2 \
+  --bc2_config campaign.json \
+  --bc2_modality VHH \
+  --bc2_humanize \
+  --bc2_n_traj 100 \
+  --bc2_batch_size 5 \
+  -profile local
+</code></pre>
+<h3 id="built-in-target-presets">Built-in target presets</h3>
+<p>BindCraft2 includes preconfigured targets inside the container. Setting <code>"target"</code> in the campaign JSON loads the target structure, chains and hotspots from the container without staging external files:</p>
+<pre><code class="language-json">{
+  &quot;campaign_name&quot;: &quot;hPDL1_VHH&quot;,
+  &quot;target&quot;: &quot;hPDL1&quot;,
+  &quot;modality&quot;: &quot;VHH&quot;,
+  &quot;humanize&quot;: true
+}
+</code></pre>
+<p>Available presets: <code>hPDL1</code>, <code>mPDL1</code>, <code>hPD1</code>, <code>hIL2R</code>, <code>hIL7RA</code> and <code>dynorphin_a</code>. Run <code>bindcraft design --list-targets</code> inside the container to list current presets.</p>
+<p>Modality and design properties are standard campaign JSON keys, so you can set them in JSON instead of passing <code>--bc2_modality</code> or <code>--bc2_*</code> CLI flags.</p>
+<p>For running on SLURM, use <code>-profile slurm</code> with <code>--slurm_account=xxYY</code> and the appropriate <code>-c</code> site-specific configuration file (refer to and adapt from the <a href="../rfdiffusion/#parallel-tasks-on-an-hpc-cluster">rfdiffusion example</a>).</p>
+<h2 id="key-parameters">Key Parameters</h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--bc2_config</code></td>
+<td>BindCraft2 campaign settings JSON. Mutually exclusive with <code>--input_pdb</code></td>
+</tr>
+<tr>
+<td><code>--input_pdb</code></td>
+<td>Target PDB, mmCIF or FASTA; a directory or quoted glob runs each structure. Mutually exclusive with <code>--bc2_config</code></td>
+</tr>
+<tr>
+<td><code>--target_chains</code></td>
+<td>Target chain IDs, comma-separated (params mode)</td>
+</tr>
+<tr>
+<td><code>--hotspot_res</code></td>
+<td>Hotspot residues, e.g. <code>A54,A56</code> or <code>B12-16</code> (params mode)</td>
+</tr>
+<tr>
+<td><code>--hotspot_subsample</code></td>
+<td>Fraction of each target's hotspots to keep per batch (both modes)</td>
+</tr>
+<tr>
+<td><code>--binder_length_range</code></td>
+<td><code>60-150</code> range, <code>80</code> exact, or <code>60,80,100</code> discrete choices (params mode)</td>
+</tr>
+<tr>
+<td><code>--bc2_n_traj</code></td>
+<td>Total trajectories to run</td>
+</tr>
+<tr>
+<td><code>--bc2_batch_size</code></td>
+<td>Trajectories per parallel task</td>
+</tr>
+<tr>
+<td><code>--bc2_seed</code></td>
+<td>Base <code>campaign_seed</code>. Batch seed is <code>bc2_seed + seedIndex</code> (<code>seedIndex</code> is the batch index in config mode, or <code>pdbIndex * nBatches + batchIndex</code> for several structures in params mode)</td>
+</tr>
+<tr>
+<td><code>--gpu_devices</code></td>
+<td>Specify multiple GPUs, e.g. <code>--gpu_devices=0,1</code> (use only for <code>-profile local</code>)</td>
+</tr>
+<tr>
+<td><code>--do_foldseek</code></td>
+<td>Run a FoldSeek structural novelty search over the ranked designs</td>
+</tr>
+</tbody>
+</table>
+<h2 id="hotspot-subsampling">Hotspot subsampling</h2>
+<p><code>--hotspot_subsample</code> samples <code>ceil(N * fraction)</code> hotspots per target (minimum 1) independently for each batch, so batches explore different parts of the epitope.</p>
+<pre><code class="language-bash">--hotspot_res &quot;A54,A56,A66,A115&quot; --hotspot_subsample 0.5
+</code></pre>
+<p>With these flags, each batch selects two of the four hotspots using its <code>campaign_seed</code>. Sampling uses <code>--bc2_seed</code> for reproducibility; <code>--method bindcraft</code> seeds hotspot subsampling from the system clock instead.</p>
+<p>Subsampling behaviour:</p>
+<ul>
+<li>Works in both params and config mode, since subsampling runs while staging the campaign JSON into each task.</li>
+<li>Treats each comma-separated entry as one hotspot, keeping or dropping ranges like <code>B12-16</code> as a unit.</li>
+<li>Samples each target independently in multi-target campaigns.</li>
+<li>Applies only to hotspots defined under <code>targets[]</code> in the campaign JSON. Hotspots from a built-in <code>"target"</code> preset are merged by BindCraft2 after staging and are not subsampled; the pipeline logs a warning if you combine <code>--hotspot_subsample</code> with a preset target.</li>
+</ul>
+<h2 id="passing-bindcraft2-settings">Passing BindCraft2 Settings</h2>
+<h3 id="-bc2_set"><code>--bc2_set</code></h3>
+<p>BindCraft2 exposes around 235 settings. Pass any of them via <code>--bc2_set</code> as <code>KEY=VALUE</code> pairs forwarded to <code>bindcraft design --set</code>:</p>
+<pre><code class="language-bash">--bc2_set 'binder_lengths=[70,90];filters.i_pTM.threshold=0.8;design_models=3'
+</code></pre>
+<ul>
+<li>Separate assignments with <code>;</code> instead of <code>,</code>, because JSON values often contain commas.</li>
+<li>Dotted keys update nested fields: <code>filters.i_pTM.threshold=0.8</code> changes only that threshold.</li>
+<li>Values parse as JSON (falling back to plain strings), so <code>[70,90]</code> becomes a list and <code>humanize=true</code> becomes a boolean.</li>
+<li>Full setting list: <a href="https://github.com/PacesaLab/BindCraft2/blob/main/settings/core/reference.json"><code>settings/core/reference.json</code></a>.</li>
+</ul>
+<p>The pipeline manages <code>project_folder</code>, <code>campaign_seed</code> and <code>max_trajectories</code> per batch and rejects them in <code>--bc2_set</code>. Set <code>--bc2_seed</code>, <code>--bc2_n_traj</code> and <code>--bc2_batch_size</code> instead.</p>
+<div class="admonition warning">
+<p class="admonition-title">Paths in <code>--bc2_set</code> are not staged</p>
+<p>Files referenced via <code>--bc2_set</code> are not staged; BindCraft2 resolves those paths relative to the task work directory. Define file inputs in the campaign JSON so they are detected and staged.</p>
+</div>
+<h3 id="modality-and-core-presets">Modality and core presets</h3>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--bc2_modality</code></td>
+<td>Binder format, e.g. <code>VHH</code>, or several combined: <code>VHH,induced_fit</code>. One of <code>binder</code>, <code>large_binder</code>, <code>peptide</code>, <code>cyclic_peptide</code>, <code>homo_oligomer</code>, <code>multidomain</code>, <code>VHH</code>, <code>scFv</code>, <code>Fab</code>, <code>ARP</code>, <code>induced_fit</code>, <code>fold_switch</code></td>
+</tr>
+<tr>
+<td><code>--bc2_core</code></td>
+<td>Core profile. <code>--bc2_core benchmark</code> pins the seed and disables <code>autotune</code> and <code>desperation</code>, for reproducible comparisons</td>
+</tr>
+<tr>
+<td><code>--bc2_metadata</code></td>
+<td>JSON file of fields to record with the campaign</td>
+</tr>
+</tbody>
+</table>
+<h3 id="design-properties">Design properties</h3>
+<p>Composable boolean flags, each corresponding to a <code>settings/property/*.json</code> upstream:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--bc2_humanize</code></td>
+<td>Human-like sequence preferences and an MHC-II anchor-score objective</td>
+</tr>
+<tr>
+<td><code>--bc2_bigbang</code></td>
+<td>Start gradient stages from the coordinates on hand</td>
+</tr>
+<tr>
+<td><code>--bc2_disulfide_staple</code></td>
+<td>Allow cysteine, require a detected disulfide</td>
+</tr>
+<tr>
+<td><code>--bc2_forced_targeting</code></td>
+<td>Concentrate the paratope on declared hotspots</td>
+</tr>
+<tr>
+<td><code>--bc2_initial_guess</code></td>
+<td>Re-predict the candidate from the trajectory pose</td>
+</tr>
+<tr>
+<td><code>--bc2_mixed_topology</code></td>
+<td>At most 50% helix, at least 20% beta sheet</td>
+</tr>
+<tr>
+<td><code>--bc2_protease_stable</code></td>
+<td>Penalise cleavage motifs and exposed loops and termini</td>
+</tr>
+<tr>
+<td><code>--bc2_termini_accessible</code></td>
+<td>Point both chain ends away from the target</td>
+</tr>
+<tr>
+<td><code>--bc2_termini_together</code></td>
+<td>Keep the N and C termini within 10 A</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reproducibility">Reproducibility</h2>
+<p>Each batch uses its own <code>campaign_seed</code>, computed as <code>--bc2_seed + seedIndex</code> (batch index in config mode; <code>pdbIndex * nBatches + batchIndex</code> when params mode folds several structures). Keep <code>--bc2_seed</code>, <code>--bc2_n_traj</code> and <code>--bc2_batch_size</code> constant to reproduce a run; changing <code>--bc2_batch_size</code> alters batch seeds and resulting designs.</p>
+<p>Pass <code>--bc2_core benchmark</code> to also fix BindCraft2's internal seed and disable adaptive tuning.</p>
+<h2 id="output-structure">Output Structure</h2>
+<p>Results are saved to <code>--outdir</code> in the <code>bc2/</code> subdirectory:</p>
+<pre><code>── bc2
+│   ├── batches
+│   │   ├── PDL1_0
+│   │   │   ├── 1_Trajectories
+│   │   │   │   └── !_Trajectories.csv
+│   │   │   ├── 2_Refolded
+│   │   │   │   └── !_Refolded.csv
+│   │   │   ├── 3_Ranked
+│   │   │   │   ├── !_Ranked.csv
+│   │   │   │   └── PDL1_l82_s0a1b2c3_1.cif
+│   │   │   ├── campaign_metadata.json
+│   │   │   ├── summary.csv
+│   │   │   ├── bc2.log
+│   │   │   └── bc2_campaign.staged.json
+│   │   └── PDL1_1
+│   │       └── ...
+│   ├── ranked
+│   │   └── PDL1_l82_s0a1b2c3_1.cif
+│   ├── bc2_report.html
+│   ├── summary.csv
+│   ├── ranked.csv
+│   ├── refolded.csv
+│   └── trajectories.csv
+└── logs
+    ├── dag_20250725_084959.html
+    ├── report_20250725_084959.html
+    ├── timeline_20250725_084959.html
+    └── trace_20250725_084959.txt
+</code></pre>
+<ul>
+<li><code>bc2/ranked/</code>: flat directory of accepted mmCIF structures from all batches.</li>
+<li><code>summary.csv</code>: combined campaign summary generated by <code>bindcraft campaign_output</code>.</li>
+<li><code>ranked.csv</code>, <code>refolded.csv</code> and <code>trajectories.csv</code>: per-stage tables concatenated across batches with an added <code>campaign</code> column (<code>campaign_output</code> does not merge these).</li>
+<li><code>bc2_report.html</code>: summary HTML report.</li>
+<li><code>${outdir}/foldseek/{database}/</code>: FoldSeek output directory when <code>--do_foldseek</code> is enabled (outside <code>bc2/</code>). See <a href="../../subworkflows/foldseek/#output-format">FoldSeek output format</a>.</li>
+</ul>
+<h2 id="structural-novelty-search-foldseek">Structural novelty search (FoldSeek)</h2>
+<p>Enable <code>--do_foldseek</code> to run a FoldSeek structural similarity search on ranked designs (using the same flags as the other workflows):</p>
+<pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bc2 \
+  --input_pdb 'input/PDL1.pdb' \
+  --target_chains &quot;A&quot; \
+  --do_foldseek \
+  --foldseek_database CATH50 \
+  -profile local
+</code></pre>
+<p>High TM-score hits indicate similarity to known folds; designs without close hits are structurally novel. FoldSeek outputs go to <code>${outdir}/foldseek/{database}/</code> (outside <code>bc2/</code>) and are not merged into <code>ranked.csv</code> or <code>bc2_report.html</code>.</p>
+<p>FoldSeek runs after <code>bindcraft campaign_output</code> on the mmCIF files in <code>bc2/ranked/</code>, covering only designs retained after re-ranking. If no designs pass filtering, the pipeline skips FoldSeek without error.</p>
+<p>Set <code>--foldseek_use_webserver true</code> to query the FoldSeek web API instead of a local database. See the <a href="../../subworkflows/foldseek/#command-line-options">FoldSeek subworkflow docs</a> for all <code>--foldseek_*</code> options (database, search mode, output options, CATH annotation).</p>
+<h3 id="binder-chain-for-foldseek">Binder chain for FoldSeek</h3>
+<p>FoldSeek queries only the binder chains, excluding the target. BindCraft2 writes target chains first and binder chains last. The pipeline reads <code>binder_chains</code> from <code>campaign_metadata.json</code> and extracts the trailing binder chains.</p>
+<p>By contrast, the default heuristic selects the chain with the fewest atoms, which fails for two BindCraft2 use cases:</p>
+<ul>
+<li>Multi-chain binders (<code>--bc2_modality Fab</code>, <code>scFv</code>, <code>multidomain</code>, or symmetric oligomers with <code>copies &gt; 1</code>), where the heuristic would extract only one chain.</li>
+<li>Targets smaller than the binder (for example cropped or peptide targets), where the heuristic would extract the target chain.</li>
+</ul>
+<p>If <code>campaign_metadata.json</code> is unreadable, the pipeline logs a warning and falls back to the smallest-chain heuristic.</p>
+<h2 id="unwrapped-bindcraft2-subcommands">Unwrapped BindCraft2 subcommands</h2>
+<p>This pipeline invokes two BindCraft2 subcommands: <code>design</code> (per batch) and <code>campaign_output</code> (final aggregation). You can configure all <code>bindcraft design</code> options via the campaign JSON, <code>--bc2_set</code>, <code>--bc2_modality</code>, <code>--bc2_core</code>, <code>--bc2_metadata</code>, or the <code>--bc2_*</code> property flags.</p>
+<p>Post-processing subcommands operate on completed campaigns and are not wrapped. Execute them directly on a batch directory in <code>results/bc2/batches/</code> using the BindCraft2 container:</p>
+<table>
+<thead>
+<tr>
+<th>Subcommand</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bindcraft rank &lt;campaign&gt;</code></td>
+<td>Re-rank a campaign on a different metric</td>
+</tr>
+<tr>
+<td><code>bindcraft filter &lt;campaign&gt; --where METRIC&gt;=VALUE</code></td>
+<td>Re-filter accepted designs without re-running</td>
+</tr>
+<tr>
+<td><code>bindcraft score &lt;design.cif&gt;</code></td>
+<td>Score one structure</td>
+</tr>
+<tr>
+<td><code>bindcraft archive</code> / <code>unarchive</code></td>
+<td>Pack or unpack trajectory folders for copying</td>
+</tr>
+</tbody>
+</table>
+<h2 id="examples">Examples</h2>
+<p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples:</p>
+<ul>
+<li><code>examples/pdl1-bc2</code>: PD-L1 binder design from a local target PDB, in both params and config mode</li>
+<li><code>examples/pdl1-bc2-mini</code>: a four-trajectory smoke test, single- or dual-GPU</li>
+<li><code>examples/bindcraft2-vhh</code>: humanised VHH (nanobody) design against PD-L1, including a config-mode run using the built-in <code>hPDL1</code> target preset</li>
+</ul>
+<p>See the <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/README.md">examples/README.md</a> for details.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../bindcraft/" class="btn btn-neutral float-left" title="BindCraft"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../germinal/" class="btn btn-neutral float-right" title="Germinal">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+        <span>
+          <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design" class="fa fa-github" style="color: #fcfcfc"> GitHub</a>
+        </span>
+    
+    
+      <span><a href="../bindcraft/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../germinal/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "../..";</script>
+    <script src="../../js/theme_extra.js"></script>
+    <script src="../../js/theme.js"></script>
+      <script src="../../search/main.js"></script>
+      <script src="../../js/version-select.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

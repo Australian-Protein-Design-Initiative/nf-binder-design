@@ -64,6 +64,8 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
                   </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../bc2/">BindCraft2</a>
+                  </li>
                   <li class="toctree-l1"><a class="reference internal" href="../germinal/">Germinal</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../boltzgen/">BoltzGen</a>
@@ -96,6 +98,12 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#output">Output</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#supplied-complexes">Supplied complexes</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#choosing-the-target-chain">Choosing the target chain</a>
+    </li>
+        </ul>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#interpreting-scores">Interpreting scores</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#related">Related</a>
@@ -116,7 +124,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/development/">Development</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../../extra/multi-gpu/">Multiple GPUs</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../../extra/multi-gpu/">Multiple GPU Workstations</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../../extra/fold-databases/">Fold Databases</a>
                   </li>
@@ -299,11 +307,11 @@ matched to target chains automatically by sequence; see
 <tbody>
 <tr>
 <td><code>--targets</code></td>
-<td>FASTA of target sequences</td>
+<td>FASTA of target sequences. Optional with <code>--complex_structures</code> (see <a href="#supplied-complexes">Supplied complexes</a>)</td>
 </tr>
 <tr>
 <td><code>--binders</code></td>
-<td>FASTA of binder sequences</td>
+<td>FASTA of binder sequences, or <code>--complex_structures</code> instead</td>
 </tr>
 </tbody>
 </table>
@@ -426,6 +434,121 @@ to its <code>target</code> and <code>binder</code>, facilitating downstream join
 Boltz <code>key,sequence</code> CSV). Each chain is generated independently; pairing behavior is
 detailed in <a href="#taxonomic-pairing">Taxonomic pairing</a>. AF3, OpenFold3, Chai-1, and ESMFold2
 re-render their pairing input within the predict task and do not publish separate MSAs here.</p>
+<h2 id="supplied-complexes">Supplied complexes</h2>
+<p>Binders can come from existing target-binder complexes rather than a FASTA. The binder
+chain of each complex is folded against every target as usual, and the complex is then
+the reference its predictions are compared against.</p>
+<pre><code class="language-bash">nextflow run main.nf --method fold_pulldown \
+    --complex_structures 'complexes/*.pdb' \
+    --binder_chains B \
+    --targets targets.fasta \
+    --methods boltz,rf3
+</code></pre>
+<p>This answers "does this binder still sit the same way against a different target".
+Each binder yields one comparison per (target, engine, sample), all against the one
+complex it came from, written to <code>complex_rmsd.tsv</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>The binder, named after the complex it came from</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>Which target this row was folded against. With several targets a binder has one row each, and this is what tells them apart</td>
+</tr>
+<tr>
+<td><code>tool</code>, <code>batch</code>, <code>model</code></td>
+<td>Which engine, seed job and sample the row describes</td>
+</tr>
+<tr>
+<td><code>target_aligned_binder_rmsd_all</code></td>
+<td>Superimpose on the target, then score the binder. The pose metric</td>
+</tr>
+<tr>
+<td><code>target_aligned_binder_tm_score_all</code></td>
+<td>TM-score for the same comparison</td>
+</tr>
+<tr>
+<td><code>target_aligned_binder_dockq</code></td>
+<td>DockQ for the predicted interface against the reference. The usual reading is &lt;0.23 incorrect, 0.23-0.49 acceptable, 0.49-0.80 medium, &gt;=0.80 high</td>
+</tr>
+<tr>
+<td><code>target_aligned_binder_dockq_fnat</code> / <code>_fnonnat</code> / <code>_irmsd</code> / <code>_lrmsd</code></td>
+<td>DockQ's components</td>
+</tr>
+<tr>
+<td><code>target_aligned_binder_interface_lddt</code></td>
+<td>Interface lDDT</td>
+</tr>
+<tr>
+<td><code>target_aligned_binder_clash_count</code></td>
+<td>Clashes in the predicted complex</td>
+</tr>
+<tr>
+<td><code>complex_rmsd_all</code> / <code>complex_tm_score_all</code></td>
+<td>Whole-complex comparison. <code>nan</code> when the target folded against differs in length from the complex's own target chain, since those columns need equal lengths; the target-aligned columns above are unaffected</td>
+</tr>
+</tbody>
+</table>
+<p>Each RMSD and TM-score column also has a <code>_pruned</code> variant, scored over the anchors
+<code>superimpose_homologs</code> kept rather than all of them. <code>--refold_dockq false</code> drops the
+DockQ, interface lDDT and clash columns.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--complex_structures</code></td>
+<td></td>
+<td>Complexes (<code>.pdb</code>/<code>.cif</code>; directory or glob). Mutually exclusive with <code>--binders</code></td>
+</tr>
+<tr>
+<td><code>--binder_chains</code></td>
+<td></td>
+<td>Binder chain id(s), comma-separated. Required. Several chains means several binder records per complex, named <code>&lt;complex&gt;_&lt;chain&gt;</code></td>
+</tr>
+<tr>
+<td><code>--target_chains</code></td>
+<td>the non-binder chain</td>
+<td>Chain used as the superposition reference. A single chain id, or <code>auto</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="choosing-the-target-chain">Choosing the target chain</h3>
+<p>By default the target is whichever chain is not a binder chain, so a two-chain complex
+needs only <code>--binder_chains</code>. Give <code>--target_chains</code> explicitly when a complex holds
+more than two chains, or the run stops rather than guessing which to superimpose on.</p>
+<p><code>--target_chains auto</code> resolves the chain per complex by matching each one against the
+<code>--targets</code> records, which is what mixed-source complexes with inconsistent chain
+naming need. It is opt-in because a wrong silent pick yields a plausible-looking RMSD
+against the wrong molecule. The chain it chose is logged for every complex, and a match
+below 50% identity warns.</p>
+<div class="admonition note">
+<p class="admonition-title">Targets are optional here</p>
+<p>Without <code>--targets</code>, the targets are read back out of the complexes' own target
+chains and deduplicated by sequence, which covers the plain "refold what I gave
+you" case. If the complexes turn out to hold more than one distinct target the run
+stops: a pulldown folds every binder against every target, so deriving several
+would fold mostly meaningless pairs. Pass <code>--targets</code> to say which to use.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Two-chain complexes only</p>
+<p><code>--target_chains</code> takes one chain. A pulldown folds two-chain pairs (target as
+chain A, binder as chain B), so a multi-chain target cannot be predicted and there
+would be nothing to superimpose a second target chain onto.</p>
+</div>
 <h2 id="interpreting-scores">Interpreting scores</h2>
 <p>Different predictors use distinct raw score ranges. The summary table provides
 <strong>within-tool z-scores</strong> (<code>iptm_z</code>, <code>ipsae_z</code>) so complexes can be evaluated on a common
