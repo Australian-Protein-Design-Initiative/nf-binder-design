@@ -1,0 +1,48 @@
+nextflow_function {
+
+    name "Test Function validateBc2SetList"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "validateBc2SetList"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("well-formed assignments pass") {
+        when {
+            function {
+                """
+                input[0] = ["binder_lengths=[70,90]", "filters.i_pTM.threshold=0.8"]
+                """
+            }
+        }
+        then {
+            assert function.success
+        }
+    }
+
+    test("an assignment without = is rejected") {
+        when {
+            function {
+                """
+                input[0] = ["humanize"]
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+
+    test("a batch-managed setting is rejected") {
+        when {
+            function {
+                """
+                input[0] = ["campaign_seed=42"]
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+}

@@ -532,4 +532,60 @@ nextflow_pipeline {
             assert workflow.success
         }
     }
+    test("bc2 method compiles (params mode)") {
+        options "-preview"
+        when {
+            params {
+                method = "bc2"
+                input_pdb = "${projectDir}/tests/data/bc2/structures/targetA.pdb"
+                target_chains = "A"
+                hotspot_res = "A10,A12"
+                bc2_n_traj = 3
+                bc2_batch_size = 2
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("bc2 method compiles with foldseek") {
+        options "-preview"
+        when {
+            params {
+                method = "bc2"
+                input_pdb = "${projectDir}/tests/data/bc2/structures/targetA.pdb"
+                target_chains = "A"
+                hotspot_res = "A10,A12,A14,A16"
+                hotspot_subsample = 0.5
+                do_foldseek = true
+                bc2_n_traj = 2
+                bc2_batch_size = 1
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("bc2 method compiles (config mode, alias name)") {
+        options "-preview"
+        when {
+            params {
+                method = "bindcraft2"
+                bc2_config = "${projectDir}/tests/data/bc2/campaign_relative.json"
+                bc2_modality = "VHH"
+                bc2_humanize = true
+                bc2_set = "filters.i_pTM.threshold=0.8"
+                bc2_n_traj = 2
+                bc2_batch_size = 1
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
 }

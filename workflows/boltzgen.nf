@@ -335,7 +335,7 @@ workflow BOLTZGEN {
             files
         }
 
-        FOLDSEEK_PREPARE_QUERIES(ch_boltzgen_files)
+        FOLDSEEK_PREPARE_QUERIES(ch_boltzgen_files, 0)
 
         ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
         ch_foldseek_meta = Channel.of([id: 'boltzgen_foldseek'])

@@ -13,6 +13,7 @@ This project provides Nextflow workflows for _de novo_ design of protein binders
 - **RFdiffusion3** - [RosettaCommons/foundry](https://rosettacommons.github.io/foundry/models/rfd3/protein_binder_design.html) binder workflow: `rfd3` (RFdiffusion3) → `mpnn` → `rf3` (RosettaFold3)
 - **RFD4-Proteina** - [RosettaCommons/RFD4-Proteina](https://rfd4-proteina.org/) sequence-structure co-design: `rfd4_proteina`
 - **BindCraft** - parallel execution across multiple GPUs
+- **BindCraft2** - parallel execution across multiple GPUs, with modalities and composable design properties
 - **Germinal** - antibody/nanobody design in parallel across multiple GPUs
 - **BoltzGen** - design proteins and complexes using BoltzGen
 - **Fold Pulldown** - an AlphaPulldown-like target × binder pulldown across multiple folding engines (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2)
@@ -39,6 +40,7 @@ Every design workflow above can also run [refold scoring](subworkflows/refold.md
 - [RFdiffusion3 Workflow](workflows/rfd3.md)
 - [RFD4-Proteina Workflow](workflows/rfd4-proteina.md)
 - [BindCraft Workflow](workflows/bindcraft.md)
+- [BindCraft2 Workflow](workflows/bc2.md)
 - [Germinal Workflow](workflows/germinal.md)
 - [BoltzGen Workflow](workflows/boltzgen.md)
 - [Fold Pulldown](workflows/fold-pulldown.md)
@@ -100,6 +102,7 @@ and include citations for the underlying tools used in the workflow as appropria
    
    - BindCraft
      - Pacesa, M., Nickel, L., Schellhaas, C. et al. One-shot design of functional protein binders with BindCraft. _Nature_, **645**, 1005-1010 (2025). [https://doi.org/10.1038/s41586-025-09429-6](https://doi.org/10.1038/s41586-025-09429-6)
+     - BindCraft2 (BC2) has no publication yet; cite the repository: [https://github.com/PacesaLab/BindCraft2](https://github.com/PacesaLab/BindCraft2)
 
   - Boltz
     - Passaro, S., Corso, G., Wohlwend, J. et al. Boltz-2: Towards Accurate and Efficient Binding Affinity Prediction. _bioRxiv_ (2025). [https://doi.org/10.1101/2025.06.14.659707](https://doi.org/10.1101/2025.06.14.659707)

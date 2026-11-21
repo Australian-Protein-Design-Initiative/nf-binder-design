@@ -1,0 +1,51 @@
+nextflow_function {
+
+    name "Test Function resolveBc2SetList"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "resolveBc2SetList"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("unset returns an empty list") {
+        when {
+            function {
+                """
+                input[0] = false
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+
+    test("semicolon-separated string splits, commas inside JSON values survive") {
+        when {
+            function {
+                """
+                input[0] = "binder_lengths=[70,90]; filters.i_pTM.threshold=0.8"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ["binder_lengths=[70,90]", "filters.i_pTM.threshold=0.8"]
+        }
+    }
+
+    test("a list passes through, blanks dropped") {
+        when {
+            function {
+                """
+                input[0] = ["humanize=true", "  ", "design_models=3"]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ["humanize=true", "design_models=3"]
+        }
+    }
+}

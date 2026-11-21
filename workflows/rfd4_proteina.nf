@@ -343,7 +343,7 @@ workflow RFD4_PROTEINA {
             ? ch_designs.take(foldseek_max as int)
             : ch_designs
 
-        FOLDSEEK_PREPARE_QUERIES(ch_foldseek_input)
+        FOLDSEEK_PREPARE_QUERIES(ch_foldseek_input, 0)
         FOLDSEEK_SEARCH(FOLDSEEK_PREPARE_QUERIES.out.design_chains, Channel.of([id: 'rfd4_foldseek']))
     }
 

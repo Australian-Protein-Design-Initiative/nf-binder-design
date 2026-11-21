@@ -1,0 +1,65 @@
+nextflow_function {
+
+    name "Test Function bc2BinderChainCount"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "bc2BinderChainCount"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("a single-chain binder counts one") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/metadata/single_chain.json"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 1
+        }
+    }
+
+    test("a multi-chain binder counts every chain") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/metadata/multi_chain.json"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 2
+        }
+    }
+
+    test("missing binder_chains falls back to the heuristic") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/metadata/no_binder_chains.json"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 0
+        }
+    }
+
+    test("a malformed metadata file falls back rather than failing the run") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/metadata/malformed.json"
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == 0
+        }
+    }
+}

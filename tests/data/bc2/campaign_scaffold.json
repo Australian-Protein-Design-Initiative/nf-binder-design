@@ -1,0 +1,7 @@
+{
+  "campaign_name": "scaffold_and_target",
+  "targets": [
+    {"name": "targetA", "target_path": "structures/targetA.pdb", "chains": "A"}
+  ],
+  "binder_scaffold": "structures/scaffoldB.pdb"
+}

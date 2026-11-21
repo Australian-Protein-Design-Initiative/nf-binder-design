@@ -97,6 +97,38 @@ Peptide binder design for MDM2 (based on [Filus et al., 2025](https://doi.org/10
 | `run.sh` | Local run |
 | `run-dual-gpu.sh` | Dual-GPU local run |
 
+## BindCraft2 (`--method bc2`)
+
+### `pdl1-bc2`
+
+PD-L1 binder design with BindCraft2. Same target as `pdl1-bindcraft`, so the two methods can be compared.
+
+| Script | Description |
+|--------|-------------|
+| `run.sh` | Params mode, local run |
+| `run-config.sh` | Config mode (`--bc2_config campaign.json`) |
+| `run-vhh.sh` | Humanised VHH campaign (`--bc2_modality VHH --bc2_humanize`) |
+| `run-dual-gpu.sh` | Dual-GPU local run |
+
+### `pdl1-bc2-mini`
+
+Smoke test: four trajectories at the default stage budget. Small enough to be a quick check that the method runs end to end, but too small a sample to read anything into the accept rate.
+
+| Script | Description |
+|--------|-------------|
+| `run.sh` | Single-GPU local run |
+| `run-dual-gpu.sh` | Dual-GPU local run |
+
+### `bindcraft2-vhh`
+
+Humanised VHH (nanobody) design against PD-L1, via `--bc2_modality VHH --bc2_humanize`. Also shows a config-mode run against BindCraft2's shipped `hPDL1` target, where no structure is staged at all.
+
+| Script | Description |
+|--------|-------------|
+| `run.sh` | Params mode, single-GPU local run |
+| `run-dual-gpu.sh` | Dual-GPU local run |
+| `run-config.sh` | Config mode using the shipped `hPDL1` target preset |
+
 ## Germinal (`--method germinal`)
 
 ### `pdl1-germinal`

@@ -1,0 +1,54 @@
+nextflow_function {
+
+    name "Test Function bc2BatchSizes"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "bc2BatchSizes"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("remainder goes to the last batch") {
+        when {
+            function {
+                """
+                input[0] = 5
+                input[1] = 2
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [2, 2, 1]
+        }
+    }
+
+    test("batch size larger than the budget gives one batch") {
+        when {
+            function {
+                """
+                input[0] = 3
+                input[1] = 10
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [3]
+        }
+    }
+
+    test("an exact multiple gives equal batches") {
+        when {
+            function {
+                """
+                input[0] = 8
+                input[1] = 4
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == [4, 4]
+        }
+    }
+}

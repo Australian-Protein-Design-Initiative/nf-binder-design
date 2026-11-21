@@ -4,7 +4,7 @@ description: >-
   Runs the nf-binder-design Nextflow pipeline for de novo protein binder design.
   Covers RFdiffusion (--method rfd), partial diffusion (--method rfd_partial),
   RFdiffusion3 (--method rfd3), RFD4-Proteina (--method rfd4_proteina),
-  BindCraft (--method bindcraft), Germinal
+  BindCraft (--method bindcraft), BindCraft2 (--method bc2), Germinal
   (--method germinal), BoltzGen (--method boltzgen),
   Fold Pulldown (--method fold_pulldown),
   Fold (--method fold), and FoldSeek (--method foldseek or --do_foldseek).
@@ -22,11 +22,11 @@ Your job is to help the user choose the right workflow, construct correct `nextf
 
 **GitHub**: https://github.com/Australian-Protein-Design-Initiative/nf-binder-design
 **Docs**: https://australian-protein-design-initiative.github.io/nf-binder-design/
-**Examples**: `examples/pdl1-rfd/`, `examples/pdl1-rfd3/`, `examples/pdl1-bindcraft/`, `examples/pdl1-boltzgen/`, `examples/pdl1-germinal/`
+**Examples**: `examples/pdl1-rfd/`, `examples/pdl1-rfd3/`, `examples/pdl1-bindcraft/`, `examples/pdl1-bc2/`, `examples/pdl1-bc2-mini/`, `examples/bindcraft2-vhh/`, `examples/pdl1-boltzgen/`, `examples/pdl1-germinal/`
 
 ## When to Use This Skill
 
-Activate when the user mentions nf-binder-design, protein binder design, RFdiffusion, RFDiffusion3, ProteinMPNN, AF2 initial guess, Boltz-2, BindCraft, Germinal, BoltzGen, or FoldSeek.
+Activate when the user mentions nf-binder-design, protein binder design, RFdiffusion, RFDiffusion3, ProteinMPNN, AF2 initial guess, Boltz-2, BindCraft, BindCraft2/BC2, Germinal, BoltzGen, or FoldSeek.
 
 Examples:
 
@@ -104,13 +104,14 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `rfd3` | RFdiffusion3 → MPNN → RosettaFold3 | De novo design with RFDiffusion3 |
 | `rfd4_proteina` | RFD4-Proteina flow matching, sequence and structure in one pass | De novo design with no separate inverse-folding step; the only arm64/GB10 generator |
 | `bindcraft` | BindCraft in parallel | End-to-end design with built-in validation |
+| `bc2` | BindCraft2 in parallel (alias `bindcraft2`) | End-to-end design with binder modalities (VHH, scFv, Fab, cyclic peptide) and composable design properties |
 | `germinal` | Germinal in parallel | Antibody and nanobody design via Hydra YAML |
 | `boltzgen` | BoltzGen generative model | Protein, peptide, nanobody, or small-molecule binders |
 | `fold_pulldown` | Multi-model target × binder co-fold | Validate designed binders (AlphaPulldown-like) with AF2/Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2 |
 | `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2 |
 | `foldseek` | FoldSeek structural search | Annotate designs against CATH/PDB databases |
 
-Add `--do_foldseek` to `rfd`, `rfd3`, `rfd4_proteina`, `bindcraft`, or `boltzgen` to run FoldSeek on outputs inline.
+Add `--do_foldseek` to `rfd`, `rfd3`, `rfd4_proteina`, `bindcraft`, `bc2`, or `boltzgen` to run FoldSeek on outputs inline.
 
 ### Refold scoring (`--refold_with`)
 
@@ -161,8 +162,8 @@ The old `--full_refold_*` family (`--full_refold_with`, `--full_refold_filter_so
 
 ## Choosing a Method
 
-1. **New binder from scratch?** → `rfd` (established) or `bindcraft` (end-to-end) or `boltzgen` (protein/peptide/nanobody/small-molecule) or `rfd4_proteina` (sequence and structure co-designed in one pass)
-2. **Antibody or nanobody?** → `germinal` (Hydra YAML) or `boltzgen` with `nanobody-anything`
+1. **New binder from scratch?** → `rfd` (established) or `bindcraft` / `bc2` (end-to-end) or `boltzgen` (protein/peptide/nanobody/small-molecule) or `rfd4_proteina` (sequence and structure co-designed in one pass)
+2. **Antibody or nanobody?** → `germinal` (Hydra YAML), `bc2` with `--bc2_modality VHH|scFv|Fab`, or `boltzgen` with `nanobody-anything`
 3. **Refine existing designs?** → `rfd_partial`
 4. **Validate binder sequences?** → `fold_pulldown` (use `--methods boltz` for a Boltz-only run)
 5. **Fold arbitrary FASTAs?** → `fold`
@@ -265,6 +266,24 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 → `references/bindcraft-workflow.md`
 
+### bc2 (BindCraft2)
+
+```bash
+nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
+  --method bc2 \
+  --input_pdb 'input/target.pdb' \
+  --outdir results \
+  --target_chains "A" \
+  --hotspot_res "A56" \
+  --binder_length_range "55-120" \
+  --bc2_n_traj 100 \
+  --bc2_batch_size 1 \
+  -profile local -resume
+```
+
+Config mode: `--bc2_config campaign.json`. Any BindCraft2 setting: `--bc2_set 'KEY=VALUE;KEY=VALUE'`.
+→ `references/bc2-workflow.md`
+
 ### germinal (Germinal)
 
 ```bash
@@ -362,6 +381,7 @@ Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.m
 | `rfd3` | `rfd3/combined_scores.tsv`, `rfdiffusion3/output/`, `rosettafold3/output/`, `rfd3/refold/` (if `--refold_with`) |
 | `rfd4_proteina` | `rfd4_proteina/combined_scores.tsv`, `rfd4_proteina/designs/` (mmCIF), `rfd4_proteina/binders.fasta`, `rfd4_proteina/filter/` (if `--rfd4_filters`), `rfd4_proteina/refold/` (if `--refold_with`) |
 | `bindcraft` | `bindcraft/accepted/`, `bindcraft/bindcraft_report.html`, `bindcraft/final_design_stats.csv`, `bindcraft/refold/` (if `--refold_with`) |
+| `bc2` | `bc2/ranked/` (mmCIF), `bc2/bc2_report.html`, `bc2/summary.csv`, `bc2/ranked.csv` |
 | `germinal` | `germinal/accepted_designs.csv`, `germinal/accepted/structures/`, `germinal/refold/` (if `--refold_with`) |
 | `boltzgen` | `boltzgen/filtered/final_ranked_designs/`, `boltzgen/merged/` |
 | `fold_pulldown` | `fold_pulldown/fold_pulldown_scores.tsv`, `fold_pulldown_summary.tsv`, `fold_pulldown_report.html`, `complex_rmsd.tsv` (if `--complex_structures`) |
@@ -394,6 +414,7 @@ Read on demand — do not load all upfront:
 | `references/rfd3-workflow.md` | RFD3 params/config modes, MPNN, RF3, refold scoring |
 | `references/rfd4-proteina-workflow.md` | RFD4-Proteina condition specs, contigs, filters, arm64/GB10 notes |
 | `references/bindcraft-workflow.md` | BindCraft parameters, presets, VRAM |
+| `references/bc2-workflow.md` | BindCraft2 config/params modes, `--bc2_set`, modalities, properties |
 | `references/germinal-workflow.md` | Germinal Hydra config, parallelisation |
 | `references/boltzgen-workflow.md` | BoltzGen YAML, protocols, filtering |
 | `references/fold-stack.md` | Seeds, samples and batch sizes shared by `fold`, `fold_pulldown` and the refold |

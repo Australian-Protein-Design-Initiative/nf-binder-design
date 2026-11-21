@@ -1,0 +1,6 @@
+{
+  "campaign_name": "parent_relative",
+  "targets": [
+    {"name": "targetA", "target_path": "../structures/targetA.pdb", "chains": "A"}
+  ]
+}

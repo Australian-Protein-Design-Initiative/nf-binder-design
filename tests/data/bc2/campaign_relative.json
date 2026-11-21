@@ -1,0 +1,7 @@
+{
+  "campaign_name": "relative_target",
+  "targets": [
+    {"name": "targetA", "target_path": "structures/targetA.pdb", "chains": "A", "hotspots": "A10,A12"}
+  ],
+  "binder_lengths": [60, 120]
+}

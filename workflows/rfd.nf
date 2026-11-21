@@ -338,7 +338,7 @@ workflow RFD {
         }
 
         // Extract design (shorter/binder) chain from complexes
-        FOLDSEEK_PREPARE_QUERIES(ch_foldseek_pdbs_in)
+        FOLDSEEK_PREPARE_QUERIES(ch_foldseek_pdbs_in, 0)
 
         ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
         ch_foldseek_meta = Channel.of([id: 'rfd_foldseek'])

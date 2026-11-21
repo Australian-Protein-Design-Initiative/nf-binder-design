@@ -1,0 +1,61 @@
+nextflow_process {
+
+    name "Test Process FOLDSEEK_PREPARE_QUERIES"
+    script "modules/local/foldseek/foldseek_prepare_queries.nf"
+    process "FOLDSEEK_PREPARE_QUERIES"
+
+    tag "foldseek"
+    tag "foldseek_prepare_queries"
+
+    test("extracts the binder chain from a BindCraft2 mmCIF") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+            }
+            process {
+                """
+                input[0] = file("\${projectDir}/tests/data/bc2/ranked/bc2_design_example.cif")
+                input[1] = 1
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.design_chains.size() == 1
+
+            // BindCraft2 writes the target first, so the binder is chain B here.
+            def chains = path(process.out.design_chains.get(0)).readLines()
+                .findAll { it.startsWith('ATOM') }
+                .collect { it[21] }
+                .unique()
+            assert chains == ['B']
+        }
+    }
+
+    test("falls back to the smallest chain when no count is given") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+            }
+            process {
+                """
+                input[0] = file("\${projectDir}/tests/data/bc2/ranked/bc2_design_example.cif")
+                input[1] = 0
+                """
+            }
+        }
+
+        then {
+            assert process.success
+
+            def chains = path(process.out.design_chains.get(0)).readLines()
+                .findAll { it.startsWith('ATOM') }
+                .collect { it[21] }
+                .unique()
+            assert chains == ['B']
+        }
+    }
+}

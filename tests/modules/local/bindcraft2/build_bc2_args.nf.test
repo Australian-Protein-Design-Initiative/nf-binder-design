@@ -1,0 +1,63 @@
+nextflow_function {
+
+    name "Test Function buildBc2Args"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "buildBc2Args"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("emits presets, property flags, then set assignments in tier order") {
+        when {
+            function {
+                """
+                input[0] = [
+                    bc2_core: 'benchmark',
+                    bc2_modality: 'VHH',
+                    bc2_humanize: true,
+                    bc2_termini_together: true,
+                    bc2_set: "binder_lengths=[70,90]; filters.i_pTM.threshold=0.8",
+                ]
+                input[1] = ['number_of_final_designs=1000000', 'auto_multi_gpu=false']
+                input[2] = ['project_folder=targetA_3', 'campaign_seed=107', 'max_trajectories=2']
+                """
+            }
+        }
+        then {
+            assert function.success
+            def args = function.result
+
+            assert args.contains("--core benchmark")
+            assert args.contains("--modality VHH")
+            assert args.contains("--humanize")
+            // property flag names use dashes, the settings keys use underscores
+            assert args.contains("--termini-together")
+
+            // BC2 applies --set in order and the last wins, so the pipeline's
+            // batch overrides must come after the user's --bc2_set entries
+            assert args.indexOf("auto_multi_gpu=false") < args.indexOf("binder_lengths")
+            assert args.indexOf("binder_lengths") < args.indexOf("campaign_seed=107")
+
+            // values containing brackets and commas must survive the shell
+            assert args.contains("--set 'binder_lengths=[70,90]'")
+            assert args.contains("--set 'filters.i_pTM.threshold=0.8'")
+            assert args.contains("--set 'max_trajectories=2'")
+        }
+    }
+
+    test("unset presets and flags are omitted entirely") {
+        when {
+            function {
+                """
+                input[0] = [bc2_core: false, bc2_modality: false, bc2_set: false]
+                input[1] = []
+                input[2] = ['project_folder=batch_0']
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == "--set 'project_folder=batch_0'"
+        }
+    }
+}

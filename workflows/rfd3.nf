@@ -538,7 +538,7 @@ workflow RFD3 {
         RFD3_STAGE_FOLDSEEK_CIF(SELECT_FOR_FOLDSEEK.out.selected)
 
         // Extract design (shorter/binder) chain from complexes
-        FOLDSEEK_PREPARE_QUERIES(RFD3_STAGE_FOLDSEEK_CIF.out)
+        FOLDSEEK_PREPARE_QUERIES(RFD3_STAGE_FOLDSEEK_CIF.out, 0)
 
         def ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
         ch_foldseek_meta = Channel.of([id: 'rfd3_foldseek'])

@@ -11,6 +11,7 @@ Nextflow pipelines for _de novo_ protein binder design.
 - RFD4-Proteina (sequence-structure co-design) → Boltz-2 refolding
 - RFdiffusion Partial Diffusion → Boltz-2 refolding
 - BindCraft (in parallel across multiple GPUs)
+- BindCraft2 (in parallel across multiple GPUs)
 - Germinal (antibody/nanobody design in parallel across multiple GPUs)
 - BoltzGen (design proteins and peptides binders, in parallel across multiple GPUs)
 - Fold (`--method fold`) — multi-method structure prediction (AF2, Boltz-2, RF3, Protenix, AlphaFold3, OpenFold3, Chai-1, ESMFold2, ESMFold2-Fast) with shared MSAs and EnGens clustering
@@ -115,7 +116,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method rfd --help
 ```
 
-Available methods: `rfd`, `rfd3`, `rfd4_proteina`, `rfd_partial`, `bindcraft`, `germinal`, `boltzgen`, `fold`, `fold_pulldown`, `foldseek`
+Available methods: `rfd`, `rfd3`, `rfd4_proteina`, `rfd_partial`, `bindcraft`, `bc2`, `germinal`, `boltzgen`, `fold`, `fold_pulldown`, `foldseek`
 
 Any `--params` option can alternatively be defined in a `params.json` file and passed with `-params-file params.json`.
 

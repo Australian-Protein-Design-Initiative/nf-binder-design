@@ -1,0 +1,5 @@
+{
+  "campaign_name": "preset_only",
+  "target": "hPDL1",
+  "binder_lengths": [70, 90]
+}

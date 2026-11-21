@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-Extract the shorter (design) chain from protein structure files.
+Extract the design (binder) chain from protein structure files.
 
 Supports PDB (.pdb), mmCIF (.cif), and gzipped variants (.pdb.gz, .cif.gz).
-Uses only the Python standard library — no external dependencies.
+Uses only the Python standard library - no external dependencies.
 
 Usage: extract_design_chain.py <output_dir> <input1> [input2 ...]
+       extract_design_chain.py <output_dir> --last-chains 2 <input1> [...]
 
-For each input structure, identifies the polymer chain with fewer atoms
-(the design/binder chain) and writes a new PDB file containing only that
-chain's atoms. Output is always PDB format for maximum compatibility.
+By default the design chain is taken to be the polymer chain with the fewest
+atoms, which holds for a one-target/one-binder complex. --last-chains N instead
+keeps the last N chains in file order, for formats that write the binder last.
+
+Output is always PDB format for maximum compatibility.
 """
 
+import argparse
 import gzip
 import os
 import sys
@@ -21,9 +25,25 @@ import sys
 # PDB parsing
 # ---------------------------------------------------------------------------
 
-def extract_from_pdb(lines, source_name):
-    """Parse PDB ATOM/HETATM lines, return design chain ID + filtered lines."""
+def select_design_chains(chain_order, chain_atoms, last_chains=0):
+    """Which chain IDs make up the binder.
+
+    With last_chains == 0, the smallest chain by atom count, which is right for
+    a complex of one target chain plus one binder chain. Otherwise the last N
+    chains in file order, for writers that put every target chain before the
+    binder.
+    """
+    if last_chains > 0:
+        if last_chains > len(chain_order):
+            return list(chain_order)
+        return list(chain_order[-last_chains:])
+    return [min(chain_atoms, key=chain_atoms.get)]
+
+
+def extract_from_pdb(lines, source_name, last_chains=0):
+    """Parse PDB ATOM/HETATM lines, return design chain ID(s) + filtered lines."""
     chain_atoms = {}  # chain_id -> count
+    chain_order = []  # chain ids, in order of first appearance
     atom_lines = []   # (chain_id, line)
 
     for line in lines:
@@ -33,15 +53,18 @@ def extract_from_pdb(lines, source_name):
         if len(line) < 22:
             continue
         chain_id = line[21]
+        if chain_id not in chain_atoms:
+            chain_order.append(chain_id)
         chain_atoms[chain_id] = chain_atoms.get(chain_id, 0) + 1
         atom_lines.append((chain_id, line))
 
     if not chain_atoms:
         return None, [], 0
 
-    design_chain = min(chain_atoms, key=chain_atoms.get)
-    filtered = [line for cid, line in atom_lines if cid == design_chain]
-    return design_chain, filtered, len(chain_atoms)
+    design_chains = select_design_chains(chain_order, chain_atoms, last_chains)
+    keep = set(design_chains)
+    filtered = [line for cid, line in atom_lines if cid in keep]
+    return ','.join(design_chains), filtered, len(chain_atoms)
 
 
 def write_pdb(atom_lines, out_path):
@@ -83,8 +106,8 @@ def find_atom_site_loop(lines):
     return None
 
 
-def extract_from_cif(lines, source_name):
-    """Parse mmCIF, return design chain ID + PDB-formatted atom lines."""
+def extract_from_cif(lines, source_name, last_chains=0):
+    """Parse mmCIF, return design chain ID(s) + PDB-formatted atom lines."""
     result = find_atom_site_loop(lines)
     if result is None:
         return None, [], 0
@@ -105,6 +128,7 @@ def extract_from_cif(lines, source_name):
     max_col = max(cols.values())
 
     chain_atoms = {}
+    chain_order = []   # chain ids, in order of first appearance
     atom_records = []  # (chain_id, fields)
 
     for i in range(data_start, data_end):
@@ -112,14 +136,17 @@ def extract_from_cif(lines, source_name):
         if len(parts) <= max_col:
             continue
         chain_id = parts[asym_idx]
+        if chain_id not in chain_atoms:
+            chain_order.append(chain_id)
         chain_atoms[chain_id] = chain_atoms.get(chain_id, 0) + 1
         atom_records.append((chain_id, parts))
 
     if not chain_atoms:
         return None, [], 0
 
-    design_chain = min(chain_atoms, key=chain_atoms.get)
-    filtered = [(cid, p) for cid, p in atom_records if cid == design_chain]
+    design_chains = select_design_chains(chain_order, chain_atoms, last_chains)
+    keep = set(design_chains)
+    filtered = [(cid, p) for cid, p in atom_records if cid in keep]
 
     # Convert to PDB ATOM lines
     pdb_lines = []
@@ -159,7 +186,7 @@ def extract_from_cif(lines, source_name):
         )
         pdb_lines.append(pdb_line)
 
-    return design_chain, pdb_lines, len(chain_atoms)
+    return ','.join(design_chains), pdb_lines, len(chain_atoms)
 
 
 # ---------------------------------------------------------------------------
@@ -183,8 +210,8 @@ def detect_format(path):
     return None
 
 
-def process_file(input_path, output_dir):
-    """Process one structure file, extract design chain, write PDB."""
+def process_file(input_path, output_dir, last_chains=0):
+    """Process one structure file, extract the design chain(s), write PDB."""
     fmt = detect_format(input_path)
     if fmt is None:
         print(f"WARNING: Unknown format for {input_path}, skipping", file=sys.stderr)
@@ -201,38 +228,49 @@ def process_file(input_path, output_dir):
     out_path = os.path.join(output_dir, f"{stem}.pdb")
 
     if fmt == 'pdb':
-        chain, atom_lines, n_chains = extract_from_pdb(lines, base)
+        chain, atom_lines, n_chains = extract_from_pdb(lines, base, last_chains)
     else:
-        chain, atom_lines, n_chains = extract_from_cif(lines, base)
+        chain, atom_lines, n_chains = extract_from_cif(lines, base, last_chains)
 
     if chain is None:
         print(f"WARNING: No atoms found in {base}, skipping", file=sys.stderr)
         return None
 
     write_pdb(atom_lines, out_path)
-    print(f"  {base}: extracted chain {chain} ({len(atom_lines)} atoms, {n_chains} chains total)")
+    print(f"  {base}: extracted chain(s) {chain} ({len(atom_lines)} atoms, {n_chains} chains total)")
     return out_path
 
 
 def main():
-    if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} <output_dir> <input> [input2 ...]", file=sys.stderr)
-        print(f"  Supports: .pdb, .cif, .pdb.gz, .cif.gz", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Extract the design (binder) chain from structure files (.pdb, .cif, .gz)"
+    )
+    parser.add_argument("output_dir", help="Directory to write extracted PDB files into")
+    parser.add_argument("inputs", nargs="+", help="Input structure files")
+    parser.add_argument(
+        "--last-chains",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Keep the last N chains in file order instead of the single smallest chain. "
+        "Use for writers that place every target chain before the binder (default: 0, "
+        "meaning use the smallest-chain heuristic)",
+    )
+    args = parser.parse_args()
 
-    output_dir = sys.argv[1]
-    os.makedirs(output_dir, exist_ok=True)
+    if args.last_chains < 0:
+        parser.error("--last-chains must not be negative")
 
-    inputs = sys.argv[2:]
+    os.makedirs(args.output_dir, exist_ok=True)
+
     extracted = 0
-
-    for path in sorted(inputs):
-        result = process_file(path, output_dir)
-        if result:
+    for path in sorted(args.inputs):
+        if process_file(path, args.output_dir, args.last_chains):
             extracted += 1
 
-    print(f"\nExtracted {extracted}/{len(inputs)} design chains -> {output_dir}")
+    print(f"\nExtracted {extracted}/{len(args.inputs)} design chains -> {args.output_dir}")
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

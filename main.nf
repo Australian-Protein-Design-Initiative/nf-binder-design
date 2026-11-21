@@ -21,6 +21,7 @@ params.outdir = 'results'
 include { RFD } from './workflows/rfd'
 include { RFD_PARTIAL } from './workflows/rfd_partial'
 include { BINDCRAFT } from './workflows/bindcraft'
+include { BC2 } from './workflows/bc2'
 include { GERMINAL } from './workflows/germinal'
 include { BOLTZGEN } from './workflows/boltzgen'
 include { FOLD } from './workflows/fold'
@@ -67,6 +68,7 @@ workflow {
             rfd3            RFDiffusion3-based binder design
             rfd4_proteina   RFD4-Proteina binder design (sequence-structure co-design)
             bindcraft       BindCraft binder design
+            bc2             BindCraft2 binder design (alias: bindcraft2)
             germinal        Germinal antibody/nanobody design
             boltzgen        BoltzGen binder design
             fold            Multi-method structure folding (AF2/Boltz/RF3/Protenix/AF3/OpenFold3/ESMFold2)
@@ -90,6 +92,8 @@ workflow {
         RFD_PARTIAL()
     } else if (params.method == "bindcraft") {
         BINDCRAFT()
+    } else if (params.method == "bc2" || params.method == "bindcraft2") {
+        BC2()
     } else if (params.method == "germinal") {
         GERMINAL()
     } else if (params.method == "boltzgen") {
@@ -106,7 +110,7 @@ workflow {
         FOLDSEEK()
     } else {
         log.error("Unknown method: ${params.method}")
-        log.info("Available methods: rfd, rfd_partial, rfd3, rfd4_proteina, bindcraft, germinal, boltzgen, fold, fold_pulldown, foldseek")
+        log.info("Available methods: rfd, rfd_partial, rfd3, rfd4_proteina, bindcraft, bc2, germinal, boltzgen, fold, fold_pulldown, foldseek")
         exit(1)
     }
 

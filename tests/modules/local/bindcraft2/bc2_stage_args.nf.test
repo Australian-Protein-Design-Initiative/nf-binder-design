@@ -1,0 +1,39 @@
+nextflow_function {
+
+    name "Test Function bc2StageArgs"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "bc2StageArgs"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("the default fraction adds no arguments") {
+        when {
+            function {
+                """
+                input[0] = 1.0
+                input[1] = 3
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ''
+        }
+    }
+
+    test("a fraction below one passes the fraction and the batch seed") {
+        when {
+            function {
+                """
+                input[0] = 0.5
+                input[1] = 7
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == '--hotspot-subsample 0.5 --subsample-seed 7'
+        }
+    }
+}

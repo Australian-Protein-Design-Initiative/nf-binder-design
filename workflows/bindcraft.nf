@@ -498,7 +498,7 @@ workflow BINDCRAFT {
     // Phase: FoldSeek structural search on accepted designs (optional)
     if (params.do_foldseek) {
         // Accepted PDBs are full complexes — extract design (shorter/binder) chains
-        FOLDSEEK_PREPARE_QUERIES(BINDCRAFT_PROCESS.out.accepted_pdbs)
+        FOLDSEEK_PREPARE_QUERIES(BINDCRAFT_PROCESS.out.accepted_pdbs, 0)
 
         ch_foldseek_pdbs = FOLDSEEK_PREPARE_QUERIES.out.design_chains
         ch_foldseek_meta = Channel.of([id: 'bindcraft_foldseek'])

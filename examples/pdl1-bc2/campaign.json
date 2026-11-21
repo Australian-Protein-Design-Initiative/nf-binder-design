@@ -1,0 +1,12 @@
+{
+  "campaign_name": "PDL1_bc2",
+  "targets": [
+    {
+      "name": "PDL1",
+      "target_path": "input/PDL1.pdb",
+      "chains": "A",
+      "hotspots": "A56"
+    }
+  ],
+  "binder_lengths": [55, 120]
+}

@@ -1,0 +1,89 @@
+nextflow_function {
+
+    name "Test Function extractBc2InputPaths"
+    script "modules/local/bindcraft2/bindcraft2_utils.nf"
+    function "extractBc2InputPaths"
+
+    tag "bc2"
+    tag "bindcraft2_utils"
+
+    test("shipped preset target needs nothing staged") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/campaign_preset.json"
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == []
+        }
+    }
+
+    test("relative target_path resolves against the config directory") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/campaign_relative.json"
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 1
+            assert function.result[0].endsWith("tests/data/bc2/structures/targetA.pdb")
+            assert file(function.result[0]).exists()
+        }
+    }
+
+    test("binder_scaffold is collected alongside the target") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/campaign_scaffold.json"
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 2
+            assert function.result[0].endsWith("/targetA.pdb")
+            assert function.result[1].endsWith("/scaffoldB.pdb")
+        }
+    }
+
+    test("parent-relative paths resolve out of the config directory") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/nested/campaign_parent_relative.json"
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result.size() == 1
+            assert file(function.result[0]).exists()
+            assert !function.result[0].contains("/nested/")
+        }
+    }
+
+    test("missing config fails in the driver") {
+        when {
+            function {
+                """
+                input[0] = "${projectDir}/tests/data/bc2/does_not_exist.json"
+                input[1] = null
+                """
+            }
+        }
+        then {
+            assert function.failed
+        }
+    }
+}

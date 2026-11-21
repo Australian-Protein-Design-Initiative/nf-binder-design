@@ -1,0 +1,7 @@
+{
+  "version": "1.0.1",
+  "resolved": {
+    "binder_chains": ["binder_0", "binder_1"],
+    "campaign_seed": 3
+  }
+}

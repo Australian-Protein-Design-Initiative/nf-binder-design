@@ -1,0 +1,381 @@
+---
+title: "BindCraft2 Analysis Report"
+author: "Australian-Protein-Design-Initiative/nf-binder-design"
+date: last-modified
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+    page-layout: full
+execute:
+  echo: false
+jupyter: python3
+---
+
+# Overview
+
+Summary of a parallel BindCraft2 run. Each batch is an independent campaign with its own
+`campaign_seed`, pooled here by the `campaign` column.
+
+The three stage tables follow BindCraft2's own pipeline: `1_Trajectories` (gradient design attempts),
+`2_Refolded` (every scored ProteinMPNN candidate, including rejects) and `3_Ranked` (accepted designs,
+best first by `i_pDAE`).
+
+```{python}
+# | label: setup
+# | message: false
+# | warning: false
+
+import os
+import re
+import warnings
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+warnings.filterwarnings("ignore")
+plt.style.use("fast")
+
+RANKING_METRIC = "i_pDAE"
+
+
+def safe_load_csv(filename):
+    path = Path(filename)
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+    except Exception as e:
+        print(f"Could not read {filename}: {e}")
+        return None
+    # The workflow writes a header-only placeholder when a stage produced nothing.
+    if df.empty or list(df.columns) == ["campaign"]:
+        return None
+    return df
+
+
+def wilson_ci(k, n, conf=0.95):
+    """Wilson score interval for a binomial proportion (k successes / n trials)."""
+    if n <= 0:
+        return (np.nan, np.nan)
+    from scipy.stats import norm
+
+    z = norm.ppf(0.5 + conf / 2)
+    p = k / n
+    denom = 1 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / denom
+    return (max(0.0, center - half), min(1.0, center + half))
+
+
+def fmt_rate_ci(k, n):
+    if n <= 0:
+        return "n/a"
+    lo, hi = wilson_ci(k, n)
+    return f"{k / n * 100:.1f}% (95% CI {lo * 100:.1f}-{hi * 100:.1f}%)"
+
+
+def parse_binder_length(name):
+    """BindCraft2 design names end ..._l<length>_<hash>."""
+    match = re.search(r"_l(\d+)_", str(name))
+    return int(match.group(1)) if match else None
+
+
+def numeric_columns(df, exclude=()):
+    cols = []
+    for c in df.columns:
+        if c in exclude:
+            continue
+        series = pd.to_numeric(df[c], errors="coerce")
+        if series.notna().sum() >= 2 and series.nunique(dropna=True) > 1:
+            cols.append(c)
+    return cols
+
+
+summary_df = safe_load_csv("summary.csv")
+ranked_df = safe_load_csv("ranked.csv")
+refolded_df = safe_load_csv("refolded.csv")
+trajectories_df = safe_load_csv("trajectories.csv")
+
+print(f"Run path: {os.getcwd()}")
+for name, df in [
+    ("summary.csv", summary_df),
+    ("ranked.csv", ranked_df),
+    ("refolded.csv", refolded_df),
+    ("trajectories.csv", trajectories_df),
+]:
+    print(f"  {name}: {'not present or empty' if df is None else f'{len(df)} rows'}")
+```
+
+# Headline numbers
+
+```{python}
+# | label: headline
+
+from IPython.display import Markdown
+
+lines = []
+
+n_campaigns = 0
+for df in (trajectories_df, ranked_df, refolded_df):
+    if df is not None and "campaign" in df:
+        n_campaigns = max(n_campaigns, df["campaign"].nunique())
+
+n_traj = len(trajectories_df) if trajectories_df is not None else 0
+n_candidates = len(refolded_df) if refolded_df is not None else 0
+n_accepted = len(ranked_df) if ranked_df is not None else 0
+
+# A trajectory can yield several accepted ProteinMPNN sequences, so the headline
+# rate collapses them by design-recipe hash; the per-sequence rate is shown too.
+accepted_unique = 0
+if ranked_df is not None and "hash" in ranked_df:
+    accepted_unique = ranked_df["hash"].nunique()
+elif n_accepted:
+    accepted_unique = n_accepted
+
+lines.append(f"- Batches (independent campaigns): **{n_campaigns}**")
+lines.append(f"- Trajectories run: **{n_traj}**")
+lines.append(f"- ProteinMPNN candidates scored: **{n_candidates}**")
+lines.append(f"- Accepted designs: **{n_accepted}**")
+if n_traj:
+    lines.append(
+        f"- Accept rate, unique trajectories with at least one accepted design: "
+        f"**{fmt_rate_ci(accepted_unique, n_traj)}**"
+    )
+    lines.append(
+        f"- Accept rate, counting every accepted sequence: **{fmt_rate_ci(n_accepted, n_traj)}**"
+    )
+
+Markdown("\n".join(lines) if lines else "_No data._")
+```
+
+# Per-batch accept rates
+
+```{python}
+# | label: per-batch
+
+if trajectories_df is not None and "campaign" in trajectories_df:
+    per_batch = trajectories_df.groupby("campaign").size().rename("trajectories").to_frame()
+
+    if ranked_df is not None and "campaign" in ranked_df:
+        key = "hash" if "hash" in ranked_df else None
+        accepted = (
+            ranked_df.groupby("campaign")[key].nunique()
+            if key
+            else ranked_df.groupby("campaign").size()
+        )
+        per_batch["accepted"] = accepted
+    per_batch["accepted"] = per_batch.get("accepted", 0)
+    per_batch["accepted"] = per_batch["accepted"].fillna(0).astype(int)
+    per_batch["accept_rate"] = [
+        fmt_rate_ci(k, n) for k, n in zip(per_batch["accepted"], per_batch["trajectories"])
+    ]
+    display(per_batch.reset_index())
+else:
+    print("No trajectory table, so no per-batch rates.")
+```
+
+# Trajectory outcomes
+
+`terminated` names the stage at which gradient design stopped. Blank means the trajectory completed,
+which is not the same as ProteinMPNN accepting a sequence from it.
+
+```{python}
+# | label: terminated
+
+if trajectories_df is not None and "terminated" in trajectories_df:
+    outcomes = (
+        trajectories_df["terminated"].fillna("").replace("", "completed").value_counts()
+    )
+    display(outcomes.rename("trajectories").to_frame())
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    outcomes.plot.barh(ax=ax, color="#4c72b0")
+    ax.set_xlabel("Trajectories")
+    ax.set_ylabel("")
+    ax.set_title("Where trajectories stopped")
+    plt.tight_layout()
+    plt.show()
+else:
+    print("No `terminated` column available.")
+```
+
+## Adaptive tuning
+
+`autotuned` records settings that differed from the campaign's own when an attempt ran, from either the
+autotuner or the desperation ladder. An entry naming `initial_guess`, `target_flexibility`,
+`validation_model` or a raised `design_recycles` means that attempt ran against an easier task than the
+campaign asked for, so treat its scores accordingly.
+
+Both mechanisms read only their own batch's trajectory table. Autotune reviews every 10 trajectories and
+desperation engages after 750 fruitless ones, so at small `--bc2_batch_size` values this section is
+expected to be empty.
+
+```{python}
+# | label: autotuned
+
+if trajectories_df is not None and "autotuned" in trajectories_df:
+    tuned = trajectories_df["autotuned"].fillna("").astype(str)
+    tuned = tuned[tuned.str.strip() != ""]
+    if len(tuned):
+        print(f"{len(tuned)} of {len(trajectories_df)} trajectories ran with adjusted settings.")
+        display(tuned.value_counts().rename("trajectories").to_frame().head(20))
+    else:
+        print(
+            "No trajectory ran with adjusted settings, which is expected when each batch "
+            "runs fewer trajectories than the autotune (10) and desperation (750) thresholds."
+        )
+else:
+    print("No `autotuned` column available.")
+```
+
+# Candidate filtering
+
+```{python}
+# | label: outcomes
+
+if refolded_df is not None and "outcome" in refolded_df:
+    display(refolded_df["outcome"].value_counts().rename("candidates").to_frame())
+else:
+    print("No `outcome` column available.")
+```
+
+```{python}
+# | label: failed-filters
+
+if refolded_df is not None and "failed_filters" in refolded_df:
+    # One candidate can fail several filters; count each separately. "not measured"
+    # is a distinct outcome from a low score and is kept as its own entry.
+    exploded = (
+        refolded_df["failed_filters"]
+        .fillna("")
+        .astype(str)
+        .str.split(",")
+        .explode()
+        .str.strip()
+    )
+    exploded = exploded[exploded != ""]
+    if len(exploded):
+        counts = exploded.value_counts().head(25)
+        display(counts.rename("candidates").to_frame())
+
+        fig, ax = plt.subplots(figsize=(7, max(3, 0.3 * len(counts))))
+        counts.sort_values().plot.barh(ax=ax, color="#c44e52")
+        ax.set_xlabel("Candidates failing")
+        ax.set_ylabel("")
+        ax.set_title("Most common failed filters")
+        plt.tight_layout()
+        plt.show()
+    else:
+        print("No candidate recorded a failed filter.")
+else:
+    print("No `failed_filters` column available.")
+```
+
+# Accepted designs
+
+```{python}
+# | label: ranked-table
+
+if ranked_df is not None:
+    preferred = [
+        c
+        for c in ["campaign", "design", RANKING_METRIC, "i_pTM", "pTM", "Binder_Sequence"]
+        if c in ranked_df.columns
+    ]
+    view = ranked_df[preferred] if preferred else ranked_df
+    sort_col = RANKING_METRIC if RANKING_METRIC in ranked_df.columns else None
+    if sort_col:
+        view = view.sort_values(sort_col)
+    display(view.head(50))
+else:
+    print("No designs were accepted.")
+```
+
+## Metric distributions
+
+```{python}
+# | label: metric-distributions
+
+if ranked_df is not None:
+    metrics = numeric_columns(ranked_df, exclude={"rank", "trajectory", "length"})
+    metrics = [m for m in metrics if not m.lower().startswith("unnamed")][:12]
+    if metrics:
+        ncols = 3
+        nrows = int(np.ceil(len(metrics) / ncols))
+        fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows))
+        axes = np.atleast_1d(axes).ravel()
+        for ax, metric in zip(axes, metrics):
+            values = pd.to_numeric(ranked_df[metric], errors="coerce").dropna()
+            ax.hist(values, bins=min(20, max(3, len(values) // 2)), color="#55a868")
+            ax.set_title(metric, fontsize=10)
+        for ax in axes[len(metrics):]:
+            ax.axis("off")
+        plt.tight_layout()
+        plt.show()
+    else:
+        print("No numeric metric columns with enough spread to plot.")
+else:
+    print("No accepted designs to summarise.")
+```
+
+## Binder length
+
+```{python}
+# | label: length
+
+if ranked_df is not None and "design" in ranked_df:
+    lengths = ranked_df["design"].map(parse_binder_length).dropna()
+    if len(lengths):
+        fig, ax = plt.subplots(figsize=(7, 4))
+        ax.hist(lengths.astype(int), bins=20, color="#8172b2")
+        ax.set_xlabel("Binder length (residues)")
+        ax.set_ylabel("Accepted designs")
+        ax.set_title("Accepted designs by binder length")
+        plt.tight_layout()
+        plt.show()
+
+        if RANKING_METRIC in ranked_df.columns:
+            df = pd.DataFrame(
+                {
+                    "length": ranked_df["design"].map(parse_binder_length),
+                    RANKING_METRIC: pd.to_numeric(ranked_df[RANKING_METRIC], errors="coerce"),
+                }
+            ).dropna()
+            if len(df) > 3:
+                fig, ax = plt.subplots(figsize=(7, 4))
+                ax.scatter(df["length"], df[RANKING_METRIC], alpha=0.6, color="#4c72b0")
+                ax.set_xlabel("Binder length (residues)")
+                ax.set_ylabel(RANKING_METRIC)
+                ax.set_title(f"{RANKING_METRIC} against binder length")
+                plt.tight_layout()
+                plt.show()
+    else:
+        print("Could not parse binder lengths from design names.")
+else:
+    print("No accepted designs to summarise.")
+```
+
+# BindCraft2 campaign summary
+
+`summary.csv` is BindCraft2's own long-form summary, written by `bindcraft campaign_output` across every
+batch.
+
+```{python}
+# | label: summary
+
+if summary_df is not None:
+    campaign_scope = (
+        summary_df[summary_df["scope"] == "campaign"]
+        if "scope" in summary_df.columns
+        else summary_df
+    )
+    display(campaign_scope.head(100))
+else:
+    print("No summary.csv available.")
+```
