@@ -184,6 +184,11 @@
               
                 <h1 id="bindcraft2-workflow">BindCraft2 Workflow</h1>
 <p>Parallel <a href="https://github.com/PacesaLab/BindCraft2">BindCraft2</a> execution for protein binder design across multiple GPUs.</p>
+<div class="admonition warning">
+<p class="admonition-title">BindCraft2 cannot be offered as a hosted service</p>
+<p>BindCraft2 is under a <a href="https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE">source-available, hosting-restricted license</a>. It is free to use for any purpose, including commercial use, on your own or your organisation's infrastructure, and you may share the designs it produces. However, you may not provide BindCraft2, or a service whose functionality derives from it, to third parties as a hosted, cloud, API, web application, workflow platform or SaaS offering without a separate commercial license from the copyright holders.</p>
+<p>This restriction carries through to <code>nf-binder-design</code>: the <code>--method bc2</code> workflow must not be deployed as a hosted service (or as an invocable tool or workflow step in a hosted platform) for third parties.</p>
+</div>
 <h2 id="overview">Overview</h2>
 <p>The <code>--method bc2</code> workflow (alias <code>--method bindcraft2</code>) runs BindCraft2 campaigns in parallel batches, then gathers them with <code>bindcraft campaign_output</code> and renders an HTML report.</p>
 <p>BindCraft2 is a rewrite of <a href="../bindcraft/">BindCraft</a>, not a version bump. It runs as a separate <code>--method bc2</code> workflow instead of a flag on <code>--method bindcraft</code>, adding:</p>
