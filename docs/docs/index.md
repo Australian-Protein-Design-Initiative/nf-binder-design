@@ -68,6 +68,10 @@ The pipeline code the comprises `nf-binder-design` is licensed under the MIT Lic
 > - [Rosetta License](https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md)
 > - [Rosetta Licensing FAQ](https://rosettacommons.org/software/licensing-faq/)
 
+> ⚠️ "Hosted Service Restriction"
+> >
+> BindCraft2 (`--method bc2`) is under a [source-available, hosting-restricted license](https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE). It is free for any use, including commercial use, on your own or your organisation's infrastructure, and the designs it produces can be shared freely. It **may not be provided to third parties as a hosted service** (eg a web application, API, SaaS, or a tool or workflow step on a hosted platform) without a separate commercial license from the BindCraft2 copyright holders. Running the pipeline yourself, including Nextflow automatically pulling the BindCraft2 container, is permitted. See the [BindCraft2 workflow](workflows/bc2.md) docs for details.
+
 ## Citing
 
 If you use `nf-binder-design` in your research, please cite:

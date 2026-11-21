@@ -21,6 +21,8 @@ Nextflow pipelines for _de novo_ protein binder design.
 
 > ⚠️ Note: Components of these workflows use RFdiffusion and BindCraft, which depend on PyRosetta/Rosetta, which is free for non-commercial use. Commercial use requires a paid license agreement with University of Washington: https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md and https://rosettacommons.org/software/licensing-faq/
 
+> ⚠️ Note: BindCraft2 is under a [source-available license](https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE) that permits free use (including commercial use) but prohibits providing it to third parties as a hosted service (eg a web application, API, SaaS or hosted workflow platform step) without a separate commercial license. By extension this applies to the `--method bc2` workflow in `nf-binder-design` - running it on your own or your organisation's infrastructure is fine, offering it as a hosted service to others is not.
+
 ----
 
 > ⚠️ NOTE: Major change in `v0.2.0` - individual workflows have been shifted into `workflows/`, all launched via a single `main.nf` entry point with the `--method` flag. 
@@ -131,3 +133,5 @@ See the [examples](examples/) directory and [workflow documentation](https://aus
 MIT
 
 > Note that some software dependencies of the pipeline are under less permissive licenses - in particular, RFdiffusion and BindCraft use [Rosetta/PyRosetta](https://github.com/RosettaCommons/rosetta/blob/main/LICENSE.md) which is **only free for Non-Commercial use**.
+>
+> BindCraft2 uses a [hosting-restricted license](https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE): the `--method bc2` workflow may not be provided to third parties as a hosted service without a commercial license from the BindCraft2 copyright holders.

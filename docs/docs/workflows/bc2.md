@@ -2,6 +2,11 @@
 
 Parallel [BindCraft2](https://github.com/PacesaLab/BindCraft2) execution for protein binder design across multiple GPUs.
 
+!!! warning "BindCraft2 cannot be offered as a hosted service"
+    BindCraft2 is under a [source-available, hosting-restricted license](https://github.com/PacesaLab/BindCraft2/blob/main/LICENSE). It is free to use for any purpose, including commercial use, on your own or your organisation's infrastructure, and you may share the designs it produces. However, you may not provide BindCraft2, or a service whose functionality derives from it, to third parties as a hosted, cloud, API, web application, workflow platform or SaaS offering without a separate commercial license from the copyright holders.
+
+    This restriction carries through to `nf-binder-design`: the `--method bc2` workflow must not be deployed as a hosted service (or as an invocable tool or workflow step in a hosted platform) for third parties.
+
 ## Overview
 
 The `--method bc2` workflow (alias `--method bindcraft2`) runs BindCraft2 campaigns in parallel batches, then gathers them with `bindcraft campaign_output` and renders an HTML report.
