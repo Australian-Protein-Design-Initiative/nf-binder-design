@@ -13,7 +13,6 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd4_designs_per_task=5 \
   --rfd4_batch_size=1 \
   --rfd4_recycle_strategy='thinking_medium' \
-  --rfd4_filters="rg<=20" \
   --refold_with 'boltz' \
   --refold_sort_by='pair_pae_min' \
   --refold_max=5 \

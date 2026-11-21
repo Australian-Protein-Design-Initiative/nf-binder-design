@@ -27,13 +27,13 @@ process RFD4_GENERATE {
     def recycle_arg = params.rfd4_recycle_strategy ? "recycle_strategy=${params.rfd4_recycle_strategy}" : ''
     def experiment = params.rfd4_inference_experiment ? params.rfd4_inference_experiment.toString() : ''
     def experiment_arg = experiment ? "inference_experiment=${experiment}" : ''
-    // '~metrics' drops the metrics group so no refolding oracle is constructed, which otherwise
-    // needs an AlphaFold 3 / OpenFold3 environment that is not in this image. Hydra errors if the
-    // group was never composed, and the quickstart preset does not compose it, so it is omitted
-    // there. Refolding is done downstream with Boltz-2 instead (--refold_with boltz).
-    def metrics_arg = params.rfd4_metrics_tags
-        ? "metrics_tags='[${params.rfd4_metrics_tags}]'"
-        : (experiment == 'quickstart' ? '' : "'~metrics'")
+    // The quickstart preset does not compose the metrics group, and Hydra errors if an override
+    // names a group that was never composed, so no metrics argument is passed there. Otherwise
+    // the tag list selects the inline metrics, and false drops the group ('~metrics') so no
+    // refolding oracle is constructed.
+    def metrics_arg = experiment == 'quickstart'
+        ? ''
+        : (rfd4IsFalse(params.rfd4_metrics_tags) ? "'~metrics'" : "metrics_tags='[${params.rfd4_metrics_tags}]'")
     def compile_arg = rfd4IsFalse(params.rfd4_compile_lengths) ? 'compile_lengths=null' : ''
     def partial_arg = rfd4IsFalse(params.rfd4_partial_trajectory_fraction)
         ? ''

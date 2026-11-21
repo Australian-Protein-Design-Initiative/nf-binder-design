@@ -8,7 +8,7 @@
 
 The difference from `rfd3` that matters for everything downstream: RFD4-Proteina co-designs sequence and structure in one pass, so there is **no inverse-folding step and no cofold of its own**. Each design comes out with both a backbone and a binder sequence, and nothing has scored the pair. Validation is entirely the refold's job.
 
-Internal metric calculation is switched off in the container (`~metrics`), because RFD4-Proteina's native evaluation wants AlphaFold 3 or OpenFold3 environments that are not in the image.
+Inline metrics (`ppi_refolding`, `hotspot_conditioning`) run by default via the OpenFold3 weights baked into the container; `--rfd4_metrics_tags false` switches them off (`~metrics`). They are ignored with `--rfd4_inference_experiment quickstart`.
 
 ## Inputs
 
@@ -60,7 +60,8 @@ Tokens between chainbreaks make one output chain. A chain holding a preserved se
 | `--rfd4_num_workers` | 0 | Dataloader workers. **Keep at 0** - see Troubleshooting |
 | `--rfd4_seed` | 0 | Base seed; task seeds are base + task index |
 | `--rfd4_nsteps` | 60 (model default) | Integration steps in the sampling schedule |
-| `--rfd4_recycle_strategy` | model default | Trunk recycle schedule, eg `thinking_medium`, `high/midpeak` |
+| `--rfd4_recycle_strategy` | `medium/front_loaded` | Trunk recycle schedule, eg `thinking_medium`, `high/midpeak` |
+| `--rfd4_metrics_tags` | `ppi_refolding,hotspot_conditioning` | Inline metrics, comma-separated; `false` disables; ignored with `quickstart` |
 | `--rfd4_inference_experiment` | `inference_on_user_inputs` | Preset; `quickstart` for fast test runs |
 | `--rfd4_compile_lengths` | `true` | `false` runs the trunk eagerly, skipping `torch.compile` warm-up |
 | `--rfd4_partial_trajectory_fraction` | — | Partial diffusion: run only this final fraction of `nsteps` |

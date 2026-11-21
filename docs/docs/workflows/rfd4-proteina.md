@@ -104,7 +104,8 @@ Each contig must include at least one preserved segment.
 | `--rfd4_num_workers` | `0` | Dataloader worker processes (keep at 0 to avoid dataloader deadlocks) |
 | `--rfd4_seed` | `0` | Base seed; task seeds derive from base seed plus task index |
 | `--rfd4_nsteps` | model default (60) | Number of integration steps in sampling schedule |
-| `--rfd4_recycle_strategy` | model default | Trunk recycle schedule (e.g. `thinking_medium`, `high/midpeak`) |
+| `--rfd4_recycle_strategy` | `medium/front_loaded` | Trunk recycle schedule (e.g. `thinking_medium`, `high/midpeak`) |
+| `--rfd4_metrics_tags` | `ppi_refolding,hotspot_conditioning` | Inline RFD4-Proteina metrics (comma-separated); `false` disables them. Ignored with `quickstart` |
 | `--rfd4_inference_experiment` | `inference_on_user_inputs` | Experiment configuration preset (`quickstart` for fast test runs) |
 | `--rfd4_compile_lengths` | `true` | Set to `false` to execute trunk eagerly without `torch.compile` warm-up |
 | `--rfd4_partial_trajectory_fraction` | | Partial diffusion: executes only the specified final fraction of `nsteps` |
@@ -119,8 +120,9 @@ Each contig must include at least one preserved segment.
 
 ### Refold validation
 
-Internal metric calculation is disabled (`~metrics`) because RFD4-Proteina's native evaluation
-relies on AlphaFold 3 or OpenFold3 environments outside the container. Instead, designs are
+RFD4-Proteina's own inline metrics run by default (`--rfd4_metrics_tags
+ppi_refolding,hotspot_conditioning`), using the OpenFold3 weights baked into the container; set
+`--rfd4_metrics_tags false` to disable them. Designs are additionally
 validated downstream: each generated binder sequence is re-folded against its target structure using
 independent prediction engines to score interface metrics and pose accuracy.
 

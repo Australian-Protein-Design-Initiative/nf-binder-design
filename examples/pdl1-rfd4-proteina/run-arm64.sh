@@ -23,7 +23,6 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd4_num_workers=0 \
   --rfd4_inference_experiment=quickstart \
   --rfd4_compile_lengths=false \
-  --rfd4_filters="rg<=25" \
   --refold_with 'boltz,esmfold2_fast' \
   --refold_max=2 \
   --use_msa_server \

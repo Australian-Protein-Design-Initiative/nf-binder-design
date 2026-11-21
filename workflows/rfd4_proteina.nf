@@ -34,13 +34,14 @@ params.rfd4_designs_per_task = 1
 params.rfd4_num_workers = 0
 params.rfd4_seed = 0
 params.rfd4_nsteps = false
-params.rfd4_recycle_strategy = false
+params.rfd4_recycle_strategy = 'medium/front_loaded'
 params.rfd4_inference_experiment = false
-// Which metrics run inline, as a comma-separated tag list (eg 'ppi_refolding,hotspot_conditioning').
-// Unset means none, and the metrics group is dropped entirely so no refolding oracle is built:
-// RFD4-Proteina's own refolding needs an AlphaFold 3 / OpenFold3 environment that is not in the
-// container. Use --refold_with boltz for refold scoring instead.
-params.rfd4_metrics_tags = false
+// Which metrics run inline, as a comma-separated tag list. The defaults run RFD4-Proteina's own
+// refolding (ppi_refolding) and hotspot conditioning checks, using the OpenFold3 weights baked
+// into the container (AlphaFold 3 weights, if wanted, must be mounted at runtime). Set false to drop the
+// metrics group entirely so no refolding oracle is built. Ignored by --rfd4_inference_experiment
+// quickstart, which does not compose the metrics group.
+params.rfd4_metrics_tags = 'ppi_refolding,hotspot_conditioning'
 // false runs the trunk eagerly (compile_lengths=null), skipping the torch.compile warm-up
 params.rfd4_compile_lengths = true
 params.rfd4_partial_trajectory_fraction = false
@@ -134,11 +135,11 @@ workflow RFD4_PROTEINA {
                                   before the first sampling step when workers are used. [default: ${params.rfd4_num_workers}]
             --rfd4_seed           Base random seed; each task uses this plus its index [default: ${params.rfd4_seed}]
             --rfd4_nsteps         generation.args.nsteps, the number of integration steps [default: model default, 60]
-            --rfd4_recycle_strategy  Trunk recycle schedule, eg thinking_medium, high/midpeak [default: model default]
+            --rfd4_recycle_strategy  Trunk recycle schedule, eg thinking_medium, high/midpeak [default: ${params.rfd4_recycle_strategy}]
             --rfd4_inference_experiment  Experiment preset, eg quickstart [default: inference_on_user_inputs]
-            --rfd4_metrics_tags   Comma-separated inline metric tags. Unset drops the metrics group;
-                                  RFD4-Proteina's refolding metrics need an AlphaFold 3 / OpenFold3
-                                  environment that is not in the container. [default: none]
+            --rfd4_metrics_tags   Comma-separated inline metric tags; false drops the metrics group.
+                                  Refolding uses the OpenFold3 weights baked into the container.
+                                  Ignored with the quickstart preset. [default: ${params.rfd4_metrics_tags}]
             --rfd4_compile_lengths  Set false to run the trunk eagerly, skipping the torch.compile
                                   warm-up. Worth it for a smoke test, not for a real run. [default: ${params.rfd4_compile_lengths}]
             --rfd4_partial_trajectory_fraction  Partial diffusion: run only this final fraction of
