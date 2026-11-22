@@ -105,5 +105,46 @@ def test_use_msa_server_without_query_only_chains_omits_msa(tmp_path):
         assert "msa" not in e["protein"]
 
 
+def test_homodimer_shares_first_chain_msa(tmp_path):
+    # Boltz groups by exact sequence and rejects different msa paths, even when
+    # the two files are the same search under different names.
+    fasta = _write(tmp_path / "homo.fasta", f">a\n{TARGET}\n>b\n{TARGET}\n")
+    a = _csv(tmp_path / "a.csv", TARGET)
+    b = _csv(tmp_path / "b.csv", TARGET)
+    data = mbcy.make_boltz_complex_yaml(fasta, msa_paths=[a, b])
+    assert [e["protein"]["id"] for e in data["sequences"]] == [["A"], ["B"]]
+    assert [e["protein"]["msa"] for e in data["sequences"]] == [a.name, a.name]
+
+
+def test_homodimer_query_only_copy_keeps_the_real_msa(tmp_path):
+    fasta = _write(tmp_path / "homo.fasta", f">a\n{TARGET}\n>b\n{TARGET}\n")
+    a = _csv(tmp_path / "a.csv", TARGET)
+    b = _csv(tmp_path / "b.csv", TARGET)
+    data = mbcy.make_boltz_complex_yaml(fasta, msa_paths=[a, b], query_only_chains=["B"])
+    assert [e["protein"]["msa"] for e in data["sequences"]] == [a.name, a.name]
+
+
+def test_homodimer_msa_server_with_query_only_copy_omits_both(tmp_path):
+    fasta = _write(tmp_path / "homo.fasta", f">a\n{TARGET}\n>b\n{TARGET}\n")
+    data = mbcy.make_boltz_complex_yaml(fasta, use_msa_server=True, query_only_chains=["B"])
+    for e in data["sequences"]:
+        assert "msa" not in e["protein"]
+
+
+def test_homodimer_both_query_only_stays_empty(tmp_path):
+    fasta = _write(tmp_path / "homo.fasta", f">a\n{TARGET}\n>b\n{TARGET}\n")
+    data = mbcy.make_boltz_complex_yaml(fasta, use_msa_server=True, query_only_chains=["A", "B"])
+    assert [e["protein"]["msa"] for e in data["sequences"]] == ["empty", "empty"]
+
+
+def test_only_identical_chains_share_an_msa(tmp_path):
+    fasta = _write(tmp_path / "tri.fasta", f">a\n{TARGET}\n>b\n{TARGET}\n>c\n{BINDER}\n")
+    a = _csv(tmp_path / "a.csv", TARGET)
+    b = _csv(tmp_path / "b.csv", TARGET)
+    c = _csv(tmp_path / "c.csv", BINDER)
+    data = mbcy.make_boltz_complex_yaml(fasta, msa_paths=[a, b, c])
+    assert [e["protein"]["msa"] for e in data["sequences"]] == [a.name, a.name, c.name]
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

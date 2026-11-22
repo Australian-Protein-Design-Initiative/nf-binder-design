@@ -24,6 +24,9 @@ entirely and Boltz fetches + pairs its own MSA.
 
 Homo-oligomers: pass the sequence as repeated FASTA records (one `protein:`
 entry per copy, distinct chain IDs). A `count:`/id-list shorthand is deferred.
+Boltz groups those copies by exact sequence and rejects the input unless every
+copy names the same `msa` value, so identical chains are pointed at one shared
+MSA (the first real file, otherwise one server MSA).
 
 Templates: --templates is the directory written by bin/fold/match_templates.py.
 Each chain's templates are looked up in its index.json by sequence md5 and pinned
@@ -87,6 +90,54 @@ def _check_query(path: Path, seq: str, chain_index: int) -> None:
         )
 
 
+# Sentinel for "msa key omitted" (Boltz default 0: auto / --use_msa_server).
+# Distinct from the explicit single-sequence value "empty".
+_MSA_OMITTED = object()
+
+
+def _choose_shared_msa(specs: list):
+    """Boltz cannot give two copies of one sequence different MSAs. A searched
+    file beats a server MSA, which beats explicit single-sequence: dropping a
+    real alignment for `empty` is the worse prediction.
+    """
+    for spec in specs:
+        if spec is not _MSA_OMITTED and spec != "empty":
+            return spec
+    if any(spec is _MSA_OMITTED for spec in specs):
+        return _MSA_OMITTED
+    return "empty"
+
+
+def _share_identical_sequence_msas(entries: list) -> None:
+    groups: dict = {}
+    for entry in entries:
+        protein = entry["protein"]
+        groups.setdefault(protein["sequence"], []).append(protein)
+
+    for proteins in groups.values():
+        if len(proteins) < 2:
+            continue
+        specs = [p["msa"] if "msa" in p else _MSA_OMITTED for p in proteins]
+        unique: list = []
+        for spec in specs:
+            if spec not in unique:
+                unique.append(spec)
+        if len(unique) == 1:
+            continue
+        chosen = _choose_shared_msa(unique)
+        chain_ids = ", ".join(p["id"][0] for p in proteins)
+        label = "the MSA server" if chosen is _MSA_OMITTED else chosen
+        print(
+            f"Chains {chain_ids} share a sequence; Boltz requires one MSA, using {label}",
+            file=sys.stderr,
+        )
+        for protein in proteins:
+            if chosen is _MSA_OMITTED:
+                protein.pop("msa", None)
+            else:
+                protein["msa"] = chosen
+
+
 def make_boltz_complex_yaml(
     fasta_path: Path,
     msa_paths: Optional[List[Path]] = None,
@@ -127,6 +178,8 @@ def make_boltz_complex_yaml(
             # rewriting this YAML.
             protein["msa"] = os.path.basename(str(msa_paths[i]))
         entries.append({"protein": protein})
+
+    _share_identical_sequence_msas(entries)
 
     data = {"version": 1, "sequences": entries}
 

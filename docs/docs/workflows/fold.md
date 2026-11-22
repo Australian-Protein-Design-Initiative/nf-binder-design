@@ -196,7 +196,10 @@ sequence's `>` header in the original a3m (disambiguates duplicate accessions).
 A FASTA with more than one record folds as a **protein complex**: each record is
 one chain, in file order, assigned chain IDs `A, B, C, …` (up to 26). A
 homo-oligomer is expressed as **repeated identical records** (a `count:`
-shorthand is not implemented yet). Ligands and nucleic acids are not supported in
+shorthand is not implemented yet). Boltz-2 treats those copies as one protein
+and requires them to name the same MSA, so every copy is given the first
+chain's file — or one server MSA, when that is what any copy would have used.
+Ligands and nucleic acids are not supported in
 this release: protein complexes only.
 
 ```bash
@@ -224,7 +227,7 @@ rather than a second search of each chain:
 | **AF3** | Pairs by species mnemonic, parsed only from UniProt-style `tr\|ACC\|NAME_SPECIES` headers | Per-chain `pairedMsaPath` re-rendered with `tr\|…_SPECIES` headers + `unpairedMsaPath` (AF3's own data pipeline is never run) |
 | **OpenFold3** | Pairs online by species, read from the 4th field of `uniprot_hits` headers | Per-chain directory with `colabfold_main.a3m` (unpaired) + `uniprot_hits.a3m` re-rendered as `tr\|ACC\|ACC_SPECIES/1-N` (pairing only) |
 | **Chai-1** | Pairs rows across chains sharing a `pairing_key`, done by Chai-1 itself | One `.aligned.pqt` per unique chain sequence, with `pairing_key = taxid`; rows with no taxonomy are kept as that chain's unpaired rows |
-| **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`) |
+| **Boltz-2** | Pairs rows across chains sharing a taxid `key` | Per-chain `key,sequence` CSV (`key = taxid`). Identical sequences share the first chain's CSV |
 | **ESMFold2** | Pairs rows across chains sharing a `key=<taxid>` token, done by ESMFold2 itself | One a3m per chain with `key=<taxid>` headers; unlike the other renders, rows with no taxonomy are kept (laid out block-diagonally) |
 
 RF3 / Protenix / Boltz's rendered per-chain files are published under
