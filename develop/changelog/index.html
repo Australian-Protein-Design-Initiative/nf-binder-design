@@ -284,6 +284,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="fixed">Fixed</h3>
 <ul>
+<li>Boltz-2 fold and fold_pulldown of a homodimer failed with <code>All proteins with the same sequence must share the same MSA!</code>. Identical chains now share one MSA: the first chain's file, or one server MSA when that is what any copy would have used.</li>
+<li>BindCraft2 on the Monash M3 configs (<code>m3</code>, <code>m3_bdi</code>) disables JAX GPU command buffers, which crashed the task intermittently.</li>
 <li><code>rf3</code> fold specs declare <code>chain_type: polypeptide(L)</code> for every sequence component. Without it, atomworks infers the chain type from the alphabet, so a low-complexity binder whose letters are all valid nucleotide codes - poly-alanine from a degenerate ProteinMPNN pass is the realistic case - was folded as RNA, and every comparison metric for that design came back <code>NaN</code>. The stack is protein-only, so the declaration is unconditional.</li>
 <li>From Nextflow 26, a <code>publishDir</code> <code>path:</code> or <code>pattern:</code> written as a plain string could not see the process's own inputs, so every method died at startup with <code>No such variable: step</code> / <code>meta</code> / <code>batch_id</code> before any task ran. The 18 such directives across 15 modules are closures now, which defers them to the task. This was independent of the strict syntax, and 24.04.3 was never affected.</li>
 <li><code>SILENT_FROM_PDBS</code> referred to <code>${PATH}</code> unescaped in an interpolated script block, so <code>--method rfd</code> died with <code>No such variable: PATH</code> before any silent file was written.</li>

@@ -445,7 +445,10 @@ sequence's <code>&gt;</code> header in the original a3m (disambiguates duplicate
 <p>A FASTA with more than one record folds as a <strong>protein complex</strong>: each record is
 one chain, in file order, assigned chain IDs <code>A, B, C, …</code> (up to 26). A
 homo-oligomer is expressed as <strong>repeated identical records</strong> (a <code>count:</code>
-shorthand is not implemented yet). Ligands and nucleic acids are not supported in
+shorthand is not implemented yet). Boltz-2 treats those copies as one protein
+and requires them to name the same MSA, so every copy is given the first
+chain's file — or one server MSA, when that is what any copy would have used.
+Ligands and nucleic acids are not supported in
 this release: protein complexes only.</p>
 <pre><code class="language-bash">nextflow run /path/to/nf-binder-design --method fold \
   --input input/complex.fasta \
@@ -502,7 +505,7 @@ rather than a second search of each chain:</p>
 <tr>
 <td><strong>Boltz-2</strong></td>
 <td>Pairs rows across chains sharing a taxid <code>key</code></td>
-<td>Per-chain <code>key,sequence</code> CSV (<code>key = taxid</code>)</td>
+<td>Per-chain <code>key,sequence</code> CSV (<code>key = taxid</code>). Identical sequences share the first chain's CSV</td>
 </tr>
 <tr>
 <td><strong>ESMFold2</strong></td>
