@@ -112,6 +112,8 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#unwrapped-bindcraft2-subcommands">Unwrapped BindCraft2 subcommands</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#post-completion-crashes">Post-completion crashes</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
     </li>
     </ul>
@@ -518,6 +520,8 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 </tr>
 </tbody>
 </table>
+<h2 id="post-completion-crashes">Post-completion crashes</h2>
+<p>BindCraft2 sometimes exits 139 (SIGSEGV) or 134 (SIGABRT) while JAX/CUDA is shutting down, after it has already printed <code>campaign done:</code> and written the batch. The task treats that as success when <code>${batch_id}/summary.csv</code> and <code>${batch_id}/campaign_metadata.json</code> are present and non-empty, and logs a warning. A crash before that point, or any other non-zero status, still fails the task.</p>
 <h2 id="examples">Examples</h2>
 <p>The <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples">examples/</a> directory contains complete working examples:</p>
 <ul>
