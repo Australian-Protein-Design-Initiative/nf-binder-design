@@ -39,8 +39,8 @@ nextflow info
 
 ### Nextflow version compatibility
 
-The pipeline is tested against Nextflow `24.04.3`, `25.04.x` and `26.04.x`, and
-supports `>=23.04.0, <26.10` (enforced by `manifest.nextflowVersion`).
+The pipeline is tested against Nextflow `24.04.3`, `25.04.x`, `26.04.x` and
+`26.10.x`, and supports `>=23.04.0, <27` (enforced by `manifest.nextflowVersion`).
 
 Any version in that range works as-is. Earlier releases needed
 `NXF_SYNTAX_PARSER=v1` on Nextflow `26.04+`; that is no longer the case, so drop

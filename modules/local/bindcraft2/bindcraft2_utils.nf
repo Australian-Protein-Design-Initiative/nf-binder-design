@@ -246,7 +246,8 @@ String bc2AdaptiveNote(params, int batchSize) {
     if (!inert) {
         return ''
     }
-    return "BC2 adaptive tuning is inert at --bc2_batch_size ${batchSize}: ${inert.join(' and ')}. " +
+    return 'Note - in this mode adaptive tuning and desperation mode will not engage. ' +
+           "BC2 adaptive tuning is inert at --bc2_batch_size ${batchSize}: ${inert.join(' and ')}. " +
            'Both read only the batch\'s own trajectory table. Raise --bc2_batch_size to let them engage, ' +
            'or lower the threshold with --bc2_set \'desperation_trajectories=N\'.'
 }

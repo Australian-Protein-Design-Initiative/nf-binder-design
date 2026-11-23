@@ -11,7 +11,7 @@ nextflow_pipeline {
     // already defined in the process scope" error) without needing GPUs or containers.
     //
     // To check several Nextflow versions, run the suite once per version, e.g.:
-    //   for v in 24.04.3 25.04.7 26.04.4; do NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test; done
+    //   for v in 24.04.3 25.04.7 26.04.4 26.10.7; do NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test; done
 
     test("rfd3 method compiles") {
         options "-preview"
@@ -348,7 +348,7 @@ nextflow_pipeline {
         }
         then {
             assert !workflow.success
-            assert workflow.stdout.any { it.contains("collide once AF3/OpenFold3 sanitise them") }
+            assert (workflow.stdout + workflow.stderr).any { it.contains("collide once AF3/OpenFold3 sanitise them") }
         }
     }
 
@@ -367,7 +367,7 @@ nextflow_pipeline {
         }
         then {
             assert !workflow.success
-            assert workflow.stdout.any { it.contains("shared by targets and binders once sanitised") }
+            assert (workflow.stdout + workflow.stderr).any { it.contains("shared by targets and binders once sanitised") }
         }
     }
 

@@ -121,8 +121,11 @@ List msaSubsampleDepthJobs(msa_subsample, msa_subsample_include_full, Integer nS
 }
 
 // Stable non-negative seed for -resume (no random draw at parse time).
+// toString() so this is Java's String hash. A GString's hashCode is 37 plus
+// that, and Nextflow 26.10's interpolation is a String, so hashing the
+// GString directly changed the seed between versions and broke -resume.
 int msaSubsampleStableSeed(String id, int batchOrRun, int maxSeq, int maxExtra) {
-    def h = "${id}|${batchOrRun}|${maxSeq}|${maxExtra}".hashCode()
+    def h = "${id}|${batchOrRun}|${maxSeq}|${maxExtra}".toString().hashCode()
     return h == Integer.MIN_VALUE ? 0 : Math.abs(h)
 }
 

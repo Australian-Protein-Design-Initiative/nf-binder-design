@@ -109,13 +109,13 @@ per version to cover the supported range (see
 [Nextflow version compatibility](setup.md#nextflow-version-compatibility)):
 
 ```bash
-for v in 24.04.3 25.04.7 26.04.4; do
+for v in 24.04.3 25.04.7 26.04.4 26.10.7; do
   NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test
 done
 ```
 
 The repository root `nextflow.config` also pins `manifest.nextflowVersion` to
-`!>=23.04.0, <26.10`, so Nextflow itself aborts with a clear message when run
+`!>=23.04.0, <27`, so Nextflow itself aborts with a clear message when run
 outside the supported range.
 
 ## Linting

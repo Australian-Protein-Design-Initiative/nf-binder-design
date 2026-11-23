@@ -62,7 +62,7 @@ nextflow_function {
         }
         then {
             assert function.failed
-            assert function.stdout.toString().contains("No PDB files found")
+            assert (function.stdout + function.stderr).any { it.contains("No PDB files found") }
         }
     }
 
@@ -76,7 +76,7 @@ nextflow_function {
         }
         then {
             assert function.failed
-            assert function.stdout.toString().contains("No PDB files found")
+            assert (function.stdout + function.stderr).any { it.contains("No PDB files found") }
         }
     }
 
@@ -90,7 +90,7 @@ nextflow_function {
         }
         then {
             assert function.failed
-            assert function.stdout.toString().contains("Duplicate input PDB basenames")
+            assert (function.stdout + function.stderr).any { it.contains("Duplicate input PDB basenames") }
         }
     }
 }

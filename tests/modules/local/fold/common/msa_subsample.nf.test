@@ -197,7 +197,7 @@ nextflow_function {
         }
         then {
             assert function.success
-            assert function.result == 1034863664
+            assert function.result == 1034863627
         }
     }
 }
