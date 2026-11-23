@@ -16,7 +16,8 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --outdir results-refold-engines \
   --rfd4_n_designs=20 \
   --rfd4_designs_per_task=5 \
-  --refold_with 'boltz,chai1,openfold3' \
+  --rfd4_recycle_strategy 'medium/front_loaded' \
+  --refold_with 'esmfold2,rf3' \
   --refold_max=10 \
   --n_predictions=3 \
   --use_msa_server \

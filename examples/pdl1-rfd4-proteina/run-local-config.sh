@@ -12,5 +12,6 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --outdir results \
   --rfd4_n_designs=4 \
   --rfd4_designs_per_task=2 \
+  --rfd4_recycle_strategy 'medium/front_loaded' \
   -profile local \
   -resume

@@ -14,5 +14,6 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --hotspot_res "A54,A56,A115,A123,A125" \
   --rfd4_n_designs=4 \
   --rfd4_designs_per_task=2 \
+  --rfd4_recycle_strategy 'medium/front_loaded' \
   -profile local \
   -resume
