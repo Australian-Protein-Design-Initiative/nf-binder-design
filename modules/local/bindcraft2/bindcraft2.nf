@@ -6,9 +6,14 @@ process BINDCRAFT2 {
     // The campaign project_folder is named after batch_id, which is unique
     // across inputs and batch indices, so batches never collide when the
     // gather step stages them all into one parent.
-    publishDir path: "${params.outdir}/bc2/batches", pattern: { "${batch_id}" }, mode: 'copy'
-    publishDir path: { "${params.outdir}/bc2/batches/${batch_id}" }, pattern: 'bc2.log', mode: 'copy'
-    publishDir path: { "${params.outdir}/bc2/batches/${batch_id}" }, pattern: 'bc2_campaign.staged.json', mode: 'copy'
+    // `pattern:` only accepts a static glob -- a closure there silently matches
+    // nothing. The batch directory name is an input, so it is selected with a
+    // saveAs closure instead, which is evaluated per task.
+    //
+    // bc2.log and bc2_campaign.staged.json cannot be published separately into
+    // the batch directory: publishing a directory replaces its destination, so
+    // whichever lands last wins. The script copies them inside it instead.
+    publishDir path: "${params.outdir}/bc2/batches", saveAs: { fn -> fn == batch_id ? fn : null }, mode: 'copy'
     //
     // Do not add a publishDir here to flatten 3_Ranked/*.cif. Declaring the
     // batch directory as an output shadows the files nested inside it for
@@ -123,5 +128,7 @@ process BINDCRAFT2 {
         echo "ERROR: bindcraft produced no ${batch_id} project folder" >&2
         exit 1
     fi
+
+    cp bc2.log bc2_campaign.staged.json "${batch_id}/"
     """
 }

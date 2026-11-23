@@ -9,7 +9,10 @@ process COLABFOLD_A3M_TO_AF2_MSAS {
     publishDir(
         path: "${params.outdir}/${params.fold_publish_dir ?: 'fold'}/af2/msas",
         mode: 'copy',
-        pattern: { "${meta.id}" }
+        // `pattern:` only accepts a static glob -- a closure there silently
+        // matches nothing. The directory name comes from an input, so select
+        // it with saveAs, which is evaluated per task.
+        saveAs: { fn -> fn == meta.id ? fn : null }
     )
 
     input:
