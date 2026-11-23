@@ -108,13 +108,15 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#unreleased">[Unreleased]</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#added">Added</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed">Changed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#removed">Removed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
     </li>
         </ul>
     </li>
@@ -124,7 +126,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_1">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_1">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
     </li>
         </ul>
     </li>
@@ -134,7 +136,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_2">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_2">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
     </li>
         </ul>
     </li>
@@ -142,11 +144,11 @@
         <ul>
     <li class="toctree-l3"><a class="reference internal" href="#added_3">Added</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_3">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_3">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_4">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#removed_1">Removed</a>
     </li>
@@ -158,7 +160,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_4">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_5">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_6">Fixed</a>
     </li>
         </ul>
     </li>
@@ -176,7 +178,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_6">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_6">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_7">Fixed</a>
     </li>
         </ul>
     </li>
@@ -186,7 +188,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#changed_7">Changed</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#fixed_7">Fixed</a>
+    <li class="toctree-l3"><a class="reference internal" href="#fixed_8">Fixed</a>
     </li>
         </ul>
     </li>
@@ -234,8 +236,13 @@
 <p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 <h2 id="unreleased">[Unreleased]</h2>
+<h3 id="fixed">Fixed</h3>
+<ul>
+<li><code>--method bc2</code> dual-GPU examples (<code>pdl1-bc2</code>, <code>pdl1-bc2-mini</code>, <code>bindcraft2-vhh</code>) ran one batch at a time. <code>BINDCRAFT2</code> reserved 32 GB, so a second task did not fit in host RAM and the other GPU stayed idle.</li>
+</ul>
 <h3 id="added">Added</h3>
 <ul>
+<li><code>examples/pdl1-rfd4-proteina/run-local-simple-dual-gpu.sh</code>: the params-mode PD-L1 RFD4-Proteina run spread across two local GPUs.</li>
 <li><code>--method bc2</code> (alias <code>bindcraft2</code>): parallel <a href="https://github.com/PacesaLab/BindCraft2">BindCraft2</a> binder design. Takes either a campaign settings JSON (<code>--bc2_config</code>, with referenced target structures and scaffolds staged automatically) or flat params shared with <code>--method bindcraft</code>. Runs a fixed trajectory budget (<code>--bc2_n_traj</code>, <code>--bc2_batch_size</code>) with a distinct <code>campaign_seed</code> per batch, then gathers the batches with <code>bindcraft campaign_output</code> into one ranked summary plus an HTML report. Binder modalities via <code>--bc2_modality</code> (VHH, scFv, Fab, cyclic peptide, ...), composable design properties via <code>--bc2_humanize</code>, <code>--bc2_protease_stable</code> and friends, and every other BindCraft2 setting via <code>--bc2_set 'KEY=VALUE;KEY=VALUE'</code>. <code>--hotspot_subsample</code> draws a different subset of each target's hotspots per batch, in both input modes, seeded so the run still reproduces. <code>--do_foldseek</code> runs a FoldSeek structural novelty search over the ranked designs, searching only the binder chains.</li>
 <li><code>--complex_structures</code> for <code>--method fold_pulldown</code>: supply target-binder complexes instead of a binder FASTA. The binder chain of each is folded against every target as usual, and the complex is then the reference its predictions are compared against, giving <code>target_aligned_binder_rmsd_all</code>, TM-score, DockQ and interface quality in <code>complex_rmsd.tsv</code> - one comparison per (target, engine, sample), all against the one complex that binder came from. This answers whether a binder still sits the same way against a different, longer or variant target. <code>--binder_chains</code> names the binder chain(s); several means several binder records per complex, named <code>&lt;complex&gt;_&lt;chain&gt;</code>. <code>--target_chains</code> chooses the superposition reference, defaulting to whichever chain is not a binder chain, so a two-chain complex needs only <code>--binder_chains</code>; <code>auto</code> resolves it per complex by matching against the <code>--targets</code> records, for mixed-source complexes with inconsistent chain naming, and logs the chain it chose. <code>--targets</code> is optional here: without it the targets are read back out of the complexes' own target chains and deduplicated by sequence, and a set holding more than one distinct target stops the run rather than folding every binder against every target. A multi-chain target is not supported, since a pulldown folds two-chain pairs and there would be nothing to superimpose a second target chain onto. <code>complex_rmsd.tsv</code> carries a <code>target</code> column, which is what tells one binder's rows apart when it was folded against several.</li>
 <li>Refold scoring reports DockQ. <code>combined_scores.tsv</code> and <code>refold_sample_scores.tsv</code> gain <code>&lt;tool&gt;_target_aligned_binder_dockq</code>, with its <code>_dockq_fnat</code>, <code>_dockq_fnonnat</code>, <code>_dockq_irmsd</code>, <code>_dockq_lrmsd</code>, <code>_interface_lddt</code> and <code>_clash_count</code> companions, measuring the refolded complex against the design pose. On by default (<code>--refold_dockq false</code> to drop them): the comparison reads structures that have already been written and needs no GPU, so it adds very little to a refold that has just paid for the folding. Only the target-aligned comparison gets them, since DockQ needs a receptor and a ligand and the whole-complex comparison puts both chains on both sides. Needs <code>nf-binder-design-utils:0.1.8</code>.</li>
@@ -257,6 +264,8 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </ul>
 <h3 id="changed">Changed</h3>
 <ul>
+<li>Supported Nextflow range is <code>!&gt;=23.04.0, &lt;27</code>, tested on 26.10.7.</li>
+<li>The MSA subsample seed is the Java string hash of the id and depth, so it stays the same across Nextflow versions. A resume from before this change re-runs the subsample tasks once.</li>
 <li><code>conf/platforms/monash_containers.config</code> points every <code>nf-binder-design-utils</code> process at <code>0.1.8</code> on the Monash mirror. They were pinned at <code>0.1.6</code> and <code>0.1.5</code>, which predate the <code>peppr</code> dependency the refold's DockQ scoring needs, so a refold on M3 failed at the comparison step.</li>
 <li>The column order of <code>refold_sample_scores.tsv</code> and <code>refold_scores.tsv</code> is stable between runs. The RMSD tables were collected in arrival order, so which of the monomer and complex comparison blocks came first depended on which task finished first, and two runs over the same data could publish the same columns in a different order.</li>
 <li><code>--rf3_alignment</code> is renamed to <code>--rf3_target_msa</code>, and a run that sets the old name stops with the new one named. Every MSA parameter in the pipeline now says "msa" - <code>--target_msa</code>, <code>--create_target_msa</code>, <code>--create_binder_msa</code>, <code>--use_msa_server</code>, <code>--msa_method</code>, <code>--msa_subsample</code>, <code>--protenix_use_msa</code>, <code>--af3_paired_msa</code>, <code>--rf3_create_target_msa</code> - with no <code>*_alignment</code> spelling left for an external MSA file. The design-time RF3 MSA keeps its <code>--rf3_</code> engine prefix, which is what distinguishes it from the refold's <code>--target_msa</code>.</li>
@@ -282,7 +291,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>--method boltz_pulldown</code>, superseded by <code>--method fold_pulldown</code>: the same target × binder fan-out, MSA options and reporting, plus the other engines, per-chain template matching, multiple samples per pair and a cross-engine summary. <code>--method fold_pulldown --methods boltz</code> is the equivalent run, with structures written as mmCIF rather than PDB, <code>--templates</code> matched per chain rather than handed to Boltz wholesale, and the score table at <code>fold_pulldown/fold_pulldown_scores.tsv</code>.</li>
 <li><code>bin/find_available_gpu.py</code> and the <code>--gpu_allocation_detect_process_regex</code> / <code>--germinal_gpu_allocation_detect_process_regex</code> parameters. The script's GPU-busy detection never worked inside Apptainer containers - Set <code>--gpu_devices</code> to enable the lock-based allocator instead.</li>
 </ul>
-<h3 id="fixed">Fixed</h3>
+<h3 id="fixed_1">Fixed</h3>
 <ul>
 <li>BindCraft2 tasks that segfault (139) or abort (134) while JAX/CUDA is tearing down, after the campaign has already finished and written its summary, are kept. The same status before <code>campaign done:</code>, or any other non-zero status, still fails the task.</li>
 <li>Boltz-2 fold and fold_pulldown of a homodimer failed with <code>All proteins with the same sequence must share the same MSA!</code>. Identical chains now share one MSA: the first chain's file, or one server MSA when that is what any copy would have used.</li>
@@ -294,7 +303,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>PREPARE_RF3_TEMPLATE</code> and <code>RENAME_RF3_TEMPLATE_CHAINS</code> had their <code>publishDir</code> directives inside the <code>output:</code> block, where they are not directives at all, so their templates were never published.</li>
 <li>An unset <code>--refold_with</code> stopped the run with <code>unknown --methods entry ''</code> instead of skipping the refold.</li>
 <li>BoltzGen input staging no longer replaces an absolute entity path with a symlink to itself when that file is already the staged input.</li>
-<li>Every design workflow failed to compile under Nextflow 24.04.x and 24.10.0 with <code>Variable</code>log<code>already defined in the process scope</code>, although <code>manifest.nextflowVersion</code> declares <code>!&gt;=23.04.0, &lt;26.10</code>. The refold work reintroduced the pattern commit 6020de1 removed: inside a workflow body, an assignment whose right-hand side touches a script binding (<code>params</code>, <code>log</code>, <code>Channel</code>, or another workflow-scope variable) cannot be declared with <code>def</code> under the pre-25 parser. The <code>def</code>s are dropped from those assignments in <code>workflows/{rfd,rfd_partial,rfd3,rfd4_proteina,bindcraft,germinal}.nf</code> and <code>subworkflows/local/refold.nf</code>; <code>foldValidationValidate</code> (then <code>FoldValidation.validate</code>) is unpacked by index rather than by destructuring, which the old parser rejects for the same reason. Every method now compiles on 24.04.3, 24.10.0, 25.04.7 and 26.04.4. <code>tests/pipeline/compilation.nf.test</code> gains <code>germinal</code>, <code>rfd4_proteina</code> and a refold-enabled <code>rfd</code> case, since the two workflows the regression reached had no compilation test at all.</li>
+<li>Every design workflow failed to compile under Nextflow 24.04.x and 24.10.0 with <code>Variable</code>log<code>already defined in the process scope</code>, although those releases are inside the supported range. The refold work reintroduced the pattern commit 6020de1 removed: inside a workflow body, an assignment whose right-hand side touches a script binding (<code>params</code>, <code>log</code>, <code>Channel</code>, or another workflow-scope variable) cannot be declared with <code>def</code> under the pre-25 parser. The <code>def</code>s are dropped from those assignments in <code>workflows/{rfd,rfd_partial,rfd3,rfd4_proteina,bindcraft,germinal}.nf</code> and <code>subworkflows/local/refold.nf</code>; <code>foldValidationValidate</code> (then <code>FoldValidation.validate</code>) is unpacked by index rather than by destructuring, which the old parser rejects for the same reason. Every method now compiles on 24.04.3, 24.10.0, 25.04.7 and 26.04.4. <code>tests/pipeline/compilation.nf.test</code> gains <code>germinal</code>, <code>rfd4_proteina</code> and a refold-enabled <code>rfd</code> case, since the two workflows the regression reached had no compilation test at all.</li>
 <li><code>boltz_pae_mean</code> was always blank while every other engine filled <code>&lt;tool&gt;_pae_mean</code>. Boltz's confidence JSON carries no PAE of any kind, but it does write the full matrix as <code>pae_*.npz</code>, already read for ipSAE; <code>bin/parse_boltz_confidence.py --pae-npz</code> now takes the mean off it in the same step, so the column is filled from the same numbers ipSAE is computed from.</li>
 <li>BindCraft reporting failed to render against matplotlib 3.11. <code>Axes.boxplot</code>'s <code>labels</code> keyword became <code>tick_labels</code> in 3.9 and is gone in 3.11, and the report has to run against whatever matplotlib the BindCraft image carries; it now picks the keyword from the signature once and uses it for all thirteen boxplots.</li>
 <li>Two fold runs in one workflow wrote their per-engine score tables to the same path, so the second overwrote the first and the merge downstream saw rows for complexes it never folded. The fold stack now takes a publish label (<code>FOLD</code>, <code>FOLD_PREDICT</code> and each engine subworkflow), which the refold uses to keep the complex folds and the binder-monomer folds apart.</li>
@@ -328,7 +337,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>M3 platform configs (<code>m3</code>, <code>m3_bdi</code>): shared SLURM option variables at the top of each file (account, exclude, GPU/CPU presets); all jobs now pass <code>--exclude=m3t100</code>.</li>
 <li>BindCraft report headline accept rate collapses MPNN duplicates (unique trajectories with ≥1 accepted design ÷ total trajectories); rate including all accepted MPNN sequences is shown alongside.</li>
 </ul>
-<h3 id="fixed_1">Fixed</h3>
+<h3 id="fixed_2">Fixed</h3>
 <ul>
 <li>BindCraft report accept summary: trajectory outcomes (Relaxed / LowConfidence / Clashing) now sum to total trajectories; Accepted / Rejected MPNN designs are shown separately.</li>
 <li>BindCraft: process now fails (non-zero exit) when <code>bindcraft.py</code> crashes; previously <code>| tee bindcraft.log</code> masked the Python exit code so Nextflow marked the task COMPLETED.</li>
@@ -355,7 +364,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li><code>manifest.nextflowVersion</code> now bounds the supported range to <code>!&gt;=23.04.0, &lt;26.10</code> (hard failure outside this range).</li>
 <li>Set <code>nextflow.enable.configProcessNamesValidation = false</code> to silence the "There's no process matching config selector" warnings printed on every run (only the selected <code>--method</code> workflow is included, so the <code>withName:</code> selectors for other methods' processes match nothing).</li>
 </ul>
-<h3 id="fixed_2">Fixed</h3>
+<h3 id="fixed_3">Fixed</h3>
 <ul>
 <li><code>germinal</code>: <code>--method germinal</code> no longer crashes with a <code>MissingPropertyException</code> when <code>--germinal_pdb_dir</code> is omitted; the documented default (<code>../pdbs</code> relative to the config) is now inferred correctly (<code>config_path</code> is a <code>Path</code>, which has no <code>.parentFile</code>).</li>
 <li><code>rfd3</code>: legacy <code>--pmpnn_temperature</code>, <code>--pmpnn_augment_eps</code> and <code>--pmpnn_omit_aas</code> flags are now honoured instead of being silently overridden by the modern <code>--mpnn_*</code> defaults. The modern name still takes precedence when both are set; defaults are unchanged (temperature <code>0.1</code>, structure noise <code>0</code>, omit <code>CX</code>, sequences-per-structure <code>1</code>).</li>
@@ -374,7 +383,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>BoltzGen: support for list-valued <code>entities[].file.path</code> and multiple entities so all referenced files are staged as Nextflow <code>path()</code> inputs. Referenced config YAMLs (<code>.yaml</code>/<code>.yml</code> in <code>entities[].file.path</code>, eg for nanobody scaffolds) and the PDB/CIF files they reference internally are collected and staged so BoltzGen’s per-generation random selection over those configs is preserved.</li>
 <li>Versioned documentation using <a href="https://github.com/jimporter/mike">mike</a>; docs are now deployed for <code>main</code> (alias: <code>latest</code>), <code>develop</code> (alias: <code>dev</code>), and version tags.</li>
 </ul>
-<h3 id="fixed_3">Fixed</h3>
+<h3 id="fixed_4">Fixed</h3>
 <ul>
 <li>Boltz refold RMSD and ipSAE: <code>BOLTZ_COMPARE_COMPLEX</code> and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> now use Boltz complex chain <strong>A</strong> = binder and <strong>B</strong> = target (from <code>create_boltz_yaml.py</code> IDs), while the input design keeps <code>${binder_chain}</code> / <code>${target_chain}</code>. Previously the same chain letters were used on both structures, which mis-superposed RFD3-style complexes (target A, binder B) and inflated <code>rmsd_target_aligned_binder</code> / ruined aligned PDBs; <code>ipsae.py</code> now receives <code>--binder-chain A --target-chain B</code> for Boltz outputs.</li>
 <li>Boltz: <code>BOLTZ</code>, <code>BOLTZ_COMPARE_COMPLEX</code>, and <code>BOLTZ_COMPARE_BINDER_MONOMER</code> tee <code>boltz predict</code> to <code>.boltz_predict_console.log</code> and exit 1 if the log contains <code>ran out of memory, skipping batch</code> (Boltz may otherwise exit 0 and leave outputs missing).</li>
@@ -392,7 +401,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Modules reorganised into <code>modules/local/</code> with workflow-specific subdirectories (<code>rfd/</code>, <code>bindcraft/</code>, <code>boltzgen/</code>, <code>common/</code>).</li>
 <li>Extracted common Boltz-2 refolding and scoring logic into <code>BOLTZ_REFOLD_SCORING</code> subworkflow (<code>subworkflows/local/boltz_refold_scoring.nf</code>).</li>
 </ul>
-<h3 id="fixed_4">Fixed</h3>
+<h3 id="fixed_5">Fixed</h3>
 <ul>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): omitting <code>--hotspot_res</code> no longer fails in <code>validateHotspotRes</code> with <code>Unknown method invocation 'trim' on Boolean type</code>.</li>
 <li>BindCraft (<code>workflows/bindcraft.nf</code>): allow explicit <code>--hotspot_res=""</code> to pass through as a no-hotspot BindCraft setting, and normalise empty hotspot list entries before writing settings.</li>
@@ -425,7 +434,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Use the <code>nf-binder-design-utils</code> container instead of <code>mdanalysis</code>.</li>
 <li>Update config and docs to use -profile for site-specifc configurations</li>
 </ul>
-<h3 id="fixed_5">Fixed</h3>
+<h3 id="fixed_6">Fixed</h3>
 <ul>
 <li>Fixed Quarto rendering permissions issues (copy Qmd to work folder).</li>
 </ul>
@@ -463,7 +472,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>The score merging script (<code>merge_scores.py</code>) was improved to be more robust and handle an arbitrary number of score files.</li>
 <li>Use more lightweight container for <code>get_contigs.nf</code> and <code>renumber_residues.nf</code> modules.</li>
 </ul>
-<h3 id="fixed_6">Fixed</h3>
+<h3 id="fixed_7">Fixed</h3>
 <ul>
 <li>The <code>gpu_device</code> parameter is now correctly passed to the partial diffusion process, allowing proper GPU selection.</li>
 </ul>
@@ -480,7 +489,7 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 <li>Change RFDiffusion config handling when unspecified</li>
 <li>Docs: Add APPTAINER_TMPDIR and NXF_APPTAINER_CACHEDIR advice to M3-specific docs</li>
 </ul>
-<h3 id="fixed_7">Fixed</h3>
+<h3 id="fixed_8">Fixed</h3>
 <ul>
 <li>Fix <code>get_contigs</code> for multi-chain targets.</li>
 <li>Fix failure that occurred when using <code>--rfd_batch_size</code> &gt; 1.</li>

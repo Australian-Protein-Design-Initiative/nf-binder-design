@@ -241,12 +241,12 @@ defined in the process scope"</em> error).</p>
 <p>nf-test uses whichever Nextflow is selected via <code>NXF_VER</code>, so run the suite once
 per version to cover the supported range (see
 <a href="../setup/#nextflow-version-compatibility">Nextflow version compatibility</a>):</p>
-<pre><code class="language-bash">for v in 24.04.3 25.04.7 26.04.4; do
+<pre><code class="language-bash">for v in 24.04.3 25.04.7 26.04.4 26.10.7; do
   NXF_VER=$v nf-test test tests/pipeline/compilation.nf.test
 done
 </code></pre>
 <p>The repository root <code>nextflow.config</code> also pins <code>manifest.nextflowVersion</code> to
-<code>!&gt;=23.04.0, &lt;26.10</code>, so Nextflow itself aborts with a clear message when run
+<code>!&gt;=23.04.0, &lt;27</code>, so Nextflow itself aborts with a clear message when run
 outside the supported range.</p>
 <h2 id="linting">Linting</h2>
 <p>Alongside nf-test, lint <code>.nf</code> and <code>config</code> files with <code>nextflow lint</code>:</p>
