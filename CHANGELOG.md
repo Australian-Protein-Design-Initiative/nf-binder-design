@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `--method bc2` dual-GPU examples (`pdl1-bc2`, `pdl1-bc2-mini`, `bindcraft2-vhh`) ran one batch at a time. `BINDCRAFT2` reserved 32 GB, so a second task did not fit in host RAM and the other GPU stayed idle.
+
 ### Added
 - `examples/pdl1-rfd4-proteina/run-local-simple-dual-gpu.sh`: the params-mode PD-L1 RFD4-Proteina run spread across two local GPUs.
 - `--method bc2` (alias `bindcraft2`): parallel [BindCraft2](https://github.com/PacesaLab/BindCraft2) binder design. Takes either a campaign settings JSON (`--bc2_config`, with referenced target structures and scaffolds staged automatically) or flat params shared with `--method bindcraft`. Runs a fixed trajectory budget (`--bc2_n_traj`, `--bc2_batch_size`) with a distinct `campaign_seed` per batch, then gathers the batches with `bindcraft campaign_output` into one ranked summary plus an HTML report. Binder modalities via `--bc2_modality` (VHH, scFv, Fab, cyclic peptide, ...), composable design properties via `--bc2_humanize`, `--bc2_protease_stable` and friends, and every other BindCraft2 setting via `--bc2_set 'KEY=VALUE;KEY=VALUE'`. `--hotspot_subsample` draws a different subset of each target's hotspots per batch, in both input modes, seeded so the run still reproduces. `--do_foldseek` runs a FoldSeek structural novelty search over the ranked designs, searching only the binder chains.
