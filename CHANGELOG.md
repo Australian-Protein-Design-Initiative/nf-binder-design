@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `bin/find_available_gpu.py` and the `--gpu_allocation_detect_process_regex` / `--germinal_gpu_allocation_detect_process_regex` parameters. The script's GPU-busy detection never worked inside Apptainer containers - Set `--gpu_devices` to enable the lock-based allocator instead.
 
 ### Fixed
+- BindCraft2 tasks that segfault (139) or abort (134) while JAX/CUDA is tearing down, after the campaign has already finished and written its summary, are kept. The same status before `campaign done:`, or any other non-zero status, still fails the task.
 - Boltz-2 fold and fold_pulldown of a homodimer failed with `All proteins with the same sequence must share the same MSA!`. Identical chains now share one MSA: the first chain's file, or one server MSA when that is what any copy would have used.
 - BindCraft2 on the Monash M3 configs (`m3`, `m3_bdi`) disables JAX GPU command buffers, which crashed the task intermittently.
 - `rf3` fold specs declare `chain_type: polypeptide(L)` for every sequence component. Without it, atomworks infers the chain type from the alphabet, so a low-complexity binder whose letters are all valid nucleotide codes - poly-alanine from a degenerate ProteinMPNN pass is the realistic case - was folded as RNA, and every comparison metric for that design came back `NaN`. The stack is protein-only, so the declaration is unconditional.

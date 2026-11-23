@@ -273,6 +273,10 @@ Post-processing subcommands operate on completed campaigns and are not wrapped. 
 | `bindcraft score <design.cif>` | Score one structure |
 | `bindcraft archive` / `unarchive` | Pack or unpack trajectory folders for copying |
 
+## Post-completion crashes
+
+BindCraft2 sometimes exits 139 (SIGSEGV) or 134 (SIGABRT) while JAX/CUDA is shutting down, after it has already printed `campaign done:` and written the batch. The task treats that as success when `${batch_id}/summary.csv` and `${batch_id}/campaign_metadata.json` are present and non-empty, and logs a warning. A crash before that point, or any other non-zero status, still fails the task.
+
 ## Examples
 
 The [examples/](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/tree/main/examples) directory contains complete working examples:

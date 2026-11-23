@@ -91,13 +91,31 @@ process BINDCRAFT2 {
     python3 ${projectDir}/bin/bindcraft2/stage_bc2_config.py stage ${config_json} \\
         ${stage_args} -o bc2_campaign.staged.json
 
-    # pipefail is set above so a bindcraft crash fails the task despite `| tee`
-    # (the v1 module had exactly this bug, fixed in 0.3.1).
+    # pipefail is set above so a bindcraft crash still fails the task despite
+    # `| tee` (the v1 module had exactly this bug, fixed in 0.3.1).
+    #
+    # BindCraft2 then intermittently dies during C++/JAX/CUDA interpreter
+    # teardown, after the campaign has already completed and flushed its
+    # outputs: exit 139 (SIGSEGV) or 134 (SIGABRT, "pure virtual method
+    # called" / "corrupted double-linked list"). `set -e` would discard a
+    # finished batch. Tolerate only that case. Any other status, or the same
+    # status before `campaign done:` or without the summary files, still fails.
+    rc=0
     bindcraft design bc2_campaign.staged.json \\
         ${bc2_args} \\
         ${metadata_arg} \\
         ${params.bc2_extra_args ?: ''} \\
-        ${task.ext.args ?: ''} 2>&1 | tee bc2.log
+        ${task.ext.args ?: ''} 2>&1 | tee bc2.log || rc=\$?
+
+    if [[ "\$rc" -ne 0 ]]; then
+        if [[ "\$rc" -eq 134 || "\$rc" -eq 139 ]] &&
+            grep -qF 'campaign done:' bc2.log &&
+            [[ -s "${batch_id}/summary.csv" && -s "${batch_id}/campaign_metadata.json" ]]; then
+            echo "WARNING: tolerated a post-completion JAX/CUDA teardown crash (bindcraft design exited \$rc after printing 'campaign done:'; ${batch_id}/summary.csv and campaign_metadata.json are present and non-empty). Continuing." >&2
+        else
+            exit "\$rc"
+        fi
+    fi
 
     # A campaign that exits 0 having written nothing would otherwise surface
     # much later as an empty gather.

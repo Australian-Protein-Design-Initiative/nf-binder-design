@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Fake `bindcraft` for the BINDCRAFT2 teardown-crash nf-test.
+# The real binary is not on PATH: tests/modules/local/bindcraft2/nextflow.config
+# prepends this directory and disables the container.
+set -euo pipefail
+
+exit_code=0
+batch_id=""
+campaign_done=0
+write_outputs=0
+
+args=("$@")
+i=0
+while [[ ${i} -lt ${#args[@]} ]]; do
+    case "${args[$i]}" in
+        --mock-exit)
+            i=$((i + 1))
+            exit_code="${args[$i]}"
+            ;;
+        --mock-batch)
+            i=$((i + 1))
+            batch_id="${args[$i]}"
+            ;;
+        --mock-campaign-done)
+            campaign_done=1
+            ;;
+        --mock-write-outputs)
+            write_outputs=1
+            ;;
+    esac
+    i=$((i + 1))
+done
+
+if [[ -n "${batch_id}" && "${write_outputs}" -eq 1 ]]; then
+    mkdir -p "${batch_id}"
+    printf 'design,score\nexample,1.0\n' > "${batch_id}/summary.csv"
+    printf '{}\n' > "${batch_id}/campaign_metadata.json"
+fi
+
+if [[ "${campaign_done}" -eq 1 ]]; then
+    echo "campaign done: ${batch_id}"
+fi
+
+exit "${exit_code}"

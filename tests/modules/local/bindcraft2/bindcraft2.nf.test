@@ -1,0 +1,119 @@
+// Drives modules/local/bindcraft2/bindcraft2.nf with a fake `bindcraft` (see
+// bin/bindcraft and nextflow.config). No GPU and no BindCraft2 image.
+
+nextflow_process {
+
+    name "Test Process BINDCRAFT2"
+    script "modules/local/bindcraft2/bindcraft2.nf"
+    process "BINDCRAFT2"
+    // Resolved from the project root. nf-test's `config` path is not relative to this file.
+    config "tests/modules/local/bindcraft2/nextflow.config"
+
+    tag "bindcraft2"
+    tag "bindcraft2_teardown"
+
+    test("exit 139 after campaign done with summary files succeeds") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                require_gpu = false
+                gpu_devices = ''
+                bc2_af2_params = false
+                bc2_extra_args = ''
+            }
+            process {
+                """
+                input[0] = tuple(
+                    'batch_0',
+                    '--mock-exit 139 --mock-batch batch_0 --mock-campaign-done --mock-write-outputs',
+                    '',
+                    file("\${projectDir}/tests/data/bc2/campaign_preset.json"),
+                    file("\${projectDir}/tests/data/bc2/structures/targetA.pdb")
+                )
+                input[1] = file("\${projectDir}/tests/data/bc2/metadata/single_chain.json")
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert path(process.out.log.get(0).toString()).text.contains('campaign done:')
+
+            def batchDir = process.out.batch_dir.get(0)[1].toString()
+            assert path(batchDir + '/summary.csv').text.contains('example')
+            assert path(batchDir + '/campaign_metadata.json').text.contains('{')
+
+            def err = path(process.out.log.get(0).toString()).parent.resolve('.command.err').text
+            assert err.contains('tolerated a post-completion JAX/CUDA teardown crash')
+            assert err.contains('exited 139')
+        }
+    }
+
+    test("exit 139 without campaign done still fails") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                require_gpu = false
+                gpu_devices = ''
+                bc2_af2_params = false
+                bc2_extra_args = ''
+            }
+            process {
+                """
+                input[0] = tuple(
+                    'batch_0',
+                    '--mock-exit 139 --mock-batch batch_0 --mock-write-outputs',
+                    '',
+                    file("\${projectDir}/tests/data/bc2/campaign_preset.json"),
+                    file("\${projectDir}/tests/data/bc2/structures/targetA.pdb")
+                )
+                input[1] = file("\${projectDir}/tests/data/bc2/metadata/single_chain.json")
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+            def report = process.errorReport ?: ''
+            assert report.contains('exit status (139)')
+            // The script source quotes the warning. Only the runtime stderr counts.
+            def commandError = report.split('Command error:')[1].split('Work dir:')[0]
+            assert !commandError.contains('WARNING: tolerated')
+        }
+    }
+
+    test("exit 1 after campaign done still fails") {
+
+        when {
+            params {
+                outdir = "${outputDir}"
+                require_gpu = false
+                gpu_devices = ''
+                bc2_af2_params = false
+                bc2_extra_args = ''
+            }
+            process {
+                """
+                input[0] = tuple(
+                    'batch_0',
+                    '--mock-exit 1 --mock-batch batch_0 --mock-campaign-done --mock-write-outputs',
+                    '',
+                    file("\${projectDir}/tests/data/bc2/campaign_preset.json"),
+                    file("\${projectDir}/tests/data/bc2/structures/targetA.pdb")
+                )
+                input[1] = file("\${projectDir}/tests/data/bc2/metadata/single_chain.json")
+                """
+            }
+        }
+
+        then {
+            assert process.failed
+            def report = process.errorReport ?: ''
+            assert report.contains('exit status (1)')
+            def commandError = report.split('Command error:')[1].split('Work dir:')[0]
+            assert !commandError.contains('WARNING: tolerated')
+        }
+    }
+}
