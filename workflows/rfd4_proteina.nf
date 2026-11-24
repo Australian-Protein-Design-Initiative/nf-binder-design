@@ -123,7 +123,10 @@ workflow RFD4_PROTEINA {
         Params mode (--input_pdb, generates a spec automatically):
             --contigs             Contig string, e.g. "50-120, /0, A17-131"
                                   A length or length range is the designed binder; a chain id
-                                  with residue numbers is preserved from the input. [default: ${params.contigs}]
+                                  with residue numbers is preserved from the input. The designed
+                                  segment is named BINDER in the generated spec, which excludes
+                                  cysteines from it; name it yourself with "BINDER: 50-120, ..."
+                                  to pick a different name. [default: ${params.contigs}]
             --hotspot_res         Hotspot residues, eg "A56,A115,A123" [default: ${params.hotspot_res}]
 
         RFD4-Proteina options:

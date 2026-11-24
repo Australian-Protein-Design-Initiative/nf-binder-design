@@ -247,7 +247,9 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   -profile local -resume
 ```
 
-Condition-spec mode, which is the full conditioning vocabulary: `--rfd4_config pdl1_binder.yaml`, with no `--input_pdb`. Residue numbers in contigs and conditions are mmCIF `label_seq_id`, not author numbering. → `references/rfd4-proteina-workflow.md`
+Condition-spec mode, which is the full conditioning vocabulary: `--rfd4_config pdl1_binder.yaml`, with no `--input_pdb`. Residue numbers in contigs and conditions are mmCIF `label_seq_id`, not author numbering.
+
+In parameter mode the generated spec names the designed segment `BINDER` and excludes cysteines from it (`C_SEQ_PROB_CYS`). `--contigs` may name it instead (`"BINDER: 50-120, /0, A17-131"`). To allow cysteines, copy the generated spec, drop that condition, and rerun with `--rfd4_config`. → `references/rfd4-proteina-workflow.md`
 
 ### bindcraft (BindCraft)
 

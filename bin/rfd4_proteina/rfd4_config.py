@@ -196,6 +196,49 @@ def target_chain_ids(contig: str) -> List[str]:
     return list(chains)
 
 
+BINDER_NAME = "BINDER"
+
+
+def normalise_segment(token: str) -> str:
+    """Drop the whitespace around a segment's "name:" separator, so "BINDER: 50-120" works."""
+    name, separator, value = token.partition(":")
+    return f"{name.strip()}:{value.strip()}" if separator else token
+
+
+def name_binder_segments(contig: str) -> str:
+    """Name the designed segment BINDER, so conditions can select it.
+
+    A name the contig already carries is kept, and only its spacing is normalised. An
+    unnamed designed segment is named BINDER, unless there is more than one designed run
+    or that run has several segments, where the name would be ambiguous.
+    """
+    runs = [[normalise_segment(token) for token in run] for run in split_contig_runs(contig)]
+    designed = [
+        run
+        for run in runs
+        if len(run) == 1 and classify_token(run[0])[0] == "expandable" and ":" not in run[0]
+    ]
+    parts = []
+    for index, run in enumerate(runs):
+        if index:
+            parts.append("/0")
+        if len(designed) == 1 and run is designed[0]:
+            parts.append(f"{BINDER_NAME}:{run[0]}")
+        else:
+            parts.extend(run)
+    return ", ".join(parts)
+
+
+def binder_segment_name(contig: str) -> Optional[str]:
+    """Name of the designed segment, when the contig has exactly one and it is named."""
+    designed = [
+        run
+        for run in split_contig_runs(contig)
+        if len(run) == 1 and classify_token(run[0])[0] == "expandable" and ":" in run[0]
+    ]
+    return designed[0][0].split(":", 1)[0] if len(designed) == 1 else None
+
+
 def parse_hotspots(hotspot_res: str) -> List[str]:
     """Turn "A56,A115,A123" into atomworks selections covering each whole residue."""
     selections = []
@@ -224,17 +267,23 @@ def generate_spec(
     """Build a binder condition spec using the upstream default recipe.
 
     That recipe is: target backbone geometry as one free-pose coordinate group (C_CRDGRP),
-    the target sequence held fixed (C_SEQ), and hotspots where given (C_HOT).
+    the target sequence held fixed (C_SEQ), cysteines excluded from the binder
+    (C_SEQ_PROB_CYS), and hotspots where given (C_HOT).
     """
     targets = target_chain_ids(contigs)
     if not targets:
         raise SystemExit("Contig has no preserved segment, so there is no target to condition on")
     target_sel = ",".join(targets) if len(targets) > 1 else targets[0]
 
+    named_contigs = name_binder_segments(contigs)
     conditions: Dict[str, dict] = {
         "C_CRDGRP": {"1": [{"select": f"sel('{target_sel}/*/*/[N,CA,C,O]')"}]},
         "C_SEQ": {"true": [{"select": f"sel('{target_sel}')"}]},
     }
+    binder_name = binder_segment_name(named_contigs)
+    if binder_name:
+        # Cysteines in a de novo binder usually mispair, so the default recipe forbids them
+        conditions["C_SEQ_PROB_CYS"] = {"0.0": [{"select": f"sel('*/{binder_name}')"}]}
     if hotspot_res:
         selections = parse_hotspots(hotspot_res)
         if selections:
@@ -242,7 +291,7 @@ def generate_spec(
 
     design = {
         "input": os.path.basename(input_path),
-        "contig": contigs,
+        "contig": named_contigs,
         "conditions": conditions,
     }
     if partial_trajectory_fraction is not None:

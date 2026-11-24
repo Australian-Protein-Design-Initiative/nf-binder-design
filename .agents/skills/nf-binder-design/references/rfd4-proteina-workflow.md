@@ -28,7 +28,17 @@ pdl1_binder:
 
 Structure paths inside the spec resolve relative to the spec file's own directory. Do not pass `--input_pdb` as well.
 
-**Parameter mode (`--input_pdb` + `--contigs`)** - generates a spec automatically with standard binder defaults (target backbone as a free-pose coordinate group, fixed target sequence, hotspots as given). The generated spec is written to `<outdir>/rfd4_proteina/<design_name>.json`, so it can be copied and hand-edited as the starting point for a condition-spec run.
+**Parameter mode (`--input_pdb` + `--contigs`)** - generates a spec automatically with standard binder defaults (target backbone as a free-pose coordinate group, fixed target sequence, no cysteines in the binder, hotspots as given). The generated spec is written to `<outdir>/rfd4_proteina/<design_name>.json`, so it can be copied and hand-edited as the starting point for a condition-spec run.
+
+The designed segment is named `BINDER` in the generated contig, so the cysteine exclusion can select it:
+
+```yaml
+  contig: "BINDER:50-120, /0, A17-131"
+  conditions:
+    C_SEQ_PROB_CYS: {0.0: [{select: "sel('*/BINDER')"}]}
+```
+
+`--contigs` may carry the name itself, with or without a space after the colon (`"BINDER: 50-120, /0, A17-131"`); the name given is kept and the cysteine exclusion selects it. A contig with more than one designed segment is left unnamed and gets no cysteine exclusion, since the name would be ambiguous. To allow cysteines, copy the generated spec, drop `C_SEQ_PROB_CYS`, and rerun with `--rfd4_config`.
 
 **Residue numbering gotcha.** Residue numbers in `contig` and `conditions` are mmCIF `label_seq_id`, **not** author numbering. PyMOL shows `auth_seq_id` unless you `set cif_use_auth, off`. This is the most likely reason a hotspot lands on the wrong residue.
 
@@ -43,7 +53,7 @@ Comma-separated, and not the same syntax as `rfd` or `rfd3`:
 | `50-120` | Expandable segment: variable length, sampled by the model |
 | `E1:2-20` | Named expandable segment, so `conditions:` can target it |
 
-Tokens between chainbreaks make one output chain. A chain holding a preserved segment inherits that segment's chain ID; a chain with no preserved segment is the binder and takes the first unused letter. So `"50-120, /0, A17-131"` gives target `A` and binder `B`. Override with `--rfd4_target_chain` / `--rfd4_binder_chain`. Every contig needs at least one preserved segment.
+Tokens between chainbreaks make one output chain. A chain holding a preserved segment inherits that segment's chain ID; a chain with no preserved segment is the binder and takes the first unused letter. So `"50-120, /0, A17-131"` gives target `A` and binder `B`. Naming a segment does not change this: `BINDER:` is a segment name, not a chain ID, and the binder chain is still `B`. Override with `--rfd4_target_chain` / `--rfd4_binder_chain`. Every contig needs at least one preserved segment.
 
 ## Parameters
 

@@ -60,7 +60,8 @@ directory; do not supply `--input_pdb` when using `--rfd4_config`.
 
 For standard binder design against a single target structure, specifying `--input_pdb` with `--contigs`
 generates a specification file automatically. This uses standard protein binder defaults: target
-backbone geometry as a free-pose coordinate group, fixed target sequence, and specified hotspots:
+backbone geometry as a free-pose coordinate group, fixed target sequence, cysteines excluded from
+the binder, and specified hotspots:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
@@ -71,8 +72,15 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --rfd4_n_designs 20
 ```
 
+The designed segment is named `BINDER` in the generated contig (`"BINDER:50-120, /0, A17-131"`),
+which lets the cysteine exclusion select it as `C_SEQ_PROB_CYS: {0.0: [{select: "sel('*/BINDER')"}]}`.
+`--contigs` may name the designed segment itself, with or without a space after the colon
+(`"BINDER: 50-120, /0, A17-131"`); the name is kept as given and the cysteine exclusion selects it.
+A contig with more than one designed segment is left unnamed and gets no cysteine exclusion.
+
 The generated specification is saved to `<outdir>/rfd4_proteina/<design_name>.json` and can be copied
-and modified for custom runs.
+and modified for custom runs. To allow cysteines, copy that file, drop the `C_SEQ_PROB_CYS`
+condition, and pass it with `--rfd4_config`.
 
 ### Contig syntax
 

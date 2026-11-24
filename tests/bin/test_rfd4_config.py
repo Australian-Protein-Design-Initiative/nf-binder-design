@@ -71,10 +71,53 @@ def test_generate_spec_uses_the_default_binder_recipe(tmp_path: Path) -> None:
     design = spec["pdl1"]
     # The input is referenced by basename, so the spec works against Nextflow-staged files
     assert design["input"] == "PDL1.cif"
-    assert design["contig"] == "50-120, /0, A17-131"
+    assert design["contig"] == "BINDER:50-120, /0, A17-131"
     assert design["conditions"]["C_CRDGRP"] == {"1": [{"select": "sel('A/*/*/[N,CA,C,O]')"}]}
     assert design["conditions"]["C_SEQ"] == {"true": [{"select": "sel('A')"}]}
     assert design["conditions"]["C_HOT"] == {"true": [{"select": "sel('A/*/56')"}]}
+    assert design["conditions"]["C_SEQ_PROB_CYS"] == {"0.0": [{"select": "sel('*/BINDER')"}]}
+
+
+@pytest.mark.parametrize(
+    "contig,expected",
+    [
+        ("50-120, /0, A17-131", "BINDER:50-120, /0, A17-131"),
+        ("A17-131, /0, 50-120", "A17-131, /0, BINDER:50-120"),
+        # Already named, so the name is kept and only its spacing is normalised
+        ("MYBINDER:50-120, /0, A17-131", "MYBINDER:50-120, /0, A17-131"),
+        ("BINDER: 50-120, /0, A17-131", "BINDER:50-120, /0, A17-131"),
+        ("A17-131, /0, BINDER : 50-120", "A17-131, /0, BINDER:50-120"),
+        # Ambiguous: two designed runs
+        ("50-120, /0, A17-131, /0, 30-40", "50-120, /0, A17-131, /0, 30-40"),
+        # Ambiguous: the designed run has more than one segment
+        ("A1-10, /0, 20-30, 5-10", "A1-10, /0, 20-30, 5-10"),
+    ],
+)
+def test_name_binder_segments(contig, expected) -> None:
+    assert rfd4.name_binder_segments(contig) == expected
+
+
+def test_generate_spec_accepts_a_contig_that_names_the_binder(tmp_path: Path) -> None:
+    out = tmp_path / "spec.json"
+    rfd4.generate_spec("d", "t.cif", "BINDER: 50-120, /0, A17-131", None, str(out))
+    design = json.loads(out.read_text())["d"]
+    assert design["contig"] == "BINDER:50-120, /0, A17-131"
+    assert design["conditions"]["C_SEQ_PROB_CYS"] == {"0.0": [{"select": "sel('*/BINDER')"}]}
+
+
+def test_generate_spec_excludes_cys_from_a_custom_binder_name(tmp_path: Path) -> None:
+    out = tmp_path / "spec.json"
+    rfd4.generate_spec("d", "t.cif", "MYBINDER:50-120, /0, A17-131", None, str(out))
+    conditions = json.loads(out.read_text())["d"]["conditions"]
+    assert conditions["C_SEQ_PROB_CYS"] == {"0.0": [{"select": "sel('*/MYBINDER')"}]}
+
+
+def test_generate_spec_leaves_an_ambiguous_contig_unnamed(tmp_path: Path) -> None:
+    out = tmp_path / "spec.json"
+    rfd4.generate_spec("d", "t.cif", "A1-10, /0, 20-30, 5-10", None, str(out))
+    design = json.loads(out.read_text())["d"]
+    assert design["contig"] == "A1-10, /0, 20-30, 5-10"
+    assert "C_SEQ_PROB_CYS" not in design["conditions"]
 
 
 def test_generate_spec_omits_hotspots_when_none_given(tmp_path: Path) -> None:

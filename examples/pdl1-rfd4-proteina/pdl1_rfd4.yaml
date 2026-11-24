@@ -5,12 +5,16 @@
 # these are the residue numbers you see in the PDB.
 pdl1:
   input: input/PDL1.cif
-  contig: "50-120, /0, A18-132"
+  contig: "BINDER:50-120, /0, A18-132"
   conditions:
     # Target backbone geometry as one coordinate group: the pose is free, the fold is not
     C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}
     # The target sequence is known
     C_SEQ: {true: [{select: "sel('A')"}]}
+    # Avoid cysteines in the binder
+    C_SEQ_PROB_CYS:
+        0.0:
+          - select: "sel('*/BINDER')"
     # Hotspots the binder should engage
     C_HOT:
       true:
