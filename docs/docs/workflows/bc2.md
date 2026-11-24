@@ -1,5 +1,8 @@
 # BindCraft2 Workflow
 
+!!! warning "Under development"
+    The BindCraft2 workflow is currently under development. It is not feature complete and is not yet well tested.
+
 Parallel [BindCraft2](https://github.com/PacesaLab/BindCraft2) execution for protein binder design across multiple GPUs.
 
 !!! warning "BindCraft2 cannot be offered as a hosted service"

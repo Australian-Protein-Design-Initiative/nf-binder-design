@@ -1,5 +1,8 @@
 # RFD4-Proteina Workflow
 
+!!! warning "Under development"
+    The RFD4-Proteina workflow is currently under development. It is not feature complete and is not yet well tested.
+
 The `--method rfd4_proteina` workflow designs binders with
 [RFD4-Proteina](https://github.com/RosettaCommons/RFD4-Proteina), the flow-matching biomolecular
 design model from the Baker Lab and NVIDIA GenAIR.
