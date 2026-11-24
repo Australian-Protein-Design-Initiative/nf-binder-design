@@ -233,6 +233,7 @@ FoldSeek structural similarity search is enabled with `--do_foldseek` (see the
 | `<outdir>/rfd4_proteina/input/prepared/` | Input structure converted to mmCIF |
 | `<outdir>/rfd4_proteina/designs/` | Generated complex structures (one mmCIF per design) |
 | `<outdir>/rfd4_proteina/designs/rfd4_designs_batch*.tsv` | Design identifier, source example, and seed per batch |
+| `<outdir>/rfd4_proteina/batches/batch<n>/` | Raw `rfd4-generate` run directory for each batch: inference metrics, and each sample's generated structure with the inline refold and its confidences |
 | `<outdir>/rfd4_proteina/combined_scores.tsv` | Consolidated table of binder sequences and all computed metrics |
 | `<outdir>/rfd4_proteina/binders.fasta` | Generated binder sequences in FASTA format |
 | `<outdir>/rfd4_proteina/filter/` | Filter scores and accepted/rejected design lists (with `--rfd4_filters`) |

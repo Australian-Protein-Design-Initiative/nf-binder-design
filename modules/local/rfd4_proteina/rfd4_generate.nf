@@ -6,6 +6,10 @@ process RFD4_GENERATE {
     // saveAs strips the task-local 'output/' prefix so designs land directly in designs/
     publishDir path: "${params.outdir}/rfd4_proteina/designs", pattern: 'output/*', mode: 'copy', saveAs: { fn -> file(fn).name }
     publishDir path: "${params.outdir}/rfd4_proteina/designs", pattern: 'rfd4_designs_batch*.tsv', mode: 'copy'
+    // The raw rfd4-generate run directory, kept per batch: inference metrics, and each sample's
+    // generated structure alongside the inline refold and its confidences. saveAs names the
+    // directory, and interpolates a process input, so both it and path must be closures.
+    publishDir path: { "${params.outdir}/rfd4_proteina/batches" }, pattern: 'rundir', mode: 'copy', saveAs: { "batch${batch_index}" }
 
     input:
     path config_spec
@@ -21,6 +25,7 @@ process RFD4_GENERATE {
     path 'output/*', emit: cifs
     path "rfd4_designs_batch${batch_index}.tsv", emit: design_table
     path 'rundir/inference_metrics/per_example_metrics.csv', emit: per_example_metrics, optional: true
+    path 'rundir', emit: rundir
 
     script:
     def nsteps_arg = params.rfd4_nsteps ? "generation.args.nsteps=${params.rfd4_nsteps}" : ''

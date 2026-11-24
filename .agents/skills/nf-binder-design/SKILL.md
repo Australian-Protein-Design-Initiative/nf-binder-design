@@ -381,7 +381,7 @@ Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.m
 |--------|-----------------|
 | `rfd` / `rfd_partial` | `combined_scores.tsv`, `binders.fasta`, `af2_initial_guess/pdbs/`, `rfd/refold/` (if `--refold_with`) |
 | `rfd3` | `rfd3/combined_scores.tsv`, `rfdiffusion3/output/`, `rosettafold3/output/`, `rfd3/refold/` (if `--refold_with`) |
-| `rfd4_proteina` | `rfd4_proteina/combined_scores.tsv`, `rfd4_proteina/designs/` (mmCIF), `rfd4_proteina/binders.fasta`, `rfd4_proteina/filter/` (if `--rfd4_filters`), `rfd4_proteina/refold/` (if `--refold_with`) |
+| `rfd4_proteina` | `rfd4_proteina/combined_scores.tsv`, `rfd4_proteina/designs/` (mmCIF), `rfd4_proteina/batches/batch<n>/` (raw rfd4-generate run dir, inline metrics and refolds), `rfd4_proteina/binders.fasta`, `rfd4_proteina/filter/` (if `--rfd4_filters`), `rfd4_proteina/refold/` (if `--refold_with`) |
 | `bindcraft` | `bindcraft/accepted/`, `bindcraft/bindcraft_report.html`, `bindcraft/final_design_stats.csv`, `bindcraft/refold/` (if `--refold_with`) |
 | `bc2` | `bc2/ranked/` (mmCIF), `bc2/bc2_report.html`, `bc2/summary.csv`, `bc2/ranked.csv` |
 | `germinal` | `germinal/accepted_designs.csv`, `germinal/accepted/structures/`, `germinal/refold/` (if `--refold_with`) |

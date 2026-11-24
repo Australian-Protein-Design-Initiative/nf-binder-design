@@ -107,6 +107,9 @@ RF3 used as a refold engine takes `--refold_rf3_*` names (`--refold_rf3_ckpt_pat
 | `rfd4_proteina/combined_scores.tsv` | Binder sequences and every computed metric |
 | `rfd4_proteina/designs/` | Generated complexes, one mmCIF per design |
 | `rfd4_proteina/designs/rfd4_designs_batch*.tsv` | Design id, source example and seed per batch |
+| `rfd4_proteina/batches/batch<n>/` | Raw `rfd4-generate` run dir per batch: inference metrics, each sample's generated structure, inline refold and confidences |
+| `rfd4_proteina/input/config/<design_name>.json` | Generated condition spec (parameter mode) |
+| `rfd4_proteina/input/prepared/` | Input structure converted to mmCIF |
 | `rfd4_proteina/binders.fasta` | Generated binder sequences |
 | `rfd4_proteina/filter/` | Filter scores and accept/reject lists (with `--rfd4_filters`) |
 | `rfd4_proteina/refold/` | Refold structures, per-engine scores, interface tables (with `--refold_with`) |
