@@ -133,7 +133,18 @@ Each contig must include at least one preserved segment.
 
 RFD4-Proteina's own inline metrics run by default (`--rfd4_metrics_tags
 ppi_refolding,hotspot_conditioning`), using the OpenFold3 weights baked into the container; set
-`--rfd4_metrics_tags false` to disable them. Designs are additionally
+`--rfd4_metrics_tags false` to disable them.
+
+Their per-design values are merged into `combined_scores.tsv`, prefixed `rfd4_` with dots
+replaced by underscores: `rfd4_oracle_ppi_overall_iptm`, `rfd4_oracle_ppi_plddt_coi`,
+`rfd4_hotspot_obedience_hotspot_obedience`, `rfd4_refolded_backbone_rmsd_rmsd`, `rfd4_ppi_pass`
+and so on. The Hydra configuration columns that `per_example_metrics.csv` repeats on every row
+are dropped. `rfd4_oracle_ppi_refolded_structure_path` and `rfd4_oracle_ppi_confidence_json_path`
+are rewritten to point at the published copy under `batches/batch<n>/`, so they resolve relative
+to `<outdir>/rfd4_proteina/`. The oracle used for `ppi_refolding` is OpenFold3, which is why its
+own file names say `af3_ppi`.
+
+Designs are additionally
 validated downstream: each generated binder sequence is re-folded against its target structure using
 independent prediction engines to score interface metrics and pose accuracy.
 

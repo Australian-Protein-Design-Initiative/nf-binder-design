@@ -8,7 +8,7 @@
 
 The difference from `rfd3` that matters for everything downstream: RFD4-Proteina co-designs sequence and structure in one pass, so there is **no inverse-folding step and no cofold of its own**. Each design comes out with both a backbone and a binder sequence, and nothing has scored the pair. Validation is entirely the refold's job.
 
-Inline metrics (`ppi_refolding`, `hotspot_conditioning`) run by default via the OpenFold3 weights baked into the container; `--rfd4_metrics_tags false` switches them off (`~metrics`). They are ignored with `--rfd4_inference_experiment quickstart`.
+Inline metrics (`ppi_refolding`, `hotspot_conditioning`) run by default via the OpenFold3 weights baked into the container; `--rfd4_metrics_tags false` switches them off (`~metrics`). They are ignored with `--rfd4_inference_experiment quickstart`. Their per-design values are merged into `combined_scores.tsv` prefixed `rfd4_`, with dots replaced by underscores (`rfd4_oracle_ppi_overall_iptm`, `rfd4_hotspot_obedience_hotspot_obedience`, `rfd4_ppi_pass`); the join is done in `bin/rfd4_proteina/collect_rfd4_designs.py`, inside the task, because rfd4-generate's example ids repeat across batches. Nothing filters on `rfd4_ppi_pass` -- `--rfd4_filters` only sees structural metrics.
 
 ## Inputs
 
