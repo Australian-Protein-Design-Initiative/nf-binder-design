@@ -78,7 +78,7 @@ which lets the cysteine exclusion select it as `C_SEQ_PROB_CYS: {0.0: [{select: 
 (`"BINDER: 50-120, /0, A17-131"`); the name is kept as given and the cysteine exclusion selects it.
 A contig with more than one designed segment is left unnamed and gets no cysteine exclusion.
 
-The generated specification is saved to `<outdir>/rfd4_proteina/<design_name>.json` and can be copied
+The generated specification is saved to `<outdir>/rfd4_proteina/input/config/<design_name>.json` and can be copied
 and modified for custom runs. To allow cysteines, copy that file, drop the `C_SEQ_PROB_CYS`
 condition, and pass it with `--rfd4_config`.
 
@@ -229,6 +229,8 @@ FoldSeek structural similarity search is enabled with `--do_foldseek` (see the
 
 | Path | Contents |
 |------|----------|
+| `<outdir>/rfd4_proteina/input/config/<design_name>.json` | Generated condition spec (parameter mode) |
+| `<outdir>/rfd4_proteina/input/prepared/` | Input structure converted to mmCIF |
 | `<outdir>/rfd4_proteina/designs/` | Generated complex structures (one mmCIF per design) |
 | `<outdir>/rfd4_proteina/designs/rfd4_designs_batch*.tsv` | Design identifier, source example, and seed per batch |
 | `<outdir>/rfd4_proteina/combined_scores.tsv` | Consolidated table of binder sequences and all computed metrics |

@@ -1,7 +1,7 @@
 process GENERATE_RFD4_CONFIG {
     executor 'local'
 
-    publishDir path: "${params.outdir}/rfd4_proteina", pattern: '*.json', mode: 'copy'
+    publishDir path: "${params.outdir}/rfd4_proteina/input/config", pattern: '*.json', mode: 'copy'
 
     input:
     val design_name

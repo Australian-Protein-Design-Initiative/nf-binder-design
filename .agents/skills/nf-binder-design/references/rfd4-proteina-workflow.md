@@ -28,7 +28,7 @@ pdl1_binder:
 
 Structure paths inside the spec resolve relative to the spec file's own directory. Do not pass `--input_pdb` as well.
 
-**Parameter mode (`--input_pdb` + `--contigs`)** - generates a spec automatically with standard binder defaults (target backbone as a free-pose coordinate group, fixed target sequence, no cysteines in the binder, hotspots as given). The generated spec is written to `<outdir>/rfd4_proteina/<design_name>.json`, so it can be copied and hand-edited as the starting point for a condition-spec run.
+**Parameter mode (`--input_pdb` + `--contigs`)** - generates a spec automatically with standard binder defaults (target backbone as a free-pose coordinate group, fixed target sequence, no cysteines in the binder, hotspots as given). The generated spec is written to `<outdir>/rfd4_proteina/input/config/<design_name>.json`, so it can be copied and hand-edited as the starting point for a condition-spec run.
 
 The designed segment is named `BINDER` in the generated contig, so the cysteine exclusion can select it:
 
