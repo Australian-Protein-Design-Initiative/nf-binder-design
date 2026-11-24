@@ -42,13 +42,10 @@ params.af2ig_recycle = 3
 
 
 
-// Refold scoring. The knobs themselves - --refold_with, --refold_filter,
-// --refold_sort_by, --refold_max - are shared by every design workflow and live in
-// conf/refold.config; only the output directory differs per workflow. The refold's
-// outputs and the fold stack's own outputs share it, and the fold stack reads
-// fold_publish_dir directly in its modules, so the two are kept equal.
-params.refold_publish_dir = 'rfd_partial/refold'
-params.fold_publish_dir = 'rfd_partial/refold'
+// Refold scoring. Its knobs - --refold_with, --refold_filter, --refold_sort_by,
+// --refold_max and what it reports - are shared by every design workflow and live in
+// conf/refold.config; nextflow.config derives --refold_publish_dir and --fold_publish_dir
+// from --method.
 
 params.require_gpu = true
 params.gpu_devices = ''

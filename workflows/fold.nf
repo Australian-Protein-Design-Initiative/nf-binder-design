@@ -18,7 +18,6 @@ params.help = false
 params.outdir = 'results'
 params.methods = 'af2'
 params.msa_method = 'jackhmmer_af2'
-params.fold_publish_dir = 'fold'
 
 // Total predicted structures per input, per method. Left UNSET by default so
 // each method falls back to its own per-fold default.

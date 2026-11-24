@@ -26,7 +26,6 @@ params.help = false
 params.outdir = 'results'
 params.methods = 'boltz'
 params.msa_method = 'jackhmmer_af2'
-params.fold_publish_dir = 'fold_pulldown'
 
 params.create_target_msa = false
 params.create_binder_msa = false

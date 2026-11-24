@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Every method published its fold and refold outputs under `results/rfd/refold` on Nextflow 26, which evaluates the `params` defaults of every included script, so the first workflow `main.nf` includes decided the directory for all of them. `--refold_publish_dir` and `--fold_publish_dir` are now derived from `--method` in `nextflow.config`, so `--method fold` publishes to `results/fold` again. `--method bc2` and `--method boltzgen` refolds move from `results/refold` to `results/<method>/refold`, matching the other design workflows.
 - `--method bc2` dual-GPU examples (`pdl1-bc2`, `pdl1-bc2-mini`, `bindcraft2-vhh`) ran one batch at a time. `BINDCRAFT2` reserved 32 GB, so a second task did not fit in host RAM and the other GPU stayed idle.
 
 ### Added

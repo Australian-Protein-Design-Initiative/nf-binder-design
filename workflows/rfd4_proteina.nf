@@ -54,15 +54,10 @@ params.rfd4_filters = false
 params.rfd4_target_chain = false
 params.rfd4_binder_chain = false
 
-// --- Refold scoring (REFOLD) ---
-// The refold's own knobs - --refold_with, --refold_filter, --refold_sort_by,
+// Refold scoring. Its knobs - --refold_with, --refold_filter, --refold_sort_by,
 // --refold_max and what it reports - are shared by every design workflow and live in
-// conf/refold.config. Only the two that differ per workflow are declared here.
-//
-// The refold's outputs and the fold stack's own outputs share a directory: the fold
-// stack reads fold_publish_dir directly in its modules, so the two are kept equal.
-params.refold_publish_dir = 'rfd4_proteina/refold'
-params.fold_publish_dir = 'rfd4_proteina/refold'
+// conf/refold.config; nextflow.config derives --refold_publish_dir and --fold_publish_dir
+// from --method.
 
 // The fold stack REFOLD drives - MSA options, --n_predictions, the per-engine refold_*
 // copies, AF2, Protenix, RF3, EnGens and FoldSeek - is shared by every design workflow
