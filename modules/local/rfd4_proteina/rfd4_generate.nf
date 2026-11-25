@@ -14,6 +14,7 @@ process RFD4_GENERATE {
     input:
     path config_spec
     path input_structures
+    path(hydra_overrides, stageAs: 'hydra_overrides')
     val design_name
     val batch_index
     val n_replicates
@@ -44,6 +45,9 @@ process RFD4_GENERATE {
         ? ''
         : "generation.args.partial_trajectory_fraction_steps=${params.rfd4_partial_trajectory_fraction}"
     def inverse_folding_arg = rfd4IsFalse(params.rfd4_inverse_folding) ? '' : 'generation=inverse_folding'
+    // Prepends the staged directory to Hydra's config search path, so configs it holds are
+    // composed on top of the container's own. See assets/rfd4_proteina/hydra_overrides.
+    def searchpath_arg = '"hydra.searchpath=[file://$(pwd)/hydra_overrides]"'
     def extra_args_str = extra_args ?: ''
     def spec_name = "${design_name}_b${batch_index}.json"
     """
@@ -97,6 +101,7 @@ process RFD4_GENERATE {
         num_workers=${params.rfd4_num_workers} \\
         seed=${seed} \\
         hydra.run.dir=./hydra_outputs \\
+        ${searchpath_arg} \\
         ${metrics_arg} \\
         ${experiment_arg} \\
         ${nsteps_arg} \\
@@ -146,4 +151,6 @@ Key options used above:
                           Partial diffusion: run only the final fraction of nsteps
   generation=inverse_folding
                           Hold the input backbone fixed and resample sequence/side chains
+  hydra.searchpath        Extra config directories; configs found there are composed on top of
+                          the container's own (--rfd4_metrics_config_dir)
 */

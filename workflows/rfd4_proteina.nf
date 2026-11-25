@@ -52,6 +52,11 @@ params.rfd4_partial_trajectory_fraction = false
 params.rfd4_inverse_folding = false
 params.rfd4_extra_args = ''
 params.rfd4_filters = false
+// A Hydra config directory prepended to rfd4-generate's config search path. The default
+// repairs the target-aligned binder RMSD metrics for C_CRDGRP-conditioned targets; see
+// assets/rfd4_proteina/hydra_overrides. Point it at your own directory to add or override
+// other configs (pass_criteria/, refolding_metrics/, ...), or set false for none.
+params.rfd4_metrics_config_dir = "${projectDir}/assets/rfd4_proteina/hydra_overrides"
 
 // Chain ids in the generated complex. Derived from --contigs in params mode; set these when
 // using a condition spec whose target chain is not A.
@@ -76,7 +81,7 @@ include { UNIQUE_ID } from '../modules/local/common/unique_id'
 include { PARSE_RFD4_CONFIG } from '../modules/local/rfd4_proteina/parse_rfd4_config'
 include { GENERATE_RFD4_CONFIG } from '../modules/local/rfd4_proteina/generate_rfd4_config'
 include { PREPARE_RFD4_INPUT } from '../modules/local/rfd4_proteina/prepare_rfd4_input'
-include { RFD4_GENERATE } from '../modules/local/rfd4_proteina/rfd4_generate'
+include { RFD4_GENERATE; rfd4IsFalse } from '../modules/local/rfd4_proteina/rfd4_generate'
 include { FILTER_DESIGNS as RFD4_FILTER_DESIGNS } from '../modules/local/rfd4_proteina/filter_designs'
 include { COMBINE_RFD4_SCORES } from '../modules/local/rfd4_proteina/combine_rfd4_scores'
 include { resolveRfd4Chains } from '../modules/local/rfd4_proteina/rfd4_utils'
@@ -151,6 +156,11 @@ workflow RFD4_PROTEINA {
                                   nsteps, refining the input rather than building from noise [default: disabled]
             --rfd4_inverse_folding  Hold the input backbone fixed and resample sequence only [default: ${params.rfd4_inverse_folding}]
             --rfd4_extra_args     Additional Hydra key=value overrides for rfd4-generate [default: ${params.rfd4_extra_args}]
+            --rfd4_metrics_config_dir  Hydra config directory prepended to rfd4-generate's search
+                                  path, for dropping in custom refolding_metrics/, pass_criteria/
+                                  and so on. The default fixes the target-aligned binder RMSD
+                                  metrics for C_CRDGRP targets; false uses the container's configs
+                                  unchanged. [default: assets/rfd4_proteina/hydra_overrides]
             --rfd4_filters        Semicolon-separated filters for generated designs, eg "rg<25" [default: disabled]
             --rfd4_target_chain   Target chain id in the generated complex [default: derived from --contigs, else A]
             --rfd4_binder_chain   Binder chain id in the generated complex [default: derived from --contigs, else B]
@@ -268,9 +278,19 @@ workflow RFD4_PROTEINA {
     }
     def ch_batches = Channel.of(0..<n_tasks).flatten()
 
+    def ch_hydra_overrides = Channel.value(
+        file(
+            rfd4IsFalse(params.rfd4_metrics_config_dir)
+                ? "${projectDir}/assets/rfd4_proteina/hydra_overrides_none"
+                : params.rfd4_metrics_config_dir,
+            checkIfExists: true,
+        )
+    )
+
     RFD4_GENERATE(
         ch_config_spec,
         ch_input_structures,
+        ch_hydra_overrides,
         ch_design_name,
         ch_batches,
         ch_batches.map { index -> task_replicates[index] },

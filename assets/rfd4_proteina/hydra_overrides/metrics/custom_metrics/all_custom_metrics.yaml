@@ -1,0 +1,32 @@
+# @package metrics.refolding_metrics
+# ^ must stay the first line: Hydra stops scanning for the package header at the first
+# comment that is not a `@` directive.
+#
+# Hydra overlay for rfd4-generate, staged onto `hydra.searchpath` by RFD4_GENERATE.
+#
+# `configs/metrics/all_metrics.yaml` in RFD4-Proteina ends its defaults list with
+# `optional custom_metrics: all_custom_metrics`, and ships no such file, so this one is
+# picked up from the search path and merged last - overriding keys set by the groups
+# before it, without having to shadow a config the package already provides.
+#
+# The `@package` header puts these keys in `metrics.refolding_metrics` rather than the
+# default `metrics.custom_metrics`, so each one deep-merges onto the matching metric from
+# `all_refolding_metrics.yaml`; only `align_mask` is restated, and `_target_`, the masks
+# and the tag gates are inherited.
+#
+# Why: the two target-aligned binder RMSD metrics align on `sa_mask('C_CRD')` alone, but a
+# target conditioned with `C_CRDGRP` (known relative geometry, free pose - what the
+# RFD4-Proteina PPI cookbook recommends, and what this pipeline generates) is flagged
+# `C_INTCRD`, not `C_CRD`. Without this overlay the align mask selects no atoms, the RMSDs
+# are never written, and `ppi.all_metrics_present` and `ppi.pass` are 0 for every design.
+# `oracle_ppi` in `configs/metrics/refolding_oracles/af3.yaml` already accepts either
+# condition; these expressions match it.
+#
+# Checked against rfd4-proteina 0.0.3-aaccdd2. Drop the overlay with
+# `--rfd4_metrics_config_dir false` once upstream accepts C_INTCRD here.
+
+refolded_target_aligned_binder_rmsd:
+  align_mask: "~is_chain_of_interest & (sa_mask('C_CRD') | sa_mask('C_INTCRD') | is_dna)"
+
+refolded_target_backbone_aligned_binder_rmsd:
+  align_mask: "~is_chain_of_interest & (sa_mask('C_CRD') | sa_mask('C_INTCRD')) & is_protein_backbone"

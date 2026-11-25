@@ -80,9 +80,12 @@ Tokens between chainbreaks make one output chain. A chain holding a preserved se
 | `--rfd4_inverse_folding` | `false` | Hold the input backbone fixed, resample sequence only |
 | `--rfd4_filters` | — | Semicolon-separated filters on generated designs, eg `rg<25` |
 | `--rfd4_extra_args` | — | Extra Hydra `key=value` overrides for `rfd4-generate` |
+| `--rfd4_metrics_config_dir` | `assets/rfd4_proteina/hydra_overrides` | Hydra config dir prepended to the search path; `false` for none |
 | `--rfd4_target_chain` / `--rfd4_binder_chain` | derived | Chain IDs in the output complex |
 
 `rfd4-generate` is Hydra-driven, so `--rfd4_extra_args` takes `key=value` pairs: `--rfd4_extra_args "generation.args.guidance_w=1.2 precision=bf16-mixed"`.
+
+Whole config files go through `--rfd4_metrics_config_dir`, staged onto `hydra.searchpath`. Hydra takes the first match on the search path, so a file only applies if the container ships none by that group and name; `metrics/custom_metrics/all_custom_metrics.yaml` always applies, because upstream's `metrics/all_metrics.yaml` ends its defaults list with `optional custom_metrics: all_custom_metrics` and ships no such file, and a `# @package` header on its first line decides which node its keys merge into. The default overlay uses that to make `refolded_target_aligned_binder_rmsd` and `refolded_target_backbone_aligned_binder_rmsd` align on `(sa_mask('C_CRD') | sa_mask('C_INTCRD'))`: a `C_CRDGRP`-conditioned target is flagged `C_INTCRD`, so upstream's `C_CRD`-only mask selects nothing and both RMSDs go missing, taking `rfd4_ppi_all_metrics_present` and `rfd4_ppi_pass` to 0.
 
 ## Refold Scoring
 
