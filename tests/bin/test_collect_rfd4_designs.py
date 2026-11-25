@@ -32,13 +32,16 @@ METRICS_CSV = """\
 example_id,designed_structure_path,task,dataset_name,chain_of_interest,ckpt_path,seed,\
 input_json_path,generation.args.nsteps,output_base_dir,metrics_tags,\
 hotspot_obedience.hotspot_obedience,pre_oracle_pass,oracle_ppi.overall_iptm,\
-oracle_ppi.refolded_structure_path,ppi.pass
+oracle_ppi.refolded_structure_path,ppi.pass,oracle_apo.apo.overall_plddt,\
+oracle_apo.apo.refolded_structure_path,refolded_apo_holo_rmsd.apo.rmsd
 pdl1_0,rundir/inference_samples/pdl1_0/pdl1_0_generated.cif,pdl1,nvidia/RFD4-Proteina,B_1,\
-model.safetensors,42.0,spec.json,60.0,rundir/inference_samples,"ppi_refolding",\
-0.6078,1.0,89.0,rundir/inference_samples/pdl1_0/pdl1_0_af3_ppi_refolded.cif,0.0
+model.safetensors,42.0,spec.json,60.0,rundir/inference_samples,"ppi_refolding,apo_refolding",\
+0.6078,1.0,89.0,rundir/inference_samples/pdl1_0/pdl1_0_af3_ppi_refolded.cif,0.0,91.2,\
+rundir/inference_samples/pdl1_0/pdl1_0_apo_af3_apo_refolded.cif,1.14
 pdl1_1,rundir/inference_samples/pdl1_1/pdl1_1_generated.cif,pdl1,nvidia/RFD4-Proteina,B_1,\
-model.safetensors,42.0,spec.json,60.0,rundir/inference_samples,"ppi_refolding",\
-0.3922,1.0,79.0,rundir/inference_samples/pdl1_1/pdl1_1_af3_ppi_refolded.cif,1.0
+model.safetensors,42.0,spec.json,60.0,rundir/inference_samples,"ppi_refolding,apo_refolding",\
+0.3922,1.0,79.0,rundir/inference_samples/pdl1_1/pdl1_1_af3_ppi_refolded.cif,1.0,72.5,\
+rundir/inference_samples/pdl1_1/pdl1_1_apo_af3_apo_refolded.cif,4.60
 """
 
 
@@ -92,6 +95,20 @@ def test_run_paths_point_at_the_published_batch(tmp_path: Path) -> None:
     assert (
         rows[0]["rfd4_oracle_ppi_refolded_structure_path"]
         == "batches/batch7/inference_samples/pdl1_0/pdl1_0_af3_ppi_refolded.cif"
+    )
+
+
+def test_apo_refold_columns_survive_the_merge(tmp_path: Path) -> None:
+    """apo_refolding's save_id makes its keys doubly dotted; every dot has to flatten."""
+    rows = run_collect(make_run_dir(tmp_path), tmp_path, batch="7")
+
+    assert rows[0]["rfd4_oracle_apo_apo_overall_plddt"] == "91.2"
+    # The apo/holo comparison, which only exists because ppi_refolding supplies the holo refold
+    assert rows[0]["rfd4_refolded_apo_holo_rmsd_apo_rmsd"] == "1.14"
+    assert rows[1]["rfd4_refolded_apo_holo_rmsd_apo_rmsd"] == "4.60"
+    assert (
+        rows[0]["rfd4_oracle_apo_apo_refolded_structure_path"]
+        == "batches/batch7/inference_samples/pdl1_0/pdl1_0_apo_af3_apo_refolded.cif"
     )
 
 

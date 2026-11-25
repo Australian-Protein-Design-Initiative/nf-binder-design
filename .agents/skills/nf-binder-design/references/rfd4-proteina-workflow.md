@@ -8,7 +8,9 @@
 
 The difference from `rfd3` that matters for everything downstream: RFD4-Proteina co-designs sequence and structure in one pass, so there is **no inverse-folding step and no cofold of its own**. Each design comes out with both a backbone and a binder sequence, and nothing has scored the pair. Validation is entirely the refold's job.
 
-Inline metrics (`ppi_refolding`, `hotspot_conditioning`) run by default via the OpenFold3 weights baked into the container; `--rfd4_metrics_tags false` switches them off (`~metrics`). They are ignored with `--rfd4_inference_experiment quickstart`. Their per-design values are merged into `combined_scores.tsv` prefixed `rfd4_`, with dots replaced by underscores (`rfd4_oracle_ppi_overall_iptm`, `rfd4_hotspot_obedience_hotspot_obedience`, `rfd4_ppi_pass`); the join is done in `bin/rfd4_proteina/collect_rfd4_designs.py`, inside the task, because rfd4-generate's example ids repeat across batches. Nothing filters on `rfd4_ppi_pass` -- `--rfd4_filters` only sees structural metrics.
+Inline metrics (`ppi_refolding`, `apo_refolding`, `hotspot_conditioning`) run by default via the OpenFold3 weights baked into the container; `--rfd4_metrics_tags false` switches them off (`~metrics`). They are ignored with `--rfd4_inference_experiment quickstart`. Their per-design values are merged into `combined_scores.tsv` prefixed `rfd4_`, with dots replaced by underscores (`rfd4_oracle_ppi_overall_iptm`, `rfd4_hotspot_obedience_hotspot_obedience`, `rfd4_ppi_pass`); the join is done in `bin/rfd4_proteina/collect_rfd4_designs.py`, inside the task, because rfd4-generate's example ids repeat across batches. Nothing filters on `rfd4_ppi_pass` -- `--rfd4_filters` only sees structural metrics.
+
+`apo_refolding` refolds the designed chain alone (`rfd4_oracle_apo_apo_*`), and its apo/holo backbone RMSD `rfd4_refolded_apo_holo_rmsd_apo_rmsd` exists only because `ppi_refolding` supplies the untransformed refold it compares against -- that column drops silently if `ppi_refolding` is removed from the tag list. Do not try to move it to an offline `rfd4-evaluate` pass over selected designs: `rfd4-evaluate` parses with `STANDARD_ANNOTATIONS_ONLY`, so `ApoOnlyTransform` loses the conditioning annotations its chain-of-interest heuristic ranks on, ties every chain, and takes the first in sorted order (the target) with a warning rather than an error.
 
 ## Inputs
 
@@ -71,7 +73,7 @@ Tokens between chainbreaks make one output chain. A chain holding a preserved se
 | `--rfd4_seed` | 0 | Base seed; task seeds are base + task index |
 | `--rfd4_nsteps` | 60 (model default) | Integration steps in the sampling schedule |
 | `--rfd4_recycle_strategy` | `medium/front_loaded` | Trunk recycle schedule, eg `thinking_medium`, `high/midpeak` |
-| `--rfd4_metrics_tags` | `ppi_refolding,hotspot_conditioning` | Inline metrics, comma-separated; `false` disables; ignored with `quickstart` |
+| `--rfd4_metrics_tags` | `ppi_refolding,apo_refolding,hotspot_conditioning` | Inline metrics, comma-separated; `false` disables; ignored with `quickstart` |
 | `--rfd4_inference_experiment` | `inference_on_user_inputs` | Preset; `quickstart` for fast test runs |
 | `--rfd4_compile_lengths` | `true` | `false` runs the trunk eagerly, skipping `torch.compile` warm-up |
 | `--rfd4_partial_trajectory_fraction` | — | Partial diffusion: run only this final fraction of `nsteps` |

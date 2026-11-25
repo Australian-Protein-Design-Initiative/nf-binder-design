@@ -116,7 +116,7 @@ Each contig must include at least one preserved segment.
 | `--rfd4_seed` | `0` | Base seed; task seeds derive from base seed plus task index |
 | `--rfd4_nsteps` | model default (60) | Number of integration steps in sampling schedule |
 | `--rfd4_recycle_strategy` | `medium/front_loaded` | Trunk recycle schedule (e.g. `thinking_medium`, `high/midpeak`) |
-| `--rfd4_metrics_tags` | `ppi_refolding,hotspot_conditioning` | Inline RFD4-Proteina metrics (comma-separated); `false` disables them. Ignored with `quickstart` |
+| `--rfd4_metrics_tags` | `ppi_refolding,apo_refolding,hotspot_conditioning` | Inline RFD4-Proteina metrics (comma-separated); `false` disables them. Ignored with `quickstart` |
 | `--rfd4_inference_experiment` | `inference_on_user_inputs` | Experiment configuration preset (`quickstart` for fast test runs) |
 | `--rfd4_compile_lengths` | `true` | Set to `false` to execute trunk eagerly without `torch.compile` warm-up |
 | `--rfd4_partial_trajectory_fraction` | | Partial diffusion: executes only the specified final fraction of `nsteps` |
@@ -132,8 +132,11 @@ Each contig must include at least one preserved segment.
 ### Refold validation
 
 RFD4-Proteina's own inline metrics run by default (`--rfd4_metrics_tags
-ppi_refolding,hotspot_conditioning`), using the OpenFold3 weights baked into the container; set
-`--rfd4_metrics_tags false` to disable them.
+ppi_refolding,apo_refolding,hotspot_conditioning`), using the OpenFold3 weights baked into the
+container; set `--rfd4_metrics_tags false` to disable them. The
+[full tag list](https://rfd4-proteina.org/latest/how-to/refolding.html) covers other design
+problems -- `antibody`, `dna_refolding`, `sm_binder_refolding`, `motif_scaffold_refolding` and
+others -- and a metric whose tag is not passed is skipped silently.
 
 Their per-design values are merged into `combined_scores.tsv`, prefixed `rfd4_` with dots
 replaced by underscores: `rfd4_oracle_ppi_overall_iptm`, `rfd4_oracle_ppi_plddt_coi`,
@@ -143,6 +146,27 @@ are dropped. `rfd4_oracle_ppi_refolded_structure_path` and `rfd4_oracle_ppi_conf
 are rewritten to point at the published copy under `batches/batch<n>/`, so they resolve relative
 to `<outdir>/rfd4_proteina/`. The oracle used for `ppi_refolding` is OpenFold3, which is why its
 own file names say `af3_ppi`.
+
+#### Apo refolding
+
+`apo_refolding` adds a second refold per design: the designed chain on its own, with the target
+dropped. It asks whether the binder holds the fold it was designed in once the target is removed,
+which a refold of the complex cannot distinguish from the target propping the binder up. Its
+confidences arrive as `rfd4_oracle_apo_apo_overall_plddt` and `rfd4_oracle_apo_apo_overall_ptm`.
+
+The column worth ranking on is `rfd4_refolded_apo_holo_rmsd_apo_rmsd`, the backbone RMSD between
+the apo refold and the refold of the whole complex. A low value means the binder is pre-organised;
+a high one means it only takes its designed conformation against the target.
+
+That comparison needs both refolds, so `apo_refolding` has to be paired with a tag that refolds
+the untransformed complex -- `ppi_refolding` here. Passing `--rfd4_metrics_tags apo_refolding`
+alone still reports the apo confidences but silently drops the apo/holo RMSD. There is no apo pass
+criterion, so `rfd4_ppi_pass` is unaffected by any of this.
+
+Running apo refolding offline on a selected subset, with `rfd4-evaluate`, is not currently
+practical: `rfd4-evaluate` parses structures without their conditioning annotations, so the
+transform that picks the designed chain falls back to a heuristic that cannot tell the binder from
+the target and warns rather than fails. It would quietly refold the wrong chain.
 
 Designs are additionally
 validated downstream: each generated binder sequence is re-folded against its target structure using

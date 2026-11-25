@@ -37,11 +37,16 @@ params.rfd4_nsteps = false
 params.rfd4_recycle_strategy = 'medium/front_loaded'
 params.rfd4_inference_experiment = false
 // Which metrics run inline, as a comma-separated tag list. The defaults run RFD4-Proteina's own
-// refolding (ppi_refolding) and hotspot conditioning checks, using the OpenFold3 weights baked
-// into the container (AlphaFold 3 weights, if wanted, must be mounted at runtime). Set false to drop the
-// metrics group entirely so no refolding oracle is built. Ignored by --rfd4_inference_experiment
-// quickstart, which does not compose the metrics group.
-params.rfd4_metrics_tags = 'ppi_refolding,hotspot_conditioning'
+// refolding of the complex (ppi_refolding) and of the binder alone (apo_refolding), plus the
+// hotspot conditioning checks, using the OpenFold3 weights baked into the container (AlphaFold 3
+// weights, if wanted, must be mounted at runtime). Set false to drop the metrics group entirely
+// so no refolding oracle is built. Ignored by --rfd4_inference_experiment quickstart, which does
+// not compose the metrics group.
+//
+// apo_refolding only yields refolded_apo_holo_rmsd when it is paired with a tag that refolds the
+// untransformed complex, which is what ppi_refolding is doing here. Dropping ppi_refolding and
+// keeping apo_refolding still reports the apo confidences, but silently loses that comparison.
+params.rfd4_metrics_tags = 'ppi_refolding,apo_refolding,hotspot_conditioning'
 // false runs the trunk eagerly (compile_lengths=null), skipping the torch.compile warm-up
 params.rfd4_compile_lengths = true
 params.rfd4_partial_trajectory_fraction = false
@@ -138,6 +143,8 @@ workflow RFD4_PROTEINA {
             --rfd4_inference_experiment  Experiment preset, eg quickstart [default: inference_on_user_inputs]
             --rfd4_metrics_tags   Comma-separated inline metric tags; false drops the metrics group.
                                   Refolding uses the OpenFold3 weights baked into the container.
+                                  apo_refolding refolds the binder alone, and needs ppi_refolding
+                                  alongside it for the apo/holo RMSD.
                                   Ignored with the quickstart preset. [default: ${params.rfd4_metrics_tags}]
             --rfd4_compile_lengths  Set false to run the trunk eagerly, skipping the torch.compile
                                   warm-up. Worth it for a smoke test, not for a real run. [default: ${params.rfd4_compile_lengths}]
