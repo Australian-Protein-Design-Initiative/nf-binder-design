@@ -67,7 +67,8 @@ import matplotlib.colors as mcolors
 import mdtraj as md
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.spatial.distance import squareform
-from Bio.PDB import MMCIFParser, PDBIO
+import biotite.structure.io.pdb as biotite_pdb
+import biotite.structure.io.pdbx as biotite_pdbx
 from IPython.display import HTML, Image, Markdown, display
 from IPython.utils.capture import capture_output
 
@@ -380,18 +381,56 @@ def plot_rmsd_heatmap(
     plt.close(fig)
     return order
 
+def _drop_unmodelled_atoms(structure, name: str):
+    """Drop atoms with NaN coordinates, keeping the rest of the structure.
+
+    An engine that emits a placeholder row for an atom it did not model writes
+    NaN coordinates for it - RFdiffusion3/ProteinMPNN do this for the terminal
+    OXT. Writing PDB raises BadStructureError on NaN, so the whole structure
+    used to be skipped over a couple of unplaced atoms. The residue itself is
+    still described by its remaining atoms, so dropping just those atoms keeps
+    the structure comparable.
+    """
+    finite = ~np.isnan(structure.coord).any(axis=-1)
+    if finite.all():
+        return structure
+    n_dropped = int((~finite).sum())
+    gone = set(zip(structure.chain_id[~finite], structure.res_id[~finite]))
+    kept = set(zip(structure.chain_id[finite], structure.res_id[finite]))
+    lost_residues = gone - kept
+    log.warning(
+        "%s: dropped %d unmodelled atom(s) with NaN coordinates (%s)",
+        name, n_dropped,
+        ", ".join(sorted(set(structure.atom_name[~finite]))),
+    )
+    if lost_residues:
+        # Whole residues disappearing shifts the atom count, which the
+        # trajectory builder then rejects as a mismatch - worth saying loudly.
+        log.warning(
+            "%s: %d residue(s) had no modelled atoms at all and are now absent",
+            name, len(lost_residues),
+        )
+    return structure[finite]
+
 def _structure_to_pdb(path: Path, out_pdb: Path) -> Path:
-    """Ensure a PDB on disk (BioPython for CIF — mdtraj CIF→PDB can break ATOM serials)."""
+    """Ensure a PDB on disk (biotite for CIF - mdtraj CIF→PDB can break ATOM serials).
+
+    biotite rather than Bio.PDB.MMCIFParser: the latter hard-requires
+    _atom_site.occupancy, which OpenFold3 and RFdiffusion3 mmCIF writers omit,
+    so every one of their predictions raised KeyError and was dropped.
+    """
     out_pdb.parent.mkdir(parents=True, exist_ok=True)
     if path.suffix.lower() == ".pdb":
         if path.resolve() != out_pdb.resolve():
             shutil.copyfile(path.resolve(), out_pdb)
         return out_pdb
-    parser = MMCIFParser(QUIET=True)
-    structure = parser.get_structure(path.stem, str(path))
-    io = PDBIO()
-    io.set_structure(structure)
-    io.save(str(out_pdb))
+    structure = biotite_pdbx.get_structure(
+        biotite_pdbx.CIFFile.read(str(path)), model=1
+    )
+    structure = _drop_unmodelled_atoms(structure, path.name)
+    out = biotite_pdb.PDBFile()
+    out.set_structure(structure)
+    out.write(str(out_pdb))
     return out_pdb
 
 def _load_mdtraj(path: Path) -> md.Trajectory:
@@ -751,22 +790,21 @@ the structures already overlay when opened together.
 ```{python}
 #| label: gather-structures
 # Collect the staged predictions. Anything ending .cif is converted to .pdb via
-# BioPython so mdtraj + downstream EnGens can read it. A backbone-only
+# biotite so mdtraj + downstream EnGens can read it. A backbone-only
 # (N, CA, C, O) trajectory is then built: predicted structures from different
 # engines differ in hydrogens/side-chain detail (e.g. AF2 Amber-relaxed models
 # carry hydrogens), so restricting to the protein backbone guarantees a
 # consistent atom count across the whole cross-engine ensemble.
 
+dropped: list[tuple[str, str]] = []  # (filename, reason) - reported below
+
 def cif_to_pdb(cif_path: Path, out_path: Path) -> bool:
     try:
-        parser = MMCIFParser(QUIET=True)
-        structure = parser.get_structure(cif_path.stem, str(cif_path))
-        io = PDBIO()
-        io.set_structure(structure)
-        io.save(str(out_path))
+        _structure_to_pdb(cif_path, out_path)
         return True
     except Exception as exc:  # noqa: BLE001 - report and skip a bad file
         log.warning("Failed to convert %s to PDB: %s", cif_path.name, exc)
+        dropped.append((cif_path.name, str(exc)))
         return False
 
 src = Path(input_dir)
@@ -789,6 +827,32 @@ for p in raw:
 
 n_input = len(structures)
 print(f"Found {n_input} input structures for '{target_id}'.")
+
+# Per-engine staged vs converted. A whole engine silently vanishing (e.g. every
+# OpenFold3 .cif failing to convert) used to be invisible in the rendered report.
+if raw:
+    from collections import Counter
+    staged = Counter(predictor_from_label(p.stem) for p in raw)
+    kept_in = Counter(predictor_from_label(lbl) for lbl, _, _ in structures)
+    print("Structures read per engine:")
+    for eng in sorted(staged):
+        n_got, n_want = kept_in.get(eng, 0), staged[eng]
+        flag = "" if n_got == n_want else f"  <-- {n_want - n_got} DROPPED"
+        print(f"  {eng}: {n_got}/{n_want}{flag}")
+```
+
+```{python}
+#| label: dropped-structures
+#| output: asis
+# asis (not display(Markdown(...))) so the callout is rendered as one, matching
+# the `guard` cell below.
+if dropped:
+    print(
+        f"::: {{.callout-warning}}\n"
+        f"## {len(dropped)} of {len(raw)} input structures could not be read\n\n"
+        + "\n".join(f"- `{name}`: {reason}" for name, reason in dropped)
+        + "\n:::\n"
+    )
 ```
 
 ```{python}

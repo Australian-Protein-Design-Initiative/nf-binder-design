@@ -22,8 +22,30 @@ import gzip
 import sys
 from pathlib import Path
 
+import numpy as np
 import biotite.structure.io.pdb as pdb
 import biotite.structure.io.pdbx as pdbx
+
+
+def drop_unmodelled_atoms(structure, source: str):
+    """Drop atoms whose coordinates are NaN, keeping the rest of the structure.
+
+    An engine that emits a row for an atom it did not place writes NaN
+    coordinates for it - RFdiffusion3/ProteinMPNN do this for the terminal OXT.
+    The PDB writer rejects NaN outright, which would fail the whole structure
+    over an atom that was never modelled; the residue is still described by its
+    remaining atoms, so only those atoms are dropped.
+    """
+    finite = ~np.isnan(structure.coord).any(axis=-1)
+    if finite.all():
+        return structure
+    names = sorted(set(structure.atom_name[~finite]))
+    print(
+        f"WARNING: {source}: dropping {int((~finite).sum())} unmodelled atom(s) "
+        f"with NaN coordinates ({', '.join(names)})",
+        file=sys.stderr,
+    )
+    return structure[finite]
 
 
 def read_structure(path: Path):
@@ -47,6 +69,7 @@ def main() -> int:
     args = parser.parse_args()
 
     structure = read_structure(args.structure)
+    structure = drop_unmodelled_atoms(structure, str(args.structure))
 
     too_long = sorted({c for c in structure.chain_id if len(c) > 1})
     if too_long:
