@@ -34,14 +34,23 @@ hotspots, burial, hydrogen bonds, coordinate groups, pi-stacking, CATH labels, a
 probabilities:
 
 ```yaml
-pdl1_binder:
-  input: PDL1.cif                                   # relative to this file
-  contig: "50-120, /0, A17-131"                     # 50-120 residue binder chain, then target
+pdl1:
+  input: PDL1.cif                                     # relative to this file
+  contig: "BINDER:50-120, /0, A18-132"                # 50-120 residue binder chain, then target
   conditions:
-    C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}   # target backbone geometry, free pose
-    C_SEQ: {true: [{select: "sel('A')"}]}                  # target sequence is fixed
-    C_HOT: {true: [{select: "sel('A/*/56')"}, {select: "sel('A/*/115')"}]}   # hotspots
+    C_CRDGRP: {1: [{select: "sel('A/*/*/[N,CA,C,O]')"}]}      # target backbone geometry, free pose
+    C_SEQ: {true: [{select: "sel('A')"}]}                     # target sequence is fixed
+    C_SEQ_PROB_CYS: {0.0: [{select: "sel('*/BINDER')"}]}      # no cysteines in the binder
+    C_HOT:                                                    # hotspots the binder should engage
+      true:
+        - select: "sel('A/*/54')"
+        - select: "sel('A/*/56')"
+        - select: "sel('A/*/115')"
+        - select: "sel('A/*/123')"
+        - select: "sel('A/*/125')"
 ```
+
+Naming the designed segment `BINDER` in the contig is what lets `C_SEQ_PROB_CYS` select it.
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
