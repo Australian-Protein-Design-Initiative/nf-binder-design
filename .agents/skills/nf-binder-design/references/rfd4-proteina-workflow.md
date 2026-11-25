@@ -82,6 +82,36 @@ Tokens between chainbreaks make one output chain. A chain holding a preserved se
 
 `rfd4-generate` is Hydra-driven, so `--rfd4_extra_args` takes `key=value` pairs: `--rfd4_extra_args "generation.args.guidance_w=1.2 precision=bf16-mixed"`.
 
+## FoldSeek: two separate jobs
+
+FoldSeek is wired in for two unrelated purposes, with separate flags, subworkflows and
+output directories. They share only the binder-chain extraction step
+(`FOLDSEEK_PREPARE_QUERIES`), which the clustering subworkflow includes under an alias so
+both can run in the same execution.
+
+| | Database search | Design clustering |
+|--|--|--|
+| Flag | `--do_foldseek_search` | `--do_foldseek_cluster` |
+| Question | Has this fold been seen before? | How many distinct binders did this run make? |
+| Compares against | CATH50/PDB/AFDB | The run's own designs |
+| Subworkflow | `FOLDSEEK_SEARCH` | `FOLDSEEK_CLUSTER_DESIGNS` |
+| Output | `foldseek/<database>/` | `foldseek_cluster/` |
+| Scores columns | none | `foldseek_cluster_*` on `combined_scores.tsv` |
+
+Clustering runs `foldseek easy-cluster` over the binder chains with the thresholds from
+upstream's `scripts/launch_generate.sh` (`--alignment-type 1 --cov-mode 0 --min-seq-id 0.0
+--tmscore-threshold 0.5`), then `bin/foldseek/cluster_table.py` turns the
+representative/member table into one row per design keyed on `id`, which
+`COMBINE_RFD4_SCORES` merges with `bin/merge_scores.py`. The conversion is a separate
+process (`FOLDSEEK_CLUSTER_TABLE`) because the foldseek image has no python3.
+
+`--foldseek_cluster_multimer` switches to `easy-multimercluster` over whole complexes,
+which skips chain extraction. `easy-interfacecluster` is absent from foldseek release 10,
+so it is not yet an option.
+
+Columns added: `foldseek_cluster_rep`, `foldseek_cluster_id` (1 = largest cluster),
+`foldseek_cluster_size`, `foldseek_cluster_is_rep`.
+
 ## Refold Scoring
 
 The shared refold step, with the same `--refold_with` / `--refold_filter` / `--refold_sort_by` / `--refold_max` as every other workflow. See the refold scoring section of `SKILL.md`.
@@ -113,6 +143,7 @@ RF3 used as a refold engine takes `--refold_rf3_*` names (`--refold_rf3_ckpt_pat
 | `rfd4_proteina/binders.fasta` | Generated binder sequences |
 | `rfd4_proteina/filter/` | Filter scores and accept/reject lists (with `--rfd4_filters`) |
 | `rfd4_proteina/refold/` | Refold structures, per-engine scores, interface tables (with `--refold_with`) |
+| `foldseek_cluster/` | `clusters.tsv`, `cluster_table.tsv`, representative sequences (with `--do_foldseek_cluster`) |
 
 Structure filenames are `<design_name>_<uid>_b<task>_<example>_<replicate>.cif`.
 

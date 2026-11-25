@@ -22,7 +22,7 @@
 #  --refold_target_templates='input/full/'
 
 # We can optionally run FoldSeek structural search on designs:
-#  --do_foldseek
+#  --do_foldseek_search
 # If --foldseek_af2ig_filters is not set, it falls back to --refold_af2ig_filters:
 #  --foldseek_af2ig_filters="pae_interaction<=15"   # override with broader filters if desired
 
@@ -46,7 +46,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --refold_target_fasta='input/full/3BIK_B.fasta' \
   --refold_target_templates='input/full/' \
   --output_rmsd_aligned=true \
-  --do_foldseek \
+  --do_foldseek_search \
   --foldseek_af2ig_filters="pae_interaction<=10;plddt_binder>=80" \
   --foldseek_database=CATH50 \
   --foldseek_databases_path "$(pwd)/../databases/foldseek" \

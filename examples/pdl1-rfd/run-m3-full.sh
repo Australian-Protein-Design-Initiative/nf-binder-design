@@ -22,7 +22,7 @@
 #  --refold_target_templates='input/full/'
 
 # We can optionally run FoldSeek structural search on designs:
-#  --do_foldseek
+#  --do_foldseek_search
 # If --foldseek_af2ig_filters is not set, it falls back to --refold_af2ig_filters:
 #  --foldseek_af2ig_filters="pae_interaction<=15"   # override with broader filters if desired
 
@@ -54,5 +54,5 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   -profile slurm,m3 \
   -resume
 
-# --do_foldseek \
+# --do_foldseek_search \
 # --foldseek_af2ig_filters="pae_interaction<=15" \

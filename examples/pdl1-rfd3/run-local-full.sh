@@ -27,7 +27,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --create_target_msa \
   --use_msa_server \
   --templates='input/full/' \
-  --do_foldseek \
+  --do_foldseek_search \
   --foldseek_database=CATH50 \
   --foldseek_databases_path="$(pwd)/../databases/foldseek" \
   --output_rmsd_aligned \

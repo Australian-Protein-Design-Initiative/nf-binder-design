@@ -4,6 +4,19 @@ Run [FoldSeek](https://github.com/steineggerlab/foldseek) structural similarity 
 
 Useful for identifying structurally similar proteins to your designed binders and annotating designs with known structural folds.
 
+!!! note "FoldSeek is used for two different jobs"
+
+    **Database search** (`--do_foldseek_search`, or `--method foldseek`) compares each design
+    against a database such as CATH50, answering "has this fold been seen before?". That is
+    what this page covers.
+
+    **Design clustering** (`--do_foldseek_cluster`) compares the designs against each other
+    with no database involved, answering "how many structurally distinct binders did this
+    run produce?". See [Design clustering](#design-clustering) below.
+
+    They have separate flag namespaces and separate output directories, and either, both or
+    neither can be enabled.
+
 ## Quick Start
 
 ```bash
@@ -232,3 +245,79 @@ nextflow run main.nf --method foldseek \
     --foldseek_database pdb100 \
     --outdir results/foldseek_remote
 ```
+
+## Design clustering
+
+Enabled with `--do_foldseek_cluster`, this clusters a run's own designs against each other
+rather than searching a database, to show how many structurally distinct binders the run
+produced. Supported by the `rfd4_proteina` workflow.
+
+```bash
+nextflow run main.nf --method rfd4_proteina \
+    --input_pdb target.pdb --contigs "50-120, /0, A18-132" \
+    --do_foldseek_cluster
+```
+
+By default it runs `foldseek easy-cluster` over the extracted binder chains, using the
+same thresholds as RFD4-Proteina's own `scripts/launch_generate.sh`.
+
+### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--do_foldseek_cluster` | `false` | Enable all-vs-all clustering of the designs |
+| `--foldseek_cluster_max` | all | Maximum designs to cluster |
+| `--foldseek_cluster_tmscore` | `0.5` | TM-score cluster boundary; lower values merge more designs |
+| `--foldseek_cluster_coverage` | `0.0` | Coverage threshold (`-c`) |
+| `--foldseek_cluster_cov_mode` | `0` | Coverage mode (`--cov-mode`) |
+| `--foldseek_cluster_min_seq_id` | `0.0` | Sequence identity threshold; `0` keeps clustering purely structural |
+| `--foldseek_cluster_alignment_type` | `1` | Alignment type; `1` is TM-align |
+| `--foldseek_cluster_multimer` | `false` | Cluster whole complexes with `easy-multimercluster` |
+| `--foldseek_cluster_multimer_tm` | `0.7` | `--multimer-tm-threshold` |
+| `--foldseek_cluster_chain_tm` | `0.7` | `--chain-tm-threshold` |
+| `--foldseek_cluster_interface_lddt` | `0.3` | `--interface-lddt-threshold` |
+| `--foldseek_cluster_extra_args` | — | Extra arguments passed to `foldseek` |
+
+`--foldseek_cluster_multimer` clusters whole complexes instead of binder chains, requiring
+every chain to match. For a set of designs that share one target this is much stricter than
+clustering the binders alone.
+
+`easy-interfacecluster` is not yet available. FoldSeek release 10 (January 2025) is still
+the most recent release and does not include it; interface clustering was added to the
+development branch in February 2026, so it needs a build from master rather than a newer
+release or container.
+
+### Outputs
+
+| Path | Contents |
+|------|----------|
+| `<outdir>/foldseek_cluster/clusters.tsv` | FoldSeek's representative/member table |
+| `<outdir>/foldseek_cluster/cluster_table.tsv` | One row per design, keyed on `id` |
+| `<outdir>/foldseek_cluster/cluster_rep_seq.fasta` | Representative sequences |
+| `<outdir>/foldseek_cluster/cluster_report.tsv` | Multimer report (with `--foldseek_cluster_multimer`) |
+
+`cluster_table.tsv` is merged into `combined_scores.tsv`, adding:
+
+| Column | Meaning |
+|--------|---------|
+| `foldseek_cluster_rep` | Id of the cluster's representative design |
+| `foldseek_cluster_id` | Cluster number; `1` is the most populated cluster |
+| `foldseek_cluster_size` | Number of designs in this cluster |
+| `foldseek_cluster_is_rep` | `1` for the representative, `0` otherwise |
+
+Filtering a ranked table to `foldseek_cluster_is_rep == 1` gives one design per distinct
+fold, which is usually what an ordering by score alone fails to provide.
+
+### Usage as a subworkflow
+
+```groovy
+include { FOLDSEEK_CLUSTER_DESIGNS } from '../subworkflows/local/foldseek_cluster'
+
+workflow {
+    FOLDSEEK_CLUSTER_DESIGNS(Channel.fromPath('designs/*.cif'))
+}
+```
+
+It emits `cluster_tsv`, `cluster_table` and `rep_seq`. The binder-chain extraction process
+is included under an alias, so a workflow that also runs `FOLDSEEK_SEARCH` can use both in
+one execution.

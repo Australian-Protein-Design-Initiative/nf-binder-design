@@ -85,6 +85,25 @@ workflow {
         exit(1)
     }
 
+    // --do_foldseek became ambiguous once --do_foldseek_cluster was added: one searches a
+    // database for homologs, the other clusters the designs against each other. Fail rather
+    // than guess, since silently running the wrong one wastes a whole run.
+    if (params.do_foldseek != null) {
+        log.error(
+            """
+        --do_foldseek has been renamed. FoldSeek is now used for two different jobs:
+
+            --do_foldseek_search    search a database (CATH50, PDB, ...) for homologs of
+                                    each design -- this is what --do_foldseek used to do
+            --do_foldseek_cluster   cluster the run's own designs against each other, to
+                                    show how many structurally distinct binders it made
+
+        Replace --do_foldseek with --do_foldseek_search.
+        """.stripIndent()
+        )
+        exit(1)
+    }
+
     // Dispatch to appropriate workflow
     if (params.method == "rfd") {
         RFD()

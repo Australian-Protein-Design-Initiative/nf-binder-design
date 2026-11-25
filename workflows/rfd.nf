@@ -120,8 +120,8 @@ workflow RFD {
 
             ${refoldHelpText(params)}
 
-            FoldSeek (optional, enabled with --do_foldseek):
-                --do_foldseek                 Enable FoldSeek structural similarity search on AF2IG designs
+            FoldSeek (optional, enabled with --do_foldseek_search):
+                --do_foldseek_search          Enable FoldSeek structural similarity search on AF2IG designs
                 --foldseek_af2ig_filters      Semicolon-separated filters to select AF2IG designs for FoldSeek
                                               [default: uses --refold_filter if set, otherwise disabled]
                 --foldseek_database           Database to search [default: CATH50]
@@ -317,7 +317,7 @@ workflow RFD {
     )
 
     // FoldSeek structural search on AF2IG-filtered designs (optional)
-    if (params.do_foldseek) {
+    if (params.do_foldseek_search) {
         // Determine filters: use foldseek-specific filters, or fall back to the
         // refold's own threshold gate
         def foldseek_filters = params.foldseek_af2ig_filters ?: refold_selection.filter
@@ -347,7 +347,7 @@ workflow RFD {
 
     emit:
     scores = AF2IG_SCORING.out.scores
-    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
-    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
-    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
+    foldseek_tsv = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

@@ -69,11 +69,11 @@ BC2 hotspot syntax is more permissive than BindCraft v1's `{chain}{resnum}`: ran
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--hotspot_subsample` | Fraction of each target's hotspots to keep per batch, `ceil(N*fraction)` with a minimum of 1 | `1.0` |
-| `--do_foldseek` | FoldSeek structural novelty search over the ranked designs | `false` |
+| `--do_foldseek_search` | FoldSeek structural novelty search over the ranked designs | `false` |
 
 `--hotspot_subsample` runs while staging the campaign JSON into each task, so it applies in both params and config mode. Each batch samples hotspots using its `campaign_seed` instead of the system clock. Built-in `"target"` presets are unaffected because BindCraft2 merges preset hotspots after staging.
 
-`--do_foldseek` queries only binder chains. BindCraft2 writes target chains first and binder chains last. The pipeline reads `binder_chains` from `campaign_metadata.json` and extracts the trailing binder chains. The default smallest-chain heuristic fails for multi-chain binders (Fab, scFv, multidomain, symmetric oligomer) or targets smaller than the binder. FoldSeek writes outputs to `${outdir}/foldseek/{database}/` without merging them into `ranked.csv` or the HTML report. All other `--foldseek_*` options match the other workflows.
+`--do_foldseek_search` queries only binder chains. BindCraft2 writes target chains first and binder chains last. The pipeline reads `binder_chains` from `campaign_metadata.json` and extracts the trailing binder chains. The default smallest-chain heuristic fails for multi-chain binders (Fab, scFv, multidomain, symmetric oligomer) or targets smaller than the binder. FoldSeek writes outputs to `${outdir}/foldseek/{database}/` without merging them into `ranked.csv` or the HTML report. All other `--foldseek_*` options match the other workflows.
 
 ### Batching
 

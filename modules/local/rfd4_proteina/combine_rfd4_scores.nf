@@ -8,7 +8,8 @@ process COMBINE_RFD4_SCORES {
     tuple path(design_table, stageAs: 'rfd4_designs.tsv'),
           path(refold_scores, stageAs: 'refold_scores.tsv'),
           val(binder_chain),
-          path(design_cifs, stageAs: 'cifs/*')
+          path(design_cifs, stageAs: 'cifs/*'),
+          path(cluster_table, stageAs: 'cluster_table.tsv')
 
     output:
     path 'combined_scores.tsv', emit: combined_scores
@@ -40,6 +41,17 @@ process COMBINE_RFD4_SCORES {
     if [[ -s ${refold_scores} ]]; then
       python ${projectDir}/bin/merge_scores.py \\
         combined_scores.tsv ${refold_scores} \\
+        --keys id \\
+        --sort-by id \\
+        --first-column id,filename,sequence,length \\
+        -o combined_scores.tmp.tsv && mv combined_scores.tmp.tsv combined_scores.tsv
+    fi
+
+    # FoldSeek design clustering: one row per design, so it merges exactly like the
+    # refold scores. Zero-byte when --do_foldseek_cluster is off.
+    if [[ -s ${cluster_table} ]]; then
+      python ${projectDir}/bin/merge_scores.py \\
+        combined_scores.tsv ${cluster_table} \\
         --keys id \\
         --sort-by id \\
         --first-column id,filename,sequence,length \\

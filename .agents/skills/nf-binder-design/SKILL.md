@@ -7,7 +7,7 @@ description: >-
   BindCraft (--method bindcraft), BindCraft2 (--method bc2), Germinal
   (--method germinal), BoltzGen (--method boltzgen),
   Fold Pulldown (--method fold_pulldown),
-  Fold (--method fold), and FoldSeek (--method foldseek or --do_foldseek).
+  Fold (--method fold), and FoldSeek (--method foldseek or --do_foldseek_search).
   Use when the user wants to design protein binders, nanobodies, or peptides,
   set up or run nf-binder-design, configure HPC/SLURM, or troubleshoot pipeline
   errors.
@@ -111,7 +111,13 @@ Use the `bin/` from the same pipeline version you intend to run. See `references
 | `fold` | Multi-method structure prediction | Fold FASTA complexes with AF2/Boltz/RF3/Protenix/AF3/OpenFold3/Chai-1/ESMFold2 |
 | `foldseek` | FoldSeek structural search | Annotate designs against CATH/PDB databases |
 
-Add `--do_foldseek` to `rfd`, `rfd3`, `rfd4_proteina`, `bindcraft`, `bc2`, or `boltzgen` to run FoldSeek on outputs inline.
+Add `--do_foldseek_search` to `rfd`, `rfd3`, `rfd4_proteina`, `bindcraft`, `bc2`, or `boltzgen` to run FoldSeek on outputs inline.
+
+FoldSeek is used for two different jobs, with separate flags and output directories:
+`--do_foldseek_search` searches a **database** for homologs ("has this fold been seen before?"),
+while `--do_foldseek_cluster` clusters the run's designs **against each other** ("how many
+distinct binders did this run make?"), adding `foldseek_cluster_*` columns to
+`combined_scores.tsv`. Clustering is currently wired into `rfd4_proteina`.
 
 ### Refold scoring (`--refold_with`)
 
@@ -167,7 +173,8 @@ The old `--full_refold_*` family (`--full_refold_with`, `--full_refold_filter_so
 3. **Refine existing designs?** → `rfd_partial`
 4. **Validate binder sequences?** → `fold_pulldown` (use `--methods boltz` for a Boltz-only run)
 5. **Fold arbitrary FASTAs?** → `fold`
-6. **Annotate structural similarity?** → `--do_foldseek` or `--method foldseek`
+6. **Annotate structural similarity?** → `--do_foldseek_search` or `--method foldseek`
+7. **Measure design diversity?** → `--do_foldseek_cluster`
 
 ## Common Flags (All Methods)
 
@@ -373,7 +380,7 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   -profile local -resume
 ```
 
-Or add `--do_foldseek` to a design workflow. → `references/foldseek-workflow.md`
+Or add `--do_foldseek_search` to a design workflow. → `references/foldseek-workflow.md`
 
 ## Key Outputs
 
@@ -420,7 +427,7 @@ Read on demand — do not load all upfront:
 | `references/germinal-workflow.md` | Germinal Hydra config, parallelisation |
 | `references/boltzgen-workflow.md` | BoltzGen YAML, protocols, filtering |
 | `references/fold-stack.md` | Seeds, samples and batch sizes shared by `fold`, `fold_pulldown` and the refold |
-| `references/foldseek-workflow.md` | `--do_foldseek` flag and `--method foldseek` |
+| `references/foldseek-workflow.md` | `--do_foldseek_search` flag and `--method foldseek` |
 | `references/target-preparation.md` | Target viability and structure preparation |
 | `references/setup-and-hpc.md` | Installation and HPC configuration |
 | `references/nextflow-troubleshooting.md` | Monitoring and error diagnosis |

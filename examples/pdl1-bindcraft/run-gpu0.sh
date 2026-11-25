@@ -14,6 +14,6 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
   --gpu_devices=0 \
-  # --do_foldseek \
+  # --do_foldseek_search \
   -profile local \
   -resume

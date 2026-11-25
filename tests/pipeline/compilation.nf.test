@@ -559,7 +559,7 @@ nextflow_pipeline {
                 target_chains = "A"
                 hotspot_res = "A10,A12,A14,A16"
                 hotspot_subsample = 0.5
-                do_foldseek = true
+                do_foldseek_search = true
                 bc2_n_traj = 2
                 bc2_batch_size = 1
                 outdir = "${outputDir}"
@@ -567,6 +567,40 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
+        }
+    }
+
+    test("rfd4_proteina method compiles with foldseek clustering") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd4_proteina"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30, /0, 10-20"
+                do_foldseek_cluster = true
+                rfd4_n_designs = 1
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("the retired --do_foldseek flag fails with the new name") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd4_proteina"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30, /0, 10-20"
+                do_foldseek = true
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.failed
+            assert workflow.stdout.any { it.contains("--do_foldseek_search") }
         }
     }
 

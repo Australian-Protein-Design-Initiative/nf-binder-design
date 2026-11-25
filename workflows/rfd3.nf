@@ -237,8 +237,8 @@ workflow RFD3 {
 
         ${refoldHelpText(params)}
 
-        FoldSeek structural search (optional, enabled with --do_foldseek):
-            --do_foldseek                 Enable FoldSeek search on the same designs selected for full refolding
+        FoldSeek structural search (optional, enabled with --do_foldseek_search):
+            --do_foldseek_search          Enable FoldSeek search on the same designs selected for full refolding
             --foldseek_search_max         Maximum designs to search with FoldSeek [default: same as --refold_max]
             --foldseek_database           Database to search [default: CATH50]
                                           (CATH50, PDB, Alphafold/UniProt50, etc.)
@@ -522,7 +522,7 @@ workflow RFD3 {
 
     // FoldSeek structural search (optional), on the same basis as the refold: the same
     // filter and ranking, with its own cap when --foldseek_search_max is set.
-    if (params.do_foldseek) {
+    if (params.do_foldseek_search) {
         SELECT_FOR_FOLDSEEK(
             ch_rf3_scored,
             refold_selection.filter,
@@ -629,7 +629,7 @@ workflow RFD3 {
     rfd3_rmsd_complex = ch_rmsd_complex
     rfd3_rmsd_binder_aligned_binder = ch_rmsd_binder_aligned_binder
     rfd3_rmsd_target_aligned_target = ch_rmsd_target_aligned_target
-    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
-    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
-    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
+    foldseek_tsv = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

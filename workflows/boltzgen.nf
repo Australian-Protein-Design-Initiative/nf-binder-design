@@ -93,8 +93,8 @@ workflow BOLTZGEN {
             --size_buckets                Optional constraint for maximum number of designs in size ranges. Format: min-max:count (e.g., '10-20:5' '20-30:10')
             --refolding_rmsd_threshold     Threshold used for RMSD-based filters (lower is better)
 
-        FoldSeek (optional, enabled with --do_foldseek):
-            --do_foldseek                 Enable FoldSeek structural similarity search on final designs
+        FoldSeek (optional, enabled with --do_foldseek_search):
+            --do_foldseek_search          Enable FoldSeek structural similarity search on final designs
             --foldseek_database           Database to search [default: CATH50]
                                            Local search (default):
                                              - CATH50 (default) — CATH domain DB, combined AF2+PDB at 50% seq.id.
@@ -315,7 +315,7 @@ workflow BOLTZGEN {
     )
 
     // Phase 8: FoldSeek structural search (optional)
-    if (params.do_foldseek) {
+    if (params.do_foldseek_search) {
         // Collect BoltzGen output structure files, then extract design chains
         ch_ranked_dir = BOLTZGEN_FILTERING.out.final_ranked_designs_dir.first()
 
@@ -347,7 +347,7 @@ workflow BOLTZGEN {
 
     emit:
     filtered_dir = BOLTZGEN_FILTERING.out.final_ranked_designs_dir
-    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
-    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
-    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
+    foldseek_tsv = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }

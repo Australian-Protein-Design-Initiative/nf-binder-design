@@ -217,12 +217,12 @@ FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See
 
 ### Enabling FoldSeek
 
-Add `--do_foldseek` to your RFD command:
+Add `--do_foldseek_search` to your RFD command:
 
 ```bash
 nextflow run main.nf --method rfd \
   --input_pdb target.pdb --contigs "[A1-100/0 70-100]" \
-  --do_foldseek
+  --do_foldseek_search
 ```
 
 ### Design Selection for FoldSeek
@@ -240,14 +240,14 @@ This means if you are already using `--refold_filter` to select designs for refo
 nextflow run main.nf --method rfd \
   --input_pdb target.pdb --contigs "[A1-100/0 70-100]" \
   --refold_filter "pae_interaction<=10;plddt_binder>=80" \
-  --do_foldseek
+  --do_foldseek_search
 
 # Or specify separate, broader filters to send more designs to FoldSeek
 nextflow run main.nf --method rfd \
   --input_pdb target.pdb --contigs "[A1-100/0 70-100]" \
   --refold_filter "pae_interaction<=10;plddt_binder>=80" \
   --foldseek_af2ig_filters "pae_interaction<=15" \
-  --do_foldseek
+  --do_foldseek_search
 ```
 
 All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).

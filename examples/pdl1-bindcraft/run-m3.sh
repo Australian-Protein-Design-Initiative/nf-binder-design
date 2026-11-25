@@ -23,4 +23,4 @@ nextflow run ${PIPELINE_DIR}/main.nf \
 # contigs defining the regions to use, eg:
 #   --contigs "[A18-132/0]"
 
-# --do_foldseek \
+# --do_foldseek_search \

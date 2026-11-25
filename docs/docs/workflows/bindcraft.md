@@ -155,19 +155,19 @@ FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See
 
 ### Enabling FoldSeek
 
-Add `--do_foldseek` to your bindcraft command:
+Add `--do_foldseek_search` to your bindcraft command:
 
 ```bash
 nextflow run main.nf --method bindcraft \
   --input_pdb target.pdb --target_chains A \
-  --do_foldseek
+  --do_foldseek_search
 ```
 
 ### FoldSeek Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--do_foldseek` | `false` | Enable FoldSeek search on accepted designs |
+| `--do_foldseek_search` | `false` | Enable FoldSeek search on accepted designs |
 
 All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
 

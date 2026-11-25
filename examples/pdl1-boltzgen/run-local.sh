@@ -11,7 +11,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --num_designs 4 \
   --batch_size 2 \
   --budget 2 \
-  --do_foldseek \
+  --do_foldseek_search \
   --foldseek_database CATH50 \
   --foldseek_databases_path "$(pwd)/../databases/foldseek" \
   -profile local \

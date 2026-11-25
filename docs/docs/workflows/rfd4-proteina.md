@@ -19,7 +19,7 @@ both backbone coordinates and an assigned binder sequence.
 3. Refolding (optional): independent structure predictors re-fold the complex and the binder monomer,
    evaluating prediction confidence, RMSD, and interface metrics using the shared
    [refold scoring](../subworkflows/refold.md) subworkflow.
-4. FoldSeek (optional): structural similarity search against CATH50 or other target databases.
+4. FoldSeek (optional): structural similarity search against CATH50 or other target databases, and structural clustering of the designs against each other.
 5. Aggregation: outputs are merged into `combined_scores.tsv` containing binder sequences and all
    computed metrics.
 
@@ -233,8 +233,12 @@ The subworkflow is implemented in `subworkflows/local/refold.nf`, accepting inpu
 `tuple(meta, structure, scores)`. Shared defaults reside in `conf/refold.config` and
 `conf/refold_fold_stack.config`.
 
-FoldSeek structural similarity search is enabled with `--do_foldseek` (see the
-[FoldSeek subworkflow](../subworkflows/foldseek.md)).
+FoldSeek structural similarity search against a database is enabled with `--do_foldseek_search`,
+and structural clustering of the run's own designs with `--do_foldseek_cluster`. These are
+two separate jobs with separate flags and output directories; clustering also adds
+`foldseek_cluster_*` columns to `combined_scores.tsv`, so designs can be ranked while
+keeping one representative per distinct fold. See the
+[FoldSeek subworkflow](../subworkflows/foldseek.md).
 
 ## Outputs
 
@@ -251,6 +255,8 @@ FoldSeek structural similarity search is enabled with `--do_foldseek` (see the
 | `<outdir>/rfd4_proteina/refold/` | Refolded structures, per-engine scores, and interface tables (with `--refold_with`) |
 | `<outdir>/rfd4_proteina/refold/refold_sample_scores.tsv` | Unaggregated per-sample scores for all refold evaluations |
 | `<outdir>/rfd4_proteina/refold/refold_selection.tsv` | Candidate selection records including verdicts, ranks, and metric values |
+| `<outdir>/foldseek/<database>/` | FoldSeek database search results (with `--do_foldseek_search`) |
+| `<outdir>/foldseek_cluster/` | Structural clusters of this run's designs (with `--do_foldseek_cluster`) |
 
 Output structure filenames follow the pattern `<design_name>_<uid>_b<task>_<example>_<replicate>.cif`.
 

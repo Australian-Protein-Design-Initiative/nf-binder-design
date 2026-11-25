@@ -63,7 +63,7 @@ params.bc2_termini_accessible = false
 params.bc2_termini_together = false
 
 // FoldSeek structural novelty search over the ranked designs (optional).
-params.do_foldseek = false
+params.do_foldseek_search = false
 params.foldseek_database = 'CATH50'
 params.foldseek_databases_path = false
 params.foldseek_use_webserver = false
@@ -226,8 +226,8 @@ workflow BC2 {
             --bc2_auto_multi_gpu    Let BindCraft2 fan out across GPUs itself [default: false]
             --bc2_af2_params        AlphaFold parameter directory (only for a no-weights image)
 
-        FoldSeek (optional, enabled with --do_foldseek):
-            --do_foldseek                 Enable FoldSeek structural similarity search on ranked designs
+        FoldSeek (optional, enabled with --do_foldseek_search):
+            --do_foldseek_search          Enable FoldSeek structural similarity search on ranked designs
             --foldseek_database           Database to search [default: ${params.foldseek_database}]
                                            Local search (default):
                                              - CATH50 (default) - CATH domain DB, combined AF2+PDB at 50% seq.id.
@@ -390,7 +390,7 @@ workflow BC2 {
         BC2_CAMPAIGN_OUTPUT.out.trajectories.ifEmpty(file("${projectDir}/assets/dummy_files/NO_BC2_TRAJECTORIES.csv")),
     )
 
-    if (params.do_foldseek) {
+    if (params.do_foldseek_search) {
         // ranked_cifs rather than the batch directories: it is populated only
         // after `bindcraft campaign_output` has re-ranked every campaign, which
         // is the point at which 3_Ranked/ is authoritative. It is also
@@ -423,6 +423,6 @@ workflow BC2 {
     summary = BC2_CAMPAIGN_OUTPUT.out.summary
     ranked = BC2_CAMPAIGN_OUTPUT.out.ranked
     report = BC2_REPORTING.out
-    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : channel.empty()
-    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : channel.empty()
+    foldseek_tsv = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv : channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv_annotated : channel.empty()
 }

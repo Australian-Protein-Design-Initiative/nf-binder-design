@@ -342,12 +342,12 @@ The binder chain is automatically extracted from each RF3 complex: only the bind
 
 ### Enabling FoldSeek
 
-Add `--do_foldseek` to your RFD3 command:
+Add `--do_foldseek_search` to your RFD3 command:
 
 ```bash
 nextflow run main.nf --method rfd3 \
   --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
-  --do_foldseek
+  --do_foldseek_search
 ```
 
 ### Design Selection for FoldSeek
@@ -364,7 +364,7 @@ nextflow run main.nf --method rfd3 \
   --input_pdb target.pdb --contigs "A17-131,/0,50-120" \
   --refold_max 100 \
   --refold_sort_by='pair_pae_min' \
-  --do_foldseek
+  --do_foldseek_search
 
 # Or search a larger set than is refolded
 nextflow run main.nf --method rfd3 \
@@ -372,14 +372,14 @@ nextflow run main.nf --method rfd3 \
   --refold_max 50 \
   --refold_sort_by='pair_pae_min' \
   --foldseek_search_max 200 \
-  --do_foldseek
+  --do_foldseek_search
 ```
 
 ### FoldSeek Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--do_foldseek` | `false` | Enable FoldSeek search on selected RF3 designs |
+| `--do_foldseek_search` | `false` | Enable FoldSeek search on selected RF3 designs |
 | `--foldseek_search_max` | *(uses `--refold_max`)* | Maximum designs to search with FoldSeek |
 
 All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).

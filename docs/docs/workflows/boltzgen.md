@@ -105,20 +105,20 @@ FoldSeek summary results are output to `{outdir}/foldseek/{database_name}/`. See
 
 ### Enabling FoldSeek
 
-Add `--do_foldseek` to your boltzgen command:
+Add `--do_foldseek_search` to your boltzgen command:
 
 ```bash
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method boltzgen \
   --config_yaml config/my_design.yaml \
-  --do_foldseek
+  --do_foldseek_search
 ```
 
 ### FoldSeek Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--do_foldseek` | `false` | Enable FoldSeek search on final designs |
+| `--do_foldseek_search` | `false` | Enable FoldSeek search on final designs |
 
 All common `--foldseek_*` flags (database, search mode, output options, CATH annotation) are documented in the [FoldSeek subworkflow docs](../subworkflows/foldseek.md#command-line-options).
 

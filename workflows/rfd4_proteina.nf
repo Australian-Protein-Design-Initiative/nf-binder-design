@@ -86,6 +86,7 @@ include {
 include { REFOLD } from '../subworkflows/local/refold'
 include { FOLDSEEK_SEARCH } from '../subworkflows/local/foldseek_search'
 include { FOLDSEEK_PREPARE_QUERIES } from '../modules/local/foldseek/foldseek_prepare_queries'
+include { FOLDSEEK_CLUSTER_DESIGNS } from '../subworkflows/local/foldseek_cluster'
 include { foldValidationValidate } from '../modules/local/fold/common/fold_validation'
 
 workflow RFD4_PROTEINA {
@@ -151,8 +152,8 @@ workflow RFD4_PROTEINA {
 
         ${refoldHelpText(params)}
 
-        FoldSeek structural search (optional, enabled with --do_foldseek):
-            --do_foldseek                 Enable FoldSeek search on the same designs selected for full refolding
+        FoldSeek structural search (optional, enabled with --do_foldseek_search):
+            --do_foldseek_search          Enable FoldSeek search on the same designs selected for full refolding
             --foldseek_search_max         Maximum designs to search with FoldSeek [default: same as --refold_max]
             --foldseek_database           Database to search [default: ${params.foldseek_database}]
             --foldseek_databases_path     Path to local databases directory (auto-downloaded if unset)
@@ -162,6 +163,22 @@ workflow RFD4_PROTEINA {
             --foldseek_gzip_output        Gzip TSV output [default: ${params.foldseek_gzip_output}]
             --foldseek_include_html_output  Include HTML report [default: ${params.foldseek_include_html_output}]
             --foldseek_cath_names_path    Path to local cath-names.txt (auto-downloaded if unset)
+
+        FoldSeek design clustering (optional, enabled with --do_foldseek_cluster):
+        Clusters this run's designs against each other to show how many structurally
+        distinct binders were produced. Unrelated to the database search above; adds
+        foldseek_cluster_* columns to combined_scores.tsv.
+            --do_foldseek_cluster         Enable all-vs-all structural clustering of the designs
+            --foldseek_cluster_max        Maximum designs to cluster [default: all]
+            --foldseek_cluster_tmscore    TM-score cluster boundary [default: ${params.foldseek_cluster_tmscore}]
+            --foldseek_cluster_coverage   Coverage threshold, -c [default: ${params.foldseek_cluster_coverage}]
+            --foldseek_cluster_min_seq_id Sequence identity threshold [default: ${params.foldseek_cluster_min_seq_id}]
+            --foldseek_cluster_multimer   Cluster whole complexes rather than binder chains,
+                                          with easy-multimercluster [default: ${params.foldseek_cluster_multimer}]
+            --foldseek_cluster_multimer_tm      Multimer TM threshold [default: ${params.foldseek_cluster_multimer_tm}]
+            --foldseek_cluster_chain_tm         Per-chain TM threshold [default: ${params.foldseek_cluster_chain_tm}]
+            --foldseek_cluster_interface_lddt   Interface lDDT threshold [default: ${params.foldseek_cluster_interface_lddt}]
+            --foldseek_cluster_extra_args Extra arguments passed to foldseek
 
         Other options:
             --require_gpu           Fail tasks without a GPU [default: ${params.require_gpu}]
@@ -335,7 +352,7 @@ workflow RFD4_PROTEINA {
         ch_refold_scores = REFOLD.out.scores
     }
 
-    if (params.do_foldseek) {
+    if (params.do_foldseek_search) {
         def foldseek_max = (params.foldseek_search_max ?: refold_selection.max)
         def ch_foldseek_input = foldseek_max
             ? ch_designs.take(foldseek_max as int)
@@ -343,6 +360,14 @@ workflow RFD4_PROTEINA {
 
         FOLDSEEK_PREPARE_QUERIES(ch_foldseek_input, 0)
         FOLDSEEK_SEARCH(FOLDSEEK_PREPARE_QUERIES.out.design_chains, Channel.of([id: 'rfd4_foldseek']))
+    }
+
+    // Structural clustering of this run's designs against each other, which is a different
+    // question from the database search above and has its own --foldseek_cluster_* flags.
+    def ch_cluster_table = Channel.empty()
+    if (params.do_foldseek_cluster) {
+        FOLDSEEK_CLUSTER_DESIGNS(ch_designs)
+        ch_cluster_table = FOLDSEEK_CLUSTER_DESIGNS.out.cluster_table
     }
 
     def ch_design_table = RFD4_GENERATE.out.design_table
@@ -362,11 +387,12 @@ workflow RFD4_PROTEINA {
         .combine(ch_refold_scores.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_refold")))
         .combine(Channel.value(rfd4BinderChain))
         .combine(ch_design_cifs)
-        .map { designs, refold_scores, binder_chain, cifs_wrapped ->
+        .combine(ch_cluster_table.ifEmpty(file("${projectDir}/assets/dummy_files/combine_placeholder_cluster")))
+        .map { designs, refold_scores, binder_chain, cifs_wrapped, cluster_table ->
             def cifs = (cifs_wrapped instanceof List && cifs_wrapped.size() == 1 && cifs_wrapped[0] instanceof List)
                 ? cifs_wrapped[0]
                 : cifs_wrapped
-            tuple(designs, refold_scores, binder_chain, cifs)
+            tuple(designs, refold_scores, binder_chain, cifs, cluster_table)
         }
 
     COMBINE_RFD4_SCORES(ch_combine_input)
@@ -376,7 +402,8 @@ workflow RFD4_PROTEINA {
     design_table = ch_design_table
     combined_scores = COMBINE_RFD4_SCORES.out.combined_scores
     binders_fasta = COMBINE_RFD4_SCORES.out.binders_fasta
-    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
-    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
-    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
+    foldseek_tsv = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.html : Channel.empty()
+    foldseek_cluster_table = ch_cluster_table
 }

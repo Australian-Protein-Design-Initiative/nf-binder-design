@@ -12,7 +12,7 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --bindcraft_n_traj 4 \
   --bindcraft_batch_size 1 \
   --bindcraft_advanced_settings_preset "default_4stage_multimer" \
-  --do_foldseek \
+  --do_foldseek_search \
   --foldseek_databases_path "$(pwd)/../databases/foldseek" \
   -profile local \
   -resume

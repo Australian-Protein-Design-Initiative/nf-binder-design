@@ -230,8 +230,8 @@ workflow BINDCRAFT {
 
         ${refoldHelpText(params)}
 
-        FoldSeek (optional, enabled with --do_foldseek):
-            --do_foldseek                 Enable FoldSeek structural similarity search on accepted designs
+        FoldSeek (optional, enabled with --do_foldseek_search):
+            --do_foldseek_search          Enable FoldSeek structural similarity search on accepted designs
             --foldseek_database           Database to search [default: CATH50]
                                            Local search (default):
                                              - CATH50 (default) — CATH domain DB, combined AF2+PDB at 50% seq.id.
@@ -493,7 +493,7 @@ workflow BINDCRAFT {
     }
 
     // Phase: FoldSeek structural search on accepted designs (optional)
-    if (params.do_foldseek) {
+    if (params.do_foldseek_search) {
         // Accepted PDBs are full complexes — extract design (shorter/binder) chains
         FOLDSEEK_PREPARE_QUERIES(BINDCRAFT_PROCESS.out.accepted_pdbs, 0)
 
@@ -508,7 +508,7 @@ workflow BINDCRAFT {
     emit:
     final_stats = ch_final_stats_merged
     refold_scores = ch_refold_scores
-    foldseek_tsv = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
-    foldseek_tsv_annotated = params.do_foldseek ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
-    foldseek_html = params.do_foldseek ? FOLDSEEK_SEARCH.out.html : Channel.empty()
+    foldseek_tsv = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv : Channel.empty()
+    foldseek_tsv_annotated = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.tsv_annotated : Channel.empty()
+    foldseek_html = params.do_foldseek_search ? FOLDSEEK_SEARCH.out.html : Channel.empty()
 }
