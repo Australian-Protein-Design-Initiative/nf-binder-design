@@ -10,7 +10,7 @@ clustering/<featurizer>/<gmm|km|hdbscan>/conformations/
 
 include { ENGENS_STAGE_STRUCTURE } from '../../modules/local/engens/engens_stage_structure'
 include { ENGENS } from '../../modules/local/engens/engens_cluster'
-include { foldNamingAf2Prefix; foldNamingFlatPrefix } from '../../modules/local/fold/common/fold_naming'
+include { foldNamingAf2Prefix; foldNamingFlatPrefix; foldNamingProtenixSeedBit } from '../../modules/local/fold/common/fold_naming'
 
 // Filter a prediction emit (often a nested directory dump) down to the
 // structure files that fold.nf also publishes into fold/predictions/.
@@ -79,7 +79,7 @@ def engensUniqueName(meta, path) {
         return "${foldNamingFlatPrefix(tool, meta)}${bn}"
     }
     if (bn ==~ /.*_sample_\d+\.cif/) {
-        return "${foldNamingFlatPrefix('protenix', meta)}${bn}"
+        return "${foldNamingFlatPrefix('protenix', meta)}${foldNamingProtenixSeedBit(path)}${bn}"
     }
     def batch = meta.fold_batch != null ? "_batch${meta.fold_batch}" : ''
     return "${meta.id}${batch}${msa_bit}_${bn}"
