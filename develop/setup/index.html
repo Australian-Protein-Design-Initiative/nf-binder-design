@@ -90,11 +90,11 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../workflows/rfd3/">RFdiffusion3</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../workflows/rfd4-proteina/">RFD4-Proteina</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/rfd4-proteina/">RFD4-Proteina (in development)</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../workflows/bindcraft/">BindCraft</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../workflows/bc2/">BindCraft2</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../workflows/bc2/">BindCraft2 (in development)</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../workflows/germinal/">Germinal</a>
                   </li>
@@ -263,6 +263,13 @@ Pull requests for additional HPC clusters are welcome!</p>
 <p>In addition (on instead of) using a pre-defined <code>-profile</code>, you can use the <code>-c</code> flag to specify the path to a configuration file:</p>
 <pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design -c conf/platforms/m3.config  # etc ...
 </code></pre>
+<div class="admonition warning">
+<p class="admonition-title"><code>--method</code> must be a command line argument</p>
+<p>Any parameter can go in a <code>-c</code> config file except <code>--method</code>. The pipeline picks
+each entrypoint's fold-stack defaults from <code>--method</code> while <code>nextflow.config</code> is
+being parsed, and a <code>-c</code> file is read after that. A run with <code>method</code> set in a
+config file stops with an error rather than running with the wrong defaults.</p>
+</div>
 <h4 id="hpc-cluster-environment-variables">HPC Cluster environment variables</h4>
 <p>Set up your Apptainer cache directory to store downloaded containers:</p>
 <pre><code class="language-bash"># Add to your ~/.bashrc or set before running

@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="author" content="pansapiens" /><link rel="canonical" href="https://australian-protein-design-initiative.github.io/nf-binder-design/develop/workflows/rfd4-proteina/" />
       <link rel="shortcut icon" href="../../img/favicon.ico" />
-    <title>RFD4-Proteina - nf-binder-design</title>
+    <title>RFD4-Proteina (in development) - nf-binder-design</title>
     <link rel="stylesheet" href="../../css/theme.css" />
     <link rel="stylesheet" href="../../css/theme_extra.css" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
@@ -14,7 +14,7 @@
     
       <script>
         // Current page data
-        var mkdocs_page_name = "RFD4-Proteina";
+        var mkdocs_page_name = "RFD4-Proteina (in development)";
         var mkdocs_page_input_path = "workflows/rfd4-proteina.md";
         var mkdocs_page_url = "/nf-binder-design/develop/workflows/rfd4-proteina/";
       </script>
@@ -60,7 +60,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../rfd3/">RFdiffusion3</a>
                   </li>
-                  <li class="toctree-l1 current"><a class="reference internal current" href="#">RFD4-Proteina</a>
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">RFD4-Proteina (in development)</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#workflow-overview">Workflow overview</a>
     </li>
@@ -76,8 +76,12 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#parameters">Parameters</a>
         <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#hydra-config-overrides">Hydra config overrides</a>
+    </li>
     <li class="toctree-l3"><a class="reference internal" href="#refold-validation">Refold validation</a>
         <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#apo-refolding-optional">Apo refolding (optional)</a>
+    </li>
     <li class="toctree-l4"><a class="reference internal" href="#sample-generation-and-aggregation">Sample generation and aggregation</a>
     </li>
         </ul>
@@ -94,7 +98,7 @@
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../bindcraft/">BindCraft</a>
                   </li>
-                  <li class="toctree-l1"><a class="reference internal" href="../bc2/">BindCraft2</a>
+                  <li class="toctree-l1"><a class="reference internal" href="../bc2/">BindCraft2 (in development)</a>
                   </li>
                   <li class="toctree-l1"><a class="reference internal" href="../germinal/">Germinal</a>
                   </li>
@@ -152,7 +156,7 @@
   <ul class="wy-breadcrumbs">
     <li><a href="../.." class="icon icon-home" aria-label="Docs"></a></li>
           <li class="breadcrumb-item">Workflows</li>
-      <li class="breadcrumb-item active">RFD4-Proteina</li>
+      <li class="breadcrumb-item active">RFD4-Proteina (in development)</li>
     <li class="wy-breadcrumbs-aside">
           <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/edit/master/docs/workflows/rfd4-proteina.md" class="icon icon-github"> Edit on GitHub</a>
     </li>
@@ -163,6 +167,10 @@
             <div class="section" itemprop="articleBody">
               
                 <h1 id="rfd4-proteina-workflow">RFD4-Proteina Workflow</h1>
+<div class="admonition warning">
+<p class="admonition-title">Under development</p>
+<p>The RFD4-Proteina workflow is currently under development. It is not feature complete and is not yet well tested.</p>
+</div>
 <p>The <code>--method rfd4_proteina</code> workflow designs binders with
 <a href="https://github.com/RosettaCommons/RFD4-Proteina">RFD4-Proteina</a>, the flow-matching biomolecular
 design model from the Baker Lab and NVIDIA GenAIR.</p>
@@ -210,7 +218,8 @@ author numbering. PyMOL displays <code>auth_seq_id</code> unless configured with
 <h3 id="parameter-generation-mode">Parameter generation mode</h3>
 <p>For standard binder design against a single target structure, specifying <code>--input_pdb</code> with <code>--contigs</code>
 generates a specification file automatically. This uses standard protein binder defaults: target
-backbone geometry as a free-pose coordinate group, fixed target sequence, and specified hotspots:</p>
+backbone geometry as a free-pose coordinate group, fixed target sequence, cysteines excluded from
+the binder, and specified hotspots:</p>
 <pre><code class="language-bash">nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
   --method rfd4_proteina \
   --input_pdb PDL1.cif \
@@ -218,8 +227,15 @@ backbone geometry as a free-pose coordinate group, fixed target sequence, and sp
   --hotspot_res &quot;A56,A115,A123&quot; \
   --rfd4_n_designs 20
 </code></pre>
-<p>The generated specification is saved to <code>&lt;outdir&gt;/rfd4_proteina/&lt;design_name&gt;.json</code> and can be copied
-and modified for custom runs.</p>
+<p>When <code>--contigs</code> has a single unnamed designed segment, the generated contig names it <code>BINDER</code>
+(<code>"BINDER:50-120, /0, A17-131"</code>) and adds <code>C_SEQ_PROB_CYS: {0.0: [{select: "sel('*/BINDER')"}]}</code>
+to exclude cysteines. If you name the designed segment in <code>--contigs</code> (with or without a space after
+the colon, e.g. <code>"BINDER: 50-120, /0, A17-131"</code>), the pipeline preserves that name and targets it
+with <code>C_SEQ_PROB_CYS</code>. Contigs with multiple designed segments are left unnamed and do not include a
+cysteine exclusion.</p>
+<p>The generated specification is saved to <code>&lt;outdir&gt;/rfd4_proteina/input/config/&lt;design_name&gt;.json</code> and can be copied
+and modified for custom runs. To allow cysteines, copy that file, drop the <code>C_SEQ_PROB_CYS</code>
+condition, and pass it with <code>--rfd4_config</code>.</p>
 <h3 id="contig-syntax">Contig syntax</h3>
 <p>RFD4-Proteina contig strings use a comma-separated format:</p>
 <table>
@@ -359,6 +375,11 @@ and binder <code>B</code>. Custom chain IDs can be set using <code>--rfd4_target
 <td>Additional Hydra <code>key=value</code> overrides passed to <code>rfd4-generate</code></td>
 </tr>
 <tr>
+<td><code>--rfd4_metrics_config_dir</code></td>
+<td><code>assets/rfd4_proteina/hydra_overrides</code></td>
+<td>Hydra config directory prepended to <code>rfd4-generate</code>'s config search path; <code>false</code> for none</td>
+</tr>
+<tr>
 <td><code>--rfd4_target_chain</code></td>
 <td>derived</td>
 <td>Target chain ID in output complex</td>
@@ -372,10 +393,65 @@ and binder <code>B</code>. Custom chain IDs can be set using <code>--rfd4_target
 </table>
 <p><code>rfd4-generate</code> uses <a href="https://hydra.cc">Hydra</a>, so <code>--rfd4_extra_args</code> accepts <code>key=value</code> pairs
 (for example, <code>--rfd4_extra_args "generation.args.guidance_w=1.2 precision=bf16-mixed"</code>).</p>
+<h3 id="hydra-config-overrides">Hydra config overrides</h3>
+<p>Use <code>--rfd4_extra_args</code> to override individual parameters, and <code>--rfd4_metrics_config_dir</code> to supply
+whole Hydra config files without shell quoting. <code>--rfd4_metrics_config_dir</code> prepends your directory
+to <code>rfd4-generate</code>'s config search path using RFD4-Proteina's <code>configs/</code> layout (for example,
+<code>metrics/pass_criteria/all_pass_criteria.yaml</code> for pass thresholds or
+<code>metrics/custom_metrics/all_custom_metrics.yaml</code> to add or adjust metrics).</p>
+<p>Hydra uses the first matching file on the search path, so an override file only takes effect if the
+container does not already include one with the same group and name. Put metric changes in
+<code>all_custom_metrics.yaml</code>: RFD4-Proteina's <code>metrics/all_metrics.yaml</code> ends its defaults list with
+<code>optional custom_metrics: all_custom_metrics</code> and has no built-in file at that path, so Hydra loads
+yours from the search path and merges it last. Set the <code># @package</code> header on the first line to
+specify the target config namespace and override metrics defined in earlier groups.</p>
+<p>The default directory, <a href="https://github.com/australian-protein-design-initiative/nf-binder-design/tree/main/assets/rfd4_proteina/hydra_overrides"><code>assets/rfd4_proteina/hydra_overrides</code></a>,
+includes one fix. <code>refolded_target_aligned_binder_rmsd</code> and
+<code>refolded_target_backbone_aligned_binder_rmsd</code> superimpose on target atoms selected with
+<code>sa_mask('C_CRD')</code>, whereas a target conditioned with <code>C_CRDGRP</code> (the default in this pipeline and
+the RFD4-Proteina PPI cookbook) is flagged <code>C_INTCRD</code>. Without this override, the mask is empty,
+the two RMSDs are omitted, and both <code>rfd4_ppi_all_metrics_present</code> and <code>rfd4_ppi_pass</code> are <code>0</code> for
+every design. The override selects either condition, matching <code>oracle_ppi</code> in the container's
+<code>metrics/refolding_oracles/af3.yaml</code>. Pass <code>--rfd4_metrics_config_dir false</code> to use the container's
+configs unchanged.</p>
 <h3 id="refold-validation">Refold validation</h3>
-<p>RFD4-Proteina's own inline metrics run by default (<code>--rfd4_metrics_tags
-ppi_refolding,hotspot_conditioning</code>), using the OpenFold3 weights baked into the container; set
-<code>--rfd4_metrics_tags false</code> to disable them. Designs are additionally
+<p>RFD4-Proteina's inline metrics run by default (<code>--rfd4_metrics_tags
+ppi_refolding,hotspot_conditioning</code>) using the OpenFold3 weights in the container; set
+<code>--rfd4_metrics_tags false</code> to disable them. The
+<a href="https://rfd4-proteina.org/latest/how-to/refolding.html">full tag list</a> includes tags for other
+design tasks (<code>antibody</code>, <code>dna_refolding</code>, <code>sm_binder_refolding</code>, <code>motif_scaffold_refolding</code>, and
+others). Metrics without a matching tag in <code>--rfd4_metrics_tags</code> are not computed.</p>
+<p>Per-design values are merged into <code>combined_scores.tsv</code> with an <code>rfd4_</code> prefix and dots replaced by
+underscores (for example, <code>rfd4_oracle_ppi_overall_iptm</code>, <code>rfd4_oracle_ppi_plddt_coi</code>,
+<code>rfd4_hotspot_obedience_hotspot_obedience</code>, <code>rfd4_refolded_backbone_rmsd_rmsd</code>, and
+<code>rfd4_ppi_pass</code>). Repeated Hydra configuration columns from <code>per_example_metrics.csv</code> are dropped.
+<code>rfd4_oracle_ppi_refolded_structure_path</code> and <code>rfd4_oracle_ppi_confidence_json_path</code> are rewritten
+to point to <code>batches/batch&lt;n&gt;/</code> relative to <code>&lt;outdir&gt;/rfd4_proteina/</code>. Although <code>ppi_refolding</code>
+runs OpenFold3, its internal filenames use the <code>af3_ppi</code> prefix.</p>
+<h4 id="apo-refolding-optional">Apo refolding (optional)</h4>
+<p>Adding <code>apo_refolding</code> to <code>--rfd4_metrics_tags</code> refolds the designed chain alone without the target:</p>
+<pre><code class="language-bash">--rfd4_metrics_tags ppi_refolding,apo_refolding,hotspot_conditioning
+</code></pre>
+<p>This tests whether the binder retains its designed fold in isolation rather than depending on the
+target interface for stability. Confidence metrics are recorded in <code>rfd4_oracle_apo_apo_overall_plddt</code>
+and <code>rfd4_oracle_apo_apo_overall_ptm</code>.</p>
+<p>Rank designs on <code>rfd4_refolded_apo_holo_rmsd_apo_rmsd</code>, which measures the backbone RMSD between
+the apo refold and the complex refold. A low value indicates a pre-organised binder; a high value
+indicates that the binder only adopts the designed conformation when bound to the target.</p>
+<p>Because this RMSD compares both predictions, pair <code>apo_refolding</code> with a complex refolding tag such
+as <code>ppi_refolding</code>. Running <code>--rfd4_metrics_tags apo_refolding</code> alone still computes apo confidence
+metrics, but omits the apo/holo RMSD. <code>rfd4_ppi_pass</code> does not include an apo threshold and is
+unchanged.</p>
+<p><code>apo_refolding</code> is disabled by default because it adds a second refold for every generated design
+(including those that fail <code>rfd4_ppi_pass</code>), and <code>--refold_with</code> already performs monomer refolding
+on the subset selected by <code>--refold_select</code> via <code>--refold_binder_monomer</code> (default <code>true</code>, reporting
+<code>&lt;tool&gt;_monomer_vs_complex_rmsd_all</code> and <code>&lt;tool&gt;_monomer_vs_design_rmsd_all</code>). Enable
+<code>apo_refolding</code> when you run RFD4-Proteina's inline metrics without a <code>--refold_with</code> stage.</p>
+<p>Running <code>apo_refolding</code> offline with <code>rfd4-evaluate</code> on only passing designs is not currently
+reliable: <code>rfd4-evaluate</code> parses structures without conditioning annotations, so chain selection
+falls back to a heuristic that can misidentify the binder as the target and refold the wrong chain
+with only a warning.</p>
+<p>Designs are additionally
 validated downstream: each generated binder sequence is re-folded against its target structure using
 independent prediction engines to score interface metrics and pose accuracy.</p>
 <p>See <a href="../../subworkflows/refold/">Refold Scoring</a> for shared options:</p>
@@ -434,12 +510,12 @@ as CLI flags. Selection decisions are recorded in <code>refold/refold_selection.
 </tbody>
 </table>
 <h4 id="sample-generation-and-aggregation">Sample generation and aggregation</h4>
-<p>By default, refolding runs <code>--n_predictions 5</code> structures per design per engine as 5 separate
-single-sample jobs with distinct seeds (42, 43, ...) rather than one job with 5 samples. Engines that
+<p>By default, refolding runs <code>--n_predictions 5</code> structures per design per engine across 5 separate
+single-sample jobs with distinct seeds (42, 43, ...), instead of one job with 5 samples. Engines that
 batch samples internally share trunk computation across samples, meaning multiple samples from one seed
 differ only in diffusion noise, whereas multiple seeds evaluate independent trajectories. Running
 separate seeds incurs additional model loading overhead (roughly 45 seconds per load for Boltz on a GB10).</p>
-<p>Batching behaviour is controlled per engine via <code>--refold_&lt;engine&gt;_batch_size</code> (and <code>--protenix_batch_size</code>).
+<p>Control per-engine batching behaviour via <code>--refold_&lt;engine&gt;_batch_size</code> (and <code>--protenix_batch_size</code>).
 For example, <code>--n_predictions 6 --refold_boltz_batch_size 3</code> runs 2 seeds with 3 samples each.</p>
 <p>Engines that support multi-seed execution within a single task (<code>esmfold2</code>, <code>esmfold2_fast</code>, <code>openfold3</code>,
 <code>protenix</code>, and <code>af3</code> via <code>--af3_seeds</code>) execute all seeds in one invocation to minimize loading
@@ -471,8 +547,8 @@ overhead. Boltz and RF3 execute one task per seed. Disable grouping across all e
 metrics correspond to a physically consistent coordinate set. Selecting on the same metric used for
 confidence ranking ensures <code>&lt;tool&gt;_ipsae_max</code> and <code>&lt;tool&gt;_complex_rmsd_all</code> describe the identical
 predicted structure. <code>&lt;tool&gt;_selected_batch</code> and <code>&lt;tool&gt;_selected_model</code> identify the source sample.</p>
-<p><code>refold_sample_scores.tsv</code> records unaggregated values for all samples. Setting
-<code>--refold_structure_stat min|mean|max|first</code> applies that single operator across all structural columns.</p>
+<p>Unaggregated per-sample values are written to <code>refold_sample_scores.tsv</code>. Set
+<code>--refold_structure_stat min|mean|max|first</code> to apply a single operator across all structural columns.</p>
 <table>
 <thead>
 <tr>
@@ -559,12 +635,24 @@ parameters: <code>--refold_rf3_ckpt_path</code>, <code>--refold_rf3_num_steps</c
 </thead>
 <tbody>
 <tr>
+<td><code>&lt;outdir&gt;/rfd4_proteina/input/config/&lt;design_name&gt;.json</code></td>
+<td>Generated condition spec (parameter mode)</td>
+</tr>
+<tr>
+<td><code>&lt;outdir&gt;/rfd4_proteina/input/prepared/</code></td>
+<td>Input structure converted to mmCIF</td>
+</tr>
+<tr>
 <td><code>&lt;outdir&gt;/rfd4_proteina/designs/</code></td>
 <td>Generated complex structures (one mmCIF per design)</td>
 </tr>
 <tr>
 <td><code>&lt;outdir&gt;/rfd4_proteina/designs/rfd4_designs_batch*.tsv</code></td>
 <td>Design identifier, source example, and seed per batch</td>
+</tr>
+<tr>
+<td><code>&lt;outdir&gt;/rfd4_proteina/batches/batch&lt;n&gt;/</code></td>
+<td>Raw <code>rfd4-generate</code> run directory for each batch: inference metrics, and each sample's generated structure with the inline refold and its confidences</td>
 </tr>
 <tr>
 <td><code>&lt;outdir&gt;/rfd4_proteina/combined_scores.tsv</code></td>
@@ -611,7 +699,7 @@ Protenix, BindCraft, and FoldSeek. Current arm64 platform limitations:</p>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">RF3 on GB10 requires the <code>-ngc2606</code> container image</p>
-<p><code>rc-foundry:0.2.0_arm64-weights</code> is compiled against CUDA 12.8, whose nvrtc compiler does not
+<p><code>rc-foundry:0.2.0_arm64-weights</code> is compiled against CUDA 12.8; its nvrtc compiler does not
 target <code>sm_121</code>. PyTorch's jiterator compiles <code>erfinv</code> for the host architecture, causing RF3 to
 fail with <code>nvrtc: error: invalid value for --gpu-architecture (-arch)</code>. The configuration points
 to <code>0.2.0_arm64-weights-ngc2606</code>, built on CUDA 13.3, resolving this issue.</p>
@@ -630,6 +718,9 @@ The arm64 container image compiles support for <code>sm_120</code> and <code>sm_
 <li>Slow initial task execution: <code>torch.compile</code> warms up the model trunk during the first run.
   This compilation occurs once per execution; for rapid testing, specify <code>--rfd4_compile_lengths false</code>
   and <code>--rfd4_inference_experiment quickstart</code>.</li>
+<li><code>rfd4_ppi_pass</code> is <code>0</code> for every design and target-aligned binder RMSDs are missing: the
+  container's align masks do not match <code>C_CRDGRP</code>-conditioned targets. Verify that the default
+  <code>--rfd4_metrics_config_dir</code> overlay is enabled (see <a href="#hydra-config-overrides">Hydra config overrides</a>).</li>
 <li>Out of memory: decrease <code>--rfd4_batch_size</code> to 1. Memory consumption scales with total sequence
   length across both target and binder chains.</li>
 </ul>
