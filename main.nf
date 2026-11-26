@@ -17,7 +17,9 @@ params.outdir = 'results'
 // The strict syntax requires includes at the top level, so every method's workflow is
 // included whether or not it is the one selected; --method picks the one to run in the
 // entry workflow below. Each workflow's `params.<name> = <default>` lines stay private
-// to that script, so including them all does not cross-contaminate their defaults.
+// to that script, so including them all does not cross-contaminate their defaults - but
+// for the same reason a subworkflow or module that reads params.<name> directly sees
+// null, so any default read outside the workflow script belongs in a config.
 include { RFD } from './workflows/rfd'
 include { RFD_PARTIAL } from './workflows/rfd_partial'
 include { BINDCRAFT } from './workflows/bindcraft'
@@ -82,6 +84,16 @@ workflow {
 
         """.stripIndent()
         )
+        exit(1)
+    }
+
+    // nextflow.config picks the fold-stack defaults from --method while it is being
+    // parsed, which only works for a --method given on the command line: a -c config
+    // is read afterwards, so its params.method is invisible there and the run would
+    // fold with another entrypoint's defaults.
+    def expected_fold_stack = params.method in ['fold', 'fold_pulldown'] ? params.method : 'refold'
+    if (params.fold_stack != expected_fold_stack) {
+        log.error("--method ${params.method} needs conf/${expected_fold_stack == 'refold' ? 'refold_fold_stack' : expected_fold_stack}.config, but conf/${params.fold_stack == 'refold' ? 'refold_fold_stack' : params.fold_stack}.config was loaded. Pass --method on the command line rather than setting it in a -c config file.")
         exit(1)
     }
 

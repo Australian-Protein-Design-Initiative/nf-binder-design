@@ -146,6 +146,13 @@ In addition (on instead of) using a pre-defined `-profile`, you can use the `-c`
 nextflow run Australian-Protein-Design-Initiative/nf-binder-design -c conf/platforms/m3.config  # etc ...
 ```
 
+!!! warning "`--method` must be a command line argument"
+
+    Any parameter can go in a `-c` config file except `--method`. The pipeline picks
+    each entrypoint's fold-stack defaults from `--method` while `nextflow.config` is
+    being parsed, and a `-c` file is read after that. A run with `method` set in a
+    config file stops with an error rather than running with the wrong defaults.
+
 #### HPC Cluster environment variables
 
 Set up your Apptainer cache directory to store downloaded containers:
