@@ -7,7 +7,6 @@
 PIPELINE_DIR=../../
 
 nextflow run ${PIPELINE_DIR}/main.nf \
-  -c nextflow.docker.config \
   -c nextflow.dual-gpu.config \
   --method rfd4_proteina \
   --design_name pdl1 \

@@ -5,7 +5,6 @@
 PIPELINE_DIR=../../
 
 nextflow run ${PIPELINE_DIR}/main.nf \
-  -c nextflow.docker.config \
   --method rfd4_proteina \
   --design_name pdl1 \
   --input_pdb 'input/PDL1.pdb' \

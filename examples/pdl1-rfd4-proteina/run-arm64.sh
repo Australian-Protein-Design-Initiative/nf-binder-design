@@ -4,10 +4,6 @@
 # combine. conf/platforms/arm64.config swaps the amd64-only images for their arm64 builds, without
 # which the post-generation steps fail with `exec format error`.
 #
-# boltz, esmfold2, esmfold2_fast and rf3 have arm64 images, so any of them can go in
-# --refold_with here. RF3's own flags are --refold_rf3_* in this workflow, since the
-# plain --rf3_* names belong to the design-time RF3 step in --method rfd3.
-#
 # Kept small on purpose. Raise --rfd4_n_designs and drop the quickstart settings for a real run.
 
 PIPELINE_DIR=../../

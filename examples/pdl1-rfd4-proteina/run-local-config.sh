@@ -6,7 +6,6 @@
 PIPELINE_DIR=../../
 
 nextflow run ${PIPELINE_DIR}/main.nf \
-  -c nextflow.docker.config \
   --method rfd4_proteina \
   --rfd4_config pdl1_rfd4.yaml \
   --outdir results \
