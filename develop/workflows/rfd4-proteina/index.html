@@ -365,6 +365,16 @@ and binder <code>B</code>. Custom chain IDs can be set using <code>--rfd4_target
 <td>Keeps input backbone fixed and resamples sequence only</td>
 </tr>
 <tr>
+<td><code>--rfd4_refold_oracle</code></td>
+<td><code>openfold3</code></td>
+<td>Names the <code>refolded/&lt;oracle&gt;/</code> subdirectory the inline refolds are published to; set <code>alphafold3</code> when AlphaFold 3 weights are mounted</td>
+</tr>
+<tr>
+<td><code>--rfd4_gzip_batch_cifs</code></td>
+<td><code>true</code></td>
+<td>Gzip the mmCIFs under <code>batches/</code></td>
+</tr>
+<tr>
 <td><code>--rfd4_filters</code></td>
 <td></td>
 <td>Semicolon-separated filters applied to generated designs (e.g. <code>rg&lt;25</code>)</td>
@@ -428,6 +438,14 @@ underscores (for example, <code>rfd4_oracle_ppi_overall_iptm</code>, <code>rfd4_
 <code>rfd4_oracle_ppi_refolded_structure_path</code> and <code>rfd4_oracle_ppi_confidence_json_path</code> are rewritten
 to point to <code>batches/batch&lt;n&gt;/</code> relative to <code>&lt;outdir&gt;/rfd4_proteina/</code>. Although <code>ppi_refolding</code>
 runs OpenFold3, its internal filenames use the <code>af3_ppi</code> prefix.</p>
+<p>A copy of each refolded structure is also published to
+<code>&lt;outdir&gt;/rfd4_proteina/refolded/&lt;oracle&gt;/</code>, flattened out of the per-batch run directories and
+prefixed with the design id so the names stay unique. <code>&lt;oracle&gt;</code> names the weights used:
+<code>--rfd4_refold_oracle</code> defaults to <code>openfold3</code>, matching the weights baked into the container.
+Set it to <code>alphafold3</code> when you mount AlphaFold 3 weights at runtime. These copies are left
+uncompressed; the mmCIFs under <code>batches/</code> are gzipped by default (<code>--rfd4_gzip_batch_cifs false</code>
+keeps them plain), and the <code>rfd4_oracle_*_path</code> columns in <code>combined_scores.tsv</code> carry the
+matching <code>.gz</code> suffix.</p>
 <h4 id="apo-refolding-optional">Apo refolding (optional)</h4>
 <p>Adding <code>apo_refolding</code> to <code>--rfd4_metrics_tags</code> refolds the designed chain alone without the target:</p>
 <pre><code class="language-bash">--rfd4_metrics_tags ppi_refolding,apo_refolding,hotspot_conditioning
@@ -652,7 +670,11 @@ parameters: <code>--refold_rf3_ckpt_path</code>, <code>--refold_rf3_num_steps</c
 </tr>
 <tr>
 <td><code>&lt;outdir&gt;/rfd4_proteina/batches/batch&lt;n&gt;/</code></td>
-<td>Raw <code>rfd4-generate</code> run directory for each batch: inference metrics, and each sample's generated structure with the inline refold and its confidences</td>
+<td>Raw <code>rfd4-generate</code> run directory for each batch: inference metrics, and each sample's generated structure with the inline refold and its confidences. The mmCIFs here are gzipped unless <code>--rfd4_gzip_batch_cifs false</code></td>
+</tr>
+<tr>
+<td><code>&lt;outdir&gt;/rfd4_proteina/refolded/&lt;oracle&gt;/</code></td>
+<td>The inline refolded structures, flattened out of the batch directories and batch-prefixed (<code>&lt;design_name&gt;_&lt;uid&gt;_b&lt;task&gt;_&lt;example&gt;_af3_ppi_refolded.cif</code>). <code>&lt;oracle&gt;</code> is <code>--rfd4_refold_oracle</code> (<code>openfold3</code> by default)</td>
 </tr>
 <tr>
 <td><code>&lt;outdir&gt;/rfd4_proteina/combined_scores.tsv</code></td>
