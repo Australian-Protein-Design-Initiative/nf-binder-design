@@ -161,6 +161,11 @@ workflow RFD4_PROTEINA {
                                   and so on. The default fixes the target-aligned binder RMSD
                                   metrics for C_CRDGRP targets; false uses the container's configs
                                   unchanged. [default: assets/rfd4_proteina/hydra_overrides]
+            --rfd4_refold_oracle  Names the subdirectory the inline refolds are published to,
+                                  refolded/<oracle>/. Set alphafold3 if you mounted AlphaFold 3
+                                  weights; the container refolds with OpenFold3 otherwise.
+                                  [default: ${params.rfd4_refold_oracle}]
+            --rfd4_gzip_batch_cifs  Gzip the .cif files under batches/ [default: ${params.rfd4_gzip_batch_cifs}]
             --rfd4_filters        Semicolon-separated filters for generated designs, eg "rg<25" [default: disabled]
             --rfd4_target_chain   Target chain id in the generated complex [default: derived from --contigs, else A]
             --rfd4_binder_chain   Binder chain id in the generated complex [default: derived from --contigs, else B]

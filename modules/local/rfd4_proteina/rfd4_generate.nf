@@ -10,6 +10,9 @@ process RFD4_GENERATE {
     // generated structure alongside the inline refold and its confidences. saveAs names the
     // directory, and interpolates a process input, so both it and path must be closures.
     publishDir path: { "${params.outdir}/rfd4_proteina/batches" }, pattern: 'rundir', mode: 'copy', saveAs: { "batch${batch_index}" }
+    // The inline refolds, flattened out of the run directory and batch-prefixed so they do not
+    // clobber each other. The subdirectory names the oracle weights the container refolded with.
+    publishDir path: { "${params.outdir}/rfd4_proteina/refolded/${params.rfd4_refold_oracle}" }, pattern: 'refolded/*', mode: 'copy', saveAs: { fn -> file(fn).name }
 
     input:
     path config_spec
@@ -27,6 +30,7 @@ process RFD4_GENERATE {
     path "rfd4_designs_batch${batch_index}.tsv", emit: design_table
     path 'rundir/inference_metrics/per_example_metrics.csv', emit: per_example_metrics, optional: true
     path 'rundir', emit: rundir
+    path 'refolded/*', emit: refolded, optional: true
 
     script:
     def nsteps_arg = params.rfd4_nsteps ? "generation.args.nsteps=${params.rfd4_nsteps}" : ''
@@ -50,6 +54,11 @@ process RFD4_GENERATE {
     def searchpath_arg = '"hydra.searchpath=[file://$(pwd)/hydra_overrides]"'
     def extra_args_str = extra_args ?: ''
     def spec_name = "${design_name}_b${batch_index}.json"
+    // Gzipped after collection, so the flat designs/ and refolded/ copies stay uncompressed
+    def gzip_batch = !rfd4IsFalse(params.rfd4_gzip_batch_cifs)
+    def gzip_paths_arg = gzip_batch ? '--run-cifs-gzipped' : ''
+    def gzip_cmd = gzip_batch ? "\n    find rundir -name '*.cif' -type f -print0 | xargs -0 -r gzip -f\n" : ''
+
     """
     set -euo pipefail
 
@@ -117,7 +126,10 @@ process RFD4_GENERATE {
         --batch ${batch_index} \\
         --seed ${seed} \\
         -o output \\
+        --refolded-dir refolded \\
+        ${gzip_paths_arg} \\
         --tsv rfd4_designs_batch${batch_index}.tsv
+${gzip_cmd}
     """
 }
 

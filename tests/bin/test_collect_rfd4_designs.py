@@ -17,7 +17,7 @@ import csv
 import importlib.util
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from unittest import mock
 
 import pytest
@@ -51,6 +51,8 @@ def make_run_dir(tmp_path: Path, with_metrics: bool = True) -> Path:
         sample_dir = run_dir / "inference_samples" / example
         sample_dir.mkdir(parents=True)
         (sample_dir / f"{example}_generated.cif").write_text("data_x\n")
+        (sample_dir / f"{example}_af3_ppi_refolded.cif").write_text("data_ppi\n")
+        (sample_dir / f"{example}_apo_af3_apo_refolded.cif").write_text("data_apo\n")
     if with_metrics:
         metrics_dir = run_dir / "inference_metrics"
         metrics_dir.mkdir()
@@ -58,7 +60,12 @@ def make_run_dir(tmp_path: Path, with_metrics: bool = True) -> Path:
     return run_dir
 
 
-def run_collect(run_dir: Path, tmp_path: Path, batch: str = "3") -> List[dict]:
+def run_collect(
+    run_dir: Path,
+    tmp_path: Path,
+    batch: str = "3",
+    extra_args: Optional[List[str]] = None,
+) -> List[dict]:
     tsv = tmp_path / "designs.tsv"
     argv = [
         "collect_rfd4_designs.py",
@@ -73,7 +80,7 @@ def run_collect(run_dir: Path, tmp_path: Path, batch: str = "3") -> List[dict]:
         str(tmp_path / "output"),
         "--tsv",
         str(tsv),
-    ]
+    ] + (extra_args or [])
     with mock.patch.object(sys, "argv", argv):
         collect.main()
     with open(tsv, newline="") as handle:
@@ -147,3 +154,31 @@ def test_a_metrics_csv_without_example_id_is_rejected(tmp_path: Path) -> None:
     (run_dir / "inference_metrics" / "per_example_metrics.csv").write_text("a,b\n1,2\n")
     with pytest.raises(SystemExit, match="no example_id column"):
         run_collect(run_dir, tmp_path)
+
+
+def test_refolds_are_named_after_the_design_they_refold(tmp_path: Path) -> None:
+    refolded = tmp_path / "refolded"
+    rows = run_collect(
+        make_run_dir(tmp_path), tmp_path, batch="0", extra_args=["--refolded-dir", str(refolded)]
+    )
+
+    # Each name is the design id plus the suffix naming the oracle run
+    design_ids = [r["id"] for r in rows]
+    assert sorted(p.name for p in refolded.iterdir()) == sorted(
+        f"{design_id}{suffix}"
+        for design_id in design_ids
+        for suffix in ("_af3_ppi_refolded.cif", "_apo_af3_apo_refolded.cif")
+    )
+    assert design_ids == ["pdl1_b0_pdl1_0", "pdl1_b0_pdl1_1"]
+    # The generated designs themselves are not swept up as refolds
+    assert (refolded / "pdl1_b0_pdl1_0_af3_ppi_refolded.cif").read_text() == "data_ppi\n"
+
+
+def test_run_paths_gain_a_gz_suffix_when_the_batch_is_gzipped(tmp_path: Path) -> None:
+    rows = run_collect(
+        make_run_dir(tmp_path), tmp_path, batch="7", extra_args=["--run-cifs-gzipped"]
+    )
+    assert (
+        rows[0]["rfd4_oracle_ppi_refolded_structure_path"]
+        == "batches/batch7/inference_samples/pdl1_0/pdl1_0_af3_ppi_refolded.cif.gz"
+    )

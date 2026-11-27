@@ -122,6 +122,8 @@ Each contig must include at least one preserved segment.
 | `--rfd4_compile_lengths` | `true` | Set to `false` to execute trunk eagerly without `torch.compile` warm-up |
 | `--rfd4_partial_trajectory_fraction` | | Partial diffusion: executes only the specified final fraction of `nsteps` |
 | `--rfd4_inverse_folding` | `false` | Keeps input backbone fixed and resamples sequence only |
+| `--rfd4_refold_oracle` | `openfold3` | Names the `refolded/<oracle>/` subdirectory the inline refolds are published to; set `alphafold3` when AlphaFold 3 weights are mounted |
+| `--rfd4_gzip_batch_cifs` | `true` | Gzip the mmCIFs under `batches/` |
 | `--rfd4_filters` | | Semicolon-separated filters applied to generated designs (e.g. `rg<25`) |
 | `--rfd4_extra_args` | | Additional Hydra `key=value` overrides passed to `rfd4-generate` |
 | `--rfd4_metrics_config_dir` | `assets/rfd4_proteina/hydra_overrides` | Hydra config directory prepended to `rfd4-generate`'s config search path; `false` for none |
@@ -172,6 +174,15 @@ underscores (for example, `rfd4_oracle_ppi_overall_iptm`, `rfd4_oracle_ppi_plddt
 `rfd4_oracle_ppi_refolded_structure_path` and `rfd4_oracle_ppi_confidence_json_path` are rewritten
 to point to `batches/batch<n>/` relative to `<outdir>/rfd4_proteina/`. Although `ppi_refolding`
 runs OpenFold3, its internal filenames use the `af3_ppi` prefix.
+
+A copy of each refolded structure is also published to
+`<outdir>/rfd4_proteina/refolded/<oracle>/`, flattened out of the per-batch run directories and
+prefixed with the design id so the names stay unique. `<oracle>` names the weights used:
+`--rfd4_refold_oracle` defaults to `openfold3`, matching the weights baked into the container.
+Set it to `alphafold3` when you mount AlphaFold 3 weights at runtime. These copies are left
+uncompressed; the mmCIFs under `batches/` are gzipped by default (`--rfd4_gzip_batch_cifs false`
+keeps them plain), and the `rfd4_oracle_*_path` columns in `combined_scores.tsv` carry the
+matching `.gz` suffix.
 
 #### Apo refolding (optional)
 
@@ -305,7 +316,8 @@ FoldSeek structural similarity search is enabled with `--do_foldseek` (see the
 | `<outdir>/rfd4_proteina/input/prepared/` | Input structure converted to mmCIF |
 | `<outdir>/rfd4_proteina/designs/` | Generated complex structures (one mmCIF per design) |
 | `<outdir>/rfd4_proteina/designs/rfd4_designs_batch*.tsv` | Design identifier, source example, and seed per batch |
-| `<outdir>/rfd4_proteina/batches/batch<n>/` | Raw `rfd4-generate` run directory for each batch: inference metrics, and each sample's generated structure with the inline refold and its confidences |
+| `<outdir>/rfd4_proteina/batches/batch<n>/` | Raw `rfd4-generate` run directory for each batch: inference metrics, and each sample's generated structure with the inline refold and its confidences. The mmCIFs here are gzipped unless `--rfd4_gzip_batch_cifs false` |
+| `<outdir>/rfd4_proteina/refolded/<oracle>/` | The inline refolded structures, flattened out of the batch directories and batch-prefixed (`<design_name>_<uid>_b<task>_<example>_af3_ppi_refolded.cif`). `<oracle>` is `--rfd4_refold_oracle` (`openfold3` by default) |
 | `<outdir>/rfd4_proteina/combined_scores.tsv` | Consolidated table of binder sequences and all computed metrics |
 | `<outdir>/rfd4_proteina/binders.fasta` | Generated binder sequences in FASTA format |
 | `<outdir>/rfd4_proteina/filter/` | Filter scores and accepted/rejected design lists (with `--rfd4_filters`) |

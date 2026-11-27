@@ -32,6 +32,10 @@ log = logging.getLogger(__name__)
 
 GENERATED_SUFFIXES = ("_generated.cif", "_generated.cif.gz", "_generated.cif.zst")
 
+# Refolds the inline metrics produced alongside each generated design, eg
+# <example>_af3_ppi_refolded.cif and, with apo_refolding, <example>_af3_apo_refolded.cif.
+REFOLDED_GLOB = "*_refolded.cif*"
+
 # Inline metric columns are prefixed so they cannot collide with refold columns, which are
 # prefixed with their engine name.
 METRIC_PREFIX = "rfd4_"
@@ -59,14 +63,19 @@ def metric_columns(fieldnames: List[str]) -> List[str]:
     ]
 
 
-def rewrite_run_path(value: str, batch: str) -> str:
+def rewrite_run_path(value: str, batch: str, gzipped: bool = False) -> str:
     """Point a path inside the run directory at where publishDir puts that batch."""
     marker = "rundir/"
     index = value.find(marker)
-    return f"batches/batch{batch}/{value[index + len(marker):]}" if index >= 0 else value
+    if index < 0:
+        return value
+    rewritten = f"batches/batch{batch}/{value[index + len(marker):]}"
+    return f"{rewritten}.gz" if gzipped and rewritten.endswith(".cif") else rewritten
 
 
-def load_metrics(path: Path, batch: str) -> Tuple[Dict[str, Dict[str, str]], List[str]]:
+def load_metrics(
+    path: Path, batch: str, gzipped: bool = False
+) -> Tuple[Dict[str, Dict[str, str]], List[str]]:
     """Inline metrics keyed by example id, with the column order they should be written in.
 
     Every row in a batch gets the same columns, because the per-batch tables are concatenated
@@ -82,7 +91,9 @@ def load_metrics(path: Path, batch: str) -> Tuple[Dict[str, Dict[str, str]], Lis
             metrics[row["example_id"]] = {
                 # Dots are awkward in a column name for pandas/R consumers downstream
                 f"{METRIC_PREFIX}{name.replace('.', '_')}": (
-                    rewrite_run_path(row[name], batch) if name.endswith("_path") else row[name]
+                    rewrite_run_path(row[name], batch, gzipped)
+                    if name.endswith("_path")
+                    else row[name]
                 )
                 for name in keep
             }
@@ -112,6 +123,17 @@ def main() -> None:
     parser.add_argument("--batch", required=True, help="Batch index, used to keep ids unique")
     parser.add_argument("--seed", default="", help="Seed used for this batch, recorded in the TSV")
     parser.add_argument("-o", "--output-dir", default="output")
+    parser.add_argument(
+        "--refolded-dir",
+        default=None,
+        help="Also collect the inline refolded structures into this directory",
+    )
+    parser.add_argument(
+        "--run-cifs-gzipped",
+        action="store_true",
+        help="The run directory's .cif files will be gzipped after collection; "
+        "append .gz to the structure paths recorded in the TSV",
+    )
     parser.add_argument("--tsv", default=None, help="Where to write the design table")
     parser.add_argument(
         "--metrics",
@@ -145,10 +167,14 @@ def main() -> None:
     metrics: Dict[str, Dict[str, str]] = {}
     metric_fields: List[str] = []
     if metrics_path.is_file():
-        metrics, metric_fields = load_metrics(metrics_path, args.batch)
+        metrics, metric_fields = load_metrics(metrics_path, args.batch, args.run_cifs_gzipped)
     else:
         # Absent whenever metrics_tags is false, which is a supported way to run
         log.info("No inline metrics at %s; writing the design table without them", metrics_path)
+
+    refolded_dir = Path(args.refolded_dir) if args.refolded_dir else None
+    if refolded_dir:
+        refolded_dir.mkdir(parents=True, exist_ok=True)
 
     rows = []
     for path in designs:
@@ -170,6 +196,19 @@ def main() -> None:
             log.warning("No inline metrics row for example %s", example_id)
         rows.append(row)
         log.info("Collected %s -> %s", path, destination)
+
+        if refolded_dir:
+            # Named after the design it refolds, keeping only the oracle suffix
+            # (_af3_ppi_refolded.cif, _apo_af3_apo_refolded.cif) that tells them apart.
+            for refolded in sorted(path.parent.glob(REFOLDED_GLOB)):
+                suffix = (
+                    refolded.name[len(example_id) :]
+                    if refolded.name.startswith(example_id)
+                    else f"_{refolded.name}"
+                )
+                copy = refolded_dir / f"{design_id}{suffix}"
+                shutil.copy2(refolded, copy)
+                log.info("Collected %s -> %s", refolded, copy)
 
     tsv_path = Path(args.tsv) if args.tsv else out_dir.parent / "rfd4_designs.tsv"
     with open(tsv_path, "w", newline="") as handle:
