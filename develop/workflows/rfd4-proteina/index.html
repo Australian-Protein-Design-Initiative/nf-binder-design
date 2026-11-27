@@ -477,12 +477,20 @@ independent prediction engines to score interface metrics and pose accuracy.</p>
   --refold_max 50 \
   --use_msa_server
 </code></pre>
-<p>Candidate selection uses <code>--refold_filter</code>, <code>--refold_sort_by</code>, and <code>--refold_max</code>. Because
-RFD4-Proteina produces no intermediate co-folding metrics, filters evaluate against structural
-metrics computed by <code>--rfd4_filters</code> (<code>rg</code> and scripts in <code>bin/filters.d/</code>). When <code>--rfd4_filters</code>
-is unset, use <code>--refold_max</code> alone to select the first N designs. Format <code>--refold_sort_by</code> with
-an equals sign (e.g. <code>--refold_sort_by='rg'</code>) to prevent Nextflow from interpreting leading hyphens
-as CLI flags. Selection decisions are recorded in <code>refold/refold_selection.tsv</code>.</p>
+<p>Candidate selection uses <code>--refold_filter</code>, <code>--refold_sort_by</code>, and <code>--refold_max</code>. Filters and
+sort keys evaluate against the inline RFD4-Proteina metrics every design carries
+(<code>rfd4_ppi_pass</code>, <code>rfd4_oracle_ppi_overall_iptm</code> and the rest, subject to
+<code>--rfd4_metrics_tags</code>), plus the structural metrics computed by <code>--rfd4_filters</code> (<code>rg</code> and
+scripts in <code>bin/filters.d/</code>) when that flag is set. Taking only the designs RFD4-Proteina's own
+refold passed is therefore:</p>
+<pre><code class="language-bash">  --refold_filter 'rfd4_ppi_pass&gt;=1' \
+  --refold_sort_by='-rfd4_oracle_ppi_overall_iptm' \
+  --refold_max 50
+</code></pre>
+<p>Format <code>--refold_sort_by</code> with an equals sign (as above) to prevent Nextflow from interpreting
+leading hyphens as CLI flags. With <code>--rfd4_metrics_tags false</code> there are no inline metrics, so
+only <code>--rfd4_filters</code> metrics and <code>--refold_max</code> apply. Selection decisions are recorded in
+<code>refold/refold_selection.tsv</code>.</p>
 <p>Supported engines include <code>af2</code>, <code>af2_mono</code>, <code>boltz</code>, <code>rf3</code>, <code>protenix</code>, <code>af3</code>, <code>openfold3</code>,
 <code>chai1</code>, <code>esmfold2</code>, and <code>esmfold2_fast</code>. Each engine appends standard columns to <code>combined_scores.tsv</code>:</p>
 <table>
@@ -584,7 +592,7 @@ predicted structure. <code>&lt;tool&gt;_selected_batch</code> and <code>&lt;tool
 <tr>
 <td><code>--refold_filter</code></td>
 <td>none</td>
-<td>Filter expression applied to design scores (requires <code>--rfd4_filters</code>)</td>
+<td>Filter expression applied to the inline <code>rfd4_*</code> metrics and any <code>--rfd4_filters</code> scores</td>
 </tr>
 <tr>
 <td><code>--refold_sort_by</code></td>
