@@ -228,12 +228,23 @@ See [Refold Scoring](../subworkflows/refold.md) for shared options:
   --use_msa_server
 ```
 
-Candidate selection uses `--refold_filter`, `--refold_sort_by`, and `--refold_max`. Because
-RFD4-Proteina produces no intermediate co-folding metrics, filters evaluate against structural
-metrics computed by `--rfd4_filters` (`rg` and scripts in `bin/filters.d/`). When `--rfd4_filters`
-is unset, use `--refold_max` alone to select the first N designs. Format `--refold_sort_by` with
-an equals sign (e.g. `--refold_sort_by='rg'`) to prevent Nextflow from interpreting leading hyphens
-as CLI flags. Selection decisions are recorded in `refold/refold_selection.tsv`.
+Candidate selection uses `--refold_filter`, `--refold_sort_by`, and `--refold_max`. Filters and
+sort keys evaluate against the inline RFD4-Proteina metrics every design carries
+(`rfd4_ppi_pass`, `rfd4_oracle_ppi_overall_iptm` and the rest, subject to
+`--rfd4_metrics_tags`), plus the structural metrics computed by `--rfd4_filters` (`rg` and
+scripts in `bin/filters.d/`) when that flag is set. Taking only the designs RFD4-Proteina's own
+refold passed is therefore:
+
+```bash
+  --refold_filter 'rfd4_ppi_pass>=1' \
+  --refold_sort_by='-rfd4_oracle_ppi_overall_iptm' \
+  --refold_max 50
+```
+
+Format `--refold_sort_by` with an equals sign (as above) to prevent Nextflow from interpreting
+leading hyphens as CLI flags. With `--rfd4_metrics_tags false` there are no inline metrics, so
+only `--rfd4_filters` metrics and `--refold_max` apply. Selection decisions are recorded in
+`refold/refold_selection.tsv`.
 
 Supported engines include `af2`, `af2_mono`, `boltz`, `rf3`, `protenix`, `af3`, `openfold3`,
 `chai1`, `esmfold2`, and `esmfold2_fast`. Each engine appends standard columns to `combined_scores.tsv`:
@@ -283,7 +294,7 @@ Unaggregated per-sample values are written to `refold_sample_scores.tsv`. Set
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--refold_with` | none | Comma-separated list of prediction engines |
-| `--refold_filter` | none | Filter expression applied to design scores (requires `--rfd4_filters`) |
+| `--refold_filter` | none | Filter expression applied to the inline `rfd4_*` metrics and any `--rfd4_filters` scores |
 | `--refold_sort_by` | none | Metric used to rank candidates before applying `--refold_max` |
 | `--refold_max` | all | Maximum designs to refold |
 | `--n_predictions` | `5` | Generated structures per design per engine |

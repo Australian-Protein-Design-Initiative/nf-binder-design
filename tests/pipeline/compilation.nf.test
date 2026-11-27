@@ -443,6 +443,28 @@ nextflow_pipeline {
         }
     }
 
+    // The rfd4_proteina refold selects on the inline RFD4-Proteina metrics joined to the
+    // structural scores --rfd4_filters writes, so build the DAG with both in play.
+    test("rfd4_proteina method compiles with a refold filtered on inline metrics") {
+        options "-preview"
+        when {
+            params {
+                method = "rfd4_proteina"
+                input_pdb = "${projectDir}/tests/data/rfd/glp1_peptide.pdb"
+                contigs = "A1-30, /0, 10-20"
+                hotspot_res = "A10"
+                rfd4_n_designs = 2
+                rfd4_filters = "rg<20"
+                refold_with = "boltz"
+                refold_filter = "rfd4_ppi_pass>=1"
+                outdir = "${outputDir}"
+            }
+        }
+        then {
+            assert workflow.success
+        }
+    }
+
     test("rfd method compiles with a refold") {
         options "-preview"
         when {

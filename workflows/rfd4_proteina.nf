@@ -324,32 +324,40 @@ workflow RFD4_PROTEINA {
         tuple([id: cif.name.replaceFirst(/\.(cif|cif\.gz|cif\.zst)$/, '')], cif)
     }
 
-    // What --refold_filter and --refold_sort_by get to select on. RFD4-Proteina is the
-    // one workflow with no cofold of its own before refolding, so the only scores a
-    // design carries at this point are the backbone metrics --rfd4_filters computed
-    // (rg, compactness and the rest). Without that flag there is nothing to select on,
-    // and only --refold_max applies.
+    // What --refold_filter and --refold_sort_by get to select on: the inline RFD4-Proteina
+    // metrics every design carries (rfd4_ppi_pass, rfd4_oracle_ppi_overall_iptm and the
+    // rest, from --rfd4_metrics_tags), plus the backbone metrics --rfd4_filters computed
+    // (rg, compactness) when that flag is set. RFD4-Proteina has no cofold of its own
+    // before refolding, so those inline metrics are the closest thing to one.
     //
-    // Keyed on the file name rather than a column in the table: the scores TSV is named
-    // after the design it describes, which holds whatever filter_designs.py chose to
-    // call its identifier column.
-    def ch_scored_designs = Channel.empty()
+    // The design table is read here rather than taken from the collected rfd4_designs.tsv
+    // because that one is assembled after refolding. It is emitted by the same task as the
+    // structures, so selecting on it costs no extra wait.
+    def ch_rfd4_metrics = RFD4_GENERATE.out.design_table
+        .splitCsv(header: true, sep: '\t')
+        .map { row -> tuple(row.id.toString(), row as Map) }
+
+    // The structural scores are keyed on the file name rather than a column in the table:
+    // the scores TSV is named after the design it describes, which holds whatever
+    // filter_designs.py chose to call its identifier column.
+    def ch_design_scores = ch_rfd4_metrics
     if (params.rfd4_filters) {
-        def ch_design_scores = RFD4_FILTER_DESIGNS.out.scores.map { tsv ->
+        def ch_structural_scores = RFD4_FILTER_DESIGNS.out.scores.map { tsv ->
             def id = tsv.name
                 .replaceFirst(/\.scores\.tsv$/, '')
                 .replaceFirst(/\.(cif|cif\.gz|cif\.zst)$/, '')
             def rows = tsv.splitCsv(header: true, sep: '\t')
             tuple(id, (rows ? rows[0] : [:]) as Map)
         }
-        ch_scored_designs = ch_designs_with_meta
-            .map { meta, cif -> tuple(meta.id.toString(), meta, cif) }
-            .join(ch_design_scores)
-            .map { _id, meta, cif, scores -> tuple(meta, cif, scores) }
+        ch_design_scores = ch_rfd4_metrics
+            .join(ch_structural_scores)
+            .map { id, metrics, structural -> tuple(id, metrics + structural) }
     }
-    else {
-        ch_scored_designs = ch_designs_with_meta.map { meta, cif -> tuple(meta, cif, [:]) }
-    }
+
+    def ch_scored_designs = ch_designs_with_meta
+        .map { meta, cif -> tuple(meta.id.toString(), meta, cif) }
+        .join(ch_design_scores)
+        .map { _id, meta, cif, scores -> tuple(meta, cif, scores) }
 
     // Refold scoring: fold each design's binder against its target with every engine in
     // --refold_with, compare the result with the design, and score the interface.

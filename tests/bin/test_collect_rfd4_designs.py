@@ -97,6 +97,12 @@ def test_metrics_are_merged_onto_the_design_rows(tmp_path: Path) -> None:
     assert rows[1]["rfd4_ppi_pass"] == "1.0"
 
 
+def test_id_is_the_structure_filename_without_its_extension(tmp_path: Path) -> None:
+    """The rfd4_proteina workflow joins the design table to the structures on this."""
+    for row in run_collect(make_run_dir(tmp_path), tmp_path):
+        assert row["filename"].split(".cif")[0] == row["id"]
+
+
 def test_run_paths_point_at_the_published_batch(tmp_path: Path) -> None:
     rows = run_collect(make_run_dir(tmp_path), tmp_path, batch="7")
     assert (
