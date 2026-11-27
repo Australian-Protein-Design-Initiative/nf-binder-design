@@ -63,8 +63,8 @@ PD-L1 binder design with RFD4-Proteina sequence-structure co-design.
 | `run-local-simple.sh` | Params mode (`--contigs`, `--hotspot_res`) |
 | `run-local-simple-dual-gpu.sh` | The params-mode run spread across two local GPUs |
 | `run-local-config.sh` | Config-file mode (`--rfd4_config`) |
-| `run-local-full.sh` | Extended options (refold, filters, FoldSeek) |
-| `run-local-refold-engines.sh` | Refold scoring across several engines (`--refold_with`) |
+| `run-local-refold-engines.sh` | Refold scoring across several engines (`--refold_with`), selected on the inline `rfd4_*` metrics |
+| `run-local-refold-engines-dual-gpu.sh` | The refold-engines run spread across two local GPUs |
 | `run-smoke.sh` | Fastest check that the container and GPU work |
 
 ## BindCraft (`--method bindcraft`)
