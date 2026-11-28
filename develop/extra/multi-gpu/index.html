@@ -164,14 +164,32 @@ executor. If two tasks start at once on a two-GPU workstation, Nextflow does
 not prevent both from choosing the same card. This page describes how the
 pipeline coordinates GPU assignment and how to configure it.</p>
 <h2 id="quick-start">Quick start</h2>
-<p>Pass the GPUs the pipeline may use, and select a local profile:</p>
-<pre><code class="language-bash">nextflow run main.nf --gpu_devices 0,1 -profile local -c nextflow.dual-gpu.config
+<p>Add the <code>multi_gpu</code> profile alongside the executor profile:</p>
+<pre><code class="language-bash">nextflow run main.nf -profile local,multi_gpu
 </code></pre>
-<p>Tasks allocate an available GPU on startup, retain it during execution, and
+<p>That is enough on its own. The profile detects the cards with <code>nvidia-smi</code>,
+turns on GPU management, and caps every GPU process at one task per card.
+Tasks allocate an available GPU on startup, retain it during execution, and
 release it upon exit.</p>
-<p>Leaving <code>--gpu_devices</code> unset (the default) disables GPU management entirely,
-which is appropriate under SLURM or any other scheduler that sets
-<code>CUDA_VISIBLE_DEVICES</code> externally.</p>
+<p>To restrict a run to particular cards, name them; the profile sizes itself to
+whatever you pass:</p>
+<pre><code class="language-bash">nextflow run main.nf -profile local,multi_gpu --gpu_devices 0,1
+</code></pre>
+<div class="admonition warning">
+<p class="admonition-title">Do not combine <code>multi_gpu</code> with a scheduler profile</p>
+<p>Use it only with <code>-profile local</code>. Under SLURM the scheduler assigns the
+card, and the profile's device count is resolved from <code>nvidia-smi</code> wherever
+the config is parsed, which on a cluster is the submit node and not the node
+the task runs on.</p>
+</div>
+<p>Leaving <code>--gpu_devices</code> unset without the profile (the default) disables GPU
+management entirely, which is appropriate under SLURM or any other scheduler
+that sets <code>CUDA_VISIBLE_DEVICES</code> externally. On a multi-GPU workstation that is
+almost never what you want, so a task that finds several cards visible and none
+assigned to it prints a warning naming <code>--gpu_devices</code> in its task log.</p>
+<p>The older <code>-c nextflow.dual-gpu.config</code> overlays in <code>examples/</code> predate this
+profile and still work; they differ only in also setting per-process <code>memory</code>
+and <code>cpus</code> tuned to a specific workstation.</p>
 <p>A single-GPU machine also benefits from this configuration. With
 <code>--gpu_devices 0</code>, the card admits one GPU task at a time, preventing multiple
 models from loading concurrently. Without this constraint, runs that execute
@@ -282,7 +300,7 @@ requires larger batch sizes rather than scheduling changes.</p>
 <tbody>
 <tr>
 <td><code>--gpu_devices</code></td>
-<td><code>''</code></td>
+<td><code>''</code> (<code>all</code> under <code>-profile multi_gpu</code>)</td>
 <td>GPUs available to the pipeline: <code>0,1</code>, or <code>all</code>. Empty disables GPU management.</td>
 </tr>
 <tr>

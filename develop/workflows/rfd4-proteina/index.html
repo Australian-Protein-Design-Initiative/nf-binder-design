@@ -267,7 +267,13 @@ condition, and pass it with <code>--rfd4_config</code>.</p>
 <p>Tokens between chainbreaks define a single output chain. A chain containing a preserved segment
 inherits that segment's chain ID; a chain without preserved segments is designated as the binder
 and receives the first available unused letter. For <code>"50-120, /0, A17-131"</code>, this produces target <code>A</code>
-and binder <code>B</code>. Custom chain IDs can be set using <code>--rfd4_target_chain</code> and <code>--rfd4_binder_chain</code>.</p>
+and binder <code>B</code>.</p>
+<p>The chain IDs are derived this way in both modes: from <code>--contigs</code> in parameter mode, and in
+config mode by reading the contigs out of the <code>--rfd4_config</code> spec itself (YAML or JSON). A spec
+whose designs resolve to different chain IDs stops the run, since refold scoring and the filter
+metrics read one target and one binder chain for the whole run. A spec with no <code>contig</code> at all
+falls back to <code>A</code> and <code>B</code> with a warning. Override either with <code>--rfd4_target_chain</code> and
+<code>--rfd4_binder_chain</code>.</p>
 <p>Each contig must include at least one preserved segment.</p>
 <h2 id="parameters">Parameters</h2>
 <table>
@@ -391,7 +397,7 @@ and binder <code>B</code>. Custom chain IDs can be set using <code>--rfd4_target
 </tr>
 <tr>
 <td><code>--rfd4_target_chain</code></td>
-<td>derived</td>
+<td>derived from the contigs</td>
 <td>Target chain ID in output complex</td>
 </tr>
 <tr>

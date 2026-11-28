@@ -247,7 +247,7 @@ You'll typically need <a href="https://apptainer.org/">Apptainer</a> installed -
 <p>Configuration profiles for specific HPC clusters and cloud platforms are provided in <code>conf/platforms/</code> (<code>~/.nextflow/assets/Australian-Protein-Design-Initiative/nf-binder-design/conf/platforms/</code>).</p>
 <p>You can use these profiles by adding the <code>-profile &lt;profile&gt;</code> flag to activate one or more configuration profiles (eg <code>-profile slurm,m3</code>). Extra documentation specific to the M3 HPC cluster is available in the <a href="../extra/m3-hpc-examples/">M3 HPC examples</a>.</p>
 <h3 id="local-workstation-single-compute-node">Local Workstation / single compute node</h3>
-<p>For local execution of a single compute node, use the <code>-profile local</code> flag when running workflows. See <a href="https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/pdl1-rfd/nextflow.dual-gpu.config"><code>examples/pdl1-rfd/nextflow.dual-gpu.config</code></a> for a config example using dual-GPUs.</p>
+<p>For local execution of a single compute node, use the <code>-profile local</code> flag when running workflows. On a machine with more than one GPU, add <code>multi_gpu</code> (<code>-profile local,multi_gpu</code>) so each task is assigned its own card; see <a href="../extra/multi-gpu/">Multiple GPUs on one machine</a>.</p>
 <h3 id="hpc-clusters-with-slurm">HPC Clusters with SLURM</h3>
 <p>For running using the SLURM executor, use the <code>-profile slurm</code> flag (this is the default profile if not specified).</p>
 <p>Some site-specific configurations for HPC clusters and cloud platforms can be applied via eg <code>-profile m3</code>. Currently defined sites are: </p>
