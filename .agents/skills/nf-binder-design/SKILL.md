@@ -117,7 +117,7 @@ Add `--do_foldseek` to `rfd`, `rfd3`, `rfd4_proteina`, `bindcraft`, `bc2`, or `b
 
 Every design workflow - `rfd`, `rfd_partial`, `rfd3`, `rfd4_proteina`, `bindcraft`, `germinal` - takes `--refold_with`, which folds selected designs again with one or more independent predictors. It is a held-out second opinion **in addition to** each workflow's own cofold (AF2 initial guess in `rfd`/`rfd_partial`, RF3 in `rfd3`, BindCraft's and Germinal's own AF2 passes), not a replacement for it. That first cofold's scores are what the refold selects on. Off by default.
 
-`rfd4_proteina` is the exception: it co-designs sequence and structure in one pass and has no cofold, so the refold is the only validation and the selection can only read the structural metrics from `--rfd4_filters`.
+`rfd4_proteina` is the exception: it co-designs sequence and structure in one pass and has no cofold, so the refold is the only held-out validation. Selection still has scores to read -- RFD4-Proteina's own inline metrics, prefixed `rfd4_`, which every design carries by default -- so `--refold_filter 'rfd4_ppi_pass>=1'` and `--refold_sort_by='-rfd4_oracle_ppi_overall_iptm'` work with no `--rfd4_filters` set. With `--rfd4_metrics_tags false` there are no inline metrics and only `--rfd4_filters` scores and `--refold_max` apply. See `references/rfd4-proteina-workflow.md`.
 
 | Flag | Meaning |
 |------|---------|
