@@ -1,5 +1,5 @@
 process GENERATE_RF3_INPUT_JSON {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     input:
     tuple val(metas), path(structure_cifs, stageAs: 'cifs/*'), path(target_msa), path(target_templates), val(target_chain), val(binder_chain), val(binder_sequence_chain), val(template_selection)

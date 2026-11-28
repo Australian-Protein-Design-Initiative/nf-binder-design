@@ -11,7 +11,7 @@ include { af3InputModeArgs; af3InputPairedMsa } from '../common/af3_input'
 process GENERATE_AF3_INPUT_COMPLEX {
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     input:
     tuple val(meta), path(fasta), path(a3ms)

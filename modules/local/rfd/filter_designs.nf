@@ -1,7 +1,7 @@
 process FILTER_DESIGNS {
     tag "filter_${pdb.name}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     // Closures, not plain GStrings: `step` is a process input, and from Nextflow 26 a
     // directive string is evaluated before the task inputs are in scope ("No such

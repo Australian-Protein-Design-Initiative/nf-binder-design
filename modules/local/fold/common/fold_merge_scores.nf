@@ -7,7 +7,7 @@
 process FOLD_MERGE_SCORES {
     tag "fold_scores"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     // publish_label distinguishes two fold runs that share an output directory: the
     // refold path folds the complexes and then the binder monomers, and without a label

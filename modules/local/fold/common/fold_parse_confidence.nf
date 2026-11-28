@@ -8,7 +8,7 @@
 process FOLD_PARSE_CONFIDENCE {
     tag "${meta.id} ${tool} ${model}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     input:
     tuple val(meta), val(tool), val(model), val(original_file), val(predictions_file), path(json_file), path(ipsae_pae), path(ipsae_structure), val(do_ipsae)

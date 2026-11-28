@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GPU provenance trace. Every GPU task now records the device it ran on to `<outdir>/logs/gpu_trace_<datestamp>.txt`: timestamp, task hash, process, hostname, `n_gpus`, and the GPU index, UUID, model, driver version and total memory. New parameters: `--gpu_trace_dir`, `--gpu_trace_file`.
 
 ### Changed
+- Every process using `nf-binder-design-utils` now runs `0.1.8`. Most modules were still on `0.1.7` and the two BindCraft2 config steps on `0.1.6`, so a run pulled three versions of the same image.
 - `--method rfd4_proteina` gzips the mmCIFs under `rfd4_proteina/batches/`. `--rfd4_gzip_batch_cifs false` keeps them uncompressed. The flat `designs/` and `refolded/` copies are unaffected.
 - Supported Nextflow range is `!>=23.04.0, <27`, tested on 26.10.7.
 - The MSA subsample seed is the Java string hash of the id and depth, so it stays the same across Nextflow versions. A resume from before this change re-runs the subsample tasks once.

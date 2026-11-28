@@ -2,7 +2,7 @@
 process FILTER_DESIGNS {
     tag "filter_${cif.name}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     publishDir "${params.outdir}/rfd3/filter/scores", mode: 'copy', pattern: '*.scores.tsv'
     publishDir "${params.outdir}/rfd3/filter/filtered", mode: 'copy', pattern: 'accepted/*'

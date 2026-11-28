@@ -1,7 +1,7 @@
 // RFD4-Proteina only reads .cif, .cif.gz and .bcif inputs, so a PDB is converted here.
 // An input that is already CIF passes through untouched, so its own numbering is preserved.
 process PREPARE_RFD4_INPUT {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     publishDir path: "${params.outdir}/rfd4_proteina/input", pattern: 'prepared/*', mode: 'copy'
 

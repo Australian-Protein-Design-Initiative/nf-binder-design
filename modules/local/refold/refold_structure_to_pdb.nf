@@ -8,7 +8,7 @@
 process REFOLD_STRUCTURE_TO_PDB {
     tag "${meta.id} ${meta.fold_tool} b${meta.fold_batch} ${meta.fold_sample}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     input:
     tuple val(meta), path(structure, stageAs: 'input/*')

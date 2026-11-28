@@ -7,7 +7,7 @@
 process GENERATE_OPENFOLD3_INPUT_COMPLEX {
     tag "${meta.id}"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     input:
     tuple val(meta), path(fasta), path(a3ms)

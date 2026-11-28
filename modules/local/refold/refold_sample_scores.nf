@@ -7,7 +7,7 @@
 process REFOLD_SAMPLE_SCORES {
     tag "refold_sample_scores"
 
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     publishDir path: "${params.outdir}/${params.refold_publish_dir ?: 'refold'}", mode: 'copy'
 

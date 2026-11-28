@@ -1,5 +1,5 @@
 process COMBINE_RFD4_SCORES {
-    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.7'
+    container 'ghcr.io/australian-protein-design-initiative/containers/nf-binder-design-utils:0.1.8'
 
     publishDir path: "${params.outdir}/rfd4_proteina", pattern: 'combined_scores.tsv', mode: 'copy'
     publishDir path: "${params.outdir}/rfd4_proteina", pattern: 'binders.fasta', mode: 'copy'
