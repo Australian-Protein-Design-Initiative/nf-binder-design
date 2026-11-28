@@ -1,0 +1,8 @@
+{
+  "global_args": {
+    "input": "target.cif",
+    "contig": "40-90, /0, E5-200"
+  },
+  "design_one": {"conditions": {}},
+  "design_two": {"conditions": {}}
+}

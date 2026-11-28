@@ -57,6 +57,8 @@ Comma-separated, and not the same syntax as `rfd` or `rfd3`:
 
 Tokens between chainbreaks make one output chain. A chain holding a preserved segment inherits that segment's chain ID; a chain with no preserved segment is the binder and takes the first unused letter. So `"50-120, /0, A17-131"` gives target `A` and binder `B`. Naming a segment does not change this: `BINDER:` is a segment name, not a chain ID, and the binder chain is still `B`. Override with `--rfd4_target_chain` / `--rfd4_binder_chain`. Every contig needs at least one preserved segment.
 
+The pipeline derives the pair the same way in both modes: from `--contigs`, or by parsing the `--rfd4_config` spec (Nextflow bundles snakeyaml, so YAML is readable on the head node) and reading each design's `contig`, with `global_args.contig` as the shared default. Designs that resolve to different pairs stop the run - one pair is read for the whole run, so letting the first design decide is how the filter metrics come back blank. A spec with no contig warns and falls back to A/B. Note a preserved segment naming a chain that is not in the input structure is an error in rfd4-generate, not a designed chain, so the derivation never needs to open the input.
+
 ## Parameters
 
 | Flag | Default | Description |
@@ -81,7 +83,7 @@ Tokens between chainbreaks make one output chain. A chain holding a preserved se
 | `--rfd4_filters` | — | Semicolon-separated filters on generated designs, eg `rg<25` |
 | `--rfd4_extra_args` | — | Extra Hydra `key=value` overrides for `rfd4-generate` |
 | `--rfd4_metrics_config_dir` | `assets/rfd4_proteina/hydra_overrides` | Hydra config dir prepended to the search path; `false` for none |
-| `--rfd4_target_chain` / `--rfd4_binder_chain` | derived | Chain IDs in the output complex |
+| `--rfd4_target_chain` / `--rfd4_binder_chain` | derived from the contigs | Chain IDs in the output complex |
 
 `rfd4-generate` is Hydra-driven, so `--rfd4_extra_args` takes `key=value` pairs: `--rfd4_extra_args "generation.args.guidance_w=1.2 precision=bf16-mixed"`.
 

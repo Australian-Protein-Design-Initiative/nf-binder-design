@@ -1,0 +1,8 @@
+# Target chain C, so the A/B assumption would be wrong for this spec.
+design_cd:
+  input: target.cif
+  contig: "BINDER: 50-120, /0, C17-131"
+  conditions:
+    C_SEQ:
+      'true':
+        - select: "sel('C')"

@@ -97,7 +97,14 @@ RFD4-Proteina contig strings use a comma-separated format:
 Tokens between chainbreaks define a single output chain. A chain containing a preserved segment
 inherits that segment's chain ID; a chain without preserved segments is designated as the binder
 and receives the first available unused letter. For `"50-120, /0, A17-131"`, this produces target `A`
-and binder `B`. Custom chain IDs can be set using `--rfd4_target_chain` and `--rfd4_binder_chain`.
+and binder `B`.
+
+The chain IDs are derived this way in both modes: from `--contigs` in parameter mode, and in
+config mode by reading the contigs out of the `--rfd4_config` spec itself (YAML or JSON). A spec
+whose designs resolve to different chain IDs stops the run, since refold scoring and the filter
+metrics read one target and one binder chain for the whole run. A spec with no `contig` at all
+falls back to `A` and `B` with a warning. Override either with `--rfd4_target_chain` and
+`--rfd4_binder_chain`.
 
 Each contig must include at least one preserved segment.
 
@@ -127,7 +134,7 @@ Each contig must include at least one preserved segment.
 | `--rfd4_filters` | | Semicolon-separated filters applied to generated designs (e.g. `rg<25`) |
 | `--rfd4_extra_args` | | Additional Hydra `key=value` overrides passed to `rfd4-generate` |
 | `--rfd4_metrics_config_dir` | `assets/rfd4_proteina/hydra_overrides` | Hydra config directory prepended to `rfd4-generate`'s config search path; `false` for none |
-| `--rfd4_target_chain` | derived | Target chain ID in output complex |
+| `--rfd4_target_chain` | derived from the contigs | Target chain ID in output complex |
 | `--rfd4_binder_chain` | derived | Binder chain ID in output complex |
 
 `rfd4-generate` uses [Hydra](https://hydra.cc), so `--rfd4_extra_args` accepts `key=value` pairs

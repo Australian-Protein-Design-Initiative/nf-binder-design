@@ -98,12 +98,94 @@ String rfd4UnsetToNull(value) {
 }
 
 /**
+ * A condition spec parsed into a Map.
+ *
+ * Nextflow bundles snakeyaml, so a YAML spec is readable here on the head node. Mirrors
+ * `load_spec` in bin/rfd4_proteina/rfd4_config.py, which picks the parser by extension.
+ */
+Map rfd4ParseSpec(String text, String name) {
+    def parsed = name.toLowerCase().endsWith('.json')
+        ? new groovy.json.JsonSlurper().parseText(text)
+        : new org.yaml.snakeyaml.Yaml().load(text)
+    if (!(parsed instanceof Map)) {
+        throw new Exception(
+            "--rfd4_config ${name} is not a mapping of design names to designs."
+        )
+    }
+    return parsed as Map
+}
+
+/**
+ * Every distinct contig string in a condition spec, in declaration order.
+ *
+ * `global_args` holds shared defaults rather than a design, so a contig there applies to
+ * every design that does not carry its own.
+ */
+List<String> rfd4ContigsFromSpec(Map spec) {
+    def globals = spec['global_args']
+    def shared = (globals instanceof Map) ? globals['contig'] : null
+
+    def contigs = []
+    spec.each { key, value ->
+        if (key == 'global_args' || !(value instanceof Map)) {
+            return
+        }
+        def contig = value['contig'] ?: shared
+        if (contig) {
+            contigs << contig.toString()
+        }
+    }
+    if (!contigs && shared) {
+        contigs << shared.toString()
+    }
+    return contigs.unique()
+}
+
+/**
+ * Target and binder chain ids derived from a condition spec, or null when the spec carries
+ * no contig this can read.
+ *
+ * Returns null rather than throwing on an unreadable contig: the grammar here mirrors
+ * RFD4-Proteina's rather than being owned by it, and rfd4-generate validates the contig
+ * properly anyway. A token this cannot parse should not stop a run that would otherwise
+ * work, so the caller falls back to A/B - loudly, because that assumption is what produces
+ * blank metrics when it is wrong.
+ */
+List<String> rfd4ChainsFromSpecFile(Object specPath) {
+    def spec_file = file(specPath)
+    def contigs = rfd4ContigsFromSpec(rfd4ParseSpec(spec_file.text, spec_file.name))
+    if (!contigs) {
+        return null
+    }
+
+    def pairs = null
+    try {
+        pairs = contigs.collect { rfd4ChainsFromContig(it) }.unique()
+    }
+    catch (Exception e) {
+        log.warn(
+            "Could not read the chain ids out of --rfd4_config ${spec_file.name}: ${e.message}"
+        )
+        return null
+    }
+
+    if (pairs.size() > 1) {
+        throw new Exception(
+            "--rfd4_config ${spec_file.name} has designs with different chain ids ${pairs}. " +
+            'Refold scoring and the filter metrics read one target and one binder chain for ' +
+            'the whole run, so split the spec, or set --rfd4_target_chain / --rfd4_binder_chain ' +
+            'to the pair they should all be read as.'
+        )
+    }
+    return pairs[0]
+}
+
+/**
  * Target and binder chain ids for the run, in that order.
  *
  * Explicit --rfd4_target_chain / --rfd4_binder_chain win. Otherwise they are derived from
- * --contigs in params mode. In config mode the spec may be YAML, which cannot be parsed on
- * the Nextflow head node, so the defaults apply and the user overrides them if their target
- * chain is not A.
+ * --contigs in params mode, or from the condition spec's contigs in config mode, falling
+ * back to A/B when the spec has no contig to read.
  */
 List<String> resolveRfd4Chains(params) {
     // These params default to boolean false, and false.toString() is the non-empty - therefore
@@ -117,13 +199,23 @@ List<String> resolveRfd4Chains(params) {
 
     def derived = null
     def contigs = rfd4UnsetToNull(params.contigs)
+    def config_spec = rfd4UnsetToNull(params.rfd4_config)
     if (contigs) {
         derived = rfd4ChainsFromContig(contigs)
     }
-    else {
-        log.info(
+    else if (config_spec) {
+        derived = rfd4ChainsFromSpecFile(config_spec)
+        if (derived) {
+            log.info("Read target chain ${derived[0]} and binder chain ${derived[1]} from ${file(config_spec).name}.")
+        }
+    }
+
+    if (!derived) {
+        log.warn(
             'Assuming target chain A and binder chain B. Set --rfd4_target_chain / ' +
-            '--rfd4_binder_chain if your condition spec uses other chain ids.'
+            '--rfd4_binder_chain if your condition spec uses other chain ids: reading the ' +
+            'wrong chain leaves the filter metrics blank and takes the binder sequence from ' +
+            'the wrong chain.'
         )
         derived = ['A', 'B']
     }

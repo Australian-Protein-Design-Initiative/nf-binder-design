@@ -53,6 +53,87 @@ nextflow_function {
         }
     }
 
+    test("chain ids are read out of a YAML condition spec") {
+        when {
+            function {
+                """
+                input[0] = [
+                    rfd4_target_chain: false,
+                    rfd4_binder_chain: false,
+                    contigs: false,
+                    rfd4_config: "${projectDir}/tests/data/rfd4_proteina/spec_cd.yaml",
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['C', 'A']
+        }
+    }
+
+    // global_args holds shared defaults rather than a design, so a contig there is the
+    // contig of every design that does not carry its own.
+    test("a contig in global_args is read, from JSON as well as YAML") {
+        when {
+            function {
+                """
+                input[0] = [
+                    rfd4_target_chain: false,
+                    rfd4_binder_chain: false,
+                    contigs: false,
+                    rfd4_config: "${projectDir}/tests/data/rfd4_proteina/spec_global_contig.json",
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['E', 'A']
+        }
+    }
+
+    // The workflow reads one target and one binder chain for the whole run, so a spec whose
+    // designs disagree has to stop rather than have the first design decide for the rest.
+    test("a spec whose designs resolve to different chains stops the run") {
+        when {
+            function {
+                """
+                input[0] = [
+                    rfd4_target_chain: false,
+                    rfd4_binder_chain: false,
+                    contigs: false,
+                    rfd4_config: "${projectDir}/tests/data/rfd4_proteina/spec_conflicting.yaml",
+                ]
+                """
+            }
+        }
+        then {
+            assert !function.success
+        }
+    }
+
+    test("a spec with no contig falls back to the A/B default") {
+        when {
+            function {
+                """
+                input[0] = [
+                    rfd4_target_chain: false,
+                    rfd4_binder_chain: false,
+                    contigs: false,
+                    rfd4_config: "${projectDir}/tests/data/rfd4_proteina/spec_no_contig.yaml",
+                ]
+                """
+            }
+        }
+        then {
+            assert function.success
+            assert function.result == ['A', 'B']
+        }
+    }
+
+    // --contigs is params mode and --rfd4_config is config mode, so they are mutually
+    // exclusive in the workflow; if both ever reach here, the explicit contig wins.
     test("one explicit chain id is combined with the derived other") {
         when {
             function {

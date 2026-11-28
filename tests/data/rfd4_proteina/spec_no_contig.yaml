@@ -1,0 +1,4 @@
+# A spec driven by conditions alone, with no contig to read chain ids from.
+design_one:
+  input: target.cif
+  conditions: {}

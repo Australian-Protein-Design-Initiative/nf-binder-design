@@ -1,0 +1,8 @@
+# Two designs whose contigs resolve to different chain pairs. The workflow reads one pair
+# for the whole run, so this has to stop rather than silently use the first.
+design_one:
+  input: target.cif
+  contig: "50-120, /0, A17-131"
+design_two:
+  input: other.cif
+  contig: "50-120, /0, C17-131"

@@ -167,8 +167,8 @@ workflow RFD4_PROTEINA {
                                   [default: ${params.rfd4_refold_oracle}]
             --rfd4_gzip_batch_cifs  Gzip the .cif files under batches/ [default: ${params.rfd4_gzip_batch_cifs}]
             --rfd4_filters        Semicolon-separated filters for generated designs, eg "rg<25" [default: disabled]
-            --rfd4_target_chain   Target chain id in the generated complex [default: derived from --contigs, else A]
-            --rfd4_binder_chain   Binder chain id in the generated complex [default: derived from --contigs, else B]
+            --rfd4_target_chain   Target chain id in the generated complex [default: derived from --contigs or --rfd4_config, else A]
+            --rfd4_binder_chain   Binder chain id in the generated complex [default: derived from --contigs or --rfd4_config, else B]
 
         ${refoldHelpText(params)}
 
