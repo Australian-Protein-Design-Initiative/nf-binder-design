@@ -9,6 +9,7 @@ PIPELINE_DIR=../../
 
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
+  --gpu_devices=0,1 \
   --method rfd4_proteina \
   --rfd4_config pdl1_rfd4.yaml \
   --outdir results-refold-engines \

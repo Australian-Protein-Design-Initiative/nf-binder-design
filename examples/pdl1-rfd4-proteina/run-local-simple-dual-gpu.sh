@@ -8,6 +8,7 @@ PIPELINE_DIR=../../
 
 nextflow run ${PIPELINE_DIR}/main.nf \
   -c nextflow.dual-gpu.config \
+  --gpu_devices "0,1" \
   --method rfd4_proteina \
   --design_name pdl1 \
   --input_pdb 'input/PDL1.pdb' \
@@ -17,6 +18,5 @@ nextflow run ${PIPELINE_DIR}/main.nf \
   --rfd4_n_designs=4 \
   --rfd4_designs_per_task=2 \
   --rfd4_recycle_strategy 'medium/front_loaded' \
-  --gpu_devices "0,1" \
   -profile local \
   -resume

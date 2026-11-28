@@ -1,6 +1,8 @@
 include { foldNamingAf2Prefix; foldNamingIsModelStructure } from '../common/fold_naming'
 
 process ALPHAFOLD2 {
+    label 'gpu'
+
     tag "${meta.af2_tool ?: 'af2'} ${meta.id} run${meta.af2_run}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
     container 'https://bioinformatics.erc.monash.edu/home/andrewperry/containers/ghcr.io-australian-protein-design-initiative-containers-alphafold2-2.3.2-custom.img'
@@ -228,6 +230,7 @@ process ALPHAFOLD2 {
         nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
     else
         source ${projectDir}/bin/gpu_lock.sh || true
+        nfbd_warn_unallocated_gpu || true
     fi
     nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 

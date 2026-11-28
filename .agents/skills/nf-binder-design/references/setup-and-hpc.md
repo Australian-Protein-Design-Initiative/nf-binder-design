@@ -178,18 +178,24 @@ nextflow run Australian-Protein-Design-Initiative/nf-binder-design \
 
 ### Multi-GPU workstations
 
-Pass `--gpu_devices=0,1` (or `all`) and base the configuration on `examples/*/nextflow.dual-gpu.config`, e.g.:
+Add `multi_gpu` to the executor profile. It needs nothing else:
 
 ```bash
-nextflow run main.nf --method rfd3 --gpu_devices 0,1 \
-  -profile local -c nextflow.dual-gpu.config -resume
+nextflow run main.nf --method rfd3 -profile local,multi_gpu -resume
 ```
+
+It sets `gpu_devices = 'all'`, counts the cards with `nvidia-smi` at config parse time, and caps every process carrying `label 'gpu'` at `nGPU x gpu_slots_per_device`. `--gpu_devices 0,1` restricts a run to named cards and the profile sizes itself to that instead. Use it only with `-profile local`: the device count is resolved wherever the config is parsed, which under SLURM is the submit node, not the node the task runs on.
+
+The older `examples/*/nextflow.dual-gpu.config` overlays predate the profile and still work. They differ only in also setting per-process `memory` and `cpus` for a specific workstation; write a new one only when those matter.
 
 Each GPU task sources `bin/gpu_lock.sh` and claims a `flock`-backed slot for its lifetime. The claim is atomic and the kernel releases it when the task exits (including on SIGKILL), so tasks cannot collide on a card and there are no stale locks to clean up. Slots fill breadth-first, so an idle card is always preferred over a second slot on a busy one.
 
-Do **not** pass `--gpu_devices` under SLURM: the scheduler assigns GPUs and sets `CUDA_VISIBLE_DEVICES` itself. Leaving it unset (the default) disables the in-pipeline allocator.
+**`--gpu_devices` is what turns GPU placement on at all.** Every module gates its `nfbd_acquire_gpu` call on it being non-empty, so leaving it unset does not merely skip the allocator -- it means no task is assigned a card, every concurrent task sees all of them, and the frameworks all default to device 0. That is correct under SLURM, which assigns the GPU itself, and silently wrong on a workstation. A task that finds several GPUs visible and none assigned now says so in its task log (`nfbd_warn_unallocated_gpu`), but the log is the only sign: the run completes, just serialised onto one card. Two example run scripts shipped in that state.
 
 Key points when writing a local multi-GPU config:
+
+- **Cap `maxForks` on every GPU process, not just the design step.** The refold engines (`RF3_FOLD`, `ESMFOLD2`, `OPENFOLD3`, `BOLTZ`, `CHAI1`, `PROTENIX_FOLD`, `ALPHAFOLD2`/`3`) take the same lock. Left unbounded they are all dispatched at once and the surplus spins on the lock holding host RAM. `-profile multi_gpu` covers them via `withLabel: gpu`; a hand-written overlay has to name them.
+- **Read `params.gpu_devices` as a string.** `--gpu_devices=0` arrives as an Integer, so a bare `params.gpu_devices.split(',')` throws `Unknown method invocation 'split' on Integer type`. Use `.toString()`. Do not interpolate it instead -- a GString never equals a String in Groovy, so `"${params.gpu_devices}" in ['all', ...]` is always false.
 
 - **Do not set `submitRateLimit`.** It throttles dispatch regardless of GPU availability. It only ever existed to space out the old `nvidia-smi` VRAM probe, which no longer exists.
 - **Keep `pollInterval` short** (1-2 s). It is the delay between a task finishing and the next being dispatched onto the card that just freed.

@@ -1,4 +1,6 @@
 process RFDIFFUSION3 {
+    label 'gpu'
+
     container 'ghcr.io/australian-protein-design-initiative/containers/rc-foundry:0.2.0-weights'
 
     publishDir path: "${params.outdir}/rfd3/rfdiffusion3", pattern: 'output/*.cif.gz', mode: 'copy'
@@ -55,6 +57,7 @@ process RFDIFFUSION3 {
         nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
     else
         source ${projectDir}/bin/gpu_lock.sh || true
+        nfbd_warn_unallocated_gpu || true
     fi
     nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 

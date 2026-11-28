@@ -123,7 +123,7 @@ You can use these profiles by adding the `-profile <profile>` flag to activate o
 
 ### Local Workstation / single compute node
 
-For local execution of a single compute node, use the `-profile local` flag when running workflows. See [`examples/pdl1-rfd/nextflow.dual-gpu.config`](https://github.com/Australian-Protein-Design-Initiative/nf-binder-design/blob/main/examples/pdl1-rfd/nextflow.dual-gpu.config) for a config example using dual-GPUs.
+For local execution of a single compute node, use the `-profile local` flag when running workflows. On a machine with more than one GPU, add `multi_gpu` (`-profile local,multi_gpu`) so each task is assigned its own card; see [Multiple GPUs on one machine](extra/multi-gpu.md).
 
 ### HPC Clusters with SLURM
 

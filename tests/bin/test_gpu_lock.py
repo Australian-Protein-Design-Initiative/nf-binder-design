@@ -250,3 +250,54 @@ def test_unwritable_lock_fails_immediately(tmp_path, env):
     assert result.returncode == 2
     assert "not writable" in result.stderr
     assert "no usable lock file" in result.stderr
+
+
+# --------------------------------------------------------------------------
+# The warning path, and the repo invariant that makes `withLabel: gpu` complete
+# --------------------------------------------------------------------------
+
+MODULES = Path(__file__).resolve().parents[2] / "modules"
+
+
+def gpu_modules() -> list[Path]:
+    """Every module that claims a GPU through the lock."""
+    return sorted(p for p in MODULES.rglob("*.nf") if "nfbd_acquire_gpu" in p.read_text())
+
+
+def test_there_are_gpu_modules_to_check():
+    """Guard the two tests below against silently passing on an empty list."""
+    assert len(gpu_modules()) > 10
+
+
+@pytest.mark.parametrize("module", gpu_modules(), ids=lambda p: p.stem)
+def test_every_gpu_process_carries_the_gpu_label(module):
+    """`-profile multi_gpu` places tasks via `withLabel: gpu`, so a process that
+    takes a GPU and lacks the label escapes its maxForks and oversubscribes."""
+    assert "label 'gpu'" in module.read_text()
+
+
+@pytest.mark.parametrize("module", gpu_modules(), ids=lambda p: p.stem)
+def test_every_gpu_process_warns_when_it_takes_no_lock(module):
+    """Omitting --gpu_devices disables placement silently; the warning is the
+    only signal the user gets, so it has to be on the no-lock branch."""
+    assert "nfbd_warn_unallocated_gpu" in module.read_text()
+
+
+def test_warns_when_several_gpus_are_visible_and_none_assigned(env):
+    result = subprocess.run(
+        ["bash", "-c", f"source {GPU_LOCK}; nfbd_warn_unallocated_gpu"],
+        env={**env, "CUDA_VISIBLE_DEVICES": ""}, capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0
+    assert "no device assigned" in result.stderr
+    assert "--gpu_devices" in result.stderr
+
+
+def test_stays_quiet_once_a_device_is_assigned(env):
+    """The lock sets CUDA_VISIBLE_DEVICES, and so does SLURM. Neither is a problem."""
+    result = subprocess.run(
+        ["bash", "-c", f"source {GPU_LOCK}; nfbd_warn_unallocated_gpu"],
+        env={**env, "CUDA_VISIBLE_DEVICES": "1"}, capture_output=True, text=True, timeout=60,
+    )
+    assert result.returncode == 0
+    assert result.stderr == ""

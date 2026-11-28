@@ -1,4 +1,6 @@
 process GERMINAL {
+    label 'gpu'
+
     tag "${batch_id}"
 
     // container 'ghcr.io/australian-protein-design-initiative/containers/germinal:018c75f_post-pr67-review'
@@ -70,6 +72,7 @@ process GERMINAL {
         nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
     else
         source ${projectDir}/bin/gpu_lock.sh || true
+        nfbd_warn_unallocated_gpu || true
     fi
     nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 

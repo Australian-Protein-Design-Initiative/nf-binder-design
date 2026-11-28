@@ -7,18 +7,40 @@ pipeline coordinates GPU assignment and how to configure it.
 
 ## Quick start
 
-Pass the GPUs the pipeline may use, and select a local profile:
+Add the `multi_gpu` profile alongside the executor profile:
 
 ```bash
-nextflow run main.nf --gpu_devices 0,1 -profile local -c nextflow.dual-gpu.config
+nextflow run main.nf -profile local,multi_gpu
 ```
 
+That is enough on its own. The profile detects the cards with `nvidia-smi`,
+turns on GPU management, and caps every GPU process at one task per card.
 Tasks allocate an available GPU on startup, retain it during execution, and
 release it upon exit.
 
-Leaving `--gpu_devices` unset (the default) disables GPU management entirely,
-which is appropriate under SLURM or any other scheduler that sets
-`CUDA_VISIBLE_DEVICES` externally.
+To restrict a run to particular cards, name them; the profile sizes itself to
+whatever you pass:
+
+```bash
+nextflow run main.nf -profile local,multi_gpu --gpu_devices 0,1
+```
+
+!!! warning "Do not combine `multi_gpu` with a scheduler profile"
+
+    Use it only with `-profile local`. Under SLURM the scheduler assigns the
+    card, and the profile's device count is resolved from `nvidia-smi` wherever
+    the config is parsed, which on a cluster is the submit node and not the node
+    the task runs on.
+
+Leaving `--gpu_devices` unset without the profile (the default) disables GPU
+management entirely, which is appropriate under SLURM or any other scheduler
+that sets `CUDA_VISIBLE_DEVICES` externally. On a multi-GPU workstation that is
+almost never what you want, so a task that finds several cards visible and none
+assigned to it prints a warning naming `--gpu_devices` in its task log.
+
+The older `-c nextflow.dual-gpu.config` overlays in `examples/` predate this
+profile and still work; they differ only in also setting per-process `memory`
+and `cpus` tuned to a specific workstation.
 
 A single-GPU machine also benefits from this configuration. With
 `--gpu_devices 0`, the card admits one GPU task at a time, preventing multiple
@@ -107,7 +129,7 @@ requires larger batch sizes rather than scheduling changes.
 
 | Parameter | Default | Meaning |
 | --- | --- | --- |
-| `--gpu_devices` | `''` | GPUs available to the pipeline: `0,1`, or `all`. Empty disables GPU management. |
+| `--gpu_devices` | `''` (`all` under `-profile multi_gpu`) | GPUs available to the pipeline: `0,1`, or `all`. Empty disables GPU management. |
 | `--gpu_slots_per_device` | `1` | Concurrent tasks allowed per GPU. Can be overridden per process with `ext.gpu_slots`. |
 | `--gpu_lock_timeout` | `14400` | Seconds a task waits for an available GPU before failing. |
 | `--gpu_lock_dir` | `<workDir>/.gpu_locks` | Directory containing lock files. Must be shared across tasks and mounted inside containers. |

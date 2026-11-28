@@ -167,6 +167,33 @@ nfbd_acquire_gpu() {
     done
 }
 
+# nfbd_warn_unallocated_gpu
+#
+# Called where no lock was taken, i.e. params.gpu_devices is empty. That is the
+# right thing under a scheduler, which assigns the card itself, and wrong on a
+# multi-GPU workstation, where every concurrent task then sees every card and
+# the frameworks all default to device 0. That failure is silent and looks like
+# a slow run rather than a misconfiguration, so say so once per task.
+#
+# Diagnostic only: every path returns 0.
+nfbd_warn_unallocated_gpu() {
+    [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]] || return 0
+    command -v nvidia-smi >/dev/null 2>&1 || return 0
+
+    local -a smi=(nvidia-smi)
+    command -v timeout >/dev/null 2>&1 && smi=(timeout 10 nvidia-smi)
+
+    local n
+    n=$("${smi[@]}" --query-gpu=index --format=csv,noheader 2>/dev/null | grep -c .) || return 0
+    [[ "${n}" -gt 1 ]] || return 0
+
+    echo "gpu_lock: WARNING - ${n} GPUs visible and no device assigned to this task." >&2
+    echo "gpu_lock: Without --gpu_devices (e.g. --gpu_devices=0,1, or -profile multi_gpu)" >&2
+    echo "gpu_lock: no placement lock is taken, so concurrent tasks all land on GPU 0." >&2
+    echo "gpu_lock: Ignore this under SLURM or another scheduler that assigns the GPU." >&2
+    return 0
+}
+
 # nfbd_record_gpu_trace <trace_dir> <process_name>
 #
 # Write one row describing the GPU(s) this task can see to

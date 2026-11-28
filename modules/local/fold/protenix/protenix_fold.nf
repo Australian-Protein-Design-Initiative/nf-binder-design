@@ -8,6 +8,8 @@ include { foldNamingFlatPrefix; foldNamingIsModelStructure; foldNamingProtenixSe
 include { foldParamsEngine } from '../common/fold_params'
 
 process PROTENIX_FOLD {
+    label 'gpu'
+
     tag "${meta.id}${meta.fold_batch ? " batch${meta.fold_batch}" : ''}${meta.msa_depth_tag ? " msa${meta.msa_depth_tag}" : ''}"
 
     container 'ghcr.io/australian-protein-design-initiative/containers/protenix:2026-09-21_85767b8_weights'
@@ -123,6 +125,7 @@ process PROTENIX_FOLD {
         nfbd_acquire_gpu "${params.gpu_devices}" "${params.gpu_lock_dir ?: workDir.toString() + '/.gpu_locks'}" ${task.ext.gpu_slots ?: params.gpu_slots_per_device} ${params.gpu_lock_timeout} || exit 1
     else
         source ${projectDir}/bin/gpu_lock.sh || true
+        nfbd_warn_unallocated_gpu || true
     fi
     nfbd_record_gpu_trace "${params.gpu_trace_dir ?: workDir.toString() + '/.gpu_trace'}" "${task.process}" || true
 

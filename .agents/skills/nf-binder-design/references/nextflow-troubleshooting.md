@@ -12,7 +12,7 @@ Practical gotchas, monitoring patterns, and failure diagnosis for running `nf-bi
   - `runs/bindcraft/{run_name}`
   - `runs/boltzgen/{run_name}`
 - On a local GPU workstation, run a single pipeline instance at a time — running two pipelines simultaneously will cause GPU contention and OOM. Sequential runs or SLURM job scheduling avoids this.
-- **Local multi-GPU execution is unreliable** — use `--gpu_devices 0` for single-GPU execution. If you must use multiple GPUs, a special dual-GPU Nextflow config is required (see `examples/` in the pipeline repo), and race conditions in GPU allocation are common. SLURM clusters handle multi-GPU scheduling correctly.
+- **Local multi-GPU execution needs `-profile local,multi_gpu`** (or `--gpu_devices` plus a config that caps `maxForks` on the GPU processes). Without one of those no task is assigned a card and they all pile onto GPU 0; the only sign is a warning in the task log. Placement itself is `flock`-based and race-free, so a run that stacks tasks on one card is a missing flag, not an allocation race. Do not pass `--gpu_devices` under SLURM -- the scheduler assigns GPUs.
 
 ---
 

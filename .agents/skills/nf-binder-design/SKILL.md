@@ -64,7 +64,7 @@ If the user does not have a working Nextflow installation, follow the ordered ch
 2. `nextflow info` (install Nextflow if missing — [Seqera install guide](https://docs.seqera.io/nextflow/install))
 3. Check/pull pipeline (`~/.nextflow/assets/...` or `nextflow pull`)
 4. Smoke test: `--method rfd --help`
-5. Choose profile: `-profile local` (workstation GPU) vs `-profile slurm` / site profile (HPC)
+5. Choose profile: `-profile local` (workstation GPU; add `,multi_gpu` for more than one card) vs `-profile slurm` / site profile (HPC)
 
 → **Full install, profile, and HPC details**: `references/setup-and-hpc.md`
 
@@ -174,6 +174,7 @@ The old `--full_refold_*` family (`--full_refold_with`, `--full_refold_filter_so
 ```bash
 --outdir results
 -profile local          # Workstation with local GPU
+-profile local,multi_gpu  # ...with more than one GPU: assigns a card per task
 -profile slurm          # SLURM HPC (generic)
 -profile slurm,m3       # SLURM + site-specific (see setup-and-hpc.md)
 -profile nci_gadi       # NCI Gadi (PBS Pro)

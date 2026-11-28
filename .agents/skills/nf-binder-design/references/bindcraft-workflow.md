@@ -21,7 +21,7 @@ GPU memory is the primary bottleneck for BindCraft:
 
 - **Speed**: An H100 is roughly 4× faster than an A100. As a rough guide on an H100: a 900-residue trajectory takes 2–3 hours; a 250-residue trajectory takes ~5 minutes.
 - **CPU/RAM**: A single CPU core is sufficient. At least 40 GB RAM is recommended to avoid OOM from model compilation or PyRosetta.
-- **Parallelisation**: BindCraft cannot split a single trajectory across multiple GPUs, but you can run multiple `--bindcraft_batch_size` batches in parallel (each on its own GPU). Increase `--bindcraft_batch_size` and/or `--gpu_devices` to use multiple GPUs. **On local workstations**, multi-GPU execution is unreliable — use a single GPU unless on a SLURM cluster where the scheduler handles GPU assignment. For local multi-GPU, a special Nextflow config is required (see `examples/` in the pipeline repo) and `--gpu_devices` must be set. Race conditions in GPU allocation are common.
+- **Parallelisation**: BindCraft cannot split a single trajectory across multiple GPUs, but you can run multiple `--bindcraft_batch_size` batches in parallel (each on its own GPU). On a local workstation add `-profile local,multi_gpu`, which assigns each `BINDCRAFT` task its own card and caps concurrency at the card count. Under SLURM leave `--gpu_devices` unset and let the scheduler assign GPUs.
 - **Run time**: "Easy" targets may only need ~100 trajectories; difficult targets can require 1,000–10,000. Some targets yield no successful designs.
 
 
